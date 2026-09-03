@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next
+.next/
+out/
+build/
+next-env.d.ts
+
+# environment — never commit keys
+.env
+.env.*
+!.env.example
+
+# Client data must never enter the repo or its history (kickoff, Non-negotiables).
+# The prototype, the migration input and any export live outside this folder.
+*.csv
+*.tsv
+zion-crm-prototype.jsx
+/data/
+/migration/input/
+*.dump
+*.sql.gz
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# vercel
+.vercel
+
+# typescript build info
+*.tsbuildinfo

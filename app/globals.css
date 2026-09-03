@@ -1,0 +1,305 @@
+/* Zion palette and shell, ported from the prototype's css constant. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+:root {
+  --forest: #153f26;
+  --forest-2: #1e5433;
+  --forest-3: #27673f;
+  --lime: #8bc53f;
+  --lime-deep: #5e8f1f;
+  --teal: #1b6f86;
+  --ink: #2a3a30;
+  --ivory: #f4efe7;
+  --card: #fffdf9;
+  --line: #e3dbce;
+  --muted: #7a7062;
+  --sand: #c9b49a;
+  --ok: #3f7a4e;
+  --warn: #a8843c;
+  --bad: #a24e3b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--ivory);
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: #fff;
+  color: var(--ink);
+  width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 1px;
+}
+
+/* ── app shell ─────────────────────────────────────────────── */
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.side {
+  width: 232px;
+  background: var(--forest);
+  color: #e6eee8;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #fff;
+  background: var(--teal);
+  margin: -20px -14px 10px;
+  padding: 16px 18px;
+}
+
+.brand small {
+  display: block;
+  font-weight: 400;
+  color: #cfe6ed;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.navb {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: #cfe0d4;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.navb:hover {
+  background: var(--forest-2);
+  color: #fff;
+}
+
+.navb.on {
+  background: var(--lime);
+  color: var(--forest);
+  font-weight: 600;
+}
+
+.roleblock {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--forest-3);
+  font-size: 12px;
+  color: #a9c4b1;
+}
+
+.main {
+  flex: 1;
+  padding: 26px 30px;
+  overflow: auto;
+  min-width: 0;
+}
+
+.h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.card h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stat {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.stat small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.btn {
+  border: 1px solid var(--forest);
+  background: var(--forest);
+  color: #fff;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.btn:hover {
+  background: var(--forest-2);
+}
+
+.btn.ghost {
+  background: none;
+  color: var(--forest);
+}
+
+.btn.ghost:hover {
+  background: #eae4d9;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.field {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.field input,
+.field select {
+  margin-top: 4px;
+}
+
+.alert {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  background: #fdf8ee;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.alert.bad {
+  border-left-color: var(--bad);
+  background: #fbf1ee;
+}
+
+.alert.ok {
+  border-left-color: var(--ok);
+  background: #f0f6f1;
+}
+
+table.t {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.t th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+table.t td {
+  padding: 8px;
+  border-bottom: 1px solid #efe9df;
+  vertical-align: top;
+}
+
+.chip {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eae4d9;
+  color: var(--ink);
+}
+
+.chip.ok {
+  background: #dcebdf;
+  color: var(--ok);
+}
+
+.chip.warn {
+  background: #f6ecd8;
+  color: var(--warn);
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+/* ── centred pages (login, no access) ──────────────────────── */
+.centre {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.panel {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 28px;
+}
+
+.panel h1 {
+  font-size: 19px;
+  margin: 0 0 4px;
+}
