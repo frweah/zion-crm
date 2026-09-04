@@ -12,6 +12,8 @@ import {
 import { NotesTab, type NoteRow } from "./notes-tab";
 import { TasksTab, type TaskRow } from "./tasks-tab";
 import { IntakeTab, type IntakeRow } from "./intake-tab";
+import { FormsTab, type FormRow, type AuthChoice } from "./forms-tab";
+import { templatesForService } from "@/lib/form-templates";
 import { PlacementsTab, type PlacementRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
@@ -22,7 +24,7 @@ const TABS = [
   { key: "overview", label: "Overview", built: true },
   { key: "intake", label: "Intake", built: true, needsEdit: true },
   { key: "notes", label: "Notes", built: true },
-  { key: "forms", label: "Forms", built: false },
+  { key: "forms", label: "Forms", built: true },
   { key: "report", label: "Report", built: true },
   { key: "placements", label: "Placements", built: true },
   { key: "tasks", label: "Tasks", built: true },
@@ -174,6 +176,60 @@ export default async function ClientPage({
       <>
         {header}
         <TasksTab clientId={id} tasks={tasks} staff={staff} myId={me.id} />
+      </>
+    );
+  }
+
+  if (tab === "forms") {
+    const [formsResult, authsResult] = await Promise.all([
+      supabase
+        .from("forms")
+        .select(
+          "id, template_id, status, month, auth_id, created_at, completed_at, completed_by_name, sent_to",
+        )
+        .eq("client_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("authorizations")
+        .select("id, number, service_type, status")
+        .eq("client_id", id)
+        .order("number"),
+    ]);
+
+    const forms = (formsResult.data ?? []) as FormRow[];
+    const auths = authsResult.data ?? [];
+
+    const authChoices: AuthChoice[] = auths.map((a) => ({
+      id: a.id,
+      label: `${a.number || "(no number)"} · ${a.service_type}`,
+      serviceType: a.service_type,
+    }));
+
+    // The same test the database applies before letting an invoice be sent,
+    // shown here where the work to clear it actually happens.
+    const missingForBilling = auths
+      .filter((a) => a.status === "Open")
+      .map((a) => ({
+        authLabel: `${a.number || a.service_type}`,
+        usor: templatesForService(a.service_type)
+          .filter(
+            (t) =>
+              t.requiredForBilling &&
+              !forms.some((f) => f.auth_id === a.id && f.template_id === t.id && f.status !== "Draft"),
+          )
+          .map((t) => t.usor),
+      }))
+      .filter((m) => m.usor.length > 0);
+
+    return (
+      <>
+        {header}
+        <FormsTab
+          clientId={id}
+          forms={forms}
+          auths={authChoices}
+          missingForBilling={missingForBilling}
+        />
       </>
     );
   }

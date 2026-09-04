@@ -194,3 +194,38 @@ These hold no matter which screen or script does the writing:
   reopened — and it records who signed it and when.
 - An intake cannot be saved without the consent box checked.
 - Every pipeline stage change is recorded with who made it and when.
+
+---
+
+## Email (Phase 4)
+
+Completed USOR forms are emailed to the counselor from
+`service@zionvocrehab.com`, and every send is written to the counselor contact
+log automatically.
+
+1. Sign up at <https://resend.com> (free tier is enough to start).
+2. Add the domain `zionvocrehab.com` and add the DNS records Resend gives you
+   at your registrar — SPF and DKIM. Without them, mail to a `utah.gov`
+   address will land in spam or be rejected outright.
+3. Create an API key and put it in `.env.local` as `RESEND_API_KEY`, and in
+   Vercel's environment variables.
+
+Until that is done, the Forms screen says so plainly: forms can be filled in
+and signed, but the send button reports that email is not configured. A form
+is only marked Sent when the mail service actually accepts it — "Sent" has to
+mean the counselor has it, because the billing gate depends on it.
+
+## Verification scripts
+
+```bash
+node --env-file=.env.local scripts/run-sql.mjs supabase/verify_phase1.sql
+node --env-file=.env.local scripts/run-sql.mjs supabase/verify_rls.sql
+node --env-file=.env.local scripts/verify-migration.mjs ../zion-crm-prototype.jsx
+node --experimental-strip-types --env-file=.env.local scripts/check-form-templates.mjs
+```
+
+The last one matters more than it looks: the USOR templates live in code (field
+definitions) and in the database (which service types require which form). The
+database copy is what refuses to let an invoice be sent, so if the two drift,
+staff would be shown a form they must complete while the gate quietly let the
+invoice through. Run it after changing either.
