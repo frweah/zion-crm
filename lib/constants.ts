@@ -82,3 +82,76 @@ export function periodRange(kind: "Weekly" | "Monthly", anchor: string): [string
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   return [start, end.toISOString().slice(0, 10)];
 }
+
+/** USOR 95 job-coaching service codes, verbatim from the form. */
+export const COACHING_CODES = [
+  "1. Attend employer training (client and job coach)",
+  "2. Meet with worksite sups and natural supports",
+  "3. Review, train, teach essential job duties with client",
+  "4. Provide individualized training for learning job tasks",
+  "5. Perform onsite follow-up checks with client",
+  "6. Provide direct interventions on the job",
+  "7. Identify and set up accommodations (employer & VR)",
+  "8. Build and coordinate natural supports for continued work success",
+  "9. Shadow and observe client while on worksite",
+  "10. Develop and implement support plan after job coach fades",
+  "11. Develop work culture skills (breaks, sick days, etc.)",
+  "12. Develop work conditioning and hardening",
+  "13. Provide support and encouragement",
+  "14. Provide *Other Support (approved in advance by VR)",
+  "15. Provide transportation training",
+] as const;
+
+export const SERVICE_TYPES = [
+  "Job Coaching",
+  "Job Development",
+  "Job Development + HQ Indicator",
+  "Job Placement",
+  "Job Placement (SE)",
+  "WSA Tier 1",
+  "WSA Tier 2",
+  "HQ Indicator",
+  "Temporary Work Experience",
+  "Life Skills",
+  "CRP Group Training",
+  "Job Readiness",
+  "Supported Employment",
+  "Follow-Along",
+  "Other",
+] as const;
+
+/** Rate defaults from the CRP schedule, used to pre-fill a new authorization. */
+export const SERVICE_DEFAULTS: Record<string, { rate: number; rateType: "Hourly" | "Flat Fee" }> = {
+  "Job Coaching": { rate: 45, rateType: "Hourly" },
+  "Job Development": { rate: 560, rateType: "Flat Fee" },
+  "Job Development + HQ Indicator": { rate: 560, rateType: "Flat Fee" },
+  "Job Placement": { rate: 2250, rateType: "Flat Fee" },
+  "Job Placement (SE)": { rate: 3375, rateType: "Flat Fee" },
+  "WSA Tier 1": { rate: 270, rateType: "Flat Fee" },
+  "WSA Tier 2": { rate: 585, rateType: "Flat Fee" },
+  "HQ Indicator": { rate: 560, rateType: "Flat Fee" },
+  "Temporary Work Experience": { rate: 500, rateType: "Flat Fee" },
+  "Life Skills": { rate: 45, rateType: "Hourly" },
+  "CRP Group Training": { rate: 17, rateType: "Hourly" },
+};
+
+/** Accounts-receivable ageing, as the prototype buckets it. */
+export function arBuckets(
+  invoices: { status: string; date: string; amount: number }[],
+): Record<"0-30" | "31-60" | "61-90" | "90+" | "total", number> {
+  const b = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0, total: 0 };
+  for (const i of invoices) {
+    if (i.status !== "Sent") continue;
+    const d = daysBetween(i.date, today());
+    const k = d < 31 ? "0-30" : d < 61 ? "31-60" : d < 91 ? "61-90" : "90+";
+    b[k] += Number(i.amount);
+    b.total += Number(i.amount);
+  }
+  return b;
+}
+
+/**
+ * Who may log service hours. Wider than CAN_EDIT_BILLING: job coaches log
+ * their own hours, per the "Logging service hours" SOP, confirmed by the owner.
+ */
+export const CAN_LOG_HOURS = ["Admin", "Billing", "Job Search"];
