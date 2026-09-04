@@ -51,3 +51,34 @@ export function fmtStamp(iso: string | null): string {
 export function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** Currency, matching the prototype's money(). */
+export function money(n: number | null | undefined): string {
+  return (
+    "$" +
+    Number(n ?? 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
+}
+
+export function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+}
+
+/** Monday-to-Sunday week, or calendar month, containing the anchor date. */
+export function periodRange(kind: "Weekly" | "Monthly", anchor: string): [string, string] {
+  const d = new Date(anchor + "T00:00:00");
+  if (kind === "Weekly") {
+    const dow = (d.getDay() + 6) % 7;
+    const start = new Date(d);
+    start.setDate(d.getDate() - dow);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
+  }
+  const start = anchor.slice(0, 7) + "-01";
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return [start, end.toISOString().slice(0, 10)];
+}

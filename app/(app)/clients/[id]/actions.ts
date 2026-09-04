@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT } from "@/lib/constants";
+import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, CAN_EDIT_BILLING } from "@/lib/constants";
 import type { Update } from "@/lib/database.types";
 
 export type DetailState = { error: string | null; ok: string | null };
@@ -301,4 +301,85 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
   revalidatePath("/clients");
   revalidatePath("/tasks");
   return { error: null, ok: `Intake submitted.${moved} Assessment task raised.` };
+}
+
+/** Record a job start. */
+export async function addPlacement(_prev: DetailState, formData: FormData): Promise<DetailState> {
+  const me = await getCurrentStaff();
+  if (!me || !CAN_EDIT.includes(me.role)) {
+    return { error: "Your role cannot record placements.", ok: null };
+  }
+
+  const clientId = String(formData.get("id") ?? "");
+  const employer = String(formData.get("employer") ?? "").trim();
+  if (!employer) return { error: "An employer is required.", ok: null };
+
+  const num = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v === "" ? null : Number(v);
+  };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("placements").insert({
+    client_id: clientId,
+    employer,
+    title: String(formData.get("title") ?? "").trim(),
+    start_date: String(formData.get("start_date") ?? "").trim() || null,
+    wage: num("wage"),
+    hours_week: num("hours_week"),
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath(`/clients/${clientId}`);
+  return { error: null, ok: `Placement at ${employer} recorded.` };
+}
+
+/**
+ * Update a placement.
+ *
+ * The retention checks belong to whoever works the case; the two placement-fee
+ * dates are Billing's. Both are on the same row, so the split is enforced here
+ * by which fields each role is allowed to submit.
+ */
+export async function updatePlacement(
+  _prev: DetailState,
+  formData: FormData,
+): Promise<DetailState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const canEdit = CAN_EDIT.includes(me.role);
+  const canBill = CAN_EDIT_BILLING.includes(me.role);
+  if (!canEdit && !canBill) return { error: "Your role cannot edit placements.", ok: null };
+
+  const clientId = String(formData.get("id") ?? "");
+  const placementId = String(formData.get("placement_id") ?? "");
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const date = (k: string) => str(k) || null;
+  const num = (k: string) => (str(k) === "" ? null : Number(str(k)));
+
+  const patch: Update<"placements"> = {};
+
+  if (canEdit) {
+    patch.employer = str("employer");
+    patch.title = str("title");
+    patch.start_date = date("start_date");
+    patch.wage = num("wage");
+    patch.hours_week = num("hours_week");
+    patch.check30 = date("check30");
+    patch.check60 = date("check60");
+    patch.check90 = date("check90");
+  }
+  if (canBill) {
+    patch.jp_submitted = date("jp_submitted");
+    patch.jp_paid = date("jp_paid");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("placements").update(patch).eq("id", placementId);
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath(`/clients/${clientId}`);
+  return { error: null, ok: "Saved." };
 }

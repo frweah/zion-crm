@@ -12,6 +12,10 @@ import {
 import { NotesTab, type NoteRow } from "./notes-tab";
 import { TasksTab, type TaskRow } from "./tasks-tab";
 import { IntakeTab, type IntakeRow } from "./intake-tab";
+import { PlacementsTab, type PlacementRow } from "./placements-tab";
+import { ReportTab } from "./report-tab";
+import { buildReportText, type ReportPeriod } from "@/lib/report";
+import { money, periodRange, today, CAN_EDIT_BILLING } from "@/lib/constants";
 
 /** Tab order follows the prototype's drawer. */
 const TABS = [
@@ -19,11 +23,11 @@ const TABS = [
   { key: "intake", label: "Intake", built: true, needsEdit: true },
   { key: "notes", label: "Notes", built: true },
   { key: "forms", label: "Forms", built: false },
-  { key: "report", label: "Report", built: false },
-  { key: "placements", label: "Placements", built: false },
+  { key: "report", label: "Report", built: true },
+  { key: "placements", label: "Placements", built: true },
   { key: "tasks", label: "Tasks", built: true },
-  { key: "authorizations", label: "Authorizations", built: false, billing: true },
-  { key: "payments", label: "Payments", built: false, billing: true },
+  { key: "authorizations", label: "Authorizations", built: true, billing: true },
+  { key: "payments", label: "Payments", built: true, billing: true },
 ];
 
 export default async function ClientPage({
@@ -31,10 +35,10 @@ export default async function ClientPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; kind?: string; anchor?: string }>;
 }) {
   const { id } = await params;
-  const { tab: rawTab } = await searchParams;
+  const { tab: rawTab, kind: rawKind, anchor: rawAnchor } = await searchParams;
   const me = await requireStaff();
   const supabase = await createClient();
 
@@ -174,6 +178,181 @@ export default async function ClientPage({
     );
   }
 
+  if (tab === "placements") {
+    const { data } = await supabase
+      .from("placements")
+      .select(
+        "id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid",
+      )
+      .eq("client_id", id)
+      .order("start_date", { ascending: false, nullsFirst: false });
+
+    return (
+      <>
+        {header}
+        <PlacementsTab
+          clientId={id}
+          placements={(data ?? []) as PlacementRow[]}
+          canEdit={canEdit}
+          canBill={CAN_EDIT_BILLING.includes(me.role)}
+        />
+      </>
+    );
+  }
+
+  if (tab === "report") {
+    const kind: ReportPeriod = rawKind === "Monthly" ? "Monthly" : "Weekly";
+    const anchor = /^\d{4}-\d{2}-\d{2}$/.test(rawAnchor ?? "") ? rawAnchor! : today();
+    const [start, end] = periodRange(kind, anchor);
+    const { text } = await buildReportText(id, kind, start, end);
+
+    return (
+      <>
+        {header}
+        <ReportTab
+          clientId={id}
+          clientName={detail.name}
+          kind={kind}
+          anchor={anchor}
+          start={start}
+          end={end}
+          text={text}
+        />
+      </>
+    );
+  }
+
+  if (tab === "authorizations") {
+    const { data: auths } = await supabase
+      .from("authorizations")
+      .select(
+        "id, number, service_type, total_hours, carried_used, rate_type, rate, start_date, end_date, status, requires_forms",
+      )
+      .eq("client_id", id)
+      .order("start_date", { ascending: false, nullsFirst: false });
+
+    const authIds = (auths ?? []).map((a) => a.id);
+    const { data: entries } = authIds.length
+      ? await supabase
+          .from("service_entries")
+          .select("auth_id, hours, non_billable")
+          .in("auth_id", authIds)
+      : { data: [] };
+
+    // Hours used = what was carried over at migration plus everything logged.
+    const logged = new Map<string, number>();
+    for (const e of entries ?? []) {
+      if (e.non_billable) continue;
+      logged.set(e.auth_id, (logged.get(e.auth_id) ?? 0) + Number(e.hours));
+    }
+
+    return (
+      <>
+        {header}
+        {(auths ?? []).length === 0 && (
+          <div className="empty">No authorizations on file. Add them from Billing.</div>
+        )}
+        {(auths ?? []).map((a) => {
+          const used = Number(a.carried_used ?? 0) + (logged.get(a.id) ?? 0);
+          const total = a.total_hours ? Number(a.total_hours) : null;
+          const remaining = total === null ? null : total - used;
+          const pct = total ? Math.min(100, (used / total) * 100) : 0;
+          const tone = remaining === null ? "" : remaining <= 0 ? "bad" : pct >= 90 ? "warn" : "";
+
+          return (
+            <div key={a.id} className="card" style={{ marginBottom: 10 }}>
+              <div className="row2" style={{ justifyContent: "space-between" }}>
+                <b>{a.number || "(no authorization number)"}</b>
+                <span className="chip gold">{a.service_type}</span>
+              </div>
+              <div style={{ fontSize: 13, marginTop: 6 }}>
+                {a.rate_type === "Hourly" && total !== null
+                  ? `${total} hrs @ ${money(a.rate)} · used ${used} · ${remaining} remaining`
+                  : `Flat fee ${money(a.rate)}`}
+              </div>
+              {total !== null && (
+                <div className="bar" style={{ marginTop: 6 }}>
+                  <i className={tone} style={{ width: `${pct}%` }} />
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+                {a.start_date || "—"} → {a.end_date || "—"} · {a.status}
+                {a.requires_forms && ` · needs: ${a.requires_forms}`}
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  if (tab === "payments") {
+    const { data: auths } = await supabase
+      .from("authorizations")
+      .select("id, number, service_type")
+      .eq("client_id", id);
+
+    const authIds = (auths ?? []).map((a) => a.id);
+    const authById = new Map((auths ?? []).map((a) => [a.id, a]));
+
+    const { data: invoices } = authIds.length
+      ? await supabase
+          .from("invoices")
+          .select("id, auth_id, number, date, amount, status, warrant, service_type, paid_date")
+          .in("auth_id", authIds)
+          .order("date", { ascending: false })
+      : { data: [] };
+
+    const rows = invoices ?? [];
+    const totalPaid = rows
+      .filter((i) => i.status === "Paid")
+      .reduce((t, i) => t + Number(i.amount), 0);
+
+    return (
+      <>
+        {header}
+        {rows.length === 0 ? (
+          <div className="empty">No payments on record.</div>
+        ) : (
+          <div className="card" style={{ padding: 0 }}>
+            <div style={{ fontSize: 13, padding: "12px 16px" }}>
+              Total paid: <b>{money(totalPaid)}</b> across {rows.length} payment
+              {rows.length === 1 ? "" : "s"}
+            </div>
+            <table className="t">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Auth #</th>
+                  <th>Service</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Warrant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((i) => (
+                  <tr key={i.id}>
+                    <td>{i.date}</td>
+                    <td>{i.number}</td>
+                    <td>{i.service_type || authById.get(i.auth_id)?.service_type || ""}</td>
+                    <td>{money(i.amount)}</td>
+                    <td>
+                      <span className={"chip " + (i.status === "Paid" ? "ok" : "")}>
+                        {i.status}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12, color: "var(--muted)" }}>{i.warrant}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    );
+  }
+
   if (!active.built) {
     return (
       <>
@@ -181,7 +360,8 @@ export default async function ClientPage({
         <div className="card">
           <h3>{active.label}</h3>
           <p className="sub" style={{ margin: 0 }}>
-            Not ported yet. This tab arrives with the rest of the Phase 2 port.
+            The DWS-USOR form engine is Phase 4, together with emailing completed forms to the
+            counselor. Until then, forms are filled in and sent as they are today.
           </p>
         </div>
       </>

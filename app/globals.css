@@ -415,3 +415,25 @@ tr.row:hover td {
 textarea {
   resize: vertical;
 }
+
+/* ── authorization utilisation bar ─────────────────────────── */
+.bar {
+  height: 6px;
+  background: #eae4d9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--lime);
+}
+
+.bar i.warn {
+  background: var(--warn);
+}
+
+.bar i.bad {
+  background: var(--bad);
+}
