@@ -58,8 +58,21 @@ begin
   insert into public.notes (client_id, text, visible_roles)
     values (v_client, 'Billing-only note', array['Admin','Billing']);
 
+  -- Attachments, and the stored objects behind them.
+  insert into public.attachments (client_id, storage_path, filename, category, restricted, uploaded_by)
+  values
+    (v_client, 'clients/' || v_client || '/zz-restricted.pdf', 'zz-restricted.pdf',
+     'Signed intake', true, v_staff),
+    (v_client, 'clients/' || v_client || '/zz-open.pdf', 'zz-open.pdf',
+     'Work schedule', false, v_staff);
+
+  insert into storage.objects (bucket_id, name)
+  values
+    ('client-files', 'clients/' || v_client || '/zz-restricted.pdf'),
+    ('client-files', 'clients/' || v_client || '/zz-open.pdf');
+
   procedure_note := 'checked';
-  raise notice 'fixtures created (client, restricted row, intake, USOR 94, USOR 96, note)';
+  raise notice 'fixtures created (client, restricted row, intake, USOR 94, USOR 96, note, 2 files)';
 end $$;
 
 -- ─────────────────────────────────────────────────────────────
@@ -74,6 +87,9 @@ declare
   v_openform   int;
   v_notes      int;
   v_clients    int;
+  v_files      int;
+  v_openfile   int;
+  v_object     int;
   failures     text[] := '{}';
 begin
   for r in
@@ -88,18 +104,43 @@ begin
     perform set_config('request.jwt.claims',
                        json_build_object('sub', r.uid, 'role', 'authenticated')::text, true);
 
+    -- Scoped to the throwaway client. Counting whole tables would pass or fail
+    -- depending on how much real data happens to be loaded.
     select count(*) into v_clients   from public.clients where name = 'ZZ RLS Client';
-    select count(*) into v_private    from public.client_private;
-    select count(*) into v_intakes    from public.intakes;
-    select count(*) into v_sensitive  from public.forms where template_id = 'wsa';
-    select count(*) into v_openform   from public.forms where template_id = 'usor96';
+
+    select count(*) into v_private
+      from public.client_private cp
+      join public.clients c on c.id = cp.client_id
+     where c.name = 'ZZ RLS Client';
+
+    select count(*) into v_intakes
+      from public.intakes i
+      join public.clients c on c.id = i.client_id
+     where c.name = 'ZZ RLS Client';
+
+    select count(*) into v_sensitive
+      from public.forms f
+      join public.clients c on c.id = f.client_id
+     where c.name = 'ZZ RLS Client' and f.template_id = 'wsa';
+
+    select count(*) into v_openform
+      from public.forms f
+      join public.clients c on c.id = f.client_id
+     where c.name = 'ZZ RLS Client' and f.template_id = 'usor96';
+
     select count(*) into v_notes      from public.notes where text = 'Billing-only note';
+    select count(*) into v_files      from public.attachments where filename = 'zz-restricted.pdf';
+    select count(*) into v_openfile   from public.attachments where filename = 'zz-open.pdf';
+    -- The bytes, not just the row: this is what a signed URL depends on.
+    select count(*) into v_object     from storage.objects
+      where bucket_id = 'client-files' and name like '%zz-restricted.pdf';
 
     perform set_config('role', 'postgres', true);
     perform set_config('request.jwt.claims', '', true);
 
-    raise notice '% (%): client=% private=% intake=% usor94=% usor96=% note=%',
-      r.name, r.role, v_clients, v_private, v_intakes, v_sensitive, v_openform, v_notes;
+    raise notice '% (%): client=% private=% intake=% usor94=% usor96=% note=% file=% object=%',
+      r.name, r.role, v_clients, v_private, v_intakes, v_sensitive, v_openform, v_notes,
+      v_files, v_object;
 
     -- Everyone sees every client. That is the design.
     if v_clients <> 1 then
@@ -111,14 +152,23 @@ begin
       failures := failures || format('%s cannot see the USOR 96', r.name);
     end if;
 
+    -- Every active staff member can reach an ordinary document.
+    if v_openfile <> 1 then
+      failures := failures || format('%s cannot see the unrestricted file', r.name);
+    end if;
+
     if r.role = 'Admin' or r.role = 'Reports' or r.is_assigned then
       if v_private <> 1 then failures := failures || format('%s should see the restricted row', r.name); end if;
       if v_intakes <> 1 then failures := failures || format('%s should see the intake', r.name); end if;
       if v_sensitive <> 1 then failures := failures || format('%s should see the USOR 94', r.name); end if;
+      if v_files <> 1 then failures := failures || format('%s should see the restricted file', r.name); end if;
+      if v_object <> 1 then failures := failures || format('%s should be able to fetch the restricted file', r.name); end if;
     else
       if v_private <> 0 then failures := failures || format('LEAK: %s can see the restricted row', r.name); end if;
       if v_intakes <> 0 then failures := failures || format('LEAK: %s can see the intake', r.name); end if;
       if v_sensitive <> 0 then failures := failures || format('LEAK: %s can see the USOR 94', r.name); end if;
+      if v_files <> 0 then failures := failures || format('LEAK: %s can see the restricted file', r.name); end if;
+      if v_object <> 0 then failures := failures || format('LEAK: %s can fetch the bytes of the restricted file', r.name); end if;
     end if;
 
     -- The note is tagged Admin + Billing only.

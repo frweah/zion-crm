@@ -13,6 +13,7 @@ import { NotesTab, type NoteRow } from "./notes-tab";
 import { TasksTab, type TaskRow } from "./tasks-tab";
 import { IntakeTab, type IntakeRow } from "./intake-tab";
 import { FormsTab, type FormRow, type AuthChoice } from "./forms-tab";
+import { FilesTab, type AttachmentRow } from "./files-tab";
 import { templatesForService } from "@/lib/form-templates";
 import { PlacementsTab, type PlacementRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
@@ -25,6 +26,7 @@ const TABS = [
   { key: "intake", label: "Intake", built: true, needsEdit: true },
   { key: "notes", label: "Notes", built: true },
   { key: "forms", label: "Forms", built: true },
+  { key: "files", label: "Files", built: true },
   { key: "report", label: "Report", built: true },
   { key: "placements", label: "Placements", built: true },
   { key: "tasks", label: "Tasks", built: true },
@@ -229,6 +231,29 @@ export default async function ClientPage({
           forms={forms}
           auths={authChoices}
           missingForBilling={missingForBilling}
+        />
+      </>
+    );
+  }
+
+  if (tab === "files") {
+    // Restricted documents are filtered out by RLS, not here — a staff member
+    // without access does not learn that they exist.
+    const { data } = await supabase
+      .from("attachments")
+      .select(
+        "id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by_name, created_at",
+      )
+      .eq("client_id", id)
+      .order("created_at", { ascending: false });
+
+    return (
+      <>
+        {header}
+        <FilesTab
+          clientId={id}
+          files={(data ?? []) as AttachmentRow[]}
+          canSeeRestricted={canSeeRestricted}
         />
       </>
     );

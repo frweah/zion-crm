@@ -6,6 +6,57 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 export type Database = {
   public: {
     Tables: {
+      attachments: {
+        Row: {
+          id: string;
+          client_id: string;
+          storage_path: string;
+          filename: string;
+          mime_type: string;
+          size_bytes: number;
+          category: string;
+          restricted: boolean;
+          note: string;
+          form_id: string | null;
+          auth_id: string | null;
+          uploaded_by: string | null;
+          uploaded_by_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          storage_path: string;
+          filename: string;
+          mime_type?: string;
+          size_bytes?: number;
+          category?: string;
+          restricted?: boolean;
+          note?: string;
+          form_id?: string | null;
+          auth_id?: string | null;
+          uploaded_by?: string | null;
+          uploaded_by_name?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          storage_path?: string;
+          filename?: string;
+          mime_type?: string;
+          size_bytes?: number;
+          category?: string;
+          restricted?: boolean;
+          note?: string;
+          form_id?: string | null;
+          auth_id?: string | null;
+          uploaded_by?: string | null;
+          uploaded_by_name?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       authorizations: {
         Row: {
           id: string;
