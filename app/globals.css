@@ -437,3 +437,8 @@ textarea {
 .bar i.bad {
   background: var(--bad);
 }
+
+.chip.bad {
+  background: #f4dcd6;
+  color: var(--bad);
+}
