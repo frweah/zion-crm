@@ -155,3 +155,14 @@ export function arBuckets(
  * their own hours, per the "Logging service hours" SOP, confirmed by the owner.
  */
 export const CAN_LOG_HOURS = ["Admin", "Billing", "Job Search"];
+
+/** Median, rounded. Null for an empty set — never 0, which would read as a real figure. */
+export function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const a = [...values].sort((x, y) => x - y);
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2);
+}
+
+/** Stages that mean a client reached job development or beyond. */
+export const POST_JD_STAGES = ["Job Development", "Placement", "Job Coaching", "Follow-Along"];
