@@ -48,8 +48,21 @@ export function fmtStamp(iso: string | null): string {
   });
 }
 
+/**
+ * Today's date in the viewer's own timezone.
+ *
+ * Not `toISOString()`, which gives the UTC date: after 6pm in Utah that is
+ * already tomorrow. A job coach logging an evening visit would have had the
+ * date default to the following day — quietly wrong in a system whose rule is
+ * "log hours on the day the service happened", and wrong in a way that
+ * survives into USOR billing.
+ *
+ * The database's own guard still uses current_date (UTC), which is never
+ * behind the local date in Utah, so a local date is always accepted.
+ */
 export function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
 /** Currency, matching the prototype's money(). */
