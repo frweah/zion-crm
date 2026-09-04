@@ -11,11 +11,12 @@ import {
 } from "./client-detail";
 import { NotesTab, type NoteRow } from "./notes-tab";
 import { TasksTab, type TaskRow } from "./tasks-tab";
+import { IntakeTab, type IntakeRow } from "./intake-tab";
 
 /** Tab order follows the prototype's drawer. */
 const TABS = [
   { key: "overview", label: "Overview", built: true },
-  { key: "intake", label: "Intake", built: false, needsEdit: true },
+  { key: "intake", label: "Intake", built: true, needsEdit: true },
   { key: "notes", label: "Notes", built: true },
   { key: "forms", label: "Forms", built: false },
   { key: "report", label: "Report", built: false },
@@ -102,6 +103,31 @@ export default async function ClientPage({
       </nav>
     </>
   );
+
+  if (tab === "intake") {
+    // A null row here can mean either "no intake yet" or "the policy declined",
+    // so the tab is told separately whether this staff member may see one.
+    const { data } = await supabase
+      .from("intakes")
+      .select(
+        "phone, email, address, emergency_name, emergency_phone, goals, availability, transportation, accommodations, submitted_at, updated_on",
+      )
+      .eq("client_id", id)
+      .maybeSingle();
+
+    return (
+      <>
+        {header}
+        <IntakeTab
+          clientId={id}
+          clientName={detail.name}
+          intake={(data as IntakeRow | null) ?? null}
+          visible={canSeeRestricted}
+          canEdit={canEdit}
+        />
+      </>
+    );
+  }
 
   if (tab === "notes") {
     const { data } = await supabase
