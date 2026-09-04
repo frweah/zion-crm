@@ -2,19 +2,9 @@
 
 import { useActionState } from "react";
 import { setStage, updateClient, updateRestricted, type DetailState } from "./actions";
+import { STAGES, CLIENT_STATUSES } from "@/lib/constants";
 
 const initial: DetailState = { error: null, ok: null };
-
-const STAGES = [
-  "Referral",
-  "Intake",
-  "Assessment",
-  "Job Development",
-  "Placement",
-  "Job Coaching",
-  "Follow-Along",
-  "Closed",
-];
 
 type Option = { id: string; name: string };
 
@@ -86,12 +76,14 @@ export function DetailsForm({
   staff,
   offices,
   canEdit,
+  isAdmin,
 }: {
   client: ClientDetail;
   counselors: Option[];
   staff: Option[];
   offices: string[];
   canEdit: boolean;
+  isAdmin: boolean;
 }) {
   const [state, action, pending] = useActionState(updateClient, initial);
 
@@ -115,10 +107,12 @@ export function DetailsForm({
           </label>
           <label className="field">
             Status
-            <select name="status" defaultValue={client.status} disabled={!canEdit}>
-              <option>Active</option>
-              <option>Closed</option>
+            <select name="status" defaultValue={client.status} disabled={!isAdmin}>
+              {CLIENT_STATUSES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
             </select>
+            {!isAdmin && <span className="lock">Admin only</span>}
           </label>
         </div>
 
