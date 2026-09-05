@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { buildAlerts } from "@/lib/alerts";
+import { refreshNotifications, getAlerts } from "@/lib/alerts";
 import { ROLE_LABEL } from "@/lib/roles";
 import { money, today, arBuckets, STAGES } from "@/lib/constants";
 import { DashboardTask } from "./dashboard-task";
@@ -10,9 +10,13 @@ export default async function DashboardPage() {
   const me = await requireStaff();
   const supabase = await createClient();
 
+  // Recalculate before reading, so what is shown is true now rather than as of
+  // last night's cron run.
+  await refreshNotifications();
+
   const [alerts, clientsResult, tasksResult, authsResult, entriesResult, invoicesResult] =
     await Promise.all([
-      buildAlerts(me.role),
+      getAlerts(),
       supabase.from("clients").select("id, stage, status"),
       supabase
         .from("tasks")
@@ -65,8 +69,8 @@ export default async function DashboardPage() {
 
       {alerts.length > 0 ? (
         <div style={{ marginBottom: 18 }}>
-          {alerts.map((a, i) => (
-            <div key={i} className={"alert " + (a.level === "bad" ? "bad" : "")}>
+          {alerts.map((a) => (
+            <div key={a.id} className={"alert " + (a.level === "bad" ? "bad" : "")}>
               {a.href ? (
                 <Link href={a.href} style={{ color: "inherit" }}>
                   {a.text}

@@ -11,7 +11,15 @@ import { NextResponse, type NextRequest } from "next/server";
  * It also forwards the pathname as a header, because the app layout needs it
  * to keep each role off the screens its role does not include.
  */
-const PUBLIC_PATHS = ["/login", "/auth", "/no-access"];
+/**
+ * Paths that skip the session gate.
+ *
+ * /api/cron is here because cron has no session — it authenticates with a
+ * shared secret the route checks itself. Only that prefix, never /api as a
+ * whole: a future API route that forgets to authorize should be caught by this
+ * gate rather than quietly exposed by it.
+ */
+const PUBLIC_PATHS = ["/login", "/auth", "/no-access", "/api/cron"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

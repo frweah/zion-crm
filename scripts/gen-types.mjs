@@ -63,13 +63,25 @@ const { rows } = await client.query(`
    order by c.table_name, c.ordinal_position
 `);
 
-const { rows: fns } = await client.query(`
-  select p.proname, pg_get_function_result(p.oid) as result
-    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public'
-     and p.proname in ('current_staff_id','current_staff_role','is_active_staff','is_admin','can_see_restricted')
-   order by p.proname
-`);
+// Functions the app calls through supabase.rpc(). Listed explicitly rather
+// than swept up wholesale: trigger functions and internal helpers are not part
+// of the client API and should not be typed as if they were.
+const RPC_FUNCTIONS = [
+  "current_staff_id",
+  "current_staff_role",
+  "is_active_staff",
+  "is_admin",
+  "can_see_restricted",
+  "generate_notifications",
+];
+
+const { rows: fns } = await client.query(
+  `select p.proname, pg_get_function_result(p.oid) as result
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = any($1)
+    order by p.proname`,
+  [RPC_FUNCTIONS],
+);
 
 await client.end();
 
@@ -127,7 +139,13 @@ out.push("    Functions: {");
 for (const f of fns) {
   out.push(`      ${f.proname}: {`);
   out.push(`        Args: ${f.proname === "can_see_restricted" ? "{ p_client_id: string }" : "Record<string, never>"};`);
-  out.push(`        Returns: ${f.result === "boolean" ? "boolean" : "string"};`);
+  const returns =
+    f.result === "boolean"
+      ? "boolean"
+      : ["integer", "bigint", "numeric", "smallint", "real", "double precision"].includes(f.result)
+        ? "number"
+        : "string";
+  out.push(`        Returns: ${returns};`);
   out.push("      };");
 }
 out.push("    };");

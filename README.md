@@ -229,3 +229,41 @@ definitions) and in the database (which service types require which form). The
 database copy is what refuses to let an invoice be sent, so if the two drift,
 staff would be shown a form they must complete while the gate quietly let the
 invoice through. Run it after changing either.
+
+---
+
+## Automations (Phase 5)
+
+The alert rules live in the database — `public.generate_notifications()` in
+migration 0011 — not in the app. They ran in the app once, computed when
+somebody opened the dashboard, which meant an authorization could run out of
+hours on a Friday and go unnoticed until Monday afternoon.
+
+`pg_cron` runs them nightly at 13:00 UTC (07:00 in Utah, 06:00 outside
+daylight saving). The dashboard recalculates on load too, so it shows the
+present rather than last night, and reads the same table — one implementation
+of "what needs attention" rather than two that drift apart.
+
+Alerts carry a stable key, so re-running neither duplicates them nor resets
+when they were first raised; and they resolve themselves when the condition
+passes rather than being deleted, leaving a record of what was flagged and
+when it cleared.
+
+**The email digest needs the app deployed.** The database cannot post to a
+laptop. Once there is a URL, fill in the placeholders in
+`supabase/enable_email_digest.sql` and run it — it schedules a nightly POST to
+`/api/cron/notify`, which emails each staff member the open items for their
+role. Each item is emailed once; after that it sits on the dashboard until it
+clears, rather than arriving again every morning.
+
+`CRON_SECRET` must match between `.env.local`, Vercel, and that SQL file. The
+endpoint holds a service-role client, so it is behind that secret rather than
+open — verified returning 401 without it.
+
+```bash
+node --env-file=.env.local scripts/run-sql.mjs supabase/verify_notifications.sql
+```
+
+That builds a situation that ought to trip every rule and checks each one
+fired. An alert system that quietly produces nothing is worse than not having
+one, because everybody assumes it is watching.

@@ -681,6 +681,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          dedupe_key: string;
+          kind: string;
+          level: string;
+          text: string;
+          roles: string[];
+          href: string | null;
+          client_id: string | null;
+          staff_id: string | null;
+          created_at: string;
+          resolved_at: string | null;
+          emailed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          dedupe_key: string;
+          kind: string;
+          level: string;
+          text: string;
+          roles: string[];
+          href?: string | null;
+          client_id?: string | null;
+          staff_id?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+          emailed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          dedupe_key?: string;
+          kind?: string;
+          level?: string;
+          text?: string;
+          roles?: string[];
+          href?: string | null;
+          client_id?: string | null;
+          staff_id?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+          emailed_at?: string | null;
+        };
+        Relationships: [];
+      };
       offices: {
         Row: {
           name: string;
@@ -965,6 +1010,10 @@ export type Database = {
       current_staff_role: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      generate_notifications: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       is_active_staff: {
         Args: Record<string, never>;
