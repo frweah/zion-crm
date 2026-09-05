@@ -19,7 +19,13 @@ export async function signIn(_prev: LoginState, formData: FormData): Promise<Log
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // Deliberately vague: do not reveal whether the address has an account.
+    // The message to the person stays vague — it must not reveal whether an
+    // address has an account. The reason goes to the server log, because
+    // otherwise a misconfigured deployment and a mistyped password look
+    // identical from both sides, and nobody can tell which they are chasing.
+    console.error(
+      `[auth] sign-in failed for ${email}: ${error.message} (status ${error.status ?? "?"}, code ${error.code ?? "?"})`,
+    );
     return { error: "That email address and password did not match." };
   }
 
@@ -36,9 +42,22 @@ export async function sendPasswordReset(
 
   const supabase = await createClient();
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${site}/auth/confirm?type=recovery&next=/set-password`,
+
+  // No query string on the redirect: Supabase matches this against the
+  // redirect allow-list and silently falls back to the Site URL if it does not
+  // match, which sends people to the front page instead of the page that
+  // completes the reset. A bare path is the most likely thing to be allowed.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${site}/auth/confirm`,
   });
+
+  if (error) {
+    // Swallowing this was how a broken reset flow looked like a working one
+    // for two days. The person still gets the same neutral answer.
+    console.error(
+      `[auth] password reset failed for ${email}: ${error.message} (status ${error.status ?? "?"})`,
+    );
+  }
 
   // Same answer either way, so this cannot be used to test for accounts.
   return { error: "If that address has an account, a reset link is on its way." };

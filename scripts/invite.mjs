@@ -62,7 +62,7 @@ const supabase = createClient(url, serviceKey, {
 });
 
 const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-  redirectTo: `${site}/auth/confirm?type=invite`,
+  redirectTo: `${site}/auth/confirm`,
 });
 
 if (error) {

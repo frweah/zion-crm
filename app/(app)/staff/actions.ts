@@ -46,7 +46,7 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${site}/auth/confirm?type=invite`,
+    redirectTo: `${site}/auth/confirm`,
   });
 
   revalidatePath("/staff");
@@ -72,7 +72,7 @@ export async function resendInvite(_prev: StaffState, formData: FormData): Promi
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${site}/auth/confirm?type=invite`,
+    redirectTo: `${site}/auth/confirm`,
   });
 
   revalidatePath("/staff");
