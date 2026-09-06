@@ -14,12 +14,14 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Paths that skip the session gate.
  *
- * /api/cron is here because cron has no session — it authenticates with a
- * shared secret the route checks itself. Only that prefix, never /api as a
- * whole: a future API route that forgets to authorize should be caught by this
- * gate rather than quietly exposed by it.
+ * /api/cron and /api/health are here because their callers have no session —
+ * they authenticate with a shared secret each route checks itself. Listed one
+ * by one, never /api as a whole: a future API route that forgets to authorize
+ * should be caught by this gate rather than quietly exposed by it. The cost of
+ * that strictness is that a new machine endpoint has to be added here, which
+ * is a better failure than the alternative.
  */
-const PUBLIC_PATHS = ["/login", "/auth", "/no-access", "/api/cron"];
+const PUBLIC_PATHS = ["/login", "/auth", "/no-access", "/api/cron", "/api/health"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
