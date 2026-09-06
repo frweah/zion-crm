@@ -13,15 +13,24 @@
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
 
-const email = (process.argv[2] ?? "").trim().toLowerCase();
+const args = process.argv.slice(2);
+const siteArg = args.find((a) => a.startsWith("--site="))?.slice("--site=".length);
+const email = (args.find((a) => !a.startsWith("--")) ?? "").trim().toLowerCase();
+
 if (!email) {
-  console.error("Usage: node --env-file=.env.local scripts/invite.mjs <email>");
+  console.error(
+    "Usage: node --env-file=.env.local scripts/invite.mjs <email> [--site=https://your-app]",
+  );
   process.exit(1);
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+// .env.local holds the local address, which is right for development and wrong
+// for a real invite. --site lets one be sent to production from this machine
+// without editing the file and forgetting to change it back.
+const site = siteArg ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 if (!url || !serviceKey) {
   console.error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local");
