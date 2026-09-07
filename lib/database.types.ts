@@ -397,6 +397,10 @@ export type Database = {
           w9_received_on: string | null;
           notes: string;
           updated_at: string;
+          tax_status: string;
+          country: string;
+          w8ben_received_on: string | null;
+          w8ben_expires_on: string | null;
         };
         Insert: {
           staff_id: string;
@@ -413,6 +417,10 @@ export type Database = {
           w9_received_on?: string | null;
           notes?: string;
           updated_at?: string;
+          tax_status?: string;
+          country?: string;
+          w8ben_received_on?: string | null;
+          w8ben_expires_on?: string | null;
         };
         Update: {
           staff_id?: string;
@@ -429,6 +437,10 @@ export type Database = {
           w9_received_on?: string | null;
           notes?: string;
           updated_at?: string;
+          tax_status?: string;
+          country?: string;
+          w8ben_received_on?: string | null;
+          w8ben_expires_on?: string | null;
         };
         Relationships: [];
       };

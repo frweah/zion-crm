@@ -156,4 +156,148 @@ begin
   raise notice '--- PAYMENTS VERIFIED ---';
 end $$;
 
+-- ─────────────────────────────────────────────────────────────
+-- Foreign persons and the 1099
+--
+-- Payments to a foreign person for services performed outside the United
+-- States are not US-source income and are not reported on a 1099-NEC. Putting
+-- one on a run is a mistake the IRS finds rather than we do, so the database
+-- refuses it rather than trusting whichever query builds the list.
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare
+  v_rei    uuid;
+  v_us     uuid;
+  v_run    uuid;
+  yr       int := extract(year from current_date)::int;
+  n_cand   int;
+  v_expiry date;
+  failures text[] := '{}';
+begin
+  select id into v_rei from public.staff where legacy_id = 's2';
+
+  -- A US-person contractor to prove the list is not simply empty.
+  insert into public.staff (name, email, role, active)
+  values ('ZZ US Contractor', 'zz-us@example.test', 'Job Search', true)
+  returning id into v_us;
+
+  insert into public.contractor_profiles
+    (staff_id, tax_status, legal_name, address_line1, city, state, postal_code,
+     tin_type, tin_last4, w9_received_on)
+  values (v_us, 'US person', 'ZZ US Contractor', '1 Test St', 'Provo', 'UT', '84601',
+          'SSN', '1234', current_date);
+
+  update public.tax_years set federal_threshold = 600 where year = yr;
+
+  insert into public.contractor_payments (staff_id, paid_on, amount)
+  values (v_us,  make_date(yr, 5, 1), 900.00),
+         (v_rei, make_date(yr, 5, 1), 5000.00);
+
+  -- The candidate list includes the US person and not the foreign one.
+  select count(*) into n_cand from public.form_1099_candidates(yr) where staff_id = v_us;
+  if n_cand <> 1 then
+    failures := failures || 'the US contractor is missing from the 1099 candidates';
+  else
+    raise notice 'ok  a US contractor over the threshold is on the list';
+  end if;
+
+  select count(*) into n_cand from public.form_1099_candidates(yr) where staff_id = v_rei;
+  if n_cand <> 0 then
+    failures := failures || 'LEAK: a foreign person appears in the 1099 candidates';
+  else
+    raise notice 'ok  a foreign person paid $5,000 is not on the list';
+  end if;
+
+  -- And cannot be forced onto a run by hand.
+  insert into public.form_1099_runs (year, threshold, state_copy)
+  values (yr, 600, false) returning id into v_run;
+
+  begin
+    insert into public.form_1099_recipients
+      (run_id, staff_id, legal_name, nonemployee_comp)
+    values (v_run, v_rei, 'Rei Ruzzel', 5000.00);
+    failures := failures || 'FAILED: a foreign person was added to a 1099 run';
+  exception when check_violation then
+    raise notice 'ok  a foreign person cannot be added to a run by hand';
+  end;
+
+  insert into public.form_1099_recipients (run_id, staff_id, legal_name, nonemployee_comp)
+  values (v_run, v_us, 'ZZ US Contractor', 900.00);
+  raise notice 'ok  a US contractor can be';
+
+  -- W-8BEN validity: through the last day of the third succeeding year.
+  update public.contractor_profiles set w8ben_received_on = date '2026-03-15'
+   where staff_id = v_rei;
+  select w8ben_expires_on into v_expiry from public.contractor_profiles where staff_id = v_rei;
+  if v_expiry <> date '2029-12-31' then
+    failures := failures || format('W-8BEN signed 2026-03-15 should run to 2029-12-31, got %s', v_expiry);
+  else
+    raise notice 'ok  a W-8BEN signed 2026-03-15 runs to 2029-12-31, not 2029-03-15';
+  end if;
+
+  -- A US person must not carry W-8BEN dates, and vice versa.
+  begin
+    update public.contractor_profiles set w8ben_received_on = current_date where staff_id = v_us;
+    failures := failures || 'FAILED: a US person was given a W-8BEN date';
+  exception when check_violation then
+    raise notice 'ok  a US person cannot carry a W-8BEN date';
+  end;
+
+  if array_length(failures, 1) is not null then
+    raise exception E'FOREIGN CONTRACTOR FAILURES:\n  %', array_to_string(failures, E'\n  ');
+  end if;
+  raise notice '--- FOREIGN CONTRACTOR HANDLING VERIFIED ---';
+end $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- The paperwork bucket is Admin-only at the object level
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare
+  v_rei    uuid;
+  r        record;
+  n_bytes  int;
+  n_meta   int;
+  failures text[] := '{}';
+begin
+  select id into v_rei from public.staff where legacy_id = 's2';
+
+  insert into public.staff_files (staff_id, storage_path, filename, category, uploaded_by)
+  values (v_rei, 'staff/' || v_rei || '/zz-w8ben.pdf', 'zz-w8ben.pdf', 'W-8BEN', v_rei);
+  insert into storage.objects (bucket_id, name)
+  values ('staff-files', 'staff/' || v_rei || '/zz-w8ben.pdf');
+
+  for r in
+    select s.id, s.name, s.role, u.id as uid
+      from public.staff s join auth.users u on u.id = s.user_id
+     where s.active order by s.legacy_id
+  loop
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', r.uid, 'role', 'authenticated')::text, true);
+
+    select count(*) into n_bytes from storage.objects
+     where bucket_id = 'staff-files' and name like '%zz-w8ben.pdf';
+    select count(*) into n_meta from public.staff_files where filename = 'zz-w8ben.pdf';
+
+    perform set_config('role', 'postgres', true);
+    perform set_config('request.jwt.claims', '', true);
+
+    raise notice '  % (%): file bytes=% metadata row=%', r.name, r.role, n_bytes, n_meta;
+
+    if r.role = 'Admin' then
+      if n_bytes <> 1 then failures := failures || 'Admin cannot open staff paperwork'; end if;
+    else
+      if n_bytes <> 0 then
+        failures := failures || format('LEAK: %s can fetch staff paperwork bytes', r.name);
+      end if;
+    end if;
+  end loop;
+
+  if array_length(failures, 1) is not null then
+    raise exception E'STAFF FILE FAILURES:\n  %', array_to_string(failures, E'\n  ');
+  end if;
+  raise notice '--- STAFF PAPERWORK IS ADMIN-ONLY ---';
+end $$;
+
 rollback;
