@@ -15,6 +15,7 @@ export type NavItem = { label: string; href: string };
 const NAV: Record<string, NavItem> = {
   Dashboard: { label: "Dashboard", href: "/dashboard" },
   Clients: { label: "Clients", href: "/clients" },
+  Leads: { label: "Job leads", href: "/leads" },
   Tasks: { label: "Tasks", href: "/tasks" },
   Forms: { label: "Forms", href: "/forms" },
   Counselors: { label: "Counselors", href: "/counselors" },
@@ -25,13 +26,18 @@ const NAV: Record<string, NavItem> = {
 };
 
 /** Which screens each role sees. Matches ROLES in the prototype. */
+/**
+ * Which screens each role sees. Matches ROLES in the prototype, plus Job leads
+ * — everyone can see the board, only Admin and Job Search can change it, which
+ * the database enforces rather than the navigation.
+ */
 export const ROLE_NAV: Record<Role, NavItem[]> = {
-  Admin: ["Dashboard", "Clients", "Tasks", "Forms", "Counselors", "Billing", "Reports", "SOPs", "Staff"].map(
+  Admin: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Reports", "SOPs", "Staff"].map(
     (k) => NAV[k],
   ),
-  "Job Search": ["Dashboard", "Clients", "Tasks", "Forms", "Counselors", "SOPs"].map((k) => NAV[k]),
-  Reports: ["Dashboard", "Clients", "Tasks", "Forms", "Reports", "SOPs"].map((k) => NAV[k]),
-  Billing: ["Dashboard", "Clients", "Forms", "Counselors", "Billing", "SOPs"].map((k) => NAV[k]),
+  "Job Search": ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "SOPs"].map((k) => NAV[k]),
+  Reports: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Reports", "SOPs"].map((k) => NAV[k]),
+  Billing: ["Dashboard", "Clients", "Leads", "Forms", "Counselors", "Billing", "SOPs"].map((k) => NAV[k]),
 };
 
 export const ORG = {

@@ -260,20 +260,80 @@ export default async function ClientPage({
   }
 
   if (tab === "placements") {
-    const { data } = await supabase
-      .from("placements")
-      .select(
-        "id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid",
-      )
-      .eq("client_id", id)
-      .order("start_date", { ascending: false, nullsFirst: false });
+    const [placementsResult, historyResult] = await Promise.all([
+      supabase
+        .from("placements")
+        .select(
+          "id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid",
+        )
+        .eq("client_id", id)
+        .order("start_date", { ascending: false, nullsFirst: false }),
+      supabase
+        .from("client_job_history")
+        .select("match_id, lead_id, title, employer_name, status, applied_on, interview_on, decided_on, placement_id")
+        .eq("client_id", id)
+        .order("updated_at", { ascending: false }),
+    ]);
+
+    const history = historyResult.data ?? [];
 
     return (
       <>
         {header}
+
+        {/* Jobs tried sits above placements because that is the order it
+            happens in: leads first, a placement only if one lands. */}
+        {history.length > 0 && (
+          <div className="card" style={{ marginBottom: 14, padding: 0 }}>
+            <h3 style={{ padding: "16px 16px 0" }}>Jobs we have tried</h3>
+            <table className="t">
+              <thead>
+                <tr>
+                  <th>Opening</th>
+                  <th>Employer</th>
+                  <th>Where it got to</th>
+                  <th>Dates</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.match_id}>
+                    <td>
+                      <Link href={`/leads/${h.lead_id}`} style={{ color: "inherit", fontWeight: 600 }}>
+                        {h.title}
+                      </Link>
+                    </td>
+                    <td>{h.employer_name}</td>
+                    <td>
+                      <span
+                        className={
+                          "chip " +
+                          (h.status === "Hired" ? "ok" : h.status === "Declined" ? "" : "gold")
+                        }
+                      >
+                        {h.status}
+                      </span>
+                      {h.placement_id && (
+                        <span className="chip ok" style={{ marginLeft: 6 }}>
+                          placement
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                      {h.applied_on && <div>applied {h.applied_on}</div>}
+                      {h.interview_on && <div>interview {h.interview_on}</div>}
+                      {h.decided_on && <div>decided {h.decided_on}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <PlacementsTab
           clientId={id}
-          placements={(data ?? []) as PlacementRow[]}
+          placements={(placementsResult.data ?? []) as PlacementRow[]}
           canEdit={canEdit}
           canBill={CAN_EDIT_BILLING.includes(me.role)}
         />

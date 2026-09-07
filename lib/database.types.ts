@@ -384,6 +384,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      employers: {
+        Row: {
+          id: string;
+          name: string;
+          industry: string;
+          address: string;
+          contact_name: string;
+          contact_phone: string;
+          contact_email: string;
+          notes: string;
+          relationship_status: string;
+          hiring_pattern: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          industry?: string;
+          address?: string;
+          contact_name?: string;
+          contact_phone?: string;
+          contact_email?: string;
+          notes?: string;
+          relationship_status?: string;
+          hiring_pattern?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          industry?: string;
+          address?: string;
+          contact_name?: string;
+          contact_phone?: string;
+          contact_email?: string;
+          notes?: string;
+          relationship_status?: string;
+          hiring_pattern?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       form_templates: {
         Row: {
           id: string;
@@ -634,6 +682,102 @@ export type Database = {
           voucher?: string;
           payee?: string;
           service_type?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      job_leads: {
+        Row: {
+          id: string;
+          employer_id: string;
+          title: string;
+          wage_range: string;
+          hours_week: string;
+          shift: string;
+          requirements: string;
+          source: string;
+          posted_date: string | null;
+          status: string;
+          owner_staff_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          employer_id: string;
+          title: string;
+          wage_range?: string;
+          hours_week?: string;
+          shift?: string;
+          requirements?: string;
+          source?: string;
+          posted_date?: string | null;
+          status?: string;
+          owner_staff_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          employer_id?: string;
+          title?: string;
+          wage_range?: string;
+          hours_week?: string;
+          shift?: string;
+          requirements?: string;
+          source?: string;
+          posted_date?: string | null;
+          status?: string;
+          owner_staff_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lead_matches: {
+        Row: {
+          id: string;
+          lead_id: string;
+          client_id: string;
+          status: string;
+          applied_on: string | null;
+          interview_on: string | null;
+          decided_on: string | null;
+          notes: string;
+          placement_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          client_id: string;
+          status?: string;
+          applied_on?: string | null;
+          interview_on?: string | null;
+          decided_on?: string | null;
+          notes?: string;
+          placement_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          client_id?: string;
+          status?: string;
+          applied_on?: string | null;
+          interview_on?: string | null;
+          decided_on?: string | null;
+          notes?: string;
+          placement_id?: string | null;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1055,6 +1199,25 @@ export type Database = {
       };
     };
     Views: {
+      client_job_history: {
+        Row: {
+          match_id: string | null;
+          client_id: string | null;
+          status: string | null;
+          applied_on: string | null;
+          interview_on: string | null;
+          decided_on: string | null;
+          notes: string | null;
+          placement_id: string | null;
+          updated_at: string | null;
+          lead_id: string | null;
+          title: string | null;
+          lead_status: string | null;
+          employer_id: string | null;
+          employer_name: string | null;
+        };
+        Relationships: [];
+      };
       client_last_activity: {
         Row: {
           client_id: string | null;
