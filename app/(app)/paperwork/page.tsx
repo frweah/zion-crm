@@ -107,7 +107,7 @@ export default async function PaperworkPage() {
                 <th>Form</th>
                 <th>Status</th>
                 <th>Signed</th>
-                <th>Form</th>
+                <th>PDF</th>
               </tr>
             </thead>
             <tbody>
