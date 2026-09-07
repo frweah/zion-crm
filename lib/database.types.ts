@@ -1766,6 +1766,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: number;
       };
+      get_contractor_tin: {
+        Args: { p_staff_id: string };
+        Returns: string;
+      };
       get_employer_details: {
         Args: Record<string, never>;
         Returns: string;
@@ -1788,6 +1792,10 @@ export type Database = {
       };
       period_start: {
         Args: { d: string };
+        Returns: string;
+      };
+      set_contractor_tin: {
+        Args: { p_staff_id: string; p_tin: string; p_tin_type: string };
         Returns: string;
       };
       set_employer_details: {

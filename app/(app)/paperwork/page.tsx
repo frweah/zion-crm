@@ -1,6 +1,7 @@
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp } from "@/lib/constants";
+import { ORG } from "@/lib/roles";
 import { W8BenForm } from "./w8ben-form";
 import { W9Form } from "./w9-form";
 import { W4Form } from "./w4-form";
@@ -154,10 +155,14 @@ export default async function PaperworkPage() {
         </div>
       )}
 
+      {/* The practice name and address are already known, so the card opens with
+          them filled in rather than blank. Nothing is saved until somebody
+          presses Save — the legal name may not be the trading name, and only
+          the owner knows which. */}
       {me.role === "Admin" && employer && (
         <EmployerDetails
-          legalName={employer.legal_name ?? ""}
-          address={employer.address ?? ""}
+          legalName={employer.legal_name || ORG.name}
+          address={employer.address || ORG.address}
           hasEin={Boolean(employer.ein)}
         />
       )}
