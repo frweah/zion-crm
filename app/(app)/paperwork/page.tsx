@@ -2,6 +2,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp } from "@/lib/constants";
 import { W8BenForm } from "./w8ben-form";
+import { DownloadButton } from "./download-button";
 
 export default async function PaperworkPage() {
   const me = await requireStaff();
@@ -15,7 +16,7 @@ export default async function PaperworkPage() {
       .maybeSingle(),
     supabase
       .from("tax_form_submissions")
-      .select("id, staff_id, form_type, status, signed_at, signer_name, tin_last4, created_at")
+      .select("id, staff_id, form_type, status, signed_at, signer_name, tin_last4, created_at, pdf_path, pdf_sha256")
       .order("created_at", { ascending: false }),
     me.role === "Admin"
       ? supabase.from("staff").select("id, name").eq("active", true)
@@ -106,12 +107,13 @@ export default async function PaperworkPage() {
                 <th>Form</th>
                 <th>Status</th>
                 <th>Signed</th>
+                <th>Form</th>
               </tr>
             </thead>
             <tbody>
               {submissions.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="empty">
+                  <td colSpan={5} className="empty">
                     Nothing filed yet.
                   </td>
                 </tr>
@@ -125,6 +127,12 @@ export default async function PaperworkPage() {
                   </td>
                   <td style={{ fontSize: 12, color: "var(--muted)" }}>
                     {s.signed_at ? `${s.signer_name} · ${fmtStamp(s.signed_at)}` : "—"}
+                    {s.pdf_sha256 && (
+                      <div title="SHA-256 of the filed PDF">{s.pdf_sha256.slice(0, 12)}…</div>
+                    )}
+                  </td>
+                  <td>
+                    <DownloadButton pdfPath={s.pdf_path ?? ""} />
                   </td>
                 </tr>
               ))}
