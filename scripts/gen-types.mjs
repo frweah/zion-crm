@@ -79,6 +79,8 @@ const RPC_FUNCTIONS = [
   "get_tax_form_sensitive",
   "form_1099_candidates",
   "generate_1099_run",
+  "set_checklist_item",
+  "staff_activity",
   "record_1099_delivery",
   "set_e_delivery_consent",
   "get_contractor_tin",

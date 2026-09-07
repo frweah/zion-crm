@@ -117,6 +117,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      checklist_tasks: {
+        Row: {
+          id: string;
+          phase: string;
+          label: string;
+          detail: string;
+          applies_to: string[] | null;
+          auto_key: string | null;
+          required: boolean;
+          sort_order: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          phase: string;
+          label: string;
+          detail?: string;
+          applies_to?: string[] | null;
+          auto_key?: string | null;
+          required?: boolean;
+          sort_order?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          phase?: string;
+          label?: string;
+          detail?: string;
+          applies_to?: string[] | null;
+          auto_key?: string | null;
+          required?: boolean;
+          sort_order?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       client_private: {
         Row: {
           client_id: string;
@@ -1398,6 +1437,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_checklist_items: {
+        Row: {
+          staff_id: string;
+          task_id: string;
+          done_on: string | null;
+          done_by: string | null;
+          note: string;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          task_id: string;
+          done_on?: string | null;
+          done_by?: string | null;
+          note?: string;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          task_id?: string;
+          done_on?: string | null;
+          done_by?: string | null;
+          note?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       staff_employment: {
         Row: {
           staff_id: string;
@@ -1733,6 +1799,26 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_checklist: {
+        Row: {
+          staff_id: string | null;
+          staff_name: string | null;
+          staff_active: boolean | null;
+          employment_type: string | null;
+          task_id: string | null;
+          phase: string | null;
+          label: string | null;
+          detail: string | null;
+          auto_key: string | null;
+          required: boolean | null;
+          sort_order: number | null;
+          auto_done: boolean | null;
+          done_on: string | null;
+          done_by: string | null;
+          note: string | null;
+        };
+        Relationships: [];
+      };
       work_session_totals: {
         Row: {
           staff_id: string | null;
@@ -1805,6 +1891,10 @@ export type Database = {
         Args: { p_recipient_id: string; p_method: string; p_delivered_on: string };
         Returns: string;
       };
+      set_checklist_item: {
+        Args: { p_staff_id: string; p_task_id: string; p_done: boolean; p_note: string };
+        Returns: string;
+      };
       set_contractor_tin: {
         Args: { p_staff_id: string; p_tin: string; p_tin_type: string };
         Returns: string;
@@ -1819,6 +1909,10 @@ export type Database = {
       };
       sign_tax_form: {
         Args: { p_form_id: string; p_sensitive: Json; p_tin_last4: string; p_signer: string; p_ip: string };
+        Returns: string;
+      };
+      staff_activity: {
+        Args: { p_from: string; p_to: string };
         Returns: string;
       };
     };

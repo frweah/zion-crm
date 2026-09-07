@@ -2,6 +2,9 @@ import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { InviteForm, StaffRowActions } from "./staff-forms";
+import { Checklist, type ChecklistRow } from "./checklist-forms";
+import { StaffActivity } from "./staff-activity";
+import { today } from "@/lib/constants";
 
 type StaffRow = {
   id: string;
@@ -14,17 +17,36 @@ type StaffRow = {
   accepted_at: string | null;
 };
 
-export default async function StaffPage() {
+export default async function StaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
   await requireAdmin();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("staff")
-    .select("id, name, email, role, active, user_id, invited_at, accepted_at")
-    .order("active", { ascending: false })
-    .order("name");
+  const params = await searchParams;
+  const to = params.to ?? today();
+  const from = params.from ?? to.slice(0, 4) + "-01-01";
+
+  const [{ data }, checklistResult, activityResult] = await Promise.all([
+    supabase
+      .from("staff")
+      .select("id, name, email, role, active, user_id, invited_at, accepted_at")
+      .order("active", { ascending: false })
+      .order("name"),
+    supabase.from("staff_checklist").select("*").order("sort_order"),
+    supabase.rpc("staff_activity", { p_from: from, p_to: to }),
+  ]);
 
   const staff = (data ?? []) as StaffRow[];
+
+  const checklistByStaff = new Map<string, ChecklistRow[]>();
+  for (const row of (checklistResult.data ?? []) as ChecklistRow[]) {
+    const list = checklistByStaff.get(row.staff_id) ?? [];
+    list.push(row);
+    checklistByStaff.set(row.staff_id, list);
+  }
 
   return (
     <>
@@ -92,6 +114,28 @@ export default async function StaffPage() {
           <InviteForm />
         </div>
       </div>
+
+      <h3 style={{ marginTop: 24 }}>Onboarding and offboarding</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Items the system can answer for itself are answered for itself, and cannot be ticked. They
+        become done when the thing is done. The rest are yours to mark.
+      </p>
+      {staff
+        .filter((s) => checklistByStaff.has(s.id))
+        .map((s) => (
+          <div key={s.id}>
+            <Checklist name={s.name} rows={checklistByStaff.get(s.id) ?? []} phase="Onboarding" />
+            {!s.active && (
+              <Checklist name={s.name} rows={checklistByStaff.get(s.id) ?? []} phase="Offboarding" />
+            )}
+          </div>
+        ))}
+
+      <StaffActivity
+        rows={(activityResult.data ?? []) as never}
+        from={from}
+        to={to}
+      />
     </>
   );
 }

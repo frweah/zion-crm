@@ -27,6 +27,19 @@ export default async function DashboardPage() {
       supabase.from("invoices").select("date, amount, status"),
     ]);
 
+  // Their own outstanding onboarding. The view already limits this to the
+  // person asking, so no filter here is doing the security.
+  const { data: myChecklist } = await supabase
+    .from("staff_checklist")
+    .select("label, detail, auto_key, auto_done, done_on, required, phase")
+    .eq("phase", "Onboarding")
+    .eq("required", true)
+    .order("sort_order");
+
+  const outstanding = (myChecklist ?? []).filter(
+    (r) => !(r.auto_key ? r.auto_done === true : r.done_on !== null),
+  );
+
   const clients = clientsResult.data ?? [];
   const auths = authsResult.data ?? [];
   const entries = entriesResult.data ?? [];
@@ -66,6 +79,20 @@ export default async function DashboardPage() {
       <p className="sub">
         {ROLE_LABEL[me.role]} view · {me.name}
       </p>
+
+      {outstanding.length > 0 && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <h3>Still to do before you are fully set up</h3>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+            {outstanding.map((r) => (
+              <li key={r.label} style={{ fontSize: 13, marginBottom: 4 }}>
+                {r.label}
+                {r.detail && <div className="lock">{r.detail}</div>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {alerts.length > 0 ? (
         <div style={{ marginBottom: 18 }}>
