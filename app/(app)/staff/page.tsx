@@ -4,6 +4,7 @@ import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { InviteForm, StaffRowActions } from "./staff-forms";
 import { Checklist, type ChecklistRow } from "./checklist-forms";
 import { StaffActivity } from "./staff-activity";
+import { PayRates, type PayRow } from "./pay-forms";
 import { today } from "@/lib/constants";
 
 type StaffRow = {
@@ -29,7 +30,7 @@ export default async function StaffPage({
   const to = params.to ?? today();
   const from = params.from ?? to.slice(0, 4) + "-01-01";
 
-  const [{ data }, checklistResult, activityResult] = await Promise.all([
+  const [{ data }, checklistResult, activityResult, payResult] = await Promise.all([
     supabase
       .from("staff")
       .select("id, name, email, role, active, user_id, invited_at, accepted_at")
@@ -37,9 +38,20 @@ export default async function StaffPage({
       .order("name"),
     supabase.from("staff_checklist").select("*").order("sort_order"),
     supabase.rpc("staff_activity", { p_from: from, p_to: to }),
+    supabase
+      .from("staff_pay")
+      .select("id, staff_id, pay_rate, rate_unit, effective_from, note")
+      .order("effective_from", { ascending: false }),
   ]);
 
   const staff = (data ?? []) as StaffRow[];
+
+  const payByStaff = new Map<string, PayRow[]>();
+  for (const row of (payResult.data ?? []) as PayRow[]) {
+    const list = payByStaff.get(row.staff_id) ?? [];
+    list.push(row);
+    payByStaff.set(row.staff_id, list);
+  }
 
   const checklistByStaff = new Map<string, ChecklistRow[]>();
   for (const row of (checklistResult.data ?? []) as ChecklistRow[]) {
@@ -114,6 +126,24 @@ export default async function StaffPage({
           <InviteForm />
         </div>
       </div>
+
+      <h3 style={{ marginTop: 24 }}>Pay rates</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        A rate is a dated record rather than a field, so setting a new one adds to the history and
+        work done before that date keeps the rate it was done under. Each person can see their own
+        rate and nobody else&apos;s.
+      </p>
+      {staff
+        .filter((s) => s.active)
+        .map((s) => (
+          <PayRates
+            key={s.id}
+            staffId={s.id}
+            name={s.name}
+            rows={payByStaff.get(s.id) ?? []}
+            today={today()}
+          />
+        ))}
 
       <h3 style={{ marginTop: 24 }}>Onboarding and offboarding</h3>
       <p className="sub" style={{ marginTop: 0 }}>

@@ -1843,6 +1843,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      delete_staff_pay: {
+        Args: { p_id: string };
+        Returns: string;
+      };
       fmt_hours: {
         Args: { n: number };
         Returns: string;
@@ -1879,6 +1883,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      pay_rate_on: {
+        Args: { p_staff_id: string; p_date: string };
+        Returns: string;
+      };
       period_end: {
         Args: { d: string };
         Returns: string;
@@ -1905,6 +1913,10 @@ export type Database = {
       };
       set_employer_details: {
         Args: { p_legal_name: string; p_address: string; p_ein: string };
+        Returns: string;
+      };
+      set_staff_pay: {
+        Args: { p_staff_id: string; p_rate: number; p_unit: string; p_effective_from: string; p_note: string };
         Returns: string;
       };
       sign_tax_form: {
