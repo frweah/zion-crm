@@ -73,15 +73,37 @@ const RPC_FUNCTIONS = [
   "is_admin",
   "can_see_restricted",
   "generate_notifications",
+  "period_start",
+  "period_end",
 ];
 
 const { rows: fns } = await client.query(
-  `select p.proname, pg_get_function_result(p.oid) as result
+  `select p.proname,
+          pg_get_function_result(p.oid) as result,
+          pg_get_function_arguments(p.oid) as args
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = any($1)
     order by p.proname`,
   [RPC_FUNCTIONS],
 );
+
+/** "d date, p_client_id uuid" -> { d: string; p_client_id: string } */
+function argsType(args) {
+  const trimmed = (args ?? "").trim();
+  if (!trimmed) return "Record<string, never>";
+  const fields = trimmed.split(",").map((a) => {
+    const parts = a.trim().split(/\s+/);
+    const name = parts[0];
+    const sqlType = parts.slice(1).join(" ").toLowerCase();
+    const ts = /int|numeric|real|double|serial/.test(sqlType)
+      ? "number"
+      : /bool/.test(sqlType)
+        ? "boolean"
+        : "string";
+    return `${name}: ${ts}`;
+  });
+  return `{ ${fields.join("; ")} }`;
+}
 
 await client.end();
 
@@ -157,7 +179,7 @@ if (views.size === 0) {
 out.push("    Functions: {");
 for (const f of fns) {
   out.push(`      ${f.proname}: {`);
-  out.push(`        Args: ${f.proname === "can_see_restricted" ? "{ p_client_id: string }" : "Record<string, never>"};`);
+  out.push(`        Args: ${argsType(f.args)};`);
   const returns =
     f.result === "boolean"
       ? "boolean"

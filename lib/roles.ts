@@ -16,6 +16,7 @@ const NAV: Record<string, NavItem> = {
   Dashboard: { label: "Dashboard", href: "/dashboard" },
   Clients: { label: "Clients", href: "/clients" },
   Leads: { label: "Job leads", href: "/leads" },
+  Hours: { label: "Hours", href: "/hours" },
   Tasks: { label: "Tasks", href: "/tasks" },
   Forms: { label: "Forms", href: "/forms" },
   Counselors: { label: "Counselors", href: "/counselors" },
@@ -25,19 +26,19 @@ const NAV: Record<string, NavItem> = {
   Staff: { label: "Staff", href: "/staff" },
 };
 
-/** Which screens each role sees. Matches ROLES in the prototype. */
 /**
  * Which screens each role sees. Matches ROLES in the prototype, plus Job leads
- * — everyone can see the board, only Admin and Job Search can change it, which
- * the database enforces rather than the navigation.
+ * and Hours. Everyone can see the leads board but only Admin and Job Search can
+ * change it, and Hours shows each person their own — both enforced by the
+ * database rather than by the navigation.
  */
 export const ROLE_NAV: Record<Role, NavItem[]> = {
-  Admin: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Reports", "SOPs", "Staff"].map(
+  Admin: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Reports", "Hours", "SOPs", "Staff"].map(
     (k) => NAV[k],
   ),
-  "Job Search": ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "SOPs"].map((k) => NAV[k]),
-  Reports: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Reports", "SOPs"].map((k) => NAV[k]),
-  Billing: ["Dashboard", "Clients", "Leads", "Forms", "Counselors", "Billing", "SOPs"].map((k) => NAV[k]),
+  "Job Search": ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Hours", "SOPs"].map((k) => NAV[k]),
+  Reports: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Reports", "Hours", "SOPs"].map((k) => NAV[k]),
+  Billing: ["Dashboard", "Clients", "Leads", "Forms", "Counselors", "Billing", "Hours", "SOPs"].map((k) => NAV[k]),
 };
 
 export const ORG = {

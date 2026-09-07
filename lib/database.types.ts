@@ -342,6 +342,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      contractor_statements: {
+        Row: {
+          id: string;
+          staff_id: string;
+          period_start: string;
+          period_end: string;
+          status: string;
+          submitted_at: string | null;
+          decided_at: string | null;
+          decided_by: string | null;
+          return_note: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          period_start: string;
+          period_end: string;
+          status?: string;
+          submitted_at?: string | null;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          return_note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          period_start?: string;
+          period_end?: string;
+          status?: string;
+          submitted_at?: string | null;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          return_note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       counselors: {
         Row: {
           id: string;
@@ -882,6 +924,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      org_settings: {
+        Row: {
+          id: boolean;
+          pay_period: string;
+          period_anchor: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          pay_period?: string;
+          period_anchor?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: boolean;
+          pay_period?: string;
+          period_anchor?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       placements: {
         Row: {
           id: string;
@@ -1131,6 +1194,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_employment: {
+        Row: {
+          staff_id: string;
+          employment_type: string;
+          started_on: string | null;
+          notes: string;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          employment_type?: string;
+          started_on?: string | null;
+          notes?: string;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          employment_type?: string;
+          started_on?: string | null;
+          notes?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_pay: {
+        Row: {
+          id: string;
+          staff_id: string;
+          pay_rate: number;
+          rate_unit: string;
+          effective_from: string;
+          note: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          pay_rate: number;
+          rate_unit?: string;
+          effective_from?: string;
+          note?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          pay_rate?: number;
+          rate_unit?: string;
+          effective_from?: string;
+          note?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       staff_prefs: {
         Row: {
           staff_id: string;
@@ -1197,6 +1317,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_sessions: {
+        Row: {
+          id: string;
+          staff_id: string;
+          worked_on: string;
+          hours: number;
+          description: string;
+          client_id: string | null;
+          statement_id: string | null;
+          corrects_id: string | null;
+          correction_reason: string;
+          voided: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          worked_on: string;
+          hours: number;
+          description?: string;
+          client_id?: string | null;
+          statement_id?: string | null;
+          corrects_id?: string | null;
+          correction_reason?: string;
+          voided?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          worked_on?: string;
+          hours?: number;
+          description?: string;
+          client_id?: string | null;
+          statement_id?: string | null;
+          corrects_id?: string | null;
+          correction_reason?: string;
+          voided?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       client_job_history: {
@@ -1225,6 +1390,16 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_session_totals: {
+        Row: {
+          staff_id: string | null;
+          period_start: string | null;
+          period_end: string | null;
+          total_hours: number | null;
+          session_count: number | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       can_see_restricted: {
@@ -1250,6 +1425,14 @@ export type Database = {
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      period_end: {
+        Args: { d: string };
+        Returns: string;
+      };
+      period_start: {
+        Args: { d: string };
+        Returns: string;
       };
     };
     Enums: { [_ in never]: never };
