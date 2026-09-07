@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentStaff } from "@/lib/session";
 
 export type FileState = { error: string | null; ok: string | null; url?: string };
@@ -99,7 +100,19 @@ export async function getDownloadUrl(
   return { error: null, ok: null, url: data.signedUrl };
 }
 
-/** Removing the record removes the file — a database trigger does the second half. */
+/**
+ * Removes a file and its record.
+ *
+ * The row delete goes first and through the RLS-bound client, so the database
+ * decides whether this person may remove it — Admin, or whoever uploaded it.
+ * Only once that has passed does the object go, and it goes through the
+ * Storage API with the service role, because the storage delete policy keys
+ * off the attachment row that no longer exists.
+ *
+ * This used to be a database trigger. It could not have worked: Supabase
+ * refuses direct DELETEs against storage.objects, so removing a file raised an
+ * error instead of removing anything. See migration 0020.
+ */
 export async function deleteAttachment(
   _prev: FileState,
   formData: FormData,
@@ -115,7 +128,7 @@ export async function deleteAttachment(
     .from("attachments")
     .delete()
     .eq("id", id)
-    .select("filename")
+    .select("filename, storage_path")
     .maybeSingle();
 
   if (error) return { error: error.message, ok: null };
@@ -123,6 +136,22 @@ export async function deleteAttachment(
     return { error: "Only Admin or whoever uploaded a file can remove it.", ok: null };
   }
 
+  const { error: objectError } = await createAdminClient()
+    .storage.from("client-files")
+    .remove([data.storage_path]);
+
   revalidatePath(`/clients/${clientId}`);
+
+  if (objectError) {
+    // The record is gone, so the file is unreachable through the app, but it
+    // is still sitting in the bucket. Say so rather than report a clean
+    // removal: somebody has to go and delete it.
+    console.error("attachment object not removed", data.storage_path, objectError);
+    return {
+      error: `${data.filename} was removed from the client's file, but the stored copy could not be deleted (${objectError.message}). Tell the administrator.`,
+      ok: null,
+    };
+  }
+
   return { error: null, ok: `${data.filename} removed.` };
 }
