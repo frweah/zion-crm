@@ -75,6 +75,10 @@ const RPC_FUNCTIONS = [
   "generate_notifications",
   "period_start",
   "period_end",
+  "sign_tax_form",
+  "get_tax_form_sensitive",
+  "form_1099_candidates",
+  "fmt_hours",
 ];
 
 const { rows: fns } = await client.query(
@@ -95,11 +99,13 @@ function argsType(args) {
     const parts = a.trim().split(/\s+/);
     const name = parts[0];
     const sqlType = parts.slice(1).join(" ").toLowerCase();
-    const ts = /int|numeric|real|double|serial/.test(sqlType)
-      ? "number"
-      : /bool/.test(sqlType)
-        ? "boolean"
-        : "string";
+    const ts = /^jsonb?$/.test(sqlType)
+      ? "Json"
+      : /int|numeric|real|double|serial/.test(sqlType)
+        ? "number"
+        : /bool/.test(sqlType)
+          ? "boolean"
+          : "string";
     return `${name}: ${ts}`;
   });
   return `{ ${fields.join("; ")} }`;

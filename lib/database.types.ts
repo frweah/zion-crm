@@ -1548,6 +1548,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      tax_form_submissions: {
+        Row: {
+          id: string;
+          staff_id: string;
+          form_type: string;
+          status: string;
+          data: Json;
+          sensitive_encrypted: string | null;
+          tin_last4: string | null;
+          signed_at: string | null;
+          signer_name: string | null;
+          signer_ip: string | null;
+          pdf_path: string | null;
+          pdf_sha256: string | null;
+          staff_file_id: string | null;
+          supersedes_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          form_type: string;
+          status?: string;
+          data?: Json;
+          sensitive_encrypted?: string | null;
+          tin_last4?: string | null;
+          signed_at?: string | null;
+          signer_name?: string | null;
+          signer_ip?: string | null;
+          pdf_path?: string | null;
+          pdf_sha256?: string | null;
+          staff_file_id?: string | null;
+          supersedes_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          form_type?: string;
+          status?: string;
+          data?: Json;
+          sensitive_encrypted?: string | null;
+          tin_last4?: string | null;
+          signed_at?: string | null;
+          signer_name?: string | null;
+          signer_ip?: string | null;
+          pdf_path?: string | null;
+          pdf_sha256?: string | null;
+          staff_file_id?: string | null;
+          supersedes_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       tax_years: {
         Row: {
           year: number;
@@ -1688,9 +1745,21 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      fmt_hours: {
+        Args: { n: number };
+        Returns: string;
+      };
+      form_1099_candidates: {
+        Args: { p_year: number };
+        Returns: string;
+      };
       generate_notifications: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      get_tax_form_sensitive: {
+        Args: { p_form_id: string };
+        Returns: string;
       };
       is_active_staff: {
         Args: Record<string, never>;
@@ -1706,6 +1775,10 @@ export type Database = {
       };
       period_start: {
         Args: { d: string };
+        Returns: string;
+      };
+      sign_tax_form: {
+        Args: { p_form_id: string; p_sensitive: Json; p_tin_last4: string; p_signer: string; p_ip: string };
         Returns: string;
       };
     };
