@@ -2,6 +2,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp } from "@/lib/constants";
 import { W8BenForm } from "./w8ben-form";
+import { W9Form } from "./w9-form";
 import { DownloadButton } from "./download-button";
 
 export default async function PaperworkPage() {
@@ -28,8 +29,26 @@ export default async function PaperworkPage() {
   const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
 
   const mine = submissions.filter((s) => s.staff_id === me.id);
-  const signed = mine.find((s) => s.status === "Signed");
-  const isForeign = profile?.tax_status === "Foreign person";
+
+  // Which form this person owes follows from their tax status, and the status
+  // can change after they have signed. Someone who filed a W-8BEN and is later
+  // recorded as a US person owes a W-9, and a signed W-8BEN must not be taken
+  // as that being settled — so the form on file is matched against the form
+  // required, not merely against having signed something.
+  const required =
+    profile?.tax_status === "Foreign person"
+      ? "W-8BEN"
+      : profile?.tax_status === "US person"
+        ? "W-9"
+        : null;
+
+  const signed = mine.find((s) => s.status === "Signed" && s.form_type === required);
+  const form =
+    required === "W-8BEN" ? (
+      <W8BenForm defaultName={me.name} />
+    ) : required === "W-9" ? (
+      <W9Form defaultName={me.name} />
+    ) : null;
 
   return (
     <>
@@ -37,36 +56,50 @@ export default async function PaperworkPage() {
       <p className="sub">Your tax form, completed and signed here rather than on paper.</p>
 
       {signed ? (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <h3>{signed.form_type} on file</h3>
-          <p className="sub" style={{ marginTop: 0, marginBottom: 0 }}>
-            Signed by {signed.signer_name} on {fmtStamp(signed.signed_at)}
-            {signed.tin_last4 && ` · tax number ending ${signed.tin_last4}`}
-            {profile?.w8ben_expires_on && ` · valid to ${profile.w8ben_expires_on}`}
-          </p>
-          <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
-            The completed form is held securely and can be opened by the administrator only. If
-            anything on it changes — your address, your country, your tax number — complete a new
-            one and it will replace this.
-          </p>
-        </div>
-      ) : isForeign ? (
-        <W8BenForm defaultName={me.name} />
-      ) : profile?.tax_status === "US person" ? (
-        <div className="card">
-          <h3>Form W-9</h3>
-          <p className="sub" style={{ margin: 0 }}>
-            The in-app W-9 is being built next. Until then the administrator will ask you for one
-            directly.
-          </p>
-        </div>
+        <>
+          <div className="card" style={{ marginBottom: 14 }}>
+            <h3>{signed.form_type} on file</h3>
+            <p className="sub" style={{ marginTop: 0, marginBottom: 0 }}>
+              Signed by {signed.signer_name} on {fmtStamp(signed.signed_at)}
+              {signed.tin_last4 && ` · tax number ending ${signed.tin_last4}`}
+              {signed.form_type === "W-8BEN" &&
+                profile?.w8ben_expires_on &&
+                ` · valid to ${profile.w8ben_expires_on}`}
+            </p>
+            <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
+              The completed form is held securely and can be opened by the administrator only. If
+              anything on it changes — your address, your country, your tax number — complete a new
+              one and it will replace this.
+            </p>
+          </div>
+          <details className="card" style={{ marginBottom: 14 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+              Something has changed — complete a new {signed.form_type}
+            </summary>
+            <p className="lock">
+              Signing a new one replaces the form above. The old one stays in your history, marked
+              superseded, because a form that was true when it was signed is still a record of what
+              was certified then.
+            </p>
+            {form}
+          </details>
+        </>
       ) : (
-        <div className="card">
-          <h3>Nothing to complete yet</h3>
-          <p className="sub" style={{ margin: 0 }}>
-            The administrator sets whether you file a W-8BEN or a W-9. Once that is set, the right
-            form appears here.
-          </p>
+        (form ?? (
+          <div className="card">
+            <h3>Nothing to complete yet</h3>
+            <p className="sub" style={{ margin: 0 }}>
+              The administrator sets whether you file a W-8BEN or a W-9. Once that is set, the right
+              form appears here.
+            </p>
+          </div>
+        ))
+      )}
+
+      {!signed && required && mine.some((s) => s.status === "Signed") && (
+        <div className="alert" style={{ marginTop: 14 }}>
+          Your tax status has changed since you last signed, so a {required} is now the form we
+          need. The form you signed before stays in your history.
         </div>
       )}
 
