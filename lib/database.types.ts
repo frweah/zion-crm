@@ -828,6 +828,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      saved_views: {
+        Row: {
+          id: string;
+          screen: string;
+          name: string;
+          owner_staff_id: string | null;
+          params: Json;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          screen: string;
+          name: string;
+          owner_staff_id?: string | null;
+          params?: Json;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          screen?: string;
+          name?: string;
+          owner_staff_id?: string | null;
+          params?: Json;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       service_entries: {
         Row: {
           id: string;
@@ -909,7 +945,7 @@ export type Database = {
           user_id: string | null;
           legacy_id: string | null;
           name: string;
-          email: string;
+          email: string | null;
           phone: string | null;
           role: string;
           active: boolean;
@@ -924,7 +960,7 @@ export type Database = {
           user_id?: string | null;
           legacy_id?: string | null;
           name: string;
-          email: string;
+          email?: string | null;
           phone?: string | null;
           role: string;
           active?: boolean;
@@ -939,7 +975,7 @@ export type Database = {
           user_id?: string | null;
           legacy_id?: string | null;
           name?: string;
-          email?: string;
+          email?: string | null;
           phone?: string | null;
           role?: string;
           active?: boolean;
@@ -947,6 +983,27 @@ export type Database = {
           accepted_at?: string | null;
           deactivated_at?: string | null;
           created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_prefs: {
+        Row: {
+          staff_id: string;
+          key: string;
+          value: Json;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          key: string;
+          value: Json;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          key?: string;
+          value?: Json;
           updated_at?: string;
         };
         Relationships: [];
@@ -997,7 +1054,15 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: { [_ in never]: never };
+    Views: {
+      client_last_activity: {
+        Row: {
+          client_id: string | null;
+          last_activity_at: string | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       can_see_restricted: {
         Args: { p_client_id: string };

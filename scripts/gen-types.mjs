@@ -55,11 +55,11 @@ await client.connect();
 const { rows } = await client.query(`
   select c.table_name, c.column_name, c.udt_name, c.is_nullable,
          (c.column_default is not null) as has_default,
-         c.is_generated
+         c.is_generated, t.table_type
     from information_schema.columns c
     join information_schema.tables t
       on t.table_schema = c.table_schema and t.table_name = c.table_name
-   where c.table_schema = 'public' and t.table_type = 'BASE TABLE'
+   where c.table_schema = 'public' and t.table_type in ('BASE TABLE', 'VIEW')
    order by c.table_name, c.ordinal_position
 `);
 
@@ -86,9 +86,11 @@ const { rows: fns } = await client.query(
 await client.end();
 
 const tables = new Map();
+const views = new Map();
 for (const r of rows) {
-  if (!tables.has(r.table_name)) tables.set(r.table_name, []);
-  tables.get(r.table_name).push(r);
+  const target = r.table_type === "VIEW" ? views : tables;
+  if (!target.has(r.table_name)) target.set(r.table_name, []);
+  target.get(r.table_name).push(r);
 }
 
 const out = [];
@@ -134,7 +136,24 @@ for (const [table, cols] of [...tables].sort((a, b) => a[0].localeCompare(b[0]))
 }
 
 out.push("    };");
-out.push("    Views: { [_ in never]: never };");
+// Views are readable only — no Insert/Update, which is what they are.
+if (views.size === 0) {
+  out.push("    Views: { [_ in never]: never };");
+} else {
+  out.push("    Views: {");
+  for (const [view, cols] of [...views].sort((a, b) => a[0].localeCompare(b[0]))) {
+    out.push(`      ${view}: {`);
+    out.push("        Row: {");
+    for (const c of cols) {
+      const nullable = c.is_nullable === "YES" ? " | null" : "";
+      out.push(`          ${c.column_name}: ${tsType(c.udt_name)}${nullable};`);
+    }
+    out.push("        };");
+    out.push("        Relationships: [];");
+    out.push("      };");
+  }
+  out.push("    };");
+}
 out.push("    Functions: {");
 for (const f of fns) {
   out.push(`      ${f.proname}: {`);

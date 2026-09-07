@@ -1,89 +1,43 @@
 "use client";
 
-import { useState, useMemo, useActionState } from "react";
-import Link from "next/link";
+import { useState, useActionState } from "react";
 import { addClient, type ClientFormState } from "./actions";
-
-export type ClientRow = {
-  id: string;
-  name: string;
-  client_no: number | null;
-  stage: string;
-  status: string;
-  agency_id: string;
-  referring_office: string;
-  import_review: string;
-  counselor_name: string;
-  assigned_name: string;
-};
+import { FUNDING_SOURCES } from "@/lib/constants";
 
 type Option = { id: string; name: string };
 
 const initial: ClientFormState = { error: null, ok: null };
 
-const FUNDING = ["Utah VR", "HCBS Medicaid", "Private Pay", "Other"];
-
-export function ClientsView({
-  clients,
+/**
+ * Adding a client. The list itself is server-rendered — filtering and sorting
+ * happen in the URL — so this is the only part of the screen that needs to be
+ * interactive.
+ */
+export function AddClientPanel({
   counselors,
   staff,
   offices,
-  canEdit,
-  roleNote,
 }: {
-  clients: ClientRow[];
   counselors: Option[];
   staff: Option[];
   offices: string[];
-  canEdit: boolean;
-  roleNote: string;
 }) {
   const [adding, setAdding] = useState(false);
-  const [q, setQ] = useState("");
-  const [showClosed, setShowClosed] = useState(false);
   const [state, action, pending] = useActionState(addClient, initial);
-
-  const closedCount = clients.filter((c) => c.status === "Closed").length;
-
-  const list = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return clients
-      .filter((c) => showClosed || c.status !== "Closed")
-      .filter((c) => {
-        if (!needle) return true;
-        return (
-          c.name.toLowerCase().includes(needle) ||
-          c.agency_id.toLowerCase().includes(needle) ||
-          String(c.client_no ?? "").includes(needle) ||
-          c.counselor_name.toLowerCase().includes(needle)
-        );
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [clients, q, showClosed]);
-
-  const flagged = list.filter((c) => c.import_review).length;
 
   return (
     <>
-      <div className="row2" style={{ justifyContent: "space-between", marginBottom: 6 }}>
-        <div>
-          <h1 className="h1">Clients</h1>
-          <p className="sub" style={{ margin: 0 }}>
-            {roleNote}
-          </p>
-        </div>
-        {canEdit && (
-          <button className="btn gold" onClick={() => setAdding(!adding)}>
-            {adding ? "Cancel" : "Add client"}
-          </button>
-        )}
+      <div className="row2" style={{ justifyContent: "flex-end", marginBottom: 8 }}>
+        <button className="btn gold" onClick={() => setAdding(!adding)}>
+          {adding ? "Cancel" : "Add client"}
+        </button>
       </div>
 
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}
 
-      {adding && canEdit && (
-        <div className="card" style={{ margin: "14px 0" }}>
+      {adding && (
+        <div className="card" style={{ marginBottom: 14 }}>
           <form action={action}>
             <div className="row2">
               <label className="field">
@@ -97,7 +51,7 @@ export function ClientsView({
               <label className="field">
                 Funding source
                 <select name="funding_source" defaultValue="Utah VR">
-                  {FUNDING.map((x) => (
+                  {FUNDING_SOURCES.map((x) => (
                     <option key={x}>{x}</option>
                   ))}
                 </select>
@@ -173,79 +127,6 @@ export function ClientsView({
           </form>
         </div>
       )}
-
-      <div className="row2" style={{ margin: "10px 0 14px" }}>
-        <input
-          placeholder="Search by name, client #, agency ID, or counselor"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          style={{ maxWidth: 340 }}
-        />
-        <label style={{ fontSize: 12 }}>
-          <input
-            type="checkbox"
-            style={{ width: "auto", marginRight: 6 }}
-            checked={showClosed}
-            onChange={(e) => setShowClosed(e.target.checked)}
-          />
-          Show closed ({closedCount})
-        </label>
-        <span className="lock">
-          {list.length} shown{flagged > 0 ? ` · ${flagged} flagged for review` : ""}
-        </span>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>#</th>
-              <th>Stage</th>
-              <th>Office</th>
-              <th>Counselor</th>
-              <th>Assigned</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={6} className="empty">
-                  {clients.length === 0
-                    ? "No clients yet. They arrive with the data migration."
-                    : "No clients match."}
-                </td>
-              </tr>
-            )}
-            {list.map((c) => (
-              <tr key={c.id} className="row">
-                <td>
-                  <Link href={`/clients/${c.id}`} style={{ color: "inherit", fontWeight: 600 }}>
-                    {c.name}
-                  </Link>
-                  {c.status !== "Active" && (
-                    <span className="chip" style={{ marginLeft: 6 }}>
-                      {c.status}
-                    </span>
-                  )}
-                  {c.import_review && (
-                    <span className="chip warn" style={{ marginLeft: 6 }} title={c.import_review}>
-                      review
-                    </span>
-                  )}
-                </td>
-                <td>{c.client_no ?? ""}</td>
-                <td>
-                  <span className="chip gold">{c.stage}</span>
-                </td>
-                <td>{c.referring_office}</td>
-                <td>{c.counselor_name}</td>
-                <td>{c.assigned_name || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </>
   );
 }

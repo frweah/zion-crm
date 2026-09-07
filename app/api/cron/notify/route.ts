@@ -64,7 +64,12 @@ async function handle(request: NextRequest) {
   ]);
 
   const rows = (pending ?? []) as Row[];
-  const recipients = staff ?? [];
+
+  // A staff row can exist without an email — the Billing seat is a placeholder
+  // until someone is named. Nothing can be sent to it, and it is not an error.
+  const recipients = (staff ?? []).filter(
+    (s): s is typeof s & { email: string } => Boolean(s.email),
+  );
 
   if (rows.length === 0) {
     return NextResponse.json({ ok: true, notifications: 0, emails: 0, note: "nothing new" });

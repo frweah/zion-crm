@@ -71,6 +71,14 @@ begin
     ('client-files', 'clients/' || v_client || '/zz-restricted.pdf'),
     ('client-files', 'clients/' || v_client || '/zz-open.pdf');
 
+  -- Saved views and preferences belong to one person; a shared view to everyone.
+  insert into public.saved_views (screen, name, owner_staff_id, params)
+  values ('clients', 'ZZ private view', v_staff, '{}'::jsonb),
+         ('clients', 'ZZ shared view', null, '{}'::jsonb);
+
+  insert into public.staff_prefs (staff_id, key, value)
+  values (v_staff, 'zz_last_view', '"whatever"'::jsonb);
+
   procedure_note := 'checked';
   raise notice 'fixtures created (client, restricted row, intake, USOR 94, USOR 96, note, 2 files)';
 end $$;
@@ -90,6 +98,9 @@ declare
   v_files      int;
   v_openfile   int;
   v_object     int;
+  v_privview   int;
+  v_sharedview int;
+  v_prefs      int;
   failures     text[] := '{}';
 begin
   for r in
@@ -131,6 +142,9 @@ begin
     select count(*) into v_notes      from public.notes where text = 'Billing-only note';
     select count(*) into v_files      from public.attachments where filename = 'zz-restricted.pdf';
     select count(*) into v_openfile   from public.attachments where filename = 'zz-open.pdf';
+    select count(*) into v_privview   from public.saved_views where name = 'ZZ private view';
+    select count(*) into v_sharedview from public.saved_views where name = 'ZZ shared view';
+    select count(*) into v_prefs      from public.staff_prefs where key = 'zz_last_view';
     -- The bytes, not just the row: this is what a signed URL depends on.
     select count(*) into v_object     from storage.objects
       where bucket_id = 'client-files' and name like '%zz-restricted.pdf';
@@ -176,6 +190,21 @@ begin
       if v_notes <> 1 then failures := failures || format('%s should see the note', r.name); end if;
     else
       if v_notes <> 0 then failures := failures || format('LEAK: %s can see the Billing-only note', r.name); end if;
+    end if;
+
+    -- A shared view is for everyone; a private view and someone's interface
+    -- preferences are for exactly one person — including Admin, who has no
+    -- business reading another person's saved filters.
+    if v_sharedview <> 1 then
+      failures := failures || format('%s cannot see the shared view', r.name);
+    end if;
+
+    if r.is_assigned then
+      if v_privview <> 1 then failures := failures || format('%s should see their own view', r.name); end if;
+      if v_prefs <> 1 then failures := failures || format('%s should see their own preferences', r.name); end if;
+    else
+      if v_privview <> 0 then failures := failures || format('LEAK: %s can see someone else''s private view', r.name); end if;
+      if v_prefs <> 0 then failures := failures || format('LEAK: %s can see someone else''s preferences', r.name); end if;
     end if;
   end loop;
 
