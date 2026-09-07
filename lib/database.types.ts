@@ -401,6 +401,7 @@ export type Database = {
           country: string;
           w8ben_received_on: string | null;
           w8ben_expires_on: string | null;
+          e_delivery_consent_on: string | null;
         };
         Insert: {
           staff_id: string;
@@ -421,6 +422,7 @@ export type Database = {
           country?: string;
           w8ben_received_on?: string | null;
           w8ben_expires_on?: string | null;
+          e_delivery_consent_on?: string | null;
         };
         Update: {
           staff_id?: string;
@@ -441,6 +443,7 @@ export type Database = {
           country?: string;
           w8ben_received_on?: string | null;
           w8ben_expires_on?: string | null;
+          e_delivery_consent_on?: string | null;
         };
         Relationships: [];
       };
@@ -1762,6 +1765,10 @@ export type Database = {
         Args: { p_year: number };
         Returns: string;
       };
+      generate_1099_run: {
+        Args: { p_year: number };
+        Returns: string;
+      };
       generate_notifications: {
         Args: Record<string, never>;
         Returns: number;
@@ -1794,8 +1801,16 @@ export type Database = {
         Args: { d: string };
         Returns: string;
       };
+      record_1099_delivery: {
+        Args: { p_recipient_id: string; p_method: string; p_delivered_on: string };
+        Returns: string;
+      };
       set_contractor_tin: {
         Args: { p_staff_id: string; p_tin: string; p_tin_type: string };
+        Returns: string;
+      };
+      set_e_delivery_consent: {
+        Args: { p_consent: boolean };
         Returns: string;
       };
       set_employer_details: {

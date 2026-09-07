@@ -9,6 +9,7 @@ import {
   type ProfileRow,
   type TaxYearRow,
 } from "./contractor-forms";
+import { GenerateRun, RunPanel, type RecipientRow } from "./run-forms";
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
@@ -46,6 +47,25 @@ export default async function ContractorsPage({
         .order("period_start", { ascending: false })
         .limit(50),
     ]);
+
+  // The 1099 year is the one just gone: runs are built in January for the year
+  // that ended. Candidates are read for the same year so the screen can say
+  // why a run cannot be built yet rather than only that the button is off.
+  const filingYear = year - 1;
+  const [runsResult, recipientsResult, candidatesResult] = await Promise.all([
+    supabase
+      .from("form_1099_runs")
+      .select("id, year, threshold, state_copy, generated_at, filed_on, iris_receipt, notes")
+      .order("generated_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("form_1099_recipients")
+      .select(
+        "id, run_id, legal_name, business_name, address_snapshot, tin_type, tin_last4, nonemployee_comp, consent_recorded, delivered_on, delivery_method",
+      )
+      .order("legal_name"),
+    supabase.rpc("form_1099_candidates", { p_year: filingYear }),
+  ]);
 
   const staff = staffResult.data ?? [];
   const staffName = new Map(staff.map((s) => [s.id, s.name]));
@@ -97,6 +117,37 @@ export default async function ContractorsPage({
 
   const yearTotal = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const paidThisYear = [...totals.entries()].filter(([, amount]) => amount > 0);
+
+  const runs = runsResult.data ?? [];
+  const recipientsByRun = new Map<string, RecipientRow[]>();
+  for (const r of recipientsResult.data ?? []) {
+    const list = recipientsByRun.get(r.run_id) ?? [];
+    list.push(r as RecipientRow);
+    recipientsByRun.set(r.run_id, list);
+  }
+
+  // Why a run cannot be built is worth saying out loud. "The button is off" is
+  // not something anyone can act on in the week a filing is due.
+  const filingYearSettings = years.find((y) => y.year === filingYear);
+  const candidates = (candidatesResult.data ?? []) as {
+    staff_name: string;
+    ready: boolean;
+    problem: string | null;
+  }[];
+  const notReady = candidates.filter((c) => !c.ready);
+
+  const canRun =
+    Boolean(filingYearSettings?.confirmed_on) && candidates.length > 0 && notReady.length === 0;
+
+  const why = !filingYearSettings
+    ? `There are no settings for ${filingYear} yet. Add the year below.`
+    : filingYearSettings.federal_threshold == null
+      ? `The ${filingYear} federal threshold has not been set. Ask the CPA, then enter it below.`
+      : !filingYearSettings.confirmed_on
+        ? `The ${filingYear} threshold has been entered but not confirmed. Nothing is filed on an unconfirmed figure.`
+        : candidates.length === 0
+          ? `Nobody was paid ${usd(Number(filingYearSettings.federal_threshold))} or more in ${filingYear}.`
+          : `Not ready to file: ${notReady.map((c) => `${c.staff_name} (${c.problem})`).join("; ")}.`;
 
   return (
     <>
@@ -202,6 +253,25 @@ export default async function ContractorsPage({
           ))}
         </div>
       </div>
+
+      <h3 style={{ marginTop: 24 }}>1099-NEC</h3>
+      <GenerateRun year={filingYear} canRun={canRun} why={why} />
+
+      {runs.map((run) => (
+        <RunPanel
+          key={run.id}
+          run={run}
+          recipients={recipientsByRun.get(run.id) ?? []}
+          defaultDate={today()}
+        />
+      ))}
+
+      {runs.length === 0 && (
+        <p className="sub">
+          No run has been built yet. January 31 is the deadline for both giving contractors their
+          copies and filing with the IRS.
+        </p>
+      )}
     </>
   );
 }

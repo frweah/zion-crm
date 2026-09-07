@@ -4,6 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { today } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ORG } from "@/lib/roles";
+import {
+  buildCopyB,
+  buildGenericCsv,
+  buildIrisCsv,
+  type Payer1099,
+  type FilingRow,
+} from "@/lib/form-1099";
 
 export type ContractorState = { error: string | null; ok: string | null };
 
@@ -232,5 +241,256 @@ export async function saveTaxYear(
     ok: confirming
       ? `${year} confirmed. The 1099 run can be built.`
       : `${year} saved, not yet confirmed.`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 1099 runs
+// ─────────────────────────────────────────────────────────────
+
+/** Builds the run for a year. The database refuses if anything is not ready. */
+export async function generate1099Run(
+  _prev: ContractorState,
+  formData: FormData,
+): Promise<ContractorState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin can generate a run.", ok: null };
+
+  const year = Number(formData.get("year") ?? 0);
+  if (!Number.isInteger(year)) return { error: "Check the year.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("generate_1099_run", { p_year: year });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/contractors");
+  return { error: null, ok: `The ${year} run is built. Check it before anything is filed.` };
+}
+
+/** Marks one copy as delivered. Electronic delivery without consent is refused. */
+export async function record1099Delivery(
+  _prev: ContractorState,
+  formData: FormData,
+): Promise<ContractorState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin can record delivery.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_1099_delivery", {
+    p_recipient_id: String(formData.get("recipient_id") ?? ""),
+    p_method: String(formData.get("method") ?? ""),
+    p_delivered_on: String(formData.get("delivered_on") ?? "") || today(),
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/contractors");
+  return { error: null, ok: "Delivery recorded." };
+}
+
+/** What was filed, and when. Recorded once the return has actually gone in. */
+export async function recordRunFiled(
+  _prev: ContractorState,
+  formData: FormData,
+): Promise<ContractorState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin can record a filing.", ok: null };
+
+  const filedOn = String(formData.get("filed_on") ?? "").trim();
+  if (filedOn && !/^\d{4}-\d{2}-\d{2}$/.test(filedOn)) {
+    return { error: "Check the filing date.", ok: null };
+  }
+  if (filedOn && filedOn > today()) {
+    return { error: "A return cannot be filed in the future.", ok: null };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("form_1099_runs")
+    .update({
+      filed_on: filedOn || null,
+      iris_receipt: String(formData.get("iris_receipt") ?? "").trim(),
+      notes: String(formData.get("notes") ?? "").trim(),
+    })
+    .eq("id", String(formData.get("run_id") ?? ""));
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/contractors");
+  return { error: null, ok: "Saved." };
+}
+
+/** The payer block, read with the service role because the EIN is Admin-only. */
+async function payerDetails(): Promise<Payer1099 | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("org_settings")
+    .select("employer_legal_name, employer_address, employer_ein")
+    .eq("id", true)
+    .maybeSingle();
+
+  if (!data?.employer_ein) return null;
+
+  return {
+    name: data.employer_legal_name || ORG.name,
+    address: data.employer_address || ORG.address,
+    phone: ORG.phone,
+    ein: data.employer_ein,
+  };
+}
+
+/**
+ * One recipient's Copy B, handed straight back rather than stored.
+ *
+ * It is regenerated from the run's own snapshot every time, so there is no
+ * second copy of anybody's tax document sitting in a bucket waiting to drift
+ * out of step with the record.
+ */
+export async function downloadCopyB(
+  _prev: ContractorState,
+  formData: FormData,
+): Promise<ContractorState & { filename?: string; contentBase64?: string }> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin can open these.", ok: null };
+
+  const supabase = await createClient();
+  const { data: r } = await supabase
+    .from("form_1099_recipients")
+    .select("*, form_1099_runs(year)")
+    .eq("id", String(formData.get("recipient_id") ?? ""))
+    .maybeSingle();
+
+  if (!r) return { error: "No such recipient.", ok: null };
+
+  const payer = await payerDetails();
+  if (!payer) {
+    return {
+      error: "Set the employer name, address and EIN on the Paperwork screen first.",
+      ok: null,
+    };
+  }
+
+  const year = (r.form_1099_runs as unknown as { year: number } | null)?.year ?? 0;
+
+  const pdf = await buildCopyB(year, payer, {
+    id: r.id,
+    legalName: r.legal_name,
+    businessName: r.business_name,
+    addressSnapshot: r.address_snapshot,
+    tinType: r.tin_type,
+    tinLast4: r.tin_last4,
+    nonemployeeComp: Number(r.nonemployee_comp),
+    corrected: r.corrected,
+  });
+
+  return {
+    error: null,
+    ok: null,
+    filename: `1099-NEC ${year} ${r.legal_name}.pdf`,
+    contentBase64: Buffer.from(pdf.bytes).toString("base64"),
+  };
+}
+
+/**
+ * A filing file for the whole run.
+ *
+ * This is the only place the taxpayer numbers come back out in the clear, and
+ * they come out one at a time through the Admin-only function that logs the
+ * intent. The file is handed straight to the browser and never written to
+ * storage: a spreadsheet of social security numbers should exist for as long
+ * as it takes to upload it and no longer.
+ */
+export async function downloadFilingCsv(
+  _prev: ContractorState,
+  formData: FormData,
+): Promise<ContractorState & { filename?: string; contentBase64?: string }> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin can open these.", ok: null };
+
+  const runId = String(formData.get("run_id") ?? "");
+  const kind = String(formData.get("kind") ?? "generic");
+
+  const supabase = await createClient();
+  const { data: run } = await supabase
+    .from("form_1099_runs")
+    .select("id, year")
+    .eq("id", runId)
+    .maybeSingle();
+
+  if (!run) return { error: "No such run.", ok: null };
+
+  const { data: recipients } = await supabase
+    .from("form_1099_recipients")
+    .select("*")
+    .eq("run_id", runId)
+    .order("legal_name");
+
+  const payer = await payerDetails();
+  if (!payer) {
+    return {
+      error: "Set the employer name, address and EIN on the Paperwork screen first.",
+      ok: null,
+    };
+  }
+
+  const rows: FilingRow[] = [];
+  for (const r of recipients ?? []) {
+    const { data: tin, error } = await supabase.rpc("get_contractor_tin", {
+      p_staff_id: r.staff_id,
+    });
+    if (error || !tin) {
+      return {
+        error: `${r.legal_name} has no taxpayer number on file, so the filing cannot be built.`,
+        ok: null,
+      };
+    }
+    rows.push({
+      id: r.id,
+      legalName: r.legal_name,
+      businessName: r.business_name,
+      addressSnapshot: r.address_snapshot,
+      tinType: r.tin_type,
+      tinLast4: r.tin_last4,
+      nonemployeeComp: Number(r.nonemployee_comp),
+      corrected: r.corrected,
+      tin: String(tin),
+    });
+  }
+
+  const content =
+    kind === "iris"
+      ? buildIrisCsv(run.year, payer, rows)
+      : buildGenericCsv(run.year, payer, rows);
+
+  return {
+    error: null,
+    ok: null,
+    filename: `1099-NEC ${run.year} ${kind === "iris" ? "IRIS" : "filing"}.csv`,
+    contentBase64: Buffer.from(content, "utf8").toString("base64"),
+  };
+}
+
+/** A contractor's own agreement to receive their 1099 electronically. */
+export async function setEDeliveryConsent(
+  _prev: ContractorState,
+  formData: FormData,
+): Promise<ContractorState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const supabase = await createClient();
+  const consent = formData.get("consent") === "on";
+  const { error } = await supabase.rpc("set_e_delivery_consent", { p_consent: consent });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/paperwork");
+  revalidatePath("/contractors");
+  return {
+    error: null,
+    ok: consent
+      ? "Thank you — your 1099 will be sent electronically."
+      : "Noted. Your 1099 will be posted to you.",
   };
 }

@@ -6,6 +6,7 @@ import { W8BenForm } from "./w8ben-form";
 import { W9Form } from "./w9-form";
 import { W4Form } from "./w4-form";
 import { EmployerDetails } from "./employer-details";
+import { DeliveryConsent } from "./delivery-consent";
 import { DownloadButton } from "./download-button";
 
 export default async function PaperworkPage() {
@@ -16,7 +17,9 @@ export default async function PaperworkPage() {
     await Promise.all([
       supabase
         .from("contractor_profiles")
-        .select("tax_status, w8ben_received_on, w8ben_expires_on, w9_received_on")
+        .select(
+          "tax_status, w8ben_received_on, w8ben_expires_on, w9_received_on, e_delivery_consent_on",
+        )
         .eq("staff_id", me.id)
         .maybeSingle(),
       supabase
@@ -126,6 +129,12 @@ export default async function PaperworkPage() {
           How you are engaged has changed since you last signed, so a {required} is now the form we
           need. The form you signed before stays in your history.
         </div>
+      )}
+
+      {/* Only contractors get a 1099, so only they are asked how it should reach
+          them. An employee gets a W-2, which is a different conversation. */}
+      {required !== "W-4" && profile && (
+        <DeliveryConsent consentedOn={profile.e_delivery_consent_on} />
       )}
 
       {mine.length > 0 && (
