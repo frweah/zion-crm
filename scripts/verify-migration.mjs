@@ -1,11 +1,20 @@
 /**
- * Reconciles the loaded data against the source dataset.
+ * Reconciles the migrated data against the source dataset.
  *
  *   node --env-file=.env.local scripts/verify-migration.mjs ../zion-crm-prototype.jsx
  *
  * Counts alone would not catch a column mapped to the wrong field, so this
  * also checks money and hours totals, the stage distribution, the flags the
  * import was told to preserve, and one record field by field.
+ *
+ * Scoped to rows the migration created — every migrated table carries the
+ * original id in legacy_id. Comparing whole-table totals worked exactly once:
+ * the day staff started writing notes, this began reporting corruption that
+ * was really just people doing their jobs. A check that cries wolf as the
+ * system gets used is a check nobody will run.
+ *
+ * What it still catches is what matters: migrated rows being lost, altered, or
+ * mapped to the wrong field.
  *
  * Exits non-zero on any mismatch.
  */
@@ -35,12 +44,14 @@ function check(label, expected, actual) {
   if (!ok) failures.push(label);
 }
 
-check("clients", DATA.clients.length, (await one("select count(*) n from clients")).n);
-check("counselors", DATA.counselors.length, (await one("select count(*) n from counselors")).n);
-check("authorizations", DATA.authorizations.length, (await one("select count(*) n from authorizations")).n);
-check("invoices", DATA.invoices.length, (await one("select count(*) n from invoices")).n);
-check("placements", DATA.placements.length, (await one("select count(*) n from placements")).n);
-check("notes", DATA.notes.length, (await one("select count(*) n from notes")).n);
+const migrated = (table) => one(`select count(*) n from ${table} where legacy_id is not null`);
+
+check("clients", DATA.clients.length, (await migrated("clients")).n);
+check("counselors", DATA.counselors.length, (await migrated("counselors")).n);
+check("authorizations", DATA.authorizations.length, (await migrated("authorizations")).n);
+check("invoices", DATA.invoices.length, (await migrated("invoices")).n);
+check("placements", DATA.placements.length, (await migrated("placements")).n);
+check("notes", DATA.notes.length, (await migrated("notes")).n);
 
 const paid = DATA.invoices.filter((i) => i.status === "Paid").reduce((t, i) => t + i.amount, 0);
 check(
@@ -71,11 +82,30 @@ check(
   DATA.clients.filter((c) => c.status === "Closed").length,
   (await one("select count(*) n from clients where status='Closed'")).n,
 );
-check(
-  "addresses (restricted tier)",
-  DATA.clients.filter((c) => c.address).length,
-  (await one("select count(*) n from client_private where address <> ''")).n,
-);
+// client_private has no legacy_id, so this compares values rather than a
+// count: every address the workbook carried must still be exactly what it was.
+// Addresses added since are none of this check's business.
+{
+  const withAddress = DATA.clients.filter((c) => c.address);
+  const { rows } = await client.query(
+    `select c.legacy_id, cp.address
+       from public.client_private cp
+       join public.clients c on c.id = cp.client_id
+      where c.legacy_id is not null`,
+  );
+  const byLegacy = new Map(rows.map((r) => [r.legacy_id, r.address]));
+  const wrong = withAddress.filter((c) => byLegacy.get(c.id) !== c.address);
+  check(
+    "addresses (restricted tier)",
+    `${withAddress.length} intact`,
+    `${withAddress.length - wrong.length} intact`,
+  );
+  if (wrong.length) {
+    for (const c of wrong.slice(0, 3)) {
+      console.log(`        ${c.id}: expected "${c.address}", found "${byLegacy.get(c.id) ?? "(missing)"}"`);
+    }
+  }
+}
 
 const srcStages = {};
 for (const c of DATA.clients) srcStages[c.stage] = (srcStages[c.stage] ?? 0) + 1;
