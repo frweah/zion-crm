@@ -121,11 +121,12 @@ declare
   v_rei    uuid;
   v_marg   uuid;
   r        record;
-  n_mine   int;
-  n_theirs int;
-  n_rates  int;
-  n_type   int;
-  failures text[] := '{}';
+  n_mine         int;
+  n_theirs       int;
+  n_rates        int;
+  n_others_rates int;
+  n_type         int;
+  failures       text[] := '{}';
 begin
   select id into v_rei  from public.staff where legacy_id = 's2';
   select id into v_marg from public.staff where legacy_id = 's3';
@@ -147,24 +148,32 @@ begin
 
     select count(*) into n_mine   from public.work_sessions where staff_id = r.id;
     select count(*) into n_theirs from public.work_sessions where staff_id <> r.id;
-    select count(*) into n_rates  from public.staff_pay;
+    select count(*) into n_rates  from public.staff_pay where staff_id = r.id;
+    select count(*) into n_others_rates from public.staff_pay where staff_id <> r.id;
     select count(*) into n_type   from public.staff_employment;
 
     perform set_config('role', 'postgres', true);
     perform set_config('request.jwt.claims', '', true);
 
-    raise notice '  % (%): own sessions=% others=% pay rows visible=% employment rows=%',
-      r.name, r.role, n_mine, n_theirs, n_rates, n_type;
+    raise notice '  % (%): sessions own=% others=% | pay rows own=% others=% | employment rows=%',
+      r.name, r.role, n_mine, n_theirs, n_rates, n_others_rates, n_type;
 
     if r.role = 'Admin' then
-      if n_rates < 2 then failures := failures || 'Admin should see pay rates'; end if;
+      if n_rates + n_others_rates < 2 then failures := failures || 'Admin should see every pay rate'; end if;
     else
       if n_theirs <> 0 then
         failures := failures || format('LEAK: %s can see another person''s time records', r.name);
       end if;
-      if n_rates <> 0 then
-        failures := failures || format('LEAK: %s can see pay rates', r.name);
+
+      -- A contractor may see their own rate: they agreed it and invoice
+      -- against it. Everybody else's stays private.
+      if n_rates <> 1 then
+        failures := failures || format('%s should see their own pay rate, saw %s', r.name, n_rates);
       end if;
+      if n_others_rates <> 0 then
+        failures := failures || format('LEAK: %s can see someone else''s pay rate', r.name);
+      end if;
+
       if n_type <> 1 then
         failures := failures || format('LEAK: %s sees %s employment rows, should see only their own', r.name, n_type);
       end if;

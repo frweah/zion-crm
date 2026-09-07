@@ -342,6 +342,96 @@ export type Database = {
         };
         Relationships: [];
       };
+      contractor_payments: {
+        Row: {
+          id: string;
+          staff_id: string;
+          statement_id: string | null;
+          paid_on: string;
+          amount: number;
+          method: string;
+          reference: string;
+          note: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          statement_id?: string | null;
+          paid_on: string;
+          amount: number;
+          method?: string;
+          reference?: string;
+          note?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          statement_id?: string | null;
+          paid_on?: string;
+          amount?: number;
+          method?: string;
+          reference?: string;
+          note?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      contractor_profiles: {
+        Row: {
+          staff_id: string;
+          legal_name: string;
+          business_name: string;
+          address_line1: string;
+          address_line2: string;
+          city: string;
+          state: string;
+          postal_code: string;
+          tin_type: string | null;
+          tin_encrypted: string | null;
+          tin_last4: string | null;
+          w9_received_on: string | null;
+          notes: string;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          legal_name?: string;
+          business_name?: string;
+          address_line1?: string;
+          address_line2?: string;
+          city?: string;
+          state?: string;
+          postal_code?: string;
+          tin_type?: string | null;
+          tin_encrypted?: string | null;
+          tin_last4?: string | null;
+          w9_received_on?: string | null;
+          notes?: string;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          legal_name?: string;
+          business_name?: string;
+          address_line1?: string;
+          address_line2?: string;
+          city?: string;
+          state?: string;
+          postal_code?: string;
+          tin_type?: string | null;
+          tin_encrypted?: string | null;
+          tin_last4?: string | null;
+          w9_received_on?: string | null;
+          notes?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       contractor_statements: {
         Row: {
           id: string;
@@ -471,6 +561,96 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      form_1099_recipients: {
+        Row: {
+          id: string;
+          run_id: string;
+          staff_id: string;
+          legal_name: string;
+          business_name: string;
+          address_snapshot: string;
+          tin_type: string | null;
+          tin_last4: string | null;
+          nonemployee_comp: number;
+          corrected: boolean;
+          corrects_id: string | null;
+          delivered_on: string | null;
+          delivery_method: string | null;
+          consent_recorded: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          staff_id: string;
+          legal_name: string;
+          business_name?: string;
+          address_snapshot?: string;
+          tin_type?: string | null;
+          tin_last4?: string | null;
+          nonemployee_comp: number;
+          corrected?: boolean;
+          corrects_id?: string | null;
+          delivered_on?: string | null;
+          delivery_method?: string | null;
+          consent_recorded?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          run_id?: string;
+          staff_id?: string;
+          legal_name?: string;
+          business_name?: string;
+          address_snapshot?: string;
+          tin_type?: string | null;
+          tin_last4?: string | null;
+          nonemployee_comp?: number;
+          corrected?: boolean;
+          corrects_id?: string | null;
+          delivered_on?: string | null;
+          delivery_method?: string | null;
+          consent_recorded?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      form_1099_runs: {
+        Row: {
+          id: string;
+          year: number;
+          threshold: number;
+          state_copy: boolean;
+          generated_at: string;
+          generated_by: string | null;
+          filed_on: string | null;
+          iris_receipt: string;
+          notes: string;
+        };
+        Insert: {
+          id?: string;
+          year: number;
+          threshold: number;
+          state_copy?: boolean;
+          generated_at?: string;
+          generated_by?: string | null;
+          filed_on?: string | null;
+          iris_receipt?: string;
+          notes?: string;
+        };
+        Update: {
+          id?: string;
+          year?: number;
+          threshold?: number;
+          state_copy?: boolean;
+          generated_at?: string;
+          generated_by?: string | null;
+          filed_on?: string | null;
+          iris_receipt?: string;
+          notes?: string;
         };
         Relationships: [];
       };
@@ -1218,6 +1398,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_files: {
+        Row: {
+          id: string;
+          staff_id: string;
+          storage_path: string;
+          filename: string;
+          mime_type: string;
+          size_bytes: number;
+          category: string;
+          note: string;
+          uploaded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          storage_path: string;
+          filename: string;
+          mime_type?: string;
+          size_bytes?: number;
+          category?: string;
+          note?: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          storage_path?: string;
+          filename?: string;
+          mime_type?: string;
+          size_bytes?: number;
+          category?: string;
+          note?: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       staff_pay: {
         Row: {
           id: string;
@@ -1317,6 +1536,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      tax_years: {
+        Row: {
+          year: number;
+          federal_threshold: number | null;
+          utah_state_copy: boolean;
+          confirmed_by: string | null;
+          confirmed_on: string | null;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          year: number;
+          federal_threshold?: number | null;
+          utah_state_copy?: boolean;
+          confirmed_by?: string | null;
+          confirmed_on?: string | null;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          year?: number;
+          federal_threshold?: number | null;
+          utah_state_copy?: boolean;
+          confirmed_by?: string | null;
+          confirmed_on?: string | null;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       work_sessions: {
         Row: {
           id: string;
@@ -1387,6 +1639,16 @@ export type Database = {
         Row: {
           client_id: string | null;
           last_activity_at: string | null;
+        };
+        Relationships: [];
+      };
+      contractor_year_totals: {
+        Row: {
+          staff_id: string | null;
+          year: number | null;
+          total_paid: number | null;
+          payment_count: number | null;
+          last_paid_on: string | null;
         };
         Relationships: [];
       };
