@@ -1122,18 +1122,27 @@ export type Database = {
           pay_period: string;
           period_anchor: string;
           updated_at: string;
+          employer_legal_name: string;
+          employer_address: string;
+          employer_ein: string;
         };
         Insert: {
           id?: boolean;
           pay_period?: string;
           period_anchor?: string;
           updated_at?: string;
+          employer_legal_name?: string;
+          employer_address?: string;
+          employer_ein?: string;
         };
         Update: {
           id?: boolean;
           pay_period?: string;
           period_anchor?: string;
           updated_at?: string;
+          employer_legal_name?: string;
+          employer_address?: string;
+          employer_ein?: string;
         };
         Relationships: [];
       };
@@ -1757,6 +1766,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: number;
       };
+      get_employer_details: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
       get_tax_form_sensitive: {
         Args: { p_form_id: string };
         Returns: string;
@@ -1775,6 +1788,10 @@ export type Database = {
       };
       period_start: {
         Args: { d: string };
+        Returns: string;
+      };
+      set_employer_details: {
+        Args: { p_legal_name: string; p_address: string; p_ein: string };
         Returns: string;
       };
       sign_tax_form: {

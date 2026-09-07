@@ -6,6 +6,11 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // lib/irs-forms.ts imports its shared constants with an explicit .ts
+    // extension so that scripts/check-irs-forms.mjs, which runs under plain
+    // node rather than the Next bundler, can resolve it. Node requires the
+    // extension; the bundler does not mind it.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

@@ -78,6 +78,8 @@ const RPC_FUNCTIONS = [
   "sign_tax_form",
   "get_tax_form_sensitive",
   "form_1099_candidates",
+  "get_employer_details",
+  "set_employer_details",
   "fmt_hours",
 ];
 

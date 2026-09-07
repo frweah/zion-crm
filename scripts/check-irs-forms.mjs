@@ -167,3 +167,121 @@ if (w9Failures.length) {
 console.log("\n--- W-9 FILLS CORRECTLY ---");
 console.log("Open the PDF and confirm each label sits on the line it names,");
 console.log("and that the signature and date sit on the Part II rules.");
+
+// ─────────────────────────────────────────────────────────────
+// Form W-4
+// ─────────────────────────────────────────────────────────────
+const { fillW4, W4_CREDITS } = await import("../lib/irs-forms.ts");
+
+const w4Sample = {
+  firstName: "STEP 1a FIRST NAME",
+  lastName: "STEP 1a LAST NAME",
+  address: "STEP 1a ADDRESS",
+  cityStateZip: "STEP 1a CITY, STATE AND ZIP",
+  ssn: "123456789",
+  filingStatus: "Head of household",
+  multipleJobs: true,
+  qualifyingChildrenAmount: 4400,
+  otherDependentsAmount: 500,
+  otherCreditsAmount: 100,
+  otherIncome: 1111,
+  deductions: 2222,
+  extraWithholding: 3333,
+  employerName: "EMPLOYER NAME AND ADDRESS",
+  employerEin: "987654321",
+  firstDateOfEmployment: "01-05-2026",
+  signerName: "SIGNER NAME",
+  signedOn: "09-07-2026",
+};
+
+const w4 = await fillW4(w4Sample);
+const w4Path = path.join(outDir, "W4-field-check.pdf");
+await writeFile(w4Path, w4.bytes);
+console.log(`\nwrote ${w4Path} (${w4.bytes.length} bytes)`);
+console.log(`sha256 ${w4.sha256}`);
+
+const w4Check = (await PDFDocument.load(w4.bytes, { ignoreEncryption: true })).getForm();
+const w4Prefix = "topmostSubform[0].Page1[0].";
+const w4Failures = [];
+
+const w4Expect = (field, wanted) => {
+  const got = w4Check.getTextField(w4Prefix + field).getText() ?? "";
+  const ok = got === wanted || (wanted.length > got.length && wanted.startsWith(got));
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${field.padEnd(26)} ${JSON.stringify(got)}`);
+  if (!ok) w4Failures.push(`${field}: expected ${JSON.stringify(wanted)}, got ${JSON.stringify(got)}`);
+};
+
+w4Expect("Step1a[0].f1_01[0]", w4Sample.firstName);
+w4Expect("Step1a[0].f1_02[0]", w4Sample.lastName);
+w4Expect("Step1a[0].f1_03[0]", w4Sample.address);
+w4Expect("Step1a[0].f1_04[0]", w4Sample.cityStateZip);
+w4Expect("f1_05[0]", w4Sample.ssn);
+w4Expect("Step3_ReadOrder[0].f1_06[0]", "4,400");
+w4Expect("Step3_ReadOrder[0].f1_07[0]", "500");
+w4Expect("f1_08[0]", "5,000"); // 4,400 + 500 + 100
+w4Expect("f1_09[0]", "1,111");
+w4Expect("f1_10[0]", "2,222");
+w4Expect("f1_11[0]", "3,333");
+w4Expect("f1_12[0]", w4Sample.employerName);
+w4Expect("f1_13[0]", w4Sample.firstDateOfEmployment);
+w4Expect("f1_14[0]", w4Sample.employerEin);
+
+// Head of household, and only that, out of the three in Step 1(c).
+for (let i = 0; i < 3; i++) {
+  const checked = w4Check.getCheckBox(w4Prefix + `c1_1[${i}]`).isChecked();
+  const wanted = i === 2;
+  console.log(`  ${checked === wanted ? "ok  " : "FAIL"} c1_1[${i}] checked=${checked} (want ${wanted})`);
+  if (checked !== wanted) w4Failures.push(`c1_1[${i}]: checked=${checked}, wanted ${wanted}`);
+}
+const mj = w4Check.getCheckBox(w4Prefix + "c1_2[0]").isChecked();
+console.log(`  ${mj ? "ok  " : "FAIL"} c1_2[0] (step 2c) checked=${mj}`);
+if (!mj) w4Failures.push("c1_2[0] was not checked");
+
+// Claiming exemption must empty Steps 2 to 4: the form says to leave them
+// blank, and a withholding instruction on a form claiming exemption is a
+// contradiction that the employer would have to resolve by guessing.
+const exempt = await fillW4({ ...w4Sample, exempt: true });
+const exemptForm = (await PDFDocument.load(exempt.bytes, { ignoreEncryption: true })).getForm();
+const exemptBox = exemptForm.getCheckBox(w4Prefix + "c1_3[0]").isChecked();
+console.log(`  ${exemptBox ? "ok  " : "FAIL"} c1_3[0] (exempt) checked=${exemptBox}`);
+if (!exemptBox) w4Failures.push("the exempt box was not checked");
+
+for (const f of ["f1_08[0]", "f1_09[0]", "f1_10[0]", "f1_11[0]"]) {
+  const got = exemptForm.getTextField(w4Prefix + f).getText() ?? "";
+  console.log(`  ${got === "" ? "ok  " : "FAIL"} ${f} empty when exempt (got ${JSON.stringify(got)})`);
+  if (got !== "") w4Failures.push(`${f} was filled on a form claiming exemption`);
+}
+const exemptMj = exemptForm.getCheckBox(w4Prefix + "c1_2[0]").isChecked();
+console.log(`  ${!exemptMj ? "ok  " : "FAIL"} c1_2[0] unchecked when exempt`);
+if (exemptMj) w4Failures.push("step 2(c) was checked on a form claiming exemption");
+
+// A zero is not a value the IRS wants written; the box stays empty.
+const zeros = await fillW4({
+  ...w4Sample,
+  qualifyingChildrenAmount: 0,
+  otherDependentsAmount: 0,
+  otherCreditsAmount: 0,
+  otherIncome: 0,
+  deductions: 0,
+  extraWithholding: 0,
+});
+const zeroForm = (await PDFDocument.load(zeros.bytes, { ignoreEncryption: true })).getForm();
+for (const f of ["Step3_ReadOrder[0].f1_06[0]", "f1_08[0]", "f1_11[0]"]) {
+  const got = zeroForm.getTextField(w4Prefix + f).getText() ?? "";
+  console.log(`  ${got === "" ? "ok  " : "FAIL"} ${f} empty for a zero (got ${JSON.stringify(got)})`);
+  if (got !== "") w4Failures.push(`${f} printed a zero`);
+}
+
+console.log(`  --  Step 3 figures in use: $${W4_CREDITS.perQualifyingChild} per qualifying child,`);
+console.log(`      $${W4_CREDITS.perOtherDependent} per other dependent, from the ${W4_CREDITS.formYear} form.`);
+console.log("      Check these against the face of the PDF — nothing else will.");
+
+if (w4Failures.length) {
+  console.error(`\n${w4Failures.length} W-4 PROBLEM(S):`);
+  for (const f of w4Failures) console.error(`  - ${f}`);
+  process.exit(1);
+}
+
+console.log("\n--- W-4 FILLS CORRECTLY ---");
+console.log("Open the PDF and confirm each label sits on the line it names,");
+console.log("and that the signature and date sit on the Step 5 rules.");

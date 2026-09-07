@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { W9_CLASSIFICATIONS, type W9Classification } from "@/lib/irs-forms-shared";
+import {
+  W9_CLASSIFICATIONS,
+  W4_FILING_STATUSES,
+  type W9Classification,
+  type W4FilingStatus,
+} from "./irs-forms-shared.ts";
 
 /**
  * Filling the official IRS PDFs.
@@ -142,7 +147,7 @@ export function toIrsDate(iso: string): string {
 // ─────────────────────────────────────────────────────────────
 
 // The list lives in lib/irs-forms-shared.ts so the browser can use it too.
-export { W9_CLASSIFICATIONS, type W9Classification } from "@/lib/irs-forms-shared";
+export { W9_CLASSIFICATIONS, type W9Classification } from "./irs-forms-shared.ts";
 
 export type W9Data = {
   name: string;
@@ -269,3 +274,146 @@ export const W9_LIMITS = {
   ssn: 9,
   ein: 9,
 } as const;
+
+// ─────────────────────────────────────────────────────────────
+// Form W-4 (2026)
+// ─────────────────────────────────────────────────────────────
+
+// The list and the Step 3 figures live in lib/irs-forms-shared.ts so the
+// browser can use them too.
+export {
+  W4_FILING_STATUSES,
+  W4_CREDITS,
+  type W4FilingStatus,
+} from "./irs-forms-shared.ts";
+
+export type W4Data = {
+  firstName: string;
+  lastName: string;
+  address: string;
+  cityStateZip: string;
+  /** Nine digits, no punctuation. */
+  ssn: string;
+  filingStatus: W4FilingStatus;
+  /** Step 2(c): only two jobs in total, and the same box ticked on the other. */
+  multipleJobs?: boolean;
+  /** Step 3, already multiplied out. Whole dollars. */
+  qualifyingChildrenAmount?: number;
+  otherDependentsAmount?: number;
+  otherCreditsAmount?: number;
+  /** Step 4. Whole dollars. */
+  otherIncome?: number;
+  deductions?: number;
+  extraWithholding?: number;
+  /** Claiming exemption from withholding. Steps 2 to 4 stay empty if so. */
+  exempt?: boolean;
+  employerName?: string;
+  employerEin?: string;
+  /** MM-DD-YYYY. */
+  firstDateOfEmployment?: string;
+  signerName: string;
+  /** MM-DD-YYYY. */
+  signedOn: string;
+};
+
+/** Confirmed against the labelled sample. Page 1 of the 2026 Form W-4. */
+const W4_FIELDS = {
+  firstName: "Step1a[0].f1_01[0]",
+  lastName: "Step1a[0].f1_02[0]",
+  address: "Step1a[0].f1_03[0]",
+  cityStateZip: "Step1a[0].f1_04[0]",
+  ssn: "f1_05[0]",
+  qualifyingChildren: "Step3_ReadOrder[0].f1_06[0]",
+  otherDependents: "Step3_ReadOrder[0].f1_07[0]",
+  dependentsTotal: "f1_08[0]",
+  otherIncome: "f1_09[0]",
+  deductions: "f1_10[0]",
+  extraWithholding: "f1_11[0]",
+  employerName: "f1_12[0]",
+  firstDateOfEmployment: "f1_13[0]",
+  employerEin: "f1_14[0]",
+} as const;
+
+/** Step 1(c), indexed the same as W4_FILING_STATUSES. */
+const W4_FILING_BOXES = [0, 1, 2].map((i) => `c1_1[${i}]`);
+const W4_MULTIPLE_JOBS_BOX = "c1_2[0]";
+const W4_EXEMPT_BOX = "c1_3[0]";
+
+const W4_PREFIX = "topmostSubform[0].Page1[0].";
+
+/** Whole dollars, as the form is written. Nothing is printed for a zero. */
+function money(n: number | undefined): string | undefined {
+  if (!n || n <= 0) return undefined;
+  return Math.round(n).toLocaleString("en-US");
+}
+
+export async function fillW4(data: W4Data): Promise<FilledForm> {
+  const source = await readFile(path.join(FORM_DIR, "fw4.pdf"));
+  const doc = await PDFDocument.load(source, { ignoreEncryption: true });
+  const form = doc.getForm();
+  const helvetica = await doc.embedFont(StandardFonts.Helvetica);
+
+  const set = (field: string, value: string | undefined) => {
+    if (!value) return;
+    const f = form.getTextField(W4_PREFIX + field);
+    const max = f.getMaxLength();
+    f.setText(max ? value.slice(0, max) : value);
+    f.updateAppearances(helvetica);
+    f.enableReadOnly();
+  };
+
+  const check = (field: string) => {
+    const box = form.getCheckBox(W4_PREFIX + field);
+    box.check();
+    box.defaultUpdateAppearances();
+    box.enableReadOnly();
+  };
+
+  set(W4_FIELDS.firstName, data.firstName);
+  set(W4_FIELDS.lastName, data.lastName);
+  set(W4_FIELDS.address, data.address);
+  set(W4_FIELDS.cityStateZip, data.cityStateZip);
+  set(W4_FIELDS.ssn, data.ssn.replace(/\D/g, ""));
+
+  const statusIndex = W4_FILING_STATUSES.indexOf(data.filingStatus);
+  if (statusIndex < 0) throw new Error(`Unknown W-4 filing status: ${data.filingStatus}`);
+  check(W4_FILING_BOXES[statusIndex]);
+
+  // Claiming exemption is a claim about the whole year, and the form says to
+  // leave Steps 2 through 4 blank when you make it. Filling both would put a
+  // withholding instruction on a form that says to withhold nothing.
+  if (data.exempt) {
+    check(W4_EXEMPT_BOX);
+  } else {
+    if (data.multipleJobs) check(W4_MULTIPLE_JOBS_BOX);
+
+    const children = data.qualifyingChildrenAmount ?? 0;
+    const dependents = data.otherDependentsAmount ?? 0;
+    const credits = data.otherCreditsAmount ?? 0;
+
+    set(W4_FIELDS.qualifyingChildren, money(children));
+    set(W4_FIELDS.otherDependents, money(dependents));
+    set(W4_FIELDS.dependentsTotal, money(children + dependents + credits));
+
+    set(W4_FIELDS.otherIncome, money(data.otherIncome));
+    set(W4_FIELDS.deductions, money(data.deductions));
+    set(W4_FIELDS.extraWithholding, money(data.extraWithholding));
+  }
+
+  // The employer block. Filled here because a stored W-4 with an empty one is
+  // not the record it is meant to be.
+  set(W4_FIELDS.employerName, data.employerName);
+  set(W4_FIELDS.firstDateOfEmployment, data.firstDateOfEmployment);
+  set(W4_FIELDS.employerEin, data.employerEin?.replace(/\D/g, ""));
+
+  // Step 5 has no fields — the signature and date lines are printed rules —
+  // so both are drawn onto the page above their captions.
+  const page = doc.getPage(0);
+  const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+  page.drawText(`/s/ ${data.signerName}`, { x: 110, y: 92, size: 10, font: italic });
+  page.drawText(data.signedOn, { x: 470, y: 92, size: 10, font: helvetica });
+
+  const bytes = await doc.save();
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  return { bytes, sha256 };
+}
