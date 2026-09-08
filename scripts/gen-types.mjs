@@ -89,6 +89,7 @@ const RPC_FUNCTIONS = [
   "set_microsoft_tokens_for_sync",
   "log_mail_message",
   "log_mail_message_for_sync",
+  "log_shared_mail_message",
   "exclude_mail_thread",
   "get_microsoft_tokens",
   "set_microsoft_error",

@@ -6,6 +6,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 import { money, today, arBuckets, STAGES } from "@/lib/constants";
 import { DashboardTask } from "./dashboard-task";
 import { MicrosoftCard } from "./microsoft-card";
+import { SharedMailboxCard, type SharedMailboxRow } from "./shared-mailbox-card";
 
 export default async function DashboardPage({
   searchParams,
@@ -52,6 +53,14 @@ export default async function DashboardPage({
     .select("last_run_at")
     .eq("staff_id", me.id)
     .maybeSingle();
+
+  const { data: sharedMailboxes } =
+    me.role === "Admin"
+      ? await supabase
+          .from("shared_mailboxes")
+          .select("address, label, last_run_at, last_mail_sync_at, mail_logged, last_error")
+          .order("address")
+      : { data: [] };
 
   const msParams = await searchParams;
 
@@ -105,6 +114,10 @@ export default async function DashboardPage({
         detail={msParams.detail ?? null}
         lastRun={msState?.last_run_at ?? null}
       />
+
+      {me.role === "Admin" && (
+        <SharedMailboxCard mailboxes={(sharedMailboxes ?? []) as SharedMailboxRow[]} />
+      )}
 
       {outstanding.length > 0 && (
         <div className="card" style={{ marginBottom: 18 }}>

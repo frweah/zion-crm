@@ -52,6 +52,23 @@ export const MICROSOFT_SCOPES = [
   "Mail.Read",
 ];
 
+/**
+ * The extra permission for reading the practice's shared mailbox.
+ *
+ * Asked for only by the Admin who connects that mailbox, not by everybody.
+ * Rei and Margaret have no business being asked to consent to reading a
+ * mailbox they will never read, and a permission granted "just in case" is a
+ * permission nobody remembers agreeing to.
+ *
+ * It does not, by itself, open anything: Mail.Read.Shared reaches exactly the
+ * mailboxes Exchange has already given that person access to.
+ */
+export const SHARED_MAILBOX_SCOPE = "Mail.Read.Shared";
+
+export function scopesFor(shared: boolean): string[] {
+  return shared ? [...MICROSOFT_SCOPES, SHARED_MAILBOX_SCOPE] : MICROSOFT_SCOPES;
+}
+
 const AUTH_BASE = (tenant: string) =>
   `https://login.microsoftonline.com/${tenant}/oauth2/v2.0`;
 
@@ -67,13 +84,13 @@ export function pkce(): { verifier: string; challenge: string } {
   return { verifier, challenge };
 }
 
-export function authorizeUrl(state: string, challenge: string): string {
+export function authorizeUrl(state: string, challenge: string, shared = false): string {
   const params = new URLSearchParams({
     client_id: required("MICROSOFT_CLIENT_ID", CLIENT_ID),
     response_type: "code",
     redirect_uri: redirectUri(),
     response_mode: "query",
-    scope: MICROSOFT_SCOPES.join(" "),
+    scope: scopesFor(shared).join(" "),
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",

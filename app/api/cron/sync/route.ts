@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncStaffMember } from "@/lib/sync";
+import { syncStaffMember, syncSharedMailbox } from "@/lib/sync";
 import { sweepAccess } from "@/lib/sync-callers";
+import { ensureFreshToken } from "@/lib/graph";
 
 export const maxDuration = 300;
 
@@ -63,6 +64,61 @@ export async function GET(request: NextRequest) {
           { onConflict: "staff_id" },
         );
       summary.push({ staff_id: staffId, error: message });
+    }
+  }
+
+  // ── shared mailboxes ───────────────────────────────────────
+  // Read with the token of whoever connected each one, because
+  // Mail.Read.Shared is delegated: the sweep reaches exactly as far as
+  // Exchange has let that person reach.
+  const { data: shared } = await admin
+    .from("shared_mailboxes")
+    .select("address, connected_by, last_mail_sync_at")
+    .eq("active", true);
+
+  for (const mailbox of shared ?? []) {
+    if (!mailbox.connected_by) {
+      await admin
+        .from("shared_mailboxes")
+        .update({ last_error: "Nobody is connected to read this mailbox." })
+        .eq("address", mailbox.address);
+      continue;
+    }
+    try {
+      const { tokens } = sweepAccess(admin, mailbox.connected_by);
+      const bundle = await tokens.read();
+      if (!bundle) throw new Error("The person who connected this mailbox is no longer connected.");
+      const token = await ensureFreshToken(bundle, tokens.write);
+
+      const result = await syncSharedMailbox(admin, mailbox, token, async (row) => {
+        const { data, error } = await admin.rpc("log_shared_mail_message", {
+          p_mailbox: row.mailbox,
+          p_client_id: row.clientId,
+          p_counselor_id: row.counselorId,
+          p_message_id: row.messageId,
+          p_conversation_id: row.conversationId,
+          p_subject: row.subject,
+          p_sent_at: row.sentAt,
+          p_direction: row.direction,
+          p_counterpart: row.counterpart,
+          p_web_link: row.webLink,
+        });
+        return { logged: data === true, error: error?.message };
+      });
+
+      summary.push({
+        mailbox: mailbox.address,
+        mail_logged: result.mailLogged,
+        skipped_no_match: result.skippedNoMatch,
+        errors: result.errors,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "unknown error";
+      await admin
+        .from("shared_mailboxes")
+        .update({ last_run_at: new Date().toISOString(), last_error: message.slice(0, 500) })
+        .eq("address", mailbox.address);
+      summary.push({ mailbox: mailbox.address, error: message });
     }
   }
 

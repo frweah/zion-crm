@@ -271,3 +271,122 @@ export async function syncStaffMember(
 
   return result;
 }
+
+/**
+ * One shared mailbox.
+ *
+ * Read with an Admin's own token under Mail.Read.Shared, so this reaches
+ * exactly as far as Exchange has let that person reach and no further. The
+ * matching rules are the same as for a personal mailbox, because they are the
+ * point rather than an implementation detail: subject, date, direction and a
+ * link, only where an address is already on a client or counselor record, and
+ * nothing at all otherwise.
+ */
+export async function syncSharedMailbox(
+  supabase: SupabaseClient<Database>,
+  mailbox: { address: string; last_mail_sync_at: string | null },
+  token: string,
+  writeMail: (row: MailRow & { mailbox: string }) => Promise<{ logged: boolean; error?: string }>,
+): Promise<SyncResult> {
+  const result: SyncResult = { mailLogged: 0, eventsPulled: 0, skippedNoMatch: 0, errors: [] };
+
+  const [{ data: clients }, { data: counselors }, { data: exclusions }] = await Promise.all([
+    supabase.from("clients").select("id, email"),
+    supabase.from("counselors").select("id, email"),
+    supabase.from("mail_exclusions").select("conversation_id"),
+  ]);
+
+  const clientByEmail = new Map<string, string>();
+  for (const c of clients ?? []) {
+    if (c.email) clientByEmail.set(c.email.toLowerCase().trim(), c.id);
+  }
+  const counselorByEmail = new Map<string, string>();
+  for (const c of counselors ?? []) {
+    if (c.email) counselorByEmail.set(c.email.toLowerCase().trim(), c.id);
+  }
+  const excluded = new Set((exclusions ?? []).map((e) => e.conversation_id));
+
+  const since = mailbox.last_mail_sync_at
+    ? new Date(mailbox.last_mail_sync_at)
+    : new Date(Date.now() - FIRST_RUN_DAYS * 86400000);
+
+  let watermark: string | null = null;
+
+  try {
+    const page = await listMessagesSince(token, since, 5, mailbox.address);
+
+    for (const message of page.messages) {
+      const conversationId = message.conversationId ?? "";
+      if (conversationId && excluded.has(conversationId)) continue;
+
+      const addresses = addressesOf(message);
+      let clientId: string | null = null;
+      let counselorId: string | null = null;
+      let counterpart = "";
+
+      for (const address of addresses) {
+        // The mailbox's own address is not a counterpart to itself.
+        if (address === mailbox.address.toLowerCase()) continue;
+        const c = clientByEmail.get(address);
+        if (c) {
+          clientId = c;
+          counterpart = address;
+          break;
+        }
+        const k = counselorByEmail.get(address);
+        if (k && !counselorId) {
+          counselorId = k;
+          counterpart = address;
+        }
+      }
+
+      if (!clientId && !counselorId) {
+        result.skippedNoMatch += 1;
+        if (message.receivedDateTime) watermark = message.receivedDateTime;
+        continue;
+      }
+
+      const fromAddress = message.from?.emailAddress?.address?.toLowerCase() ?? "";
+      const direction = fromAddress === counterpart ? "Incoming" : "Outgoing";
+      const sentAt = message.receivedDateTime ?? message.sentDateTime;
+      if (!sentAt) continue;
+      watermark = sentAt;
+
+      const written = await writeMail({
+        mailbox: mailbox.address,
+        clientId,
+        counselorId: clientId ? null : counselorId,
+        messageId: message.id,
+        conversationId,
+        subject: (message.subject ?? "(no subject)").slice(0, 500),
+        sentAt: new Date(sentAt).toISOString(),
+        direction,
+        counterpart,
+        webLink: message.webLink ?? "",
+      });
+
+      if (written.error) result.errors.push(`Mail: ${written.error}`);
+      else if (written.logged) result.mailLogged += 1;
+    }
+
+    if (page.truncated) {
+      result.errors.push(
+        "There was more mail than one run reads. The rest will be picked up on the next sync.",
+      );
+    }
+  } catch (err) {
+    result.errors.push(err instanceof Error ? err.message : "Shared mailbox sync failed.");
+  }
+
+  await supabase
+    .from("shared_mailboxes")
+    .update({
+      last_run_at: new Date().toISOString(),
+      last_mail_sync_at: watermark ?? mailbox.last_mail_sync_at ?? new Date().toISOString(),
+      mail_logged: result.mailLogged,
+      last_error: result.errors.join("; ").slice(0, 500),
+    })
+    .eq("address", mailbox.address);
+
+  return result;
+}

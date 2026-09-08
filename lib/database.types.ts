@@ -1158,7 +1158,7 @@ export type Database = {
       mail_log: {
         Row: {
           id: string;
-          staff_id: string;
+          staff_id: string | null;
           client_id: string | null;
           counselor_id: string | null;
           graph_message_id: string;
@@ -1169,10 +1169,12 @@ export type Database = {
           counterpart_email: string;
           web_link: string;
           created_at: string;
+          mailbox_address: string;
+          mailbox_key: string | null;
         };
         Insert: {
           id?: string;
-          staff_id: string;
+          staff_id?: string | null;
           client_id?: string | null;
           counselor_id?: string | null;
           graph_message_id: string;
@@ -1183,10 +1185,12 @@ export type Database = {
           counterpart_email: string;
           web_link?: string;
           created_at?: string;
+          mailbox_address?: string;
+          mailbox_key?: string | null;
         };
         Update: {
           id?: string;
-          staff_id?: string;
+          staff_id?: string | null;
           client_id?: string | null;
           counselor_id?: string | null;
           graph_message_id?: string;
@@ -1197,6 +1201,8 @@ export type Database = {
           counterpart_email?: string;
           web_link?: string;
           created_at?: string;
+          mailbox_address?: string;
+          mailbox_key?: string | null;
         };
         Relationships: [];
       };
@@ -1569,6 +1575,45 @@ export type Database = {
           secondary_code?: string;
           staff_id?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      shared_mailboxes: {
+        Row: {
+          address: string;
+          label: string;
+          connected_by: string | null;
+          active: boolean;
+          last_mail_sync_at: string | null;
+          last_run_at: string | null;
+          mail_logged: number;
+          last_error: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          address: string;
+          label?: string;
+          connected_by?: string | null;
+          active?: boolean;
+          last_mail_sync_at?: string | null;
+          last_run_at?: string | null;
+          mail_logged?: number;
+          last_error?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          address?: string;
+          label?: string;
+          connected_by?: string | null;
+          active?: boolean;
+          last_mail_sync_at?: string | null;
+          last_run_at?: string | null;
+          mail_logged?: number;
+          last_error?: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -2156,6 +2201,10 @@ export type Database = {
       };
       log_mail_message_for_sync: {
         Args: { p_staff_id: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
+        Returns: boolean;
+      };
+      log_shared_mail_message: {
+        Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
       };
       pay_rate_on: {

@@ -227,7 +227,15 @@ export async function listMessagesSince(
   token: string,
   since: Date,
   maxPages = 5,
+  /**
+   * Whose mailbox. Omitted, it is the signed-in person's own. Given an
+   * address, it is a shared mailbox read under Mail.Read.Shared — which works
+   * only because Exchange has granted that person access to it, so the reach
+   * of this is decided by an Exchange administrator rather than by us.
+   */
+  mailbox?: string,
 ): Promise<{ messages: GraphMessage[]; truncated: boolean }> {
+  const root = mailbox ? `/users/${encodeURIComponent(mailbox)}` : "/me";
   const params = new URLSearchParams({
     $select: "id,conversationId,subject,receivedDateTime,sentDateTime,webLink,from,toRecipients,ccRecipients",
     $filter: `receivedDateTime ge ${since.toISOString()}`,
@@ -236,7 +244,7 @@ export async function listMessagesSince(
   });
 
   const messages: GraphMessage[] = [];
-  let next: string | null = `/me/messages?${params}`;
+  let next: string | null = `${root}/messages?${params}`;
   let pages = 0;
 
   while (next && pages < maxPages) {
