@@ -47,6 +47,12 @@ export default async function DashboardPage({
     .eq("staff_id", me.id)
     .maybeSingle();
 
+  const { data: msState } = await supabase
+    .from("microsoft_sync_state")
+    .select("last_run_at")
+    .eq("staff_id", me.id)
+    .maybeSingle();
+
   const msParams = await searchParams;
 
   const outstanding = (myChecklist ?? []).filter(
@@ -97,6 +103,7 @@ export default async function DashboardPage({
         connection={msConnection}
         notice={msParams.microsoft ?? null}
         detail={msParams.detail ?? null}
+        lastRun={msState?.last_run_at ?? null}
       />
 
       {outstanding.length > 0 && (

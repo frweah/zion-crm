@@ -117,6 +117,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      calendar_events: {
+        Row: {
+          id: string;
+          client_id: string | null;
+          staff_id: string;
+          kind: string;
+          title: string;
+          starts_at: string;
+          ends_at: string;
+          location: string;
+          note: string;
+          origin: string;
+          outlook_event_id: string | null;
+          outlook_web_link: string | null;
+          push_state: string;
+          push_error: string;
+          hours_prompt_answered_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id?: string | null;
+          staff_id: string;
+          kind?: string;
+          title: string;
+          starts_at: string;
+          ends_at: string;
+          location?: string;
+          note?: string;
+          origin?: string;
+          outlook_event_id?: string | null;
+          outlook_web_link?: string | null;
+          push_state?: string;
+          push_error?: string;
+          hours_prompt_answered_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string | null;
+          staff_id?: string;
+          kind?: string;
+          title?: string;
+          starts_at?: string;
+          ends_at?: string;
+          location?: string;
+          note?: string;
+          origin?: string;
+          outlook_event_id?: string | null;
+          outlook_web_link?: string | null;
+          push_state?: string;
+          push_error?: string;
+          hours_prompt_answered_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       checklist_tasks: {
         Row: {
           id: string;
@@ -1071,6 +1134,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      mail_exclusions: {
+        Row: {
+          conversation_id: string;
+          excluded_by: string | null;
+          excluded_at: string;
+          reason: string;
+        };
+        Insert: {
+          conversation_id: string;
+          excluded_by?: string | null;
+          excluded_at?: string;
+          reason?: string;
+        };
+        Update: {
+          conversation_id?: string;
+          excluded_by?: string | null;
+          excluded_at?: string;
+          reason?: string;
+        };
+        Relationships: [];
+      };
+      mail_log: {
+        Row: {
+          id: string;
+          staff_id: string;
+          client_id: string | null;
+          counselor_id: string | null;
+          graph_message_id: string;
+          conversation_id: string;
+          subject: string;
+          sent_at: string;
+          direction: string;
+          counterpart_email: string;
+          web_link: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          client_id?: string | null;
+          counselor_id?: string | null;
+          graph_message_id: string;
+          conversation_id?: string;
+          subject?: string;
+          sent_at: string;
+          direction: string;
+          counterpart_email: string;
+          web_link?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          client_id?: string | null;
+          counselor_id?: string | null;
+          graph_message_id?: string;
+          conversation_id?: string;
+          subject?: string;
+          sent_at?: string;
+          direction?: string;
+          counterpart_email?: string;
+          web_link?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       microsoft_connections: {
         Row: {
           staff_id: string;
@@ -1111,6 +1240,39 @@ export type Database = {
           access_expires_at?: string | null;
           connected_at?: string;
           last_refreshed_at?: string | null;
+          last_error?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      microsoft_sync_state: {
+        Row: {
+          staff_id: string;
+          last_run_at: string | null;
+          last_mail_sync_at: string | null;
+          last_calendar_sync_at: string | null;
+          mail_logged: number;
+          events_pulled: number;
+          last_error: string;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          last_run_at?: string | null;
+          last_mail_sync_at?: string | null;
+          last_calendar_sync_at?: string | null;
+          mail_logged?: number;
+          events_pulled?: number;
+          last_error?: string;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          last_run_at?: string | null;
+          last_mail_sync_at?: string | null;
+          last_calendar_sync_at?: string | null;
+          mail_logged?: number;
+          events_pulled?: number;
           last_error?: string;
           updated_at?: string;
         };
@@ -1940,6 +2102,10 @@ export type Database = {
         Args: { p_id: string | null };
         Returns: string;
       };
+      exclude_mail_thread: {
+        Args: { p_conversation_id: string | null; p_reason: string | null };
+        Returns: string;
+      };
       fmt_hours: {
         Args: { n: number | null };
         Returns: string;
@@ -1968,6 +2134,10 @@ export type Database = {
         Args: { p_staff_id: string | null };
         Returns: string;
       };
+      get_microsoft_tokens_for_sync: {
+        Args: { p_staff_id: string | null };
+        Returns: string;
+      };
       get_tax_form_sensitive: {
         Args: { p_form_id: string | null };
         Returns: string;
@@ -1978,6 +2148,14 @@ export type Database = {
       };
       is_admin: {
         Args: Record<string, never>;
+        Returns: boolean;
+      };
+      log_mail_message: {
+        Args: { p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
+        Returns: boolean;
+      };
+      log_mail_message_for_sync: {
+        Args: { p_staff_id: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
       };
       pay_rate_on: {
@@ -1994,6 +2172,10 @@ export type Database = {
       };
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
+        Returns: string;
+      };
+      refresh_microsoft_tokens: {
+        Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: string;
       };
       set_checklist_item: {
@@ -2018,6 +2200,10 @@ export type Database = {
       };
       set_microsoft_tokens: {
         Args: { p_microsoft_user_id: string | null; p_email: string | null; p_display_name: string | null; p_scopes: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
+        Returns: string;
+      };
+      set_microsoft_tokens_for_sync: {
+        Args: { p_staff_id: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: string;
       };
       set_staff_pay: {

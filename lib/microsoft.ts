@@ -29,15 +29,28 @@ function required(name: string, value: string | undefined): string {
 /**
  * The permissions asked for.
  *
- * Deliberately the minimum that proves a connection works. Calendar and mail
- * scopes are added when the sync that needs them is built, not before —
- * consent granted early is consent nobody remembers giving, and Mail.Send in
- * particular lets this system send email as the person who granted it.
+ * Exactly what the sync does and nothing more.
+ *
+ * Calendars.ReadWrite because events are pushed as well as read.
+ *
+ * Mail.Read, not Mail.ReadWrite and emphatically not Mail.Send. The CRM logs
+ * correspondence and never composes it — everything this system sends still
+ * goes through Resend, under its own identity, where it can be seen. Asking
+ * for Mail.Send would let it send as the person who consented, which is not a
+ * power anybody asked for and not one worth holding unused.
  *
  * offline_access is what makes a refresh token possible; without it the
  * connection would silently stop working in about an hour.
  */
-export const MICROSOFT_SCOPES = ["offline_access", "openid", "profile", "email", "User.Read"];
+export const MICROSOFT_SCOPES = [
+  "offline_access",
+  "openid",
+  "profile",
+  "email",
+  "User.Read",
+  "Calendars.ReadWrite",
+  "Mail.Read",
+];
 
 const AUTH_BASE = (tenant: string) =>
   `https://login.microsoftonline.com/${tenant}/oauth2/v2.0`;

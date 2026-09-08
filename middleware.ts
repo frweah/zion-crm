@@ -22,6 +22,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * is a better failure than the alternative.
  */
 const PUBLIC_PATHS = ["/login", "/auth", "/no-access", "/api/cron", "/api/health"];
+// /api/cron already covers the sync sweep — it arrives with a shared secret
+// and no session, because there is nobody signed in at three in the morning.
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -2,8 +2,25 @@
 
 import { useActionState } from "react";
 import { disconnectMicrosoft, type MicrosoftState } from "./microsoft-actions";
+import { syncNow, type SyncState } from "./sync-actions";
 
 const initial: MicrosoftState = { error: null, ok: null };
+const syncInitial: SyncState = { error: null, ok: null };
+
+function SyncNow() {
+  const [state, action, pending] = useActionState(syncNow, syncInitial);
+  return (
+    <>
+      {state.error && <div className="alert bad">{state.error}</div>}
+      {state.ok && <div className="alert ok">{state.ok}</div>}
+      <form action={action} style={{ display: "inline" }}>
+        <button className="btn" type="submit" disabled={pending}>
+          {pending ? "Syncing…" : "Sync now"}
+        </button>
+      </form>{" "}
+    </>
+  );
+}
 
 /**
  * Connecting a Microsoft account.
@@ -16,6 +33,7 @@ export function MicrosoftCard({
   connection,
   notice,
   detail,
+  lastRun,
 }: {
   connection: {
     microsoft_email: string;
@@ -25,6 +43,7 @@ export function MicrosoftCard({
   } | null;
   notice: string | null;
   detail: string | null;
+  lastRun: string | null;
 }) {
   const [state, action, pending] = useActionState(disconnectMicrosoft, initial);
 
@@ -66,11 +85,17 @@ export function MicrosoftCard({
               The connection stopped working: {connection.last_error}. Disconnect and connect again.
             </div>
           )}
-          <form action={action}>
+          <SyncNow />
+          <form action={action} style={{ display: "inline" }}>
             <button className="btn ghost" type="submit" disabled={pending}>
               {pending ? "Disconnecting…" : "Disconnect"}
             </button>
           </form>
+          {lastRun && (
+            <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
+              Last synced {new Date(lastRun).toLocaleString()}. It also runs overnight on its own.
+            </p>
+          )}
           <p className="lock" style={{ marginBottom: 0 }}>
             Disconnecting removes the stored permission from this system. It does not change
             anything in your Microsoft account, and you can connect again whenever you like.

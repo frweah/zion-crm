@@ -17,6 +17,7 @@ import { FilesTab, type AttachmentRow } from "./files-tab";
 import { templatesForService } from "@/lib/form-templates";
 import { PlacementsTab, type PlacementRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
+import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { money, periodRange, today, CAN_EDIT_BILLING } from "@/lib/constants";
 
@@ -30,6 +31,7 @@ const TABS = [
   { key: "report", label: "Report", built: true },
   { key: "placements", label: "Placements", built: true },
   { key: "tasks", label: "Tasks", built: true },
+  { key: "calendar", label: "Calendar & mail", built: true },
   { key: "authorizations", label: "Authorizations", built: true, billing: true },
   { key: "payments", label: "Payments", built: true, billing: true },
 ];
@@ -148,6 +150,37 @@ export default async function ClientPage({
       <>
         {header}
         <NotesTab clientId={id} notes={(data ?? []) as NoteRow[]} myName={me.name} />
+      </>
+    );
+  }
+
+  if (tab === "calendar") {
+    const [eventsResult, mailResult] = await Promise.all([
+      supabase
+        .from("calendar_events")
+        .select(
+          "id, kind, title, starts_at, ends_at, location, origin, outlook_web_link, push_state, push_error, hours_prompt_answered_at, staff_id",
+        )
+        .eq("client_id", id)
+        .order("starts_at", { ascending: false }),
+      supabase
+        .from("mail_log")
+        .select("id, subject, sent_at, direction, counterpart_email, web_link, conversation_id")
+        .eq("client_id", id)
+        .order("sent_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    return (
+      <>
+        {header}
+        <CalendarTab
+          clientId={id}
+          events={(eventsResult.data ?? []) as EventRow[]}
+          mail={(mailResult.data ?? []) as MailRow[]}
+          myId={me.id}
+          now={new Date().toISOString()}
+        />
       </>
     );
   }
