@@ -164,12 +164,23 @@ export async function syncStaffMember(
   }
 
   // ── mail: log what matches somebody we know ────────────────
+  // Declared out here because the state write below needs them: the watermark
+  // is how far this run actually got, and it is only honest if it survives the
+  // block that computed it.
+  let watermark: string | null = null;
+  let truncated = false;
+
   try {
     const since = state?.last_mail_sync_at
       ? new Date(state.last_mail_sync_at)
       : new Date(Date.now() - FIRST_RUN_DAYS * 86400000);
 
-    const messages = await listMessagesSince(token, since);
+    // The watermark advances only as far as the sweep actually looked. A run
+    // that stops at the page cap leaves it on the last message it read, so the
+    // next one carries on rather than skipping whatever was behind it.
+    const page = await listMessagesSince(token, since);
+    const messages = page.messages;
+    truncated = page.truncated;
 
     for (const message of messages) {
       const conversationId = message.conversationId ?? "";
@@ -199,7 +210,10 @@ export async function syncStaffMember(
       // the mailbox out of the CRM entirely: not stored and hidden, not
       // stored at all.
       if (!clientId && !counselorId) {
+        // Looked at and deliberately not kept. The watermark still moves: not
+        // storing a message is not a reason to read it again tomorrow.
         result.skippedNoMatch += 1;
+        if (message.receivedDateTime) watermark = message.receivedDateTime;
         continue;
       }
 
@@ -207,6 +221,7 @@ export async function syncStaffMember(
       const direction = fromAddress === counterpart ? "Incoming" : "Outgoing";
       const sentAt = message.receivedDateTime ?? message.sentDateTime;
       if (!sentAt) continue;
+      watermark = sentAt;
 
       const written = await writeMail({
         clientId,
@@ -232,12 +247,20 @@ export async function syncStaffMember(
     result.errors.push(err instanceof Error ? err.message : "Mail sync failed.");
   }
 
+  if (truncated) {
+    result.errors.push(
+      "There was more mail than one run reads. The rest will be picked up on the next sync.",
+    );
+  }
+
   const now = new Date().toISOString();
   await supabase.from("microsoft_sync_state").upsert(
     {
       staff_id: staffId,
       last_run_at: now,
-      last_mail_sync_at: now,
+      // Where the sweep got to, not the wall clock. Setting this to now after a
+      // capped run would step over every message the run never read.
+      last_mail_sync_at: watermark ?? now,
       last_calendar_sync_at: now,
       mail_logged: result.mailLogged,
       events_pulled: result.eventsPulled,

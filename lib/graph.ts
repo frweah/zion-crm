@@ -210,20 +210,43 @@ export type GraphMessage = {
   ccRecipients?: { emailAddress?: { address?: string } }[];
 };
 
+/**
+ * Messages since a watermark, oldest first.
+ *
+ * Oldest first is the whole point. A newest-first page walks backwards from
+ * now, so a mailbox with more messages than one page holds would have its
+ * older mail cut off — and because the watermark then moves to the present,
+ * that mail would never be looked at again. Working forwards means a run that
+ * hits the cap simply leaves the watermark where it got to, and the next run
+ * carries on from there.
+ *
+ * Several pages per run, so a backlog clears over a few nights rather than
+ * one page at a time.
+ */
 export async function listMessagesSince(
   token: string,
   since: Date,
-  limit = 200,
-): Promise<GraphMessage[]> {
+  maxPages = 5,
+): Promise<{ messages: GraphMessage[]; truncated: boolean }> {
   const params = new URLSearchParams({
     $select: "id,conversationId,subject,receivedDateTime,sentDateTime,webLink,from,toRecipients,ccRecipients",
     $filter: `receivedDateTime ge ${since.toISOString()}`,
-    $top: String(Math.min(limit, 200)),
-    $orderby: "receivedDateTime desc",
+    $top: "200",
+    $orderby: "receivedDateTime asc",
   });
 
-  const data = await graph<{ value: GraphMessage[] }>(token, `/me/messages?${params}`);
-  return data.value ?? [];
+  const messages: GraphMessage[] = [];
+  let next: string | null = `/me/messages?${params}`;
+  let pages = 0;
+
+  while (next && pages < maxPages) {
+    const data: { value?: GraphMessage[]; "@odata.nextLink"?: string } = await graph(token, next);
+    messages.push(...(data.value ?? []));
+    next = data["@odata.nextLink"] ?? null;
+    pages += 1;
+  }
+
+  return { messages, truncated: Boolean(next) };
 }
 
 /** Every address on a message, lower-cased, for matching. */
