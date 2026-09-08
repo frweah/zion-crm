@@ -66,7 +66,7 @@ begin
   -- ── an unconfirmed figure stops everything ─────────────────
   begin
     perform public.generate_1099_run(v_year);
-    failures := failures || 'FAILED: a run was built on an unconfirmed threshold';
+    failures := failures || 'FAILED: a run was built on an unconfirmed threshold'::text;
   exception when check_violation then
     raise notice 'ok  no run is built on a threshold nobody has confirmed';
   end;
@@ -78,7 +78,7 @@ begin
   update public.contractor_profiles set address_line1 = '' where staff_id = v_rei;
   begin
     perform public.generate_1099_run(v_year);
-    failures := failures || 'FAILED: a run was built with an incomplete recipient';
+    failures := failures || 'FAILED: a run was built with an incomplete recipient'::text;
   exception when check_violation then
     -- The refusal names the person on the roster, not the legal name typed on
     -- the profile: it is Admin who has to act on it, and Admin knows them by
@@ -102,7 +102,7 @@ begin
   end if;
 
   if exists (select 1 from public.form_1099_recipients where run_id = v_run and staff_id = v_marg) then
-    failures := failures || 'FAILED: the foreign person is on the run';
+    failures := failures || 'FAILED: the foreign person is on the run'::text;
   else
     raise notice 'ok  the foreign person is not on the run, despite the larger payment';
   end if;
@@ -120,14 +120,14 @@ begin
   -- ── the snapshot does not follow later edits ───────────────
   update public.contractor_profiles set legal_name = 'ZZ Renamed Later' where staff_id = v_rei;
   if (select legal_name from public.form_1099_recipients where id = v_rec) <> 'ZZ Verify Person' then
-    failures := failures || 'FAILED: renaming the profile rewrote what was filed';
+    failures := failures || 'FAILED: renaming the profile rewrote what was filed'::text;
   else
     raise notice 'ok  editing a profile does not rewrite a filed run';
   end if;
 
   begin
     update public.form_1099_recipients set nonemployee_comp = 1 where id = v_rec;
-    failures := failures || 'FAILED: a filed amount was edited';
+    failures := failures || 'FAILED: a filed amount was edited'::text;
   exception when check_violation then
     raise notice 'ok  a filed amount cannot be edited, only corrected';
   end;
@@ -135,21 +135,21 @@ begin
   -- ── electronic delivery needs consent ──────────────────────
   begin
     perform public.record_1099_delivery(v_rec, 'Email', current_date);
-    failures := failures || 'FAILED: an electronic delivery was recorded without consent';
+    failures := failures || 'FAILED: an electronic delivery was recorded without consent'::text;
   exception when check_violation then
     raise notice 'ok  electronic delivery without consent is refused';
   end;
 
   perform public.record_1099_delivery(v_rec, 'Post', current_date);
   if (select delivery_method from public.form_1099_recipients where id = v_rec) <> 'Post' then
-    failures := failures || 'FAILED: posting the copy was not recorded';
+    failures := failures || 'FAILED: posting the copy was not recorded'::text;
   else
     raise notice 'ok  posting the copy is always allowed and is recorded';
   end if;
 
   begin
     perform public.record_1099_delivery(v_rec, 'Post', current_date + 1);
-    failures := failures || 'FAILED: a copy was delivered in the future';
+    failures := failures || 'FAILED: a copy was delivered in the future'::text;
   exception when check_violation then
     raise notice 'ok  a copy cannot be delivered in the future';
   end;
@@ -164,14 +164,14 @@ begin
 
   begin
     perform public.generate_1099_run(v_year);
-    failures := failures || 'FAILED: a contractor generated a 1099 run';
+    failures := failures || 'FAILED: a contractor generated a 1099 run'::text;
   exception when insufficient_privilege then
     raise notice 'ok  only Admin can generate a run';
   end;
 
   begin
     perform public.record_1099_delivery(v_rec, 'Post', current_date);
-    failures := failures || 'FAILED: a contractor recorded their own delivery';
+    failures := failures || 'FAILED: a contractor recorded their own delivery'::text;
   exception when insufficient_privilege then
     raise notice 'ok  only Admin can record delivery';
   end;
@@ -179,7 +179,7 @@ begin
   perform public.set_e_delivery_consent(true);
   if (select e_delivery_consent_on from public.contractor_profiles where staff_id = v_rei)
      is distinct from current_date then
-    failures := failures || 'FAILED: the contractor could not record their own consent';
+    failures := failures || 'FAILED: the contractor could not record their own consent'::text;
   else
     raise notice 'ok  a contractor records their own consent';
   end if;
@@ -187,7 +187,7 @@ begin
   perform public.set_e_delivery_consent(false);
   if (select e_delivery_consent_on from public.contractor_profiles where staff_id = v_rei)
      is not null then
-    failures := failures || 'FAILED: consent could not be withdrawn';
+    failures := failures || 'FAILED: consent could not be withdrawn'::text;
   else
     raise notice 'ok  consent can be withdrawn as easily as it was given';
   end if;

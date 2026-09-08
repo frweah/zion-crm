@@ -67,18 +67,15 @@ export default async function HoursPage({
         .select("id, staff_id, period_start, period_end, status, submitted_at")
         .order("period_start", { ascending: false }),
       supabase.from("staff").select("id, name"),
-      supabase.from("work_sessions").select("statement_id, hours, voided"),
+      // The totals view prices the work; summing hours here would be a second
+      // answer to the same question, and the two would drift.
+      supabase
+        .from("contractor_statement_totals")
+        .select("statement_id, total_hours, total_amount, unpriced_hours, rate_unit, adjustment, adjustment_note"),
     ]);
 
     const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
-    const hoursByStatement = new Map<string, number>();
-    for (const s of sessionsResult.data ?? []) {
-      if (s.voided || !s.statement_id) continue;
-      hoursByStatement.set(
-        s.statement_id,
-        (hoursByStatement.get(s.statement_id) ?? 0) + Number(s.hours),
-      );
-    }
+    const totals = new Map((sessionsResult.data ?? []).map((t) => [t.statement_id, t]));
 
     const statements = statementsResult.data ?? [];
     const waiting = statements.filter((s) => s.status === "Submitted");
@@ -95,6 +92,7 @@ export default async function HoursPage({
               <tr>
                 <th>Who</th>
                 <th>Hours</th>
+                <th>Comes to</th>
                 <th>Status</th>
                 <th />
               </tr>
@@ -102,7 +100,7 @@ export default async function HoursPage({
             <tbody>
               {statements.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="empty">
+                  <td colSpan={5} className="empty">
                     No statements yet.
                   </td>
                 </tr>
@@ -116,7 +114,12 @@ export default async function HoursPage({
                     period_start: s.period_start,
                     period_end: s.period_end,
                     status: s.status,
-                    total_hours: hoursByStatement.get(s.id) ?? 0,
+                    total_hours: Number(totals.get(s.id)?.total_hours ?? 0),
+                    total_amount: Number(totals.get(s.id)?.total_amount ?? 0),
+                    unpriced_hours: Number(totals.get(s.id)?.unpriced_hours ?? 0),
+                    rate_unit: totals.get(s.id)?.rate_unit ?? null,
+                    adjustment: Number(totals.get(s.id)?.adjustment ?? 0),
+                    adjustment_note: totals.get(s.id)?.adjustment_note ?? "",
                     submitted_at: s.submitted_at,
                   }}
                 />
@@ -133,7 +136,8 @@ export default async function HoursPage({
   }
 
   // ── Everyone: my own hours for the period ────────────────────
-  const [sessionsResult, statementResult, clientsResult, staffResult] = await Promise.all([
+  const [sessionsResult, statementResult, totalsResult, clientsResult, staffResult] =
+    await Promise.all([
     supabase
       .from("work_sessions")
       .select(
@@ -145,6 +149,12 @@ export default async function HoursPage({
     supabase
       .from("contractor_statements")
       .select("id, status, return_note")
+      .eq("staff_id", me.id)
+      .eq("period_start", periodStart)
+      .maybeSingle(),
+    supabase
+      .from("contractor_statement_totals")
+      .select("total_amount, unpriced_hours, rate_unit, period_rate")
       .eq("staff_id", me.id)
       .eq("period_start", periodStart)
       .maybeSingle(),
@@ -175,6 +185,11 @@ export default async function HoursPage({
   const statement = statementResult.data;
   const locked = statement?.status === "Approved";
 
+  // No rate on file is not the same as a period worth nothing, so it shows as
+  // no figure rather than as zero.
+  const totals = totalsResult.data;
+  const totalAmount = totals?.period_rate == null ? null : Number(totals.total_amount);
+
   // Previous and next period, so someone can catch up on a missed week.
   const shift = (days: number) => {
     const d = new Date(periodStart + "T00:00:00");
@@ -204,6 +219,9 @@ export default async function HoursPage({
         periodStart={periodStart}
         periodEnd={periodEnd}
         totalHours={totalHours}
+        totalAmount={totalAmount}
+        unpricedHours={Number(totals?.unpriced_hours ?? 0)}
+        rateUnit={totals?.rate_unit ?? null}
         status={statement?.status ?? null}
         returnNote={statement?.return_note ?? ""}
       />

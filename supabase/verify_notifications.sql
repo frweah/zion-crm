@@ -103,35 +103,35 @@ begin
   if not exists (select 1 from public.notifications
                   where kind = 'auth_exhausted' and level = 'bad'
                     and text like '%ZZ-EXHAUSTED%' and resolved_at is null) then
-    failures := failures || 'auth_exhausted did not fire';
+    failures := failures || 'auth_exhausted did not fire'::text;
   end if;
 
   if not exists (select 1 from public.notifications
                   where kind = 'auth_low' and text like '%ZZ-LOW%' and resolved_at is null) then
-    failures := failures || 'auth_low did not fire';
+    failures := failures || 'auth_low did not fire'::text;
   end if;
 
   if not exists (select 1 from public.notifications
                   where kind = 'auth_ending' and text like '%ZZ-ENDING%' and resolved_at is null) then
-    failures := failures || 'auth_ending did not fire';
+    failures := failures || 'auth_ending did not fire'::text;
   end if;
 
   if not exists (select 1 from public.notifications
                   where kind = 'invoice_unpaid' and level = 'bad'
                     and text like '%ZZ-INV-95%' and resolved_at is null) then
-    failures := failures || 'invoice_unpaid did not fire at 90+ days as level bad';
+    failures := failures || 'invoice_unpaid did not fire at 90+ days as level bad'::text;
   end if;
 
   if not exists (select 1 from public.notifications
                   where kind = 'task_overdue' and text like '%ZZ overdue task%'
                     and resolved_at is null) then
-    failures := failures || 'task_overdue did not fire';
+    failures := failures || 'task_overdue did not fire'::text;
   end if;
 
   if not exists (select 1 from public.notifications
                   where kind = 'followup_due' and text like '%ZZ chase authorization%'
                     and resolved_at is null) then
-    failures := failures || 'followup_due did not fire';
+    failures := failures || 'followup_due did not fire'::text;
   end if;
 
   -- The monthly reminder only applies up to the 15th, which is the rule.
@@ -139,7 +139,7 @@ begin
     if not exists (select 1 from public.notifications
                     where kind = 'monthly_forms' and text like '%ZZ Notify Client%'
                       and resolved_at is null) then
-      failures := failures || 'monthly_forms did not fire before the 15th';
+      failures := failures || 'monthly_forms did not fire before the 15th'::text;
     end if;
   else
     raise notice 'past the 15th — the monthly USOR reminder is out of season, not checked';
@@ -149,7 +149,7 @@ begin
   if exists (select 1 from public.notifications
               where kind = 'task_overdue' and text like '%ZZ overdue task%'
                 and 'Billing' = any (roles)) then
-    failures := failures || 'LEAK: an overdue Job Search task was addressed to Billing';
+    failures := failures || 'LEAK: an overdue Job Search task was addressed to Billing'::text;
   end if;
 
   if array_length(failures, 1) is not null then

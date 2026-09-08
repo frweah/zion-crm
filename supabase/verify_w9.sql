@@ -65,9 +65,9 @@ begin
     from public.contractor_profiles where staff_id = v_rei;
 
   if v_cipher is null then
-    failures := failures || 'FAILED: signing a W-9 left the profile with no TIN';
+    failures := failures || 'FAILED: signing a W-9 left the profile with no TIN'::text;
   elsif encode(v_cipher, 'escape') like '%123456789%' then
-    failures := failures || 'FAILED: the TIN is readable in the profile column';
+    failures := failures || 'FAILED: the TIN is readable in the profile column'::text;
   else
     raise notice 'ok  the TIN reached the profile as ciphertext';
   end if;
@@ -85,21 +85,21 @@ begin
   end if;
 
   if v_when is null then
-    failures := failures || 'FAILED: w9_received_on was not set by signing';
+    failures := failures || 'FAILED: w9_received_on was not set by signing'::text;
   else
     raise notice 'ok  the profile shows the W-9 as received';
   end if;
 
   if (select tax_status from public.contractor_profiles where staff_id = v_rei)
      <> 'US person' then
-    failures := failures || 'FAILED: signing a W-9 did not set the tax status to US person';
+    failures := failures || 'FAILED: signing a W-9 did not set the tax status to US person'::text;
   else
     raise notice 'ok  signing a W-9 sets the tax status to US person';
   end if;
 
   if (select w8ben_received_on from public.contractor_profiles where staff_id = v_rei)
      is not null then
-    failures := failures || 'FAILED: a stale W-8BEN date survived the W-9';
+    failures := failures || 'FAILED: a stale W-8BEN date survived the W-9'::text;
   else
     raise notice 'ok  the W-8BEN date is cleared, so no form claims to be current twice';
   end if;
@@ -123,7 +123,7 @@ begin
     update public.tax_form_submissions
        set data = '{"name":"someone else"}'::jsonb
      where id = v_form;
-    failures := failures || 'FAILED: a signed W-9 was edited';
+    failures := failures || 'FAILED: a signed W-9 was edited'::text;
   exception when check_violation then
     raise notice 'ok  a signed W-9 cannot be edited';
   end;
@@ -164,7 +164,7 @@ begin
                      json_build_object('sub', v_rei_uid, 'role', 'authenticated')::text, true);
   begin
     perform public.get_contractor_tin(v_rei);
-    failures := failures || 'FAILED: a contractor read their own TIN back in the clear';
+    failures := failures || 'FAILED: a contractor read their own TIN back in the clear'::text;
   exception when insufficient_privilege then
     raise notice 'ok  not even the person who signed can read the number back';
   end;

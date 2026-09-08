@@ -499,6 +499,10 @@ export type Database = {
           return_note: string;
           created_at: string;
           updated_at: string;
+          adjustment: number;
+          adjustment_note: string;
+          approved_hours: number | null;
+          approved_amount: number | null;
         };
         Insert: {
           id?: string;
@@ -512,6 +516,10 @@ export type Database = {
           return_note?: string;
           created_at?: string;
           updated_at?: string;
+          adjustment?: number;
+          adjustment_note?: string;
+          approved_hours?: number | null;
+          approved_amount?: number | null;
         };
         Update: {
           id?: string;
@@ -525,6 +533,10 @@ export type Database = {
           return_note?: string;
           created_at?: string;
           updated_at?: string;
+          adjustment?: number;
+          adjustment_note?: string;
+          approved_hours?: number | null;
+          approved_amount?: number | null;
         };
         Relationships: [];
       };
@@ -1789,6 +1801,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      contractor_statement_totals: {
+        Row: {
+          statement_id: string | null;
+          staff_id: string | null;
+          period_start: string | null;
+          period_end: string | null;
+          status: string | null;
+          adjustment: number | null;
+          adjustment_note: string | null;
+          hours: number | null;
+          unpriced_hours: number | null;
+          rate_unit: string | null;
+          period_rate: number | null;
+          computed_amount: number | null;
+          approved_hours: number | null;
+          approved_amount: number | null;
+          total_hours: number | null;
+          total_amount: number | null;
+        };
+        Relationships: [];
+      };
       contractor_year_totals: {
         Row: {
           staff_id: string | null;
@@ -1826,6 +1859,21 @@ export type Database = {
           period_end: string | null;
           total_hours: number | null;
           session_count: number | null;
+        };
+        Relationships: [];
+      };
+      work_session_values: {
+        Row: {
+          id: string | null;
+          staff_id: string | null;
+          worked_on: string | null;
+          hours: number | null;
+          description: string | null;
+          client_id: string | null;
+          statement_id: string | null;
+          pay_rate: number | null;
+          rate_unit: string | null;
+          amount: number | null;
         };
         Relationships: [];
       };

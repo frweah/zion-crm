@@ -36,14 +36,14 @@ begin
   begin
     insert into public.contractor_payments (staff_id, paid_on, amount)
     values (v_rei, make_date(v_year, 3, 1), 100);
-    failures := failures || 'FAILED: a contractor recorded a payment to themselves';
+    failures := failures || 'FAILED: a contractor recorded a payment to themselves'::text;
   exception when insufficient_privilege then
     raise notice 'ok  a contractor cannot record a payment';
   end;
 
   begin
     insert into public.tax_years (year, federal_threshold) values (v_year, 1);
-    failures := failures || 'FAILED: a contractor set a tax year threshold';
+    failures := failures || 'FAILED: a contractor set a tax year threshold'::text;
   exception when insufficient_privilege then
     raise notice 'ok  a contractor cannot set a tax year threshold';
   end;
@@ -52,7 +52,7 @@ begin
     update public.contractor_profiles set legal_name = 'ZZ Not Allowed' where staff_id = v_rei;
     get diagnostics v_count = row_count;
     if v_count > 0 then
-      failures := failures || 'FAILED: a contractor edited their own 1099 details';
+      failures := failures || 'FAILED: a contractor edited their own 1099 details'::text;
     else
       raise notice 'ok  a contractor cannot edit their own 1099 details';
     end if;
@@ -99,7 +99,7 @@ begin
   begin
     insert into public.contractor_payments (staff_id, paid_on, amount, created_by)
     values (v_rei, make_date(v_year, 5, 1), 0, v_admin);
-    failures := failures || 'FAILED: a zero payment was recorded';
+    failures := failures || 'FAILED: a zero payment was recorded'::text;
   exception when check_violation then
     raise notice 'ok  a payment of zero or less is refused';
   end;
@@ -118,7 +118,7 @@ begin
   on conflict (year) do update set federal_threshold = null, confirmed_on = null;
 
   if exists (select 1 from public.form_1099_candidates(v_year)) then
-    failures := failures || 'FAILED: a 1099 run was built with no threshold set';
+    failures := failures || 'FAILED: a 1099 run was built with no threshold set'::text;
   else
     raise notice 'ok  no threshold means no 1099 run, rather than a guessed one';
   end if;
@@ -136,14 +136,14 @@ begin
   end if;
 
   if exists (select 1 from public.form_1099_candidates(v_year) where staff_id = v_marg) then
-    failures := failures || 'FAILED: a foreign person appeared in the 1099 run';
+    failures := failures || 'FAILED: a foreign person appeared in the 1099 run'::text;
   else
     raise notice 'ok  the foreign person is excluded, despite being paid the most';
   end if;
 
   if not exists (select 1 from public.form_1099_candidates(v_year)
                   where staff_id = v_rei and ready and problem is null) then
-    failures := failures || 'FAILED: a complete profile was not marked ready';
+    failures := failures || 'FAILED: a complete profile was not marked ready'::text;
   else
     raise notice 'ok  a profile with a TIN, a W-9 and an address is ready to file';
   end if;
@@ -152,7 +152,7 @@ begin
   update public.contractor_profiles set address_line1 = '' where staff_id = v_rei;
   if not exists (select 1 from public.form_1099_candidates(v_year)
                   where staff_id = v_rei and not ready and problem like '%no address%') then
-    failures := failures || 'FAILED: a profile with no address was still marked ready';
+    failures := failures || 'FAILED: a profile with no address was still marked ready'::text;
   else
     raise notice 'ok  a missing address blocks the filing and names itself';
   end if;
@@ -163,7 +163,7 @@ begin
     update public.contractor_profiles
        set tax_status = 'Foreign person'
      where staff_id = v_rei;   -- w9_received_on is still set
-    failures := failures || 'FAILED: a profile holds a W-9 and claims to be a foreign person';
+    failures := failures || 'FAILED: a profile holds a W-9 and claims to be a foreign person'::text;
   exception when check_violation then
     raise notice 'ok  a profile cannot claim a W-9 and foreign status at once';
   end;
@@ -183,7 +183,7 @@ begin
 
   -- Below the threshold now, so no longer on the list.
   if exists (select 1 from public.form_1099_candidates(v_year) where staff_id = v_rei) then
-    failures := failures || 'FAILED: someone under the threshold is still in the run';
+    failures := failures || 'FAILED: someone under the threshold is still in the run'::text;
   else
     raise notice 'ok  falling under the threshold takes them out of the run';
   end if;

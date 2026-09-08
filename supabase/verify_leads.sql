@@ -53,21 +53,21 @@ begin
   if not exists (select 1 from public.notes
                   where client_id = v_client and type = 'Application submitted'
                     and text like 'Applied for%') then
-    failures := failures || 'Applied did not write an "Application submitted" note';
+    failures := failures || 'Applied did not write an "Application submitted" note'::text;
   end if;
 
   update public.lead_matches set status = 'Interview' where id = v_match;
   if not exists (select 1 from public.notes
                   where client_id = v_client and type = 'Interview'
                     and text like 'Interview for%') then
-    failures := failures || 'Interview did not write an "Interview" note';
+    failures := failures || 'Interview did not write an "Interview" note'::text;
   end if;
 
   update public.lead_matches set status = 'Hired' where id = v_match;
   if not exists (select 1 from public.notes
                   where client_id = v_client and type = 'Employer contact'
                     and text like 'Hired for%') then
-    failures := failures || 'Hired did not write an "Employer contact" note';
+    failures := failures || 'Hired did not write an "Employer contact" note'::text;
   end if;
 
   select count(*) into n_notes from public.notes where client_id = v_client;
@@ -86,7 +86,7 @@ begin
   select count(*) into n_notes from public.notes where client_id = v_client;
   update public.lead_matches set notes = 'edited a typo' where id = v_match;
   if (select count(*) from public.notes where client_id = v_client) <> n_notes then
-    failures := failures || 'editing a match without changing status wrote a spurious note';
+    failures := failures || 'editing a match without changing status wrote a spurious note'::text;
   end if;
   raise notice 'editing without a status change wrote no note';
 
@@ -96,12 +96,12 @@ begin
      where client_id = v_client
        and type in ('Job search', 'Application submitted', 'Interview', 'Employer contact')
   ) then
-    failures := failures || 'no note carries a type USOR 96 autofill reads';
+    failures := failures || 'no note carries a type USOR 96 autofill reads'::text;
   end if;
 
   -- 5. And the per-client history view reflects it.
   if (select count(*) from public.client_job_history where client_id = v_client) <> 1 then
-    failures := failures || 'client_job_history does not show the match';
+    failures := failures || 'client_job_history does not show the match'::text;
   end if;
 
   if array_length(failures, 1) is not null then

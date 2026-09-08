@@ -25,7 +25,7 @@ begin
 
   -- ── the key is in Vault, not in the schema ─────────────────
   if not exists (select 1 from vault.secrets where name = 'zion_tin_key') then
-    failures := failures || 'the TIN encryption key is not in Vault';
+    failures := failures || 'the TIN encryption key is not in Vault'::text;
   else
     raise notice 'ok  the encryption key is held in Vault';
   end if;
@@ -33,7 +33,7 @@ begin
   -- ── nobody unauthenticated can write one ───────────────────
   begin
     perform public.set_contractor_tin(v_rei, '123-45-6789', 'SSN');
-    failures := failures || 'FAILED: a TIN was recorded with no signed-in Admin';
+    failures := failures || 'FAILED: a TIN was recorded with no signed-in Admin'::text;
   exception when insufficient_privilege then
     raise notice 'ok  recording a TIN requires a signed-in Admin';
   end;
@@ -63,9 +63,9 @@ begin
     from public.contractor_profiles where staff_id = v_rei;
 
   if v_cipher is null then
-    failures := failures || 'FAILED: nothing was stored';
+    failures := failures || 'FAILED: nothing was stored'::text;
   elsif position('123456789' in encode(v_cipher, 'escape')) > 0 then
-    failures := failures || 'FAILED: the TIN is readable inside the stored value';
+    failures := failures || 'FAILED: the TIN is readable inside the stored value'::text;
   else
     raise notice 'ok  the stored value is ciphertext, not the number';
   end if;
@@ -85,7 +85,7 @@ begin
   begin
     v_tin := public.get_contractor_tin(v_rei);
     perform set_config('role', 'postgres', true);
-    failures := failures || 'LEAK: a contractor read a TIN back out';
+    failures := failures || 'LEAK: a contractor read a TIN back out'::text;
   exception when insufficient_privilege then
     perform set_config('role', 'postgres', true);
     raise notice 'ok  a contractor cannot read a TIN, not even their own';
@@ -196,14 +196,14 @@ begin
   -- The candidate list includes the US person and not the foreign one.
   select count(*) into n_cand from public.form_1099_candidates(yr) where staff_id = v_us;
   if n_cand <> 1 then
-    failures := failures || 'the US contractor is missing from the 1099 candidates';
+    failures := failures || 'the US contractor is missing from the 1099 candidates'::text;
   else
     raise notice 'ok  a US contractor over the threshold is on the list';
   end if;
 
   select count(*) into n_cand from public.form_1099_candidates(yr) where staff_id = v_rei;
   if n_cand <> 0 then
-    failures := failures || 'LEAK: a foreign person appears in the 1099 candidates';
+    failures := failures || 'LEAK: a foreign person appears in the 1099 candidates'::text;
   else
     raise notice 'ok  a foreign person paid $5,000 is not on the list';
   end if;
@@ -216,7 +216,7 @@ begin
     insert into public.form_1099_recipients
       (run_id, staff_id, legal_name, nonemployee_comp)
     values (v_run, v_rei, 'Rei Ruzzel', 5000.00);
-    failures := failures || 'FAILED: a foreign person was added to a 1099 run';
+    failures := failures || 'FAILED: a foreign person was added to a 1099 run'::text;
   exception when check_violation then
     raise notice 'ok  a foreign person cannot be added to a run by hand';
   end;
@@ -238,7 +238,7 @@ begin
   -- A US person must not carry W-8BEN dates, and vice versa.
   begin
     update public.contractor_profiles set w8ben_received_on = current_date where staff_id = v_us;
-    failures := failures || 'FAILED: a US person was given a W-8BEN date';
+    failures := failures || 'FAILED: a US person was given a W-8BEN date'::text;
   exception when check_violation then
     raise notice 'ok  a US person cannot carry a W-8BEN date';
   end;
@@ -286,7 +286,7 @@ begin
     raise notice '  % (%): file bytes=% metadata row=%', r.name, r.role, n_bytes, n_meta;
 
     if r.role = 'Admin' then
-      if n_bytes <> 1 then failures := failures || 'Admin cannot open staff paperwork'; end if;
+      if n_bytes <> 1 then failures := failures || 'Admin cannot open staff paperwork'::text; end if;
     else
       if n_bytes <> 0 then
         failures := failures || format('LEAK: %s can fetch staff paperwork bytes', r.name);

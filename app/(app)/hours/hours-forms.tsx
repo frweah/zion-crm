@@ -202,12 +202,18 @@ export function SubmitStatement({
   periodStart,
   periodEnd,
   totalHours,
+  totalAmount,
+  unpricedHours,
+  rateUnit,
   status,
   returnNote,
 }: {
   periodStart: string;
   periodEnd: string;
   totalHours: number;
+  totalAmount: number | null;
+  unpricedHours: number;
+  rateUnit: string | null;
   status: string | null;
   returnNote: string;
 }) {
@@ -224,6 +230,24 @@ export function SubmitStatement({
             {totalHours} hours logged
             {status && ` · statement ${status.toLowerCase()}`}
           </p>
+          {totalAmount !== null && (
+            <p className="sub" style={{ margin: "4px 0 0", fontWeight: 600 }}>
+              Comes to{" "}
+              {totalAmount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+              {rateUnit === "Flat" && " — flat for the period"}
+            </p>
+          )}
+          {unpricedHours > 0 && (
+            <p className="lock" style={{ margin: "4px 0 0" }}>
+              {unpricedHours} of those hours fall on days with no rate on file, so they are not in
+              the figure above. Ask the administrator.
+            </p>
+          )}
+          {totalAmount === null && (
+            <p className="lock" style={{ margin: "4px 0 0" }}>
+              No rate is on file yet, so this period has no figure. Your hours are still recorded.
+            </p>
+          )}
         </div>
 
         {status === "Approved" ? (
@@ -262,6 +286,11 @@ export function ApprovalRow({
     period_end: string;
     status: string;
     total_hours: number;
+    total_amount: number;
+    unpriced_hours: number;
+    rate_unit: string | null;
+    adjustment: number;
+    adjustment_note: string;
     submitted_at: string | null;
   };
 }) {
@@ -282,7 +311,31 @@ export function ApprovalRow({
           </div>
         )}
       </td>
-      <td>{statement.total_hours} hrs</td>
+      <td>
+        {statement.total_hours} hrs
+        {statement.unpriced_hours > 0 && (
+          <div className="lock">{statement.unpriced_hours} on days with no rate</div>
+        )}
+      </td>
+      <td>
+        {statement.rate_unit === null && statement.total_amount === 0 ? (
+          <span className="lock">no rate on file</span>
+        ) : (
+          <b>
+            {statement.total_amount.toLocaleString("en-US", {
+              style: "currency",
+              currency: "USD",
+            })}
+          </b>
+        )}
+        {statement.rate_unit === "Flat" && <div className="lock">flat for the period</div>}
+        {statement.adjustment !== 0 && (
+          <div className="lock">
+            includes {statement.adjustment > 0 ? "+" : ""}
+            {statement.adjustment.toFixed(2)} — {statement.adjustment_note}
+          </div>
+        )}
+      </td>
       <td>
         <span
           className={

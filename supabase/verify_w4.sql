@@ -38,13 +38,13 @@ begin
                      json_build_object('sub', v_rei_uid, 'role', 'authenticated')::text, true);
   begin
     perform public.set_employer_details('ZZ Not Allowed', 'nowhere', '111111111');
-    failures := failures || 'FAILED: a contractor set the employer details';
+    failures := failures || 'FAILED: a contractor set the employer details'::text;
   exception when insufficient_privilege then
     raise notice 'ok  only Admin can set the employer details';
   end;
   begin
     perform public.get_employer_details();
-    failures := failures || 'FAILED: a contractor read the employer details';
+    failures := failures || 'FAILED: a contractor read the employer details'::text;
   exception when insufficient_privilege then
     raise notice 'ok  only Admin can read the employer details';
   end;
@@ -58,7 +58,7 @@ begin
 
   begin
     perform public.set_employer_details('ZZ Test Practice', '1 Test Way', '12345');
-    failures := failures || 'FAILED: a five-digit EIN was accepted';
+    failures := failures || 'FAILED: a five-digit EIN was accepted'::text;
   exception when check_violation then
     raise notice 'ok  a wrong-length EIN is refused before it reaches a form';
   end;
@@ -76,7 +76,7 @@ begin
   perform public.set_employer_details('ZZ Test Practice', '2 Other Way', '');
   select ein into v_ein from public.get_employer_details();
   if v_ein <> '987654321' then
-    failures := failures || 'FAILED: saving with a blank EIN wiped the stored one';
+    failures := failures || 'FAILED: saving with a blank EIN wiped the stored one'::text;
   else
     raise notice 'ok  a blank EIN leaves the stored one alone';
   end if;
@@ -119,7 +119,7 @@ begin
     select 1 from public.tax_form_submissions
      where id = v_form and encode(sensitive_encrypted, 'escape') like '%123456789%'
   ) then
-    failures := failures || 'FAILED: the SSN is readable in the stored payload';
+    failures := failures || 'FAILED: the SSN is readable in the stored payload'::text;
   else
     raise notice 'ok  the SSN is held as ciphertext';
   end if;
@@ -130,14 +130,14 @@ begin
   -- them into the 1099 run they have no business being in.
   if coalesce((select tax_status from public.contractor_profiles where staff_id = v_rei), '')
      is distinct from coalesce(v_before, '') then
-    failures := failures || 'FAILED: signing a W-4 changed the contractor tax status';
+    failures := failures || 'FAILED: signing a W-4 changed the contractor tax status'::text;
   else
     raise notice 'ok  signing a W-4 leaves contractor tax status untouched';
   end if;
 
   if exists (select 1 from public.form_1099_candidates(extract(year from current_date)::int)
               where staff_id = v_rei) then
-    failures := failures || 'FAILED: signing a W-4 put the person into the 1099 run';
+    failures := failures || 'FAILED: signing a W-4 put the person into the 1099 run'::text;
   else
     raise notice 'ok  a W-4 does not put anyone into a 1099 run';
   end if;
@@ -147,7 +147,7 @@ begin
     update public.tax_form_submissions
        set data = '{"firstName":"someone else"}'::jsonb
      where id = v_form;
-    failures := failures || 'FAILED: a signed W-4 was edited';
+    failures := failures || 'FAILED: a signed W-4 was edited'::text;
   exception when check_violation then
     raise notice 'ok  a signed W-4 cannot be edited';
   end;
@@ -158,7 +158,7 @@ begin
                      json_build_object('sub', v_rei_uid, 'role', 'authenticated')::text, true);
   begin
     perform public.get_tax_form_sensitive(v_form);
-    failures := failures || 'FAILED: the signer read their own SSN back in the clear';
+    failures := failures || 'FAILED: the signer read their own SSN back in the clear'::text;
   exception when insufficient_privilege then
     raise notice 'ok  not even the person who signed can read the SSN back';
   end;

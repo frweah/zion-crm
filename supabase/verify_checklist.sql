@@ -39,7 +39,7 @@ begin
 
   begin
     perform public.set_checklist_item(v_rei, v_auto, true, 'not true');
-    failures := failures || 'FAILED: an automatic item was ticked by hand';
+    failures := failures || 'FAILED: an automatic item was ticked by hand'::text;
   exception when check_violation then
     raise notice 'ok  an automatic item cannot be ticked, even by Admin';
   end;
@@ -47,7 +47,7 @@ begin
   -- ── it turns true when the fact turns true ─────────────────
   if (select auto_done from public.staff_checklist
        where staff_id = v_rei and task_id = v_auto) then
-    failures := failures || 'FAILED: the tax form item was already done';
+    failures := failures || 'FAILED: the tax form item was already done'::text;
   else
     raise notice 'ok  the tax form item starts undone, because no form is signed';
   end if;
@@ -61,7 +61,7 @@ begin
 
   if (select auto_done from public.staff_checklist
        where staff_id = v_rei and task_id = v_auto) then
-    failures := failures || 'FAILED: an unsigned draft counted as a signed form';
+    failures := failures || 'FAILED: an unsigned draft counted as a signed form'::text;
   else
     raise notice 'ok  a draft does not count — only a signed form does';
   end if;
@@ -72,7 +72,7 @@ begin
 
   if not (select auto_done from public.staff_checklist
            where staff_id = v_rei and task_id = v_auto) then
-    failures := failures || 'FAILED: signing the form did not complete the item';
+    failures := failures || 'FAILED: signing the form did not complete the item'::text;
   else
     raise notice 'ok  signing the form completes the item, with nobody ticking anything';
   end if;
@@ -82,7 +82,7 @@ begin
    where staff_id = v_rei;
   if (select auto_done from public.staff_checklist
        where staff_id = v_rei and task_id = v_auto) then
-    failures := failures || 'FAILED: a W-8BEN counted for somebody who now owes a W-9';
+    failures := failures || 'FAILED: a W-8BEN counted for somebody who now owes a W-9'::text;
   else
     raise notice 'ok  the item follows the form required, not any form signed';
   end if;
@@ -91,7 +91,7 @@ begin
   perform public.set_checklist_item(v_rei, v_manual, true, 'checked with them');
   if (select done_on from public.staff_checklist
        where staff_id = v_rei and task_id = v_manual) is null then
-    failures := failures || 'FAILED: a manual item could not be ticked';
+    failures := failures || 'FAILED: a manual item could not be ticked'::text;
   else
     raise notice 'ok  a manual item can be ticked, and records who and when';
   end if;
@@ -99,7 +99,7 @@ begin
   perform public.set_checklist_item(v_rei, v_manual, false, '');
   if (select done_on from public.staff_checklist
        where staff_id = v_rei and task_id = v_manual) is not null then
-    failures := failures || 'FAILED: a manual item could not be unticked';
+    failures := failures || 'FAILED: a manual item could not be unticked'::text;
   else
     raise notice 'ok  a manual item can be unticked, because people get it wrong';
   end if;
@@ -107,7 +107,7 @@ begin
   -- ── the owner is not onboarded by anybody ──────────────────
   if exists (select 1 from public.staff_checklist
               where staff_id = v_admin and auto_key = 'tax_form_signed') then
-    failures := failures || 'FAILED: the owner is being asked for a W-9';
+    failures := failures || 'FAILED: the owner is being asked for a W-9'::text;
   else
     raise notice 'ok  the owner is not asked to file a form with themselves';
   end if;
@@ -128,14 +128,14 @@ begin
   end if;
 
   if exists (select 1 from public.staff_checklist where staff_id = v_marg) then
-    failures := failures || 'FAILED: a colleague''s checklist was visible';
+    failures := failures || 'FAILED: a colleague''s checklist was visible'::text;
   else
     raise notice 'ok  a colleague''s checklist is not visible, right or wrong';
   end if;
 
   begin
     perform public.set_checklist_item(v_rei, v_manual, true, 'signing myself off');
-    failures := failures || 'FAILED: a contractor ticked their own checklist';
+    failures := failures || 'FAILED: a contractor ticked their own checklist'::text;
   exception when insufficient_privilege then
     raise notice 'ok  nobody signs off their own checklist';
   end;
@@ -144,7 +144,7 @@ begin
   select count(*) into v_count from public.staff_activity(
     make_date(2020, 1, 1), make_date(2035, 12, 31));
   if v_count = 0 then
-    failures := failures || 'FAILED: the staff report returned nothing to a contractor';
+    failures := failures || 'FAILED: the staff report returned nothing to a contractor'::text;
   else
     raise notice 'ok  a contractor gets a staff report';
   end if;

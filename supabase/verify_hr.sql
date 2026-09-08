@@ -31,14 +31,14 @@ begin
 
   begin
     update public.work_sessions set hours = 9 where id = v_session;
-    failures := failures || 'FAILED: a time record was edited in place';
+    failures := failures || 'FAILED: a time record was edited in place'::text;
   exception when check_violation then
     raise notice 'ok  a logged session cannot be edited';
   end;
 
   begin
     update public.work_sessions set worked_on = current_date - 3 where id = v_session;
-    failures := failures || 'FAILED: the date on a time record was rewritten';
+    failures := failures || 'FAILED: the date on a time record was rewritten'::text;
   exception when check_violation then
     raise notice 'ok  the date on a session cannot be rewritten';
   end;
@@ -51,14 +51,14 @@ begin
   returning id into v_correct;
 
   if not (select voided from public.work_sessions where id = v_session) then
-    failures := failures || 'FAILED: the corrected session was not superseded';
+    failures := failures || 'FAILED: the corrected session was not superseded'::text;
   else
     raise notice 'ok  the corrected session is superseded and stops counting';
   end if;
 
   -- The original is still there to read — that is the point of an audit trail.
   if not exists (select 1 from public.work_sessions where id = v_session) then
-    failures := failures || 'FAILED: correcting deleted the original instead of superseding it';
+    failures := failures || 'FAILED: correcting deleted the original instead of superseding it'::text;
   else
     raise notice 'ok  the original entry is still on file, with the reason recorded';
   end if;
@@ -76,7 +76,7 @@ begin
     insert into public.work_sessions
       (staff_id, worked_on, hours, description, created_by, corrects_id)
     values (v_rei, current_date, 1, 'ZZ no reason given', v_rei, v_correct);
-    failures := failures || 'FAILED: a correction was accepted with no reason';
+    failures := failures || 'FAILED: a correction was accepted with no reason'::text;
   exception when check_violation then
     raise notice 'ok  a correction without a reason is refused';
   end;
@@ -93,7 +93,7 @@ begin
     insert into public.work_sessions
       (staff_id, worked_on, hours, description, created_by, statement_id)
     values (v_rei, current_date, 2, 'ZZ late addition', v_rei, v_stmt);
-    failures := failures || 'FAILED: hours were added to an approved statement';
+    failures := failures || 'FAILED: hours were added to an approved statement'::text;
   exception when check_violation then
     raise notice 'ok  nothing can be added to an approved statement';
   end;
@@ -102,7 +102,7 @@ begin
     insert into public.work_sessions
       (staff_id, worked_on, hours, description, created_by, corrects_id, correction_reason)
     values (v_rei, current_date, 1, 'ZZ retro change', v_rei, v_correct, 'changed my mind');
-    failures := failures || 'FAILED: hours on an approved statement were corrected away';
+    failures := failures || 'FAILED: hours on an approved statement were corrected away'::text;
   exception when check_violation then
     raise notice 'ok  approved hours cannot be corrected without reopening the statement';
   end;
@@ -123,6 +123,7 @@ declare
   r        record;
   n_mine         int;
   n_theirs       int;
+  n_expected      int;
   n_rates        int;
   n_others_rates int;
   n_type         int;
@@ -142,6 +143,12 @@ begin
       from public.staff s join auth.users u on u.id = s.user_id
      where s.active order by s.legacy_id
   loop
+    -- What they should see is every rate of their own, whatever that number is
+    -- today. Asserting a literal 1 was fine while the table was empty and broke
+    -- the moment a real rate was entered — the count is not the property being
+    -- tested, the privacy is.
+    select count(*) into n_expected from public.staff_pay where staff_id = r.id;
+
     perform set_config('role', 'authenticated', true);
     perform set_config('request.jwt.claims',
                        json_build_object('sub', r.uid, 'role', 'authenticated')::text, true);
@@ -159,7 +166,7 @@ begin
       r.name, r.role, n_mine, n_theirs, n_rates, n_others_rates, n_type;
 
     if r.role = 'Admin' then
-      if n_rates + n_others_rates < 2 then failures := failures || 'Admin should see every pay rate'; end if;
+      if n_rates + n_others_rates < 2 then failures := failures || 'Admin should see every pay rate'::text; end if;
     else
       if n_theirs <> 0 then
         failures := failures || format('LEAK: %s can see another person''s time records', r.name);
@@ -167,8 +174,9 @@ begin
 
       -- A contractor may see their own rate: they agreed it and invoice
       -- against it. Everybody else's stays private.
-      if n_rates <> 1 then
-        failures := failures || format('%s should see their own pay rate, saw %s', r.name, n_rates);
+      if n_rates <> n_expected then
+        failures := failures || format('%s should see all %s of their own pay rates, saw %s',
+                                      r.name, n_expected, n_rates);
       end if;
       if n_others_rates <> 0 then
         failures := failures || format('LEAK: %s can see someone else''s pay rate', r.name);
