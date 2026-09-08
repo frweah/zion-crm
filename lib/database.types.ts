@@ -1071,6 +1071,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      microsoft_connections: {
+        Row: {
+          staff_id: string;
+          microsoft_user_id: string;
+          microsoft_email: string;
+          display_name: string;
+          scopes: string;
+          access_encrypted: string | null;
+          refresh_encrypted: string | null;
+          access_expires_at: string | null;
+          connected_at: string;
+          last_refreshed_at: string | null;
+          last_error: string;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          microsoft_user_id: string;
+          microsoft_email?: string;
+          display_name?: string;
+          scopes?: string;
+          access_encrypted?: string | null;
+          refresh_encrypted?: string | null;
+          access_expires_at?: string | null;
+          connected_at?: string;
+          last_refreshed_at?: string | null;
+          last_error?: string;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          microsoft_user_id?: string;
+          microsoft_email?: string;
+          display_name?: string;
+          scopes?: string;
+          access_encrypted?: string | null;
+          refresh_encrypted?: string | null;
+          access_expires_at?: string | null;
+          connected_at?: string;
+          last_refreshed_at?: string | null;
+          last_error?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notes: {
         Row: {
           id: string;
@@ -1880,7 +1925,7 @@ export type Database = {
     };
     Functions: {
       can_see_restricted: {
-        Args: { p_client_id: string };
+        Args: { p_client_id: string | null };
         Returns: boolean;
       };
       current_staff_id: {
@@ -1892,19 +1937,19 @@ export type Database = {
         Returns: string;
       };
       delete_staff_pay: {
-        Args: { p_id: string };
+        Args: { p_id: string | null };
         Returns: string;
       };
       fmt_hours: {
-        Args: { n: number };
+        Args: { n: number | null };
         Returns: string;
       };
       form_1099_candidates: {
-        Args: { p_year: number };
+        Args: { p_year: number | null };
         Returns: string;
       };
       generate_1099_run: {
-        Args: { p_year: number };
+        Args: { p_year: number | null };
         Returns: string;
       };
       generate_notifications: {
@@ -1912,15 +1957,19 @@ export type Database = {
         Returns: number;
       };
       get_contractor_tin: {
-        Args: { p_staff_id: string };
+        Args: { p_staff_id: string | null };
         Returns: string;
       };
       get_employer_details: {
         Args: Record<string, never>;
         Returns: string;
       };
+      get_microsoft_tokens: {
+        Args: { p_staff_id: string | null };
+        Returns: string;
+      };
       get_tax_form_sensitive: {
-        Args: { p_form_id: string };
+        Args: { p_form_id: string | null };
         Returns: string;
       };
       is_active_staff: {
@@ -1932,47 +1981,59 @@ export type Database = {
         Returns: boolean;
       };
       pay_rate_on: {
-        Args: { p_staff_id: string; p_date: string };
+        Args: { p_staff_id: string | null; p_date: string | null };
         Returns: string;
       };
       period_end: {
-        Args: { d: string };
+        Args: { d: string | null };
         Returns: string;
       };
       period_start: {
-        Args: { d: string };
+        Args: { d: string | null };
         Returns: string;
       };
       record_1099_delivery: {
-        Args: { p_recipient_id: string; p_method: string; p_delivered_on: string };
+        Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
         Returns: string;
       };
       set_checklist_item: {
-        Args: { p_staff_id: string; p_task_id: string; p_done: boolean; p_note: string };
+        Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note: string | null };
         Returns: string;
       };
       set_contractor_tin: {
-        Args: { p_staff_id: string; p_tin: string; p_tin_type: string };
+        Args: { p_staff_id: string | null; p_tin: string | null; p_tin_type: string | null };
         Returns: string;
       };
       set_e_delivery_consent: {
-        Args: { p_consent: boolean };
+        Args: { p_consent: boolean | null };
         Returns: string;
       };
       set_employer_details: {
-        Args: { p_legal_name: string; p_address: string; p_ein: string };
+        Args: { p_legal_name: string | null; p_address: string | null; p_ein: string | null };
+        Returns: string;
+      };
+      set_microsoft_error: {
+        Args: { p_staff_id: string | null; p_error: string | null };
+        Returns: string;
+      };
+      set_microsoft_tokens: {
+        Args: { p_microsoft_user_id: string | null; p_email: string | null; p_display_name: string | null; p_scopes: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: string;
       };
       set_staff_pay: {
-        Args: { p_staff_id: string; p_rate: number; p_unit: string; p_effective_from: string; p_note: string };
+        Args: { p_staff_id: string | null; p_rate: number | null; p_unit: string | null; p_effective_from: string | null; p_note: string | null };
+        Returns: string;
+      };
+      set_statement_adjustment: {
+        Args: { p_statement_id: string | null; p_amount: number | null; p_note: string | null };
         Returns: string;
       };
       sign_tax_form: {
-        Args: { p_form_id: string; p_sensitive: Json; p_tin_last4: string; p_signer: string; p_ip: string };
+        Args: { p_form_id: string | null; p_sensitive: Json | null; p_tin_last4: string | null; p_signer: string | null; p_ip: string | null };
         Returns: string;
       };
       staff_activity: {
-        Args: { p_from: string; p_to: string };
+        Args: { p_from: string | null; p_to: string | null };
         Returns: string;
       };
     };

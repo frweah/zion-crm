@@ -83,6 +83,10 @@ const RPC_FUNCTIONS = [
   "set_staff_pay",
   "delete_staff_pay",
   "pay_rate_on",
+  "set_microsoft_tokens",
+  "get_microsoft_tokens",
+  "set_microsoft_error",
+  "set_statement_adjustment",
   "staff_activity",
   "record_1099_delivery",
   "set_e_delivery_consent",
@@ -118,7 +122,10 @@ function argsType(args) {
         : /bool/.test(sqlType)
           ? "boolean"
           : "string";
-    return `${name}: ${ts}`;
+    // Every SQL parameter accepts null, so the argument types say so. Without
+    // it a caller passing a genuinely optional value has to cast, and a cast
+    // would also hide the one case where the mismatch was real.
+    return `${name}: ${ts} | null`;
   });
   return `{ ${fields.join("; ")} }`;
 }

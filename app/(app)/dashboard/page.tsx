@@ -5,8 +5,13 @@ import { refreshNotifications, getAlerts } from "@/lib/alerts";
 import { ROLE_LABEL } from "@/lib/roles";
 import { money, today, arBuckets, STAGES } from "@/lib/constants";
 import { DashboardTask } from "./dashboard-task";
+import { MicrosoftCard } from "./microsoft-card";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ microsoft?: string; detail?: string }>;
+}) {
   const me = await requireStaff();
   const supabase = await createClient();
 
@@ -35,6 +40,14 @@ export default async function DashboardPage() {
     .eq("phase", "Onboarding")
     .eq("required", true)
     .order("sort_order");
+
+  const { data: msConnection } = await supabase
+    .from("microsoft_connections")
+    .select("microsoft_email, display_name, connected_at, last_error")
+    .eq("staff_id", me.id)
+    .maybeSingle();
+
+  const msParams = await searchParams;
 
   const outstanding = (myChecklist ?? []).filter(
     (r) => !(r.auto_key ? r.auto_done === true : r.done_on !== null),
@@ -79,6 +92,12 @@ export default async function DashboardPage() {
       <p className="sub">
         {ROLE_LABEL[me.role]} view · {me.name}
       </p>
+
+      <MicrosoftCard
+        connection={msConnection}
+        notice={msParams.microsoft ?? null}
+        detail={msParams.detail ?? null}
+      />
 
       {outstanding.length > 0 && (
         <div className="card" style={{ marginBottom: 18 }}>
