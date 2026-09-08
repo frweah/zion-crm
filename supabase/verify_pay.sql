@@ -86,6 +86,38 @@ begin
     raise notice 'ok  two rates from the same day is refused, not resolved by guessing';
   end;
 
+  -- ── a rate keeps the figure that was agreed ───────────────
+  -- 5.625 an hour is a real rate. Stored to two decimals it becomes 5.63, and
+  -- eight hours comes to 45.04 instead of 45.00 — wrong, and wrong by more the
+  -- more somebody works. Nothing warned anybody when this happened for real.
+  declare v_exact uuid;
+  begin
+    -- Dated after the other fixtures so it is the newest, and can therefore be
+    -- taken back again — the rule this file proves two checks further down.
+    v_exact := public.set_staff_pay(v_rei, 5.625, 'Hourly', make_date(2033, 8, 1), 'thirds of a dollar');
+    select pay_rate into v_rate from public.staff_pay where id = v_exact;
+    if v_rate <> 5.625 then
+      failures := failures || format('FAILED: 5.625 an hour was stored as %s', v_rate);
+    else
+      raise notice 'ok  a rate keeps the figure that was agreed, not the nearest cent';
+    end if;
+
+    if round(8 * v_rate, 2) <> 45.00 then
+      failures := failures || format('FAILED: eight hours at 5.625 came to %s', round(8 * v_rate, 2));
+    else
+      raise notice 'ok  eight hours at 5.625 comes to 45.00, and the money rounds once at the end';
+    end if;
+
+    perform public.delete_staff_pay(v_exact);
+  end;
+
+  begin
+    perform public.set_staff_pay(v_rei, 5.62555, 'Hourly', make_date(2033, 2, 2), 'too precise');
+    failures := failures || 'FAILED: a rate was silently rounded to four decimals'::text;
+  exception when check_violation then
+    raise notice 'ok  a rate too precise to store is refused, not quietly rounded';
+  end;
+
   -- ── work is priced at the rate of its own day ──────────────
   select pay_rate into v_rate from public.pay_rate_on(v_rei, make_date(2033, 3, 15));
   if v_rate is distinct from 22.50 then

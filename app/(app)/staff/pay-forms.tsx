@@ -14,10 +14,16 @@ export type PayRow = {
   note: string;
 };
 
+// A rate is shown to whatever precision it was agreed at. Formatting it as
+// money would print 5.625 an hour as $5.63 — which is exactly how the wrong
+// figure got onto a record in the first place.
 const rate = (r: PayRow) =>
-  `${Number(r.pay_rate).toLocaleString("en-US", { style: "currency", currency: "USD" })}${
-    r.rate_unit === "Hourly" ? " an hour" : " flat"
-  }`;
+  `${Number(r.pay_rate).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}${r.rate_unit === "Hourly" ? " an hour" : " flat"}`;
 
 function RemoveRate({ id }: { id: string }) {
   const [state, action, pending] = useActionState(deleteStaffPay, initial);
@@ -116,7 +122,8 @@ export function PayRates({
         <div className="row2" style={{ alignItems: "flex-end" }}>
           <label className="field">
             Rate
-            <input type="number" name="pay_rate" min="0.01" step="0.01" required />
+            <input type="number" name="pay_rate" min="0.0001" step="0.0001" required />
+            <span className="lock">Up to four decimals — 5.625 an hour is kept as 5.625</span>
           </label>
           <label className="field">
             Per
