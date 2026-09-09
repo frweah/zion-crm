@@ -32,7 +32,13 @@ export default async function ContractorsPage({
         .select("id, name, active")
         .eq("active", true)
         .order("name"),
-      supabase.from("contractor_profiles").select("*"),
+      // Named rather than "*": tin_encrypted is not readable by the app role,
+      // and "*" expands to it and is refused outright. See migration 0039.
+      supabase
+        .from("contractor_profiles")
+        .select(
+          "staff_id, legal_name, business_name, address_line1, address_line2, city, state, postal_code, tax_status, tin_type, tin_last4, w9_received_on, w8ben_received_on, w8ben_expires_on, e_delivery_consent_on, notes",
+        ),
       supabase
         .from("contractor_payments")
         .select("id, staff_id, paid_on, amount, method, reference, note, statement_id")
