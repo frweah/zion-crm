@@ -102,6 +102,7 @@ const RPC_FUNCTIONS = [
   "get_employer_details",
   "set_employer_details",
   "fmt_hours",
+  "job_status_rank",
 ];
 
 const { rows: fns } = await client.query(

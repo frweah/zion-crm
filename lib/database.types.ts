@@ -1054,6 +1054,7 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          location: string;
         };
         Insert: {
           id?: string;
@@ -1070,6 +1071,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          location?: string;
         };
         Update: {
           id?: string;
@@ -1086,6 +1088,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          location?: string;
         };
         Relationships: [];
       };
@@ -1103,6 +1106,8 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          follow_up_on: string | null;
+          outcome: string;
         };
         Insert: {
           id?: string;
@@ -1117,6 +1122,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          follow_up_on?: string | null;
+          outcome?: string;
         };
         Update: {
           id?: string;
@@ -1131,6 +1138,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          follow_up_on?: string | null;
+          outcome?: string;
         };
         Relationships: [];
       };
@@ -2045,17 +2054,26 @@ export type Database = {
           match_id: string | null;
           client_id: string | null;
           status: string | null;
+          status_rank: number | null;
           applied_on: string | null;
           interview_on: string | null;
+          follow_up_on: string | null;
           decided_on: string | null;
+          outcome: string | null;
           notes: string | null;
           placement_id: string | null;
+          created_at: string | null;
           updated_at: string | null;
           lead_id: string | null;
           title: string | null;
+          wage_range: string | null;
+          location: string | null;
           lead_status: string | null;
           employer_id: string | null;
           employer_name: string | null;
+          contact_name: string | null;
+          contact_phone: string | null;
+          contact_email: string | null;
         };
         Relationships: [];
       };
@@ -2207,6 +2225,10 @@ export type Database = {
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      job_status_rank: {
+        Args: { p_status: string | null };
+        Returns: number;
       };
       log_mail_message: {
         Args: { p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };

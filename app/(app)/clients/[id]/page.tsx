@@ -19,8 +19,9 @@ import { PlacementsTab, type PlacementRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
 import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
+import { JobsPanel, type JobRow } from "./jobs-panel";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
-import { money, periodRange, today, CAN_EDIT_BILLING } from "@/lib/constants";
+import { money, periodRange, today, CAN_EDIT_BILLING, jobStatusTone } from "@/lib/constants";
 
 /** Tab order follows the prototype's drawer. */
 const TABS = [
@@ -334,80 +335,24 @@ export default async function ClientPage({
   }
 
   if (tab === "placements") {
-    const [placementsResult, historyResult] = await Promise.all([
-      supabase
-        .from("placements")
-        .select(
-          "id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid",
-        )
-        .eq("client_id", id)
-        .order("start_date", { ascending: false, nullsFirst: false }),
-      supabase
-        .from("client_job_history")
-        .select("match_id, lead_id, title, employer_name, status, applied_on, interview_on, decided_on, placement_id")
-        .eq("client_id", id)
-        .order("updated_at", { ascending: false }),
-    ]);
+    const { data: placementsData } = await supabase
+      .from("placements")
+      .select(
+        "id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid",
+      )
+      .eq("client_id", id)
+      .order("start_date", { ascending: false, nullsFirst: false });
 
-    const history = historyResult.data ?? [];
-
+    // Jobs tried used to sit above placements here. It is on the Overview tab
+    // now, under stage history, where "where is this person up to" and "what
+    // have we tried" get asked together.
     return (
       <>
         {header}
 
-        {/* Jobs tried sits above placements because that is the order it
-            happens in: leads first, a placement only if one lands. */}
-        {history.length > 0 && (
-          <div className="card" style={{ marginBottom: 14, padding: 0 }}>
-            <h3 style={{ padding: "16px 16px 0" }}>Jobs we have tried</h3>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th>Opening</th>
-                  <th>Employer</th>
-                  <th>Where it got to</th>
-                  <th>Dates</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h) => (
-                  <tr key={h.match_id}>
-                    <td>
-                      <Link href={`/leads/${h.lead_id}`} style={{ color: "inherit", fontWeight: 600 }}>
-                        {h.title}
-                      </Link>
-                    </td>
-                    <td>{h.employer_name}</td>
-                    <td>
-                      <span
-                        className={
-                          "chip " +
-                          (h.status === "Hired" ? "ok" : h.status === "Declined" ? "" : "gold")
-                        }
-                      >
-                        {h.status}
-                      </span>
-                      {h.placement_id && (
-                        <span className="chip ok" style={{ marginLeft: 6 }}>
-                          placement
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                      {h.applied_on && <div>applied {h.applied_on}</div>}
-                      {h.interview_on && <div>interview {h.interview_on}</div>}
-                      {h.decided_on && <div>decided {h.decided_on}</div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
         <PlacementsTab
           clientId={id}
-          placements={(placementsResult.data ?? []) as PlacementRow[]}
+          placements={(placementsData ?? []) as PlacementRow[]}
           canEdit={canEdit}
           canBill={CAN_EDIT_BILLING.includes(me.role)}
         />
@@ -583,8 +528,15 @@ export default async function ClientPage({
     );
   }
 
-  const [privateResult, counselorsResult, staffResult, officesResult, historyResult] =
-    await Promise.all([
+  const [
+    privateResult,
+    counselorsResult,
+    staffResult,
+    officesResult,
+    historyResult,
+    jobsResult,
+    employersResult,
+  ] = await Promise.all([
       // A null here means the restricted policy declined, not that the row is
       // missing — which is the distinction the panel renders.
       supabase.from("client_private").select("dob, address").eq("client_id", id).maybeSingle(),
@@ -597,6 +549,13 @@ export default async function ClientPage({
         .eq("client_id", id)
         .order("at", { ascending: false })
         .limit(8),
+      supabase
+        .from("client_job_history")
+        .select("*")
+        .eq("client_id", id)
+        .order("status_rank")
+        .order("updated_at", { ascending: false }),
+      supabase.from("employers").select("id, name").order("name"),
     ]);
 
   return (
@@ -648,6 +607,16 @@ export default async function ClientPage({
               </table>
             )}
           </div>
+
+          {/* Directly under stage history: "where is this person up to" and
+              "what have we tried" are asked in the same breath and used to be
+              two screens apart. */}
+          <JobsPanel
+            clientId={id}
+            jobs={(jobsResult.data ?? []) as JobRow[]}
+            employers={(employersResult.data ?? []) as { id: string; name: string }[]}
+            canEdit={canEdit}
+          />
         </div>
       </div>
     </>

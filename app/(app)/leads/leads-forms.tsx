@@ -12,19 +12,13 @@ import {
   createPlacementFromMatch,
   type LeadState,
 } from "./actions";
-import { today } from "@/lib/constants";
+import { today, JOB_STATUSES } from "@/lib/constants";
 
 const initial: LeadState = { error: null, ok: null };
 
 export const LEAD_STATUSES = ["Open", "Submitted", "Interviewing", "Filled", "Closed"];
-export const MATCH_STATUSES = [
-  "Considering",
-  "Applied",
-  "Interview",
-  "Offer",
-  "Hired",
-  "Declined",
-];
+// One list, in lib/constants.ts — see the note there about the four copies.
+export const MATCH_STATUSES = JOB_STATUSES;
 export const EMPLOYER_STATUSES = ["Prospect", "Active partner", "Do not use"];
 
 type Option = { id: string; name: string };
@@ -276,7 +270,7 @@ export function AddMatchForm({ leadId, clients }: { leadId: string; clients: Opt
           </label>
           <label className="field">
             Where things stand
-            <select name="status" defaultValue="Considering">
+            <select name="status" defaultValue="Saved">
               {MATCH_STATUSES.map((s) => (
                 <option key={s}>{s}</option>
               ))}

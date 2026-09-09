@@ -132,7 +132,7 @@ export async function createMatch(_prev: LeadState, formData: FormData): Promise
   const clientId = String(formData.get("client_id") ?? "").trim();
   if (!clientId) return { error: "Choose a client.", ok: null };
 
-  const status = String(formData.get("status") ?? "Considering");
+  const status = String(formData.get("status") ?? "Saved");
   const supabase = await createClient();
   const { error } = await supabase.from("lead_matches").insert({
     lead_id: leadId,
@@ -169,7 +169,10 @@ export async function setMatchStatus(_prev: LeadState, formData: FormData): Prom
   const patch: Record<string, unknown> = { status };
   if (status === "Applied") patch.applied_on = today();
   if (status === "Interview") patch.interview_on = today();
-  if (status === "Hired" || status === "Declined") patch.decided_on = today();
+  if (status === "Follow-up") patch.follow_up_on = today();
+  // "Declined" was renamed to "Not selected" in 0034. Left as it was, a
+  // rejection would have stopped recording the day it happened.
+  if (status === "Hired" || status === "Not selected") patch.decided_on = today();
 
   const supabase = await createClient();
   const { error } = await supabase

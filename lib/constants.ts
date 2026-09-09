@@ -179,3 +179,30 @@ export function median(values: number[]): number | null {
 
 /** Stages that mean a client reached job development or beyond. */
 export const POST_JD_STAGES = ["Job Development", "Placement", "Job Coaching", "Follow-Along"];
+
+/**
+ * The steps a job goes through, in Margaret's words and in order.
+ *
+ * One list, because the same names appear on the leads board, on the client's
+ * job tracker, in a database constraint and in the trigger that writes the
+ * note. Renaming them in Phase 7 left four copies disagreeing, and the board
+ * would have hit the constraint the next time somebody used it.
+ */
+export const JOB_STATUSES = [
+  "Saved",
+  "Applied",
+  "Follow-up",
+  "Interview",
+  "Offer",
+  "Hired",
+  "Not selected",
+] as const;
+
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+/** Where a job has got to, for a chip: good, over, or still going. */
+export function jobStatusTone(status: string): "ok" | "warn" | "" {
+  if (status === "Hired") return "ok";
+  if (status === "Not selected") return "";
+  return "warn";
+}

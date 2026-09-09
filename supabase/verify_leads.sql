@@ -31,7 +31,7 @@ begin
 
   -- 1. Creating a match writes a note.
   insert into public.lead_matches (lead_id, client_id, status)
-  values (v_lead, v_client, 'Considering') returning id into v_match;
+  values (v_lead, v_client, 'Saved') returning id into v_match;
 
   select count(*) into n_notes from public.notes where client_id = v_client;
   if n_notes <> 1 then
@@ -39,9 +39,9 @@ begin
   end if;
 
   select type, text into v_type, v_text from public.notes where client_id = v_client;
-  raise notice 'Considering -> [%] %', v_type, v_text;
+  raise notice 'Saved -> [%] %', v_type, v_text;
   if v_type <> 'Job search' then
-    failures := failures || format('Considering should be typed "Job search", got "%s"', v_type);
+    failures := failures || format('Saved should be typed "Job search", got "%s"', v_type);
   end if;
 
   -- 2. Each step writes its own note, with the type USOR 96 reads.
