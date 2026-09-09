@@ -2,6 +2,10 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { money, fmtStamp, today } from "@/lib/constants";
+import { REPORT_PRESETS, presetByKey, type ReportPresetKey, type ReportSection } from "@/lib/report-presets";
+
+export { REPORT_PRESETS, presetByKey };
+export type { ReportPresetKey, ReportSection };
 
 /**
  * Client activity report, ported from the prototype's buildReport / reportText.
@@ -17,7 +21,10 @@ export async function buildReportText(
   kind: ReportPeriod,
   start: string,
   end: string,
+  presetKey: ReportPresetKey = "general",
 ): Promise<{ text: string; noteCount: number; hours: number }> {
+  const preset = presetByKey(presetKey);
+  const wants = (s: ReportSection) => preset.sections.includes(s);
   const supabase = await createClient();
 
   const { data: client } = await supabase
@@ -38,6 +45,7 @@ export async function buildReportText(
     tasksResult,
     placementsResult,
     contactsResult,
+    jobsResult,
   ] = await Promise.all([
     client.counselor_id
       ? supabase.from("counselors").select("name").eq("id", client.counselor_id).maybeSingle()
@@ -75,6 +83,13 @@ export async function buildReportText(
       .gte("date", start)
       .lte("date", end)
       .order("date"),
+    supabase
+      .from("client_job_history")
+      .select(
+        "employer_name, title, status, applied_on, interview_on, follow_up_on, decided_on, outcome, wage_range, location",
+      )
+      .eq("client_id", clientId)
+      .order("status_rank", { ascending: false }),
   ]);
 
   const auths = authsResult.data ?? [];
@@ -110,6 +125,18 @@ export async function buildReportText(
   const invoices = invoicesResult.data ?? [];
 
   const inRange = (d: string | null) => Boolean(d && d >= start && d <= end);
+
+  // A job belongs in the report if something happened to it in the period, or
+  // if it is still live — a counselor asking about the job search wants the
+  // interview next week as much as the application last week.
+  const OPEN = ["Applied", "Follow-up", "Interview", "Offer"];
+  const jobs = (jobsResult.data ?? []).filter(
+    (j) =>
+      inRange(j.applied_on) ||
+      inRange(j.interview_on) ||
+      inRange(j.decided_on) ||
+      OPEN.includes(j.status ?? ""),
+  );
   const placements = (placementsResult.data ?? []).filter(
     (p) =>
       inRange(p.start_date) || inRange(p.check30) || inRange(p.check60) || inRange(p.check90),
@@ -123,7 +150,7 @@ export async function buildReportText(
   for (const n of notes) byType[n.type || "General"] = (byType[n.type || "General"] ?? 0) + 1;
 
   const L: string[] = [];
-  L.push(`${ORG.name.toUpperCase()} — ${kind.toUpperCase()} CLIENT PROGRESS REPORT`);
+  L.push(`${ORG.name.toUpperCase()} — ${kind.toUpperCase()} ${preset.label.toUpperCase()}`);
   L.push(`${ORG.address} · ${ORG.phone} · ${ORG.email} · ${ORG.web}`);
   L.push(
     `Client: ${client.name}${client.client_no ? `  (Client #${client.client_no})` : ""}${
@@ -177,6 +204,15 @@ export async function buildReportText(
         .join("; ")}`,
     );
   }
+  if (jobs.length && wants("jobs")) {
+    const applied = jobs.filter((j) => inRange(j.applied_on)).length;
+    const interviews = jobs.filter((j) => inRange(j.interview_on)).length;
+    L.push(
+      `- ${applied} application${applied === 1 ? "" : "s"} and ${interviews} interview${
+        interviews === 1 ? "" : "s"
+      } in the period; ${jobs.length} job${jobs.length === 1 ? "" : "s"} being worked`,
+    );
+  }
   if (contacts.length) {
     L.push(`- ${contacts.length} counselor contact${contacts.length === 1 ? "" : "s"}`);
   }
@@ -184,15 +220,37 @@ export async function buildReportText(
     L.push(`- ${tasksDone.length} task${tasksDone.length === 1 ? "" : "s"} completed`);
   }
 
-  L.push("");
-  L.push("ACTIVITY LOG");
-  if (!notes.length) L.push("(no notes in this period)");
-  for (const n of notes) {
-    L.push(`${n.ts ? fmtStamp(n.ts) : n.at} — ${n.type || "General"} — ${n.staff_name || "—"}`);
-    L.push(`   ${n.text}`);
+  if (wants("jobs") && jobs.length) {
+    L.push("");
+    L.push("JOB SEARCH");
+    for (const j of jobs) {
+      const dates = [
+        j.applied_on && `applied ${j.applied_on}`,
+        j.interview_on && `interview ${j.interview_on}`,
+        j.follow_up_on && `follow-up ${j.follow_up_on}`,
+        j.decided_on && `decided ${j.decided_on}`,
+      ].filter(Boolean);
+      L.push(
+        `${j.status} — ${j.employer_name}${j.title ? " — " + j.title : ""}${
+          j.location ? " (" + j.location + ")" : ""
+        }`,
+      );
+      if (dates.length) L.push(`   ${dates.join(", ")}`);
+      if (j.outcome) L.push(`   ${j.outcome}`);
+    }
   }
 
-  if (entries.length) {
+  if (wants("activity")) {
+    L.push("");
+    L.push("ACTIVITY LOG");
+    if (!notes.length) L.push("(no notes in this period)");
+    for (const n of notes) {
+      L.push(`${n.ts ? fmtStamp(n.ts) : n.at} — ${n.type || "General"} — ${n.staff_name || "—"}`);
+      L.push(`   ${n.text}`);
+    }
+  }
+
+  if (entries.length && wants("hours")) {
     L.push("");
     L.push("SERVICE HOURS");
     for (const e of entries) {
@@ -205,7 +263,25 @@ export async function buildReportText(
     }
   }
 
-  if (contacts.length) {
+  if (wants("placements") && placements.length) {
+    L.push("");
+    L.push("PLACEMENTS");
+    for (const p of placements) {
+      L.push(
+        `${p.employer || "employer TBD"}${p.title ? " — " + p.title : ""}${
+          p.start_date ? " — started " + p.start_date : ""
+        }`,
+      );
+      const checks = [
+        p.check30 && `30-day ${p.check30}`,
+        p.check60 && `60-day ${p.check60}`,
+        p.check90 && `90-day ${p.check90}`,
+      ].filter(Boolean);
+      if (checks.length) L.push(`   checks: ${checks.join(", ")}`);
+    }
+  }
+
+  if (contacts.length && wants("contacts")) {
     L.push("");
     L.push("COUNSELOR CONTACTS");
     for (const c of contacts) {
@@ -213,13 +289,13 @@ export async function buildReportText(
     }
   }
 
-  if (tasksDone.length) {
+  if (tasksDone.length && wants("tasks")) {
     L.push("");
     L.push("TASKS COMPLETED");
     for (const t of tasksDone) L.push(`- ${t.title}`);
   }
 
-  if (invoices.length) {
+  if (invoices.length && wants("billing")) {
     L.push("");
     L.push("BILLING IN PERIOD");
     for (const i of invoices) {
@@ -231,9 +307,11 @@ export async function buildReportText(
     }
   }
 
-  L.push("");
-  L.push("NEXT STEPS");
-  L.push("(staff to complete)");
+  if (wants("next")) {
+    L.push("");
+    L.push("NEXT STEPS");
+    L.push("(staff to complete)");
+  }
 
   return { text: L.join("\n"), noteCount: notes.length, hours };
 }

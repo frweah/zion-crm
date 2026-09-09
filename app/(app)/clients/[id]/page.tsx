@@ -22,6 +22,7 @@ import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
+import { presetByKey } from "@/lib/report-presets";
 import { money, periodRange, today, CAN_EDIT_BILLING, jobStatusTone } from "@/lib/constants";
 
 /** Tab order follows the prototype's drawer. */
@@ -45,10 +46,22 @@ export default async function ClientPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; kind?: string; anchor?: string; days?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    kind?: string;
+    anchor?: string;
+    days?: string;
+    preset?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { tab: rawTab, kind: rawKind, anchor: rawAnchor, days: rawDays } = await searchParams;
+  const {
+    tab: rawTab,
+    kind: rawKind,
+    anchor: rawAnchor,
+    days: rawDays,
+    preset: rawPreset,
+  } = await searchParams;
   const me = await requireStaff();
   const supabase = await createClient();
 
@@ -364,8 +377,22 @@ export default async function ClientPage({
   if (tab === "report") {
     const kind: ReportPeriod = rawKind === "Monthly" ? "Monthly" : "Weekly";
     const anchor = /^\d{4}-\d{2}-\d{2}$/.test(rawAnchor ?? "") ? rawAnchor! : today();
+    const preset = presetByKey(rawPreset);
     const [start, end] = periodRange(kind, anchor);
-    const { text } = await buildReportText(id, kind, start, end);
+
+    // The address is read here and sent as a hidden field, then checked again
+    // against the record when the send action runs. Whose counselor this is
+    // is not a thing a browser gets to decide.
+    const [{ text }, { data: counselor }] = await Promise.all([
+      buildReportText(id, kind, start, end, preset.key),
+      detail.counselor_id
+        ? supabase
+            .from("counselors")
+            .select("name, email")
+            .eq("id", detail.counselor_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
     return (
       <>
@@ -374,10 +401,14 @@ export default async function ClientPage({
           clientId={id}
           clientName={detail.name}
           kind={kind}
+          preset={preset.key}
           anchor={anchor}
           start={start}
           end={end}
           text={text}
+          counselorName={counselor?.name ?? ""}
+          counselorEmail={(counselor?.email ?? "").trim()}
+          canSend={canEdit}
         />
       </>
     );
