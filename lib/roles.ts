@@ -43,6 +43,15 @@ export const ROLE_NAV: Record<Role, NavItem[]> = {
   Billing: ["Dashboard", "Clients", "Leads", "Forms", "Counselors", "Billing", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
 };
 
+/**
+ * The practice as clients and USOR know it.
+ *
+ * This is the dba, and it belongs on everything client-facing and everything
+ * that goes to USOR: forms, progress reports, invoices, email. It is not the
+ * legal entity. Tax filings — the W-4 employer block, the 1099 payer — carry
+ * Zion Healing Academy LLC, which lives in org_settings because it is data the
+ * owner maintains rather than a constant. Do not reconcile the two.
+ */
 export const ORG = {
   name: "Zion Vocational Rehabilitation Center",
   address: "2880 S Main Street Ste 105, Salt Lake City, Utah 84115",

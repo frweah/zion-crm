@@ -330,10 +330,13 @@ async function payerDetails(): Promise<Payer1099 | null> {
     .eq("id", true)
     .maybeSingle();
 
-  if (!data?.employer_ein) return null;
+  // Both, or nothing. The payer on a 1099 is the legal entity that files it —
+  // Zion Healing Academy LLC — and ORG.name is the dba it trades under. A
+  // fallback here would quietly put the trading name on a tax return.
+  if (!data?.employer_ein || !data?.employer_legal_name) return null;
 
   return {
-    name: data.employer_legal_name || ORG.name,
+    name: data.employer_legal_name,
     address: data.employer_address || ORG.address,
     phone: ORG.phone,
     ein: data.employer_ein,

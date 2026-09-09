@@ -164,13 +164,13 @@ export default async function PaperworkPage() {
         </div>
       )}
 
-      {/* The practice name and address are already known, so the card opens with
-          them filled in rather than blank. Nothing is saved until somebody
-          presses Save — the legal name may not be the trading name, and only
-          the owner knows which. */}
+      {/* The legal name is not prefilled. It is not the trading name — the dba
+          is Zion Vocational Rehabilitation Center and the entity is Zion
+          Healing Academy LLC — and offering the one as the other is how the
+          wrong name gets onto a W-4. The address is safe to suggest. */}
       {me.role === "Admin" && employer && (
         <EmployerDetails
-          legalName={employer.legal_name || ORG.name}
+          legalName={employer.legal_name}
           address={employer.address || ORG.address}
           hasEin={Boolean(employer.ein)}
         />
