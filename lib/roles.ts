@@ -23,6 +23,7 @@ const NAV: Record<string, NavItem> = {
   Forms: { label: "Forms", href: "/forms" },
   Counselors: { label: "Counselors", href: "/counselors" },
   Billing: { label: "Billing", href: "/billing" },
+  Revenue: { label: "Revenue", href: "/revenue" },
   Reports: { label: "Reports", href: "/reports" },
   SOPs: { label: "SOPs", href: "/sops" },
   Contractors: { label: "Contractors", href: "/contractors" },
@@ -36,12 +37,12 @@ const NAV: Record<string, NavItem> = {
  * database rather than by the navigation.
  */
 export const ROLE_NAV: Record<Role, NavItem[]> = {
-  Admin: ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Reports", "Hours", "Paperwork", "SOPs", "Contractors", "Staff"].map(
+  Admin: ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Revenue", "Reports", "Hours", "Paperwork", "SOPs", "Contractors", "Staff"].map(
     (k) => NAV[k],
   ),
   "Job Search": ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
   Reports: ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Reports", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
-  Billing: ["Dashboard", "Needs", "Clients", "Leads", "Forms", "Counselors", "Billing", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
+  Billing: ["Dashboard", "Needs", "Clients", "Leads", "Forms", "Counselors", "Billing", "Revenue", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
 };
 
 /**

@@ -2105,6 +2105,36 @@ export type Database = {
       };
     };
     Views: {
+      authorization_economics: {
+        Row: {
+          auth_id: string | null;
+          client_id: string | null;
+          auth_number: string | null;
+          service_type: string | null;
+          funding_source: string | null;
+          status: string | null;
+          rate_type: string | null;
+          rate: number | null;
+          total_hours: number | null;
+          start_date: string | null;
+          end_date: string | null;
+          hours_used: number | null;
+          hours_left: number | null;
+          first_entry_on: string | null;
+          last_entry_on: string | null;
+          entry_count: number | null;
+          completed_on: string | null;
+          authorized: number | null;
+          earned: number | null;
+          invoiced: number | null;
+          received: number | null;
+          outstanding: number | null;
+          last_invoice_on: string | null;
+          unbilled: number | null;
+          committed: number | null;
+        };
+        Relationships: [];
+      };
       client_activity: {
         Row: {
           client_id: string | null;
