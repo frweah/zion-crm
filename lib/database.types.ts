@@ -2210,6 +2210,32 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_pipeline: {
+        Row: {
+          client_id: string | null;
+          name: string | null;
+          status: string | null;
+          stage: string | null;
+          counselor_id: string | null;
+          referring_office: string | null;
+          assigned_staff_id: string | null;
+          referred_at: string | null;
+          stage_since: string | null;
+          days_in_stage: number | null;
+          auth_count: number | null;
+          first_auth_on: string | null;
+          first_placement_on: string | null;
+          no_authorization: boolean | null;
+        };
+        Relationships: [];
+      };
+      client_stages_reached: {
+        Row: {
+          client_id: string | null;
+          stage: string | null;
+        };
+        Relationships: [];
+      };
       contractor_statement_totals: {
         Row: {
           statement_id: string | null;

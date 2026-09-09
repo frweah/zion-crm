@@ -189,6 +189,7 @@ export default async function RevenuePage() {
 
   // ── what the figures cannot yet mean ──────────────────────
   const loggedHours = econ.reduce((s, e) => s + n(e.entry_count), 0);
+  const undated = open.filter((e) => !e.start_date).length;
   const caveats: string[] = [];
   if (loggedHours === 0) {
     caveats.push(
@@ -198,6 +199,11 @@ export default async function RevenuePage() {
   if (open.some((e) => e.rate_type === "Flat Fee" && n(e.rate) === 0)) {
     caveats.push(
       "An open flat-fee authorization has a rate of $0, so it counts as nothing authorized. Put the fee on it in Billing and this page will pick it up.",
+    );
+  }
+  if (undated > 0) {
+    caveats.push(
+      `${undated} of ${open.length} open authorizations have no start date. Nothing can be said about how long they have been sitting there, so "worth watching" will miss them until the date is filled in.`,
     );
   }
   if (open.filter((e) => e.end_date).length < open.length) {
@@ -331,8 +337,9 @@ export default async function RevenuePage() {
             {risks.length === 0 && (
               <tr>
                 <td className="empty">
-                  Nothing at risk: every open authorization has been worked recently and has room
-                  left.
+                  {undated > 0
+                    ? `Nothing to show. ${undated} of ${open.length} open authorizations carry no start date, so how long they have been quiet cannot be worked out — this section stays empty until they have one, or until hours start being logged against them.`
+                    : "Nothing at risk: every open authorization has been worked recently and has room left."}
                 </td>
               </tr>
             )}
