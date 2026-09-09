@@ -26,36 +26,60 @@ function clock(startedAt: string, now: number): string {
 }
 
 /**
- * Start and end a work session.
+ * Today, this period, and the rate — above both ways of logging time.
  *
- * A convenience for logging rather than a shift clock: nothing starts on
- * login, nothing knows about breaks, and ending it opens the ordinary logging
- * form with the elapsed figure filled in — to be corrected if it is wrong,
- * which after a long phone call it usually is.
+ * Separated from the timer after the staff review. The totals sat inside the
+ * timer card, which made the timer look like the place time is recorded and
+ * the form below it look like something else again. The totals belong to
+ * neither: they are what you have logged, however you logged it.
  */
-export function WorkTimer({
-  running,
+export function HoursSummary({
   todayHours,
   periodHours,
   periodStart,
   periodEnd,
-  clients,
-  today,
   rate,
 }: {
-  running: { started_at: string } | null;
   todayHours: number;
   periodHours: number;
   periodStart: string;
   periodEnd: string;
+  rate?: { pay_rate: number; rate_unit: string } | null;
+}) {
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <h3 style={{ margin: 0 }}>Your time</h3>
+      <p className="sub" style={{ margin: "4px 0 0" }}>
+        <b>{Number(todayHours).toLocaleString()}</b> today ·{" "}
+        <b>{Number(periodHours).toLocaleString()}</b> this period ({periodStart} to {periodEnd})
+      </p>
+      {rate !== undefined && (
+        <p className="lock" style={{ margin: "4px 0 0" }}>
+          {rate
+            ? `Your rate is ${formatPayRate(rate.pay_rate, rate.rate_unit)}. Work done before a change keeps the rate it was done under.`
+            : "No rate is on file for you yet. Ask the administrator."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Time it as you go.
+ *
+ * One of two ways to record time, and the screen now says so on both. This
+ * one is for work happening right now; the form below it is for work already
+ * done. Before the review they were two similar cards holding two similar
+ * forms, with no heading that answered "which do I use?".
+ */
+export function WorkTimer({
+  running,
+  clients,
+  today,
+}: {
+  running: { started_at: string } | null;
   clients: { id: string; name: string }[];
   today: string;
-  /**
-   * The person's own rate, shown only where they came to think about their
-   * time. Nobody else's rate is reachable from here — the database returns
-   * nothing for anybody but the caller.
-   */
-  rate?: { pay_rate: number; rate_unit: string } | null;
 }) {
   const [startState, startAction, starting] = useActionState(startWorkTimer, initial);
   const [discardState, discardAction, discarding] = useActionState(discardWorkTimer, initial);
@@ -81,19 +105,10 @@ export function WorkTimer({
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h3 style={{ margin: 0 }}>Work session</h3>
+          <h3 style={{ margin: 0 }}>Time it as you go</h3>
           <p className="sub" style={{ margin: "4px 0 0" }}>
-            <b>{Number(todayHours).toLocaleString()}</b> today ·{" "}
-            <b>{Number(periodHours).toLocaleString()}</b> this period ({periodStart} to{" "}
-            {periodEnd})
+            For work happening now. Nothing is logged until you end it and save.
           </p>
-          {rate !== undefined && (
-            <p className="lock" style={{ margin: "4px 0 0" }}>
-              {rate
-                ? `Your rate is ${formatPayRate(rate.pay_rate, rate.rate_unit)}. Work done before a change keeps the rate it was done under.`
-                : "No rate is on file for you yet. Ask the administrator."}
-            </p>
-          )}
         </div>
 
         {!running ? (
@@ -133,6 +148,11 @@ export function WorkTimer({
 
       {running && ending && (
         <form action={saveAction} style={{ marginTop: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Finish this session</h3>
+          <p className="sub" style={{ marginTop: 0 }}>
+            The hours come from the clock. Change them if they are not right, say what the
+            time was spent on, and it becomes an ordinary logged session.
+          </p>
           {tooLong && (
             <div className="alert warn">
               This has been running for more than a day, so the figure below is capped at 24. It
@@ -194,8 +214,9 @@ export function WorkTimer({
 
       {!running && (
         <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
-          Nothing starts on its own, and nothing is logged until you save it. Logging hours by hand
-          works exactly as before.
+          Nothing starts on its own. If the work has already happened, use{" "}
+          <b>Log time you have already worked</b> below instead — either way it becomes the
+          same kind of entry.
         </p>
       )}
     </div>

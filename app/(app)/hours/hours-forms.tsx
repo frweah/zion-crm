@@ -42,7 +42,11 @@ export function LogSessionForm({ clients }: { clients: Option[] }) {
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
-      <h3>Log work</h3>
+      <h3>Log time you have already worked</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        For a day that has finished, or one you meant to record earlier. The same kind of
+        entry the timer produces — this one just asks you for the hours.
+      </p>
       <Message state={state} />
       <form action={action}>
         <div className="row2">

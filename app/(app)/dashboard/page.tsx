@@ -6,7 +6,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 import { money, today, arBuckets, STAGES, CAN_LOG_HOURS } from "@/lib/constants";
 import { DashboardTask } from "./dashboard-task";
 import { MicrosoftCard } from "./microsoft-card";
-import { WorkTimer } from "../hours/work-timer";
+import { WorkTimer, HoursSummary } from "../hours/work-timer";
 import { SharedMailboxCard, type SharedMailboxRow } from "./shared-mailbox-card";
 
 export default async function DashboardPage({
@@ -51,7 +51,7 @@ export default async function DashboardPage({
 
   const { data: msState } = await supabase
     .from("microsoft_sync_state")
-    .select("last_run_at")
+    .select("last_run_at, mail_logged, events_pulled, last_error")
     .eq("staff_id", me.id)
     .maybeSingle();
 
@@ -120,12 +120,17 @@ export default async function DashboardPage({
       </p>
 
       {CAN_LOG_HOURS.includes(me.role) && (
-        <WorkTimer
-          running={runningTimer ?? null}
+        <HoursSummary
           todayHours={Number(hoursSummary?.today_hours ?? 0)}
           periodHours={Number(hoursSummary?.period_hours ?? 0)}
           periodStart={hoursSummary?.period_start ?? today()}
           periodEnd={hoursSummary?.period_end ?? today()}
+        />
+      )}
+
+      {CAN_LOG_HOURS.includes(me.role) && (
+        <WorkTimer
+          running={runningTimer ?? null}
           clients={activeClients.map((c) => ({ id: c.id, name: c.name }))}
           today={today()}
         />
@@ -136,6 +141,15 @@ export default async function DashboardPage({
         notice={msParams.microsoft ?? null}
         detail={msParams.detail ?? null}
         lastRun={msState?.last_run_at ?? null}
+        lastResult={
+          msState
+            ? {
+                mail_logged: msState.mail_logged,
+                events_pulled: msState.events_pulled,
+                last_error: msState.last_error,
+              }
+            : null
+        }
       />
 
       {me.role === "Admin" && (

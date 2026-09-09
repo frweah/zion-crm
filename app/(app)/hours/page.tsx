@@ -9,7 +9,7 @@ import {
   ApprovalRow,
   type SessionRow,
 } from "./hours-forms";
-import { WorkTimer } from "./work-timer";
+import { WorkTimer, HoursSummary } from "./work-timer";
 
 export default async function HoursPage({
   searchParams,
@@ -233,19 +233,18 @@ export default async function HoursPage({
         )}
       </div>
 
-      <WorkTimer
-        running={timerResult.data ?? null}
+      <HoursSummary
         todayHours={Number(summaryResult.data?.today_hours ?? 0)}
         periodHours={Number(summaryResult.data?.period_hours ?? 0)}
         periodStart={summaryResult.data?.period_start ?? periodStart}
         periodEnd={summaryResult.data?.period_end ?? periodEnd}
-        clients={clients}
-        today={today()}
         rate={
           (rateResult.data as unknown as { pay_rate: number; rate_unit: string }[] | null)?.[0] ??
           null
         }
       />
+
+      <WorkTimer running={timerResult.data ?? null} clients={clients} today={today()} />
 
       <SubmitStatement
         periodStart={periodStart}
