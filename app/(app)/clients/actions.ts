@@ -1,5 +1,6 @@
 "use server";
 
+import { today } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
@@ -79,7 +80,7 @@ export async function addClient(
     client_id: client.id,
     assigned_staff_id: client.assigned_staff_id ?? jobSearch?.id ?? me.id,
     title: `Complete intake for ${client.name}`,
-    due: new Date().toISOString().slice(0, 10),
+    due: today(),
     status: "Open",
     created_by: me.id,
     system_generated: true,

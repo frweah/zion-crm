@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, CAN_EDIT_BILLING } from "@/lib/constants";
+import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, CAN_EDIT_BILLING, today } from "@/lib/constants";
 import type { Update } from "@/lib/database.types";
 
 export type DetailState = { error: string | null; ok: string | null };
@@ -191,7 +191,7 @@ export async function toggleTask(_prev: DetailState, formData: FormData): Promis
     .from("tasks")
     .update({
       status: nowOpen ? "Done" : "Open",
-      done_at: nowOpen ? new Date().toISOString().slice(0, 10) : null,
+      done_at: nowOpen ? today() : null,
     })
     .eq("id", taskId)
     .select("id")
@@ -251,7 +251,7 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
     accommodations: str("accommodations"),
     consent_signed: true,
     staff_id: me.id,
-    ...(existing ? { updated_on: new Date().toISOString().slice(0, 10) } : {}),
+    ...(existing ? { updated_on: today() } : {}),
   };
 
   const { error } = await supabase
@@ -291,7 +291,7 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
     client_id: clientId,
     assigned_staff_id: client?.assigned_staff_id ?? me.id,
     title: "Complete assessment",
-    due: new Date().toISOString().slice(0, 10),
+    due: today(),
     status: "Open",
     created_by: me.id,
     system_generated: true,

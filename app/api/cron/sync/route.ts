@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStaffMember, syncSharedMailbox } from "@/lib/sync";
 import { sweepAccess } from "@/lib/sync-callers";
 import { ensureFreshToken } from "@/lib/graph";
+import { pushPendingEvents } from "@/lib/calendar-push";
 
 export const maxDuration = 300;
 
@@ -45,9 +46,14 @@ export async function GET(request: NextRequest) {
     const staffId = connection.staff_id;
     try {
       const { tokens, writeMail } = sweepAccess(admin, staffId);
+      // Queued reminders first, so an interview added while Outlook was
+      // unreachable reaches the calendar before the pull looks at it.
+      const sent = await pushPendingEvents(admin, staffId, tokens);
       const result = await syncStaffMember(admin, staffId, tokens, writeMail);
       summary.push({
         staff_id: staffId,
+        events_pushed: sent.pushed,
+        events_removed: sent.removed,
         mail_logged: result.mailLogged,
         events_pulled: result.eventsPulled,
         skipped_no_match: result.skippedNoMatch,

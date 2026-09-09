@@ -137,6 +137,8 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          source_match_id: string | null;
+          source_kind: string | null;
         };
         Insert: {
           id?: string;
@@ -157,6 +159,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          source_match_id?: string | null;
+          source_kind?: string | null;
         };
         Update: {
           id?: string;
@@ -177,6 +181,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          source_match_id?: string | null;
+          source_kind?: string | null;
         };
         Relationships: [];
       };
@@ -1868,6 +1874,8 @@ export type Database = {
           system_generated: boolean;
           created_at: string;
           updated_at: string;
+          source_match_id: string | null;
+          source_kind: string | null;
         };
         Insert: {
           id?: string;
@@ -1882,6 +1890,8 @@ export type Database = {
           system_generated?: boolean;
           created_at?: string;
           updated_at?: string;
+          source_match_id?: string | null;
+          source_kind?: string | null;
         };
         Update: {
           id?: string;
@@ -1896,6 +1906,8 @@ export type Database = {
           system_generated?: boolean;
           created_at?: string;
           updated_at?: string;
+          source_match_id?: string | null;
+          source_kind?: string | null;
         };
         Relationships: [];
       };
@@ -2162,6 +2174,10 @@ export type Database = {
       };
     };
     Functions: {
+      answer_reminder: {
+        Args: { p_task_id: string | null; p_status: string | null; p_outcome: string | null };
+        Returns: string;
+      };
       can_see_restricted: {
         Args: { p_client_id: string | null };
         Returns: boolean;

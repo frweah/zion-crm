@@ -60,9 +60,30 @@ export function fmtStamp(iso: string | null): string {
  * The database's own guard still uses current_date (UTC), which is never
  * behind the local date in Utah, so a local date is always accepted.
  */
+/**
+ * Where the practice is.
+ *
+ * Every date in this system means a day in Utah — the day a visit happened,
+ * the day an invoice was raised, the day somebody was hired. None of them mean
+ * a day in UTC, which is where the server thinks it lives.
+ */
+export const PRACTICE_TZ = "America/Denver";
+
+/**
+ * Today, in Utah.
+ *
+ * This used to read the server clock. On a laptop in Salt Lake City that was
+ * right; on Vercel, where the server is UTC, every date stamped between six in
+ * the evening and midnight landed on tomorrow. Hours logged after supper were
+ * dated the next day, and so were the tasks raised beside them.
+ */
 export function today(): string {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: PRACTICE_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 /** Currency, matching the prototype's money(). */

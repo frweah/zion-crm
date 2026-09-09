@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING, CAN_LOG_HOURS } from "@/lib/constants";
+import { CAN_EDIT_BILLING, CAN_LOG_HOURS, today } from "@/lib/constants";
 
 export type BillingState = { error: string | null; ok: string | null };
 
@@ -170,7 +170,7 @@ export async function setInvoiceStatus(
 
   const id = String(formData.get("invoice_id") ?? "");
   const status = String(formData.get("status") ?? "");
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
 
   const supabase = await createClient();
   const { error } = await supabase

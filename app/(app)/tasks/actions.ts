@@ -1,5 +1,6 @@
 "use server";
 
+import { today } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
@@ -49,7 +50,7 @@ export async function setTaskStatus(_prev: TaskState, formData: FormData): Promi
     .from("tasks")
     .update({
       status: nowOpen ? "Done" : "Open",
-      done_at: nowOpen ? new Date().toISOString().slice(0, 10) : null,
+      done_at: nowOpen ? today() : null,
     })
     .eq("id", taskId)
     .select("id")

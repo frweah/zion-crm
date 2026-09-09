@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { CAN_EDIT_CLIENTS, JOB_STATUSES, today } from "@/lib/constants";
+import { ownAccess } from "@/lib/sync-callers";
+import { pushPendingEvents } from "@/lib/calendar-push";
 
 export type JobState = { error: string | null; ok: string | null };
 
@@ -14,6 +16,26 @@ async function editor() {
     return { me: null, error: "Your role does not change client records." };
   }
   return { me, error: null };
+}
+
+
+/**
+ * Sends whatever the reminder trigger just queued for this person.
+ *
+ * Best effort and deliberately silent about its own failures: the job and its
+ * reminders are saved either way, and the nightly sweep retries. Refusing the
+ * save because Outlook was slow would be the wrong trade.
+ */
+async function pushForMe(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  staffId: string,
+): Promise<void> {
+  try {
+    const { tokens } = ownAccess(supabase, staffId);
+    await pushPendingEvents(supabase, staffId, tokens);
+  } catch {
+    // Left queued, and picked up by the sweep.
+  }
 }
 
 const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -116,8 +138,11 @@ export async function addClientJob(_prev: JobState, formData: FormData): Promise
 
   if (matchError) return { error: matchError.message, ok: null };
 
+  await pushForMe(supabase, me.id);
+
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/leads");
+  revalidatePath("/tasks");
   return { error: null, ok: `${title} added, and noted on the record.` };
 }
 
@@ -166,8 +191,11 @@ export async function updateClientJob(_prev: JobState, formData: FormData): Prom
 
   if (error) return { error: error.message, ok: null };
 
+  await pushForMe(supabase, me.id);
+
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/leads");
+  revalidatePath("/tasks");
   return {
     error: null,
     ok:

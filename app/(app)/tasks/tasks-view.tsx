@@ -3,7 +3,8 @@
 import { useState, useActionState } from "react";
 import Link from "next/link";
 import { createTask, setTaskStatus, type TaskState } from "./actions";
-import { today } from "@/lib/constants";
+import { answerReminder, type ReminderState } from "./reminder-actions";
+import { today, JOB_STATUSES } from "@/lib/constants";
 
 const initial: TaskState = { error: null, ok: null };
 
@@ -16,13 +17,84 @@ export type TaskListRow = {
   client_name: string;
   assigned_name: string;
   system_generated: boolean;
+  /** Set when this task was raised by a job, which is what makes it askable. */
+  source_match_id: string | null;
+  source_kind: string | null;
 };
+
+const reminderInitial: ReminderState = { error: null, ok: null };
+
+/**
+ * Closing a reminder with what came of it.
+ *
+ * Shown instead of the plain tick for interview and follow-up reminders,
+ * because at that moment somebody knows how it went and will not go looking
+ * for the job to say so.
+ */
+function ReminderPrompt({ task }: { task: TaskListRow }) {
+  const [state, action, pending] = useActionState(answerReminder, reminderInitial);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        className="btn ghost"
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{ padding: "1px 9px", lineHeight: 1.4 }}
+        title="How did it go?"
+      >
+        ○
+      </button>
+    );
+  }
+
+  return (
+    <div className="card" style={{ padding: 12, minWidth: 260 }}>
+      <b style={{ fontSize: 13 }}>How did it go?</b>
+      {state.error && <div className="alert bad">{state.error}</div>}
+      <form action={action}>
+        <input type="hidden" name="task_id" value={task.id} />
+        <input type="hidden" name="client_id" value={task.client_id ?? ""} />
+        <label className="field">
+          Where the job stands now
+          <select name="status" defaultValue="">
+            <option value="">Leave it where it is</option>
+            {JOB_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          In a line
+          <input name="outcome" placeholder="What happened" />
+        </label>
+        <div className="row2" style={{ gap: 6 }}>
+          <button className="btn gold" type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Done"}
+          </button>
+          <button className="btn ghost" type="button" onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </div>
+        <p className="lock" style={{ marginBottom: 0 }}>
+          Leaving the status alone is a real answer — sometimes nothing has changed yet.
+        </p>
+      </form>
+    </div>
+  );
+}
 
 type Option = { id: string; name: string };
 
 function StatusBox({ task }: { task: TaskListRow }) {
   const [state, action, pending] = useActionState(setTaskStatus, initial);
   const open = task.status === "Open";
+
+  // A reminder raised by a job closes by saying what came of it.
+  if (open && task.source_match_id) return <ReminderPrompt task={task} />;
 
   return (
     <form action={action}>
