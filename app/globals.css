@@ -442,3 +442,47 @@ textarea {
   background: #f4dcd6;
   color: var(--bad);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Printing
+   The outcomes one-pager is meant to be handed to somebody, so it has to
+   survive the printer: no navigation, no buttons, no dark card borders
+   eating toner, and nothing that only makes sense on a screen.
+   ───────────────────────────────────────────────────────────── */
+@media print {
+  .side,
+  .no-print,
+  .tabs,
+  .hintbar {
+    display: none !important;
+  }
+
+  .shell {
+    display: block;
+  }
+
+  .main {
+    padding: 0;
+    max-width: none;
+  }
+
+  .card {
+    border: 1px solid #ccc;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .t th,
+  .t td {
+    padding: 4px 6px;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .page-break {
+    break-before: page;
+  }
+}
