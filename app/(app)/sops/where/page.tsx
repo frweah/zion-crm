@@ -51,8 +51,18 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Read or send the progress report",
-        where: "The client's Report tab",
+        where: "The client's Report tab — four reports, emailed to the counselor and logged",
         href: "/clients",
+      },
+      {
+        ask: "See which USOR forms a client still owes",
+        where: "Paperwork, under the jobs on their Overview",
+        href: "/clients",
+      },
+      {
+        ask: "Write a note or add a task without finding the client first",
+        where: "The + Add button, top right of every screen",
+        href: "/dashboard",
       },
     ],
   },
@@ -90,6 +100,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "Counselors and USOR",
     items: [
       {
+        ask: "See one counselor's whole caseload",
+        where: "Counselors → Directory → their name",
+        href: "/counselors?tab=directory",
+      },
+      {
         ask: "Record a call or email with a counselor",
         where: "Counselors — this is what the monthly reporting counts",
         href: "/counselors",
@@ -114,6 +129,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
   {
     group: "My own work",
     items: [
+      {
+        ask: "See what needs me today",
+        where: "Needs attention — the same five counters as the dashboard",
+        href: "/needs",
+      },
       {
         ask: "Log the hours I worked",
         where: "Hours — or start the timer and end it when you are done",

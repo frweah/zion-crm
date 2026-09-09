@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/session";
 import { ROLE_LABEL, ROLE_NAV, ORG, canReach } from "@/lib/roles";
 import { NavLinks } from "./nav-links";
 import { HintBar } from "./hint-bar";
+import { QuickAdd } from "./quick-add";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -67,6 +68,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </nav>
 
       <main className="main">
+        {/* One place to add the six things people add all day, on every screen
+            — the alternative is finding the client first, which is how a phone
+            call ends up not written down. */}
+        <div
+          className="row2"
+          style={{ justifyContent: "flex-end", marginBottom: 10 }}
+        >
+          <QuickAdd />
+        </div>
+
         {hint && <HintBar hintKey={hint.key} title={hint.title} body={hint.body} />}
         {children}
       </main>
