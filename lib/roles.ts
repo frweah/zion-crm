@@ -27,6 +27,7 @@ const NAV: Record<string, NavItem> = {
   Referrals: { label: "Referrals", href: "/referrals" },
   Outcomes: { label: "Outcomes", href: "/outcomes" },
   Capacity: { label: "Capacity", href: "/capacity" },
+  Exports: { label: "Monthly export", href: "/exports" },
   Reports: { label: "Reports", href: "/reports" },
   SOPs: { label: "SOPs", href: "/sops" },
   Contractors: { label: "Contractors", href: "/contractors" },
@@ -40,12 +41,12 @@ const NAV: Record<string, NavItem> = {
  * database rather than by the navigation.
  */
 export const ROLE_NAV: Record<Role, NavItem[]> = {
-  Admin: ["Dashboard", "Needs", "Clients", "Referrals", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Revenue", "Reports", "Outcomes", "Capacity", "Hours", "Paperwork", "SOPs", "Contractors", "Staff"].map(
+  Admin: ["Dashboard", "Needs", "Clients", "Referrals", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Revenue", "Reports", "Outcomes", "Capacity", "Exports", "Hours", "Paperwork", "SOPs", "Contractors", "Staff"].map(
     (k) => NAV[k],
   ),
   "Job Search": ["Dashboard", "Needs", "Clients", "Referrals", "Leads", "Tasks", "Forms", "Counselors", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
   Reports: ["Dashboard", "Needs", "Clients", "Referrals", "Leads", "Tasks", "Forms", "Reports", "Outcomes", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
-  Billing: ["Dashboard", "Needs", "Clients", "Leads", "Forms", "Counselors", "Billing", "Revenue", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
+  Billing: ["Dashboard", "Needs", "Clients", "Leads", "Forms", "Counselors", "Billing", "Revenue", "Exports", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
 };
 
 /**
