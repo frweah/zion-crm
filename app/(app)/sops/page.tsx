@@ -33,6 +33,16 @@ export default async function SopsPage({
           : "Procedures for your role"}
       </p>
 
+      <div className="card" style={{ marginBottom: 14 }}>
+        <h3 style={{ margin: 0 }}>
+          <Link href="/sops/where">Where do I…?</Link>
+        </h3>
+        <p className="sub" style={{ margin: "4px 0 0" }}>
+          The things people ask for most, and where each one lives. Start here if you are looking
+          for a screen rather than a procedure.
+        </p>
+      </div>
+
       <div className="grid" style={{ gridTemplateColumns: "minmax(200px, 1fr) minmax(0, 2fr)" }}>
         <div className="card" style={{ padding: 8, alignSelf: "start" }}>
           {sops.length === 0 && <div className="empty">No procedures for this role yet.</div>}

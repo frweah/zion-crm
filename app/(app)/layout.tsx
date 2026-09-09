@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { ROLE_LABEL, ROLE_NAV, ORG, canReach } from "@/lib/roles";
 import { NavLinks } from "./nav-links";
+import { HintBar } from "./hint-bar";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const staff = await requireStaff();
@@ -15,6 +17,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (pathname && !canReach(staff.role, pathname)) {
     redirect("/dashboard");
   }
+
+  // The hint for this screen, if there is one this person has not put away.
+  // Matched longest-first so /clients/<id> gets the record hint rather than
+  // the list one.
+  const supabase = await createClient();
+  const [{ data: hints }, { data: seen }] = await Promise.all([
+    supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
+    supabase.from("staff_prefs").select("key").like("key", "hint:%"),
+  ]);
+
+  const dismissed = new Set((seen ?? []).map((p) => p.key));
+  const hint =
+    (hints ?? [])
+      .filter((h) => !h.roles || h.roles.includes(staff.role))
+      .filter((h) => pathname.startsWith(h.screen))
+      .filter((h) => !dismissed.has(`hint:${h.key}`))
+      .sort((a, b) => b.screen.length - a.screen.length)[0] ?? null;
 
   return (
     <div className="shell">
@@ -47,7 +66,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </nav>
 
-      <main className="main">{children}</main>
+      <main className="main">
+        {hint && <HintBar hintKey={hint.key} title={hint.title} body={hint.body} />}
+        {children}
+      </main>
     </div>
   );
 }

@@ -2001,6 +2001,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      tour_hints: {
+        Row: {
+          key: string;
+          screen: string;
+          title: string;
+          body: string;
+          roles: string[] | null;
+          sort_order: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          screen: string;
+          title: string;
+          body: string;
+          roles?: string[] | null;
+          sort_order?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          screen?: string;
+          title?: string;
+          body?: string;
+          roles?: string[] | null;
+          sort_order?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       work_session_timers: {
         Row: {
           staff_id: string;
@@ -2158,6 +2191,14 @@ export type Database = {
           period_hours: number | null;
           period_start: string | null;
           period_end: string | null;
+        };
+        Relationships: [];
+      };
+      my_tour_progress: {
+        Row: {
+          staff_id: string | null;
+          hints_total: number | null;
+          hints_seen: number | null;
         };
         Relationships: [];
       };
