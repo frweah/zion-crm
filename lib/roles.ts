@@ -14,6 +14,7 @@ export type NavItem = { label: string; href: string };
 
 const NAV: Record<string, NavItem> = {
   Dashboard: { label: "Dashboard", href: "/dashboard" },
+  Needs: { label: "Needs attention", href: "/needs" },
   Clients: { label: "Clients", href: "/clients" },
   Leads: { label: "Job leads", href: "/leads" },
   Hours: { label: "Hours", href: "/hours" },
@@ -35,12 +36,12 @@ const NAV: Record<string, NavItem> = {
  * database rather than by the navigation.
  */
 export const ROLE_NAV: Record<Role, NavItem[]> = {
-  Admin: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Reports", "Hours", "Paperwork", "SOPs", "Contractors", "Staff"].map(
+  Admin: ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Billing", "Reports", "Hours", "Paperwork", "SOPs", "Contractors", "Staff"].map(
     (k) => NAV[k],
   ),
-  "Job Search": ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
-  Reports: ["Dashboard", "Clients", "Leads", "Tasks", "Forms", "Reports", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
-  Billing: ["Dashboard", "Clients", "Leads", "Forms", "Counselors", "Billing", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
+  "Job Search": ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Counselors", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
+  Reports: ["Dashboard", "Needs", "Clients", "Leads", "Tasks", "Forms", "Reports", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
+  Billing: ["Dashboard", "Needs", "Clients", "Leads", "Forms", "Counselors", "Billing", "Hours", "Paperwork", "SOPs"].map((k) => NAV[k]),
 };
 
 /**

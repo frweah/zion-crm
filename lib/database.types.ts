@@ -2153,6 +2153,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_paperwork: {
+        Row: {
+          client_id: string | null;
+          auth_id: string | null;
+          auth_number: string | null;
+          service_type: string | null;
+          template_id: string | null;
+          usor: string | null;
+          form_name: string | null;
+          monthly: boolean | null;
+          month: string | null;
+          hours_logged: number | null;
+          form_id: string | null;
+          form_status: string | null;
+          state: string | null;
+        };
+        Relationships: [];
+      };
       contractor_statement_totals: {
         Row: {
           statement_id: string | null;

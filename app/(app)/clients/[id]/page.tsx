@@ -20,6 +20,7 @@ import { ReportTab } from "./report-tab";
 import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
+import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { money, periodRange, today, CAN_EDIT_BILLING, jobStatusTone } from "@/lib/constants";
 
@@ -536,6 +537,7 @@ export default async function ClientPage({
     historyResult,
     jobsResult,
     employersResult,
+    paperworkResult,
   ] = await Promise.all([
       // A null here means the restricted policy declined, not that the row is
       // missing — which is the distinction the panel renders.
@@ -556,6 +558,14 @@ export default async function ClientPage({
         .order("status_rank")
         .order("updated_at", { ascending: false }),
       supabase.from("employers").select("id, name").order("name"),
+      supabase
+        .from("client_paperwork")
+        .select(
+          "auth_number, service_type, usor, form_name, month, state, form_id, hours_logged",
+        )
+        .eq("client_id", id)
+        .order("state")
+        .order("usor"),
     ]);
 
   return (
@@ -616,6 +626,11 @@ export default async function ClientPage({
             jobs={(jobsResult.data ?? []) as JobRow[]}
             employers={(employersResult.data ?? []) as { id: string; name: string }[]}
             canEdit={canEdit}
+          />
+
+          <PaperworkStrip
+            clientId={id}
+            rows={(paperworkResult.data ?? []) as PaperworkRow[]}
           />
         </div>
       </div>

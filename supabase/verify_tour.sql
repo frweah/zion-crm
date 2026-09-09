@@ -29,6 +29,12 @@ begin
 
   select id into v_task from public.checklist_tasks where auto_key = 'tour_completed';
 
+  -- Rei and Margaret are real people who have started using the system, so
+  -- "nothing dismissed yet" has to be arranged rather than assumed. This is
+  -- inside the rolled-back transaction; their real dismissals survive it.
+  delete from public.staff_prefs
+   where staff_id in (v_rei, v_marg) and key like 'hint:%';
+
   -- ── the hints exist, and are role-aware ────────────────────
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
@@ -100,7 +106,7 @@ begin
     raise notice 'ok  Rei putting a hint away does not take it from Margaret';
   end if;
 
-  select count(*) into v_count from public.staff_prefs;
+  select count(*) into v_count from public.staff_prefs where staff_id <> v_marg;
   if v_count <> 0 then
     failures := failures || format('FAILED: a colleague can read %s of somebody else''s preferences', v_count);
   else

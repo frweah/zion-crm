@@ -7,6 +7,7 @@ import { money, today, arBuckets, STAGES, CAN_LOG_HOURS } from "@/lib/constants"
 import { DashboardTask } from "./dashboard-task";
 import { MicrosoftCard } from "./microsoft-card";
 import { WorkTimer, HoursSummary } from "../hours/work-timer";
+import { NEEDS, countNeeds } from "@/lib/needs";
 import { SharedMailboxCard, type SharedMailboxRow } from "./shared-mailbox-card";
 
 export default async function DashboardPage({
@@ -72,6 +73,11 @@ export default async function DashboardPage({
       .select("today_hours, period_hours, period_start, period_end")
       .maybeSingle(),
   ]);
+
+  // The five things that might need somebody today. Counted by the same
+  // function that lists them on /needs, so a counter cannot disagree with
+  // what it opens.
+  const needs = await countNeeds(supabase, me);
 
   const msParams = await searchParams;
 
@@ -195,34 +201,19 @@ export default async function DashboardPage({
         className="grid"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(175px, 1fr))", marginBottom: 16 }}
       >
-        <div className="card">
-          <div className="stat">
-            {activeClients.length}
-            <small>active clients</small>
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat">
-            {myTasks.length}
-            <small>open tasks{isAdmin ? " (all staff)" : ""}</small>
-          </div>
-        </div>
-        {seesBilling && (
-          <div className="card">
-            <div className="stat">
-              {openHours}
-              <small>authorized hours remaining</small>
+        {NEEDS.map((n) => (
+          <Link
+            key={n.key}
+            href={`/needs?list=${n.key}`}
+            className="card"
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            <div className="stat" style={needs[n.key] > 0 ? { color: "var(--bad)" } : undefined}>
+              {needs[n.key]}
+              <small>{n.label.toLowerCase()}</small>
             </div>
-          </div>
-        )}
-        {seesAr && (
-          <div className="card">
-            <div className="stat">
-              {money(ar.total)}
-              <small>outstanding A/R</small>
-            </div>
-          </div>
-        )}
+          </Link>
+        ))}
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>

@@ -28,6 +28,11 @@ begin
   select id, user_id into v_admin, v_adm_uid from public.staff where legacy_id = 's1';
   select id, user_id into v_rei,  v_rei_uid  from public.staff where legacy_id = 's2';
 
+  -- These are real accounts, and one of them may have a timer running right
+  -- now. Clear them so the fixture starts from a known place; the delete is
+  -- inside the rolled-back transaction, so a real running timer survives it.
+  delete from public.work_session_timers where staff_id in (v_admin, v_rei);
+
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_rei_uid, 'role', 'authenticated')::text, true);
@@ -146,7 +151,7 @@ begin
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
 
-  select count(*) into v_count from public.work_session_timers;
+  select count(*) into v_count from public.work_session_timers where staff_id <> v_admin;
   if v_count <> 0 then
     failures := failures || 'FAILED: Admin can see somebody else''s running timer'::text;
   else
