@@ -2153,6 +2153,15 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_next_up: {
+        Row: {
+          client_id: string | null;
+          at: string | null;
+          kind: string | null;
+          title: string | null;
+        };
+        Relationships: [];
+      };
       client_paperwork: {
         Row: {
           client_id: string | null;

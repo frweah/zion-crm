@@ -70,7 +70,9 @@ export default async function CounselorsPage({
             const active = theirs.filter((c) => c.status === "Active").length;
             return (
               <div key={k.id} className="card">
-                <b>{k.name}</b>
+                <Link href={`/counselors/${k.id}`} style={{ color: "var(--teal)" }}>
+                  <b>{k.name}</b>
+                </Link>
                 <div style={{ fontSize: 13, color: "var(--muted)" }}>{k.agency}</div>
                 <div style={{ fontSize: 13, marginTop: 6 }}>
                   {k.phone && <div>Phone {k.phone}</div>}
@@ -80,7 +82,10 @@ export default async function CounselorsPage({
                   {k.notes && <div style={{ color: "var(--muted)" }}>{k.notes}</div>}
                 </div>
                 <div style={{ fontSize: 12, marginTop: 8 }}>
-                  Active clients: {active} · total {theirs.length}
+                  <Link href={`/counselors/${k.id}`}>
+                    Caseload: {active} active
+                  </Link>{" "}
+                  · {theirs.length} in total
                 </div>
               </div>
             );
@@ -222,7 +227,15 @@ export default async function CounselorsPage({
             {(contacts ?? []).map((x) => (
               <tr key={x.id}>
                 <td>{x.date}</td>
-                <td>{x.counselor_id ? (counselorName.get(x.counselor_id) ?? "—") : "—"}</td>
+                <td>
+                  {x.counselor_id ? (
+                    <Link href={`/counselors/${x.counselor_id}`} style={{ color: "var(--teal)" }}>
+                      {counselorName.get(x.counselor_id) ?? "—"}
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   {x.client_id ? (
                     <Link href={`/clients/${x.client_id}`} style={{ color: "var(--teal)" }}>
