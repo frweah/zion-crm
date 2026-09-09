@@ -2027,6 +2027,19 @@ export type Database = {
       };
     };
     Views: {
+      client_activity: {
+        Row: {
+          client_id: string | null;
+          at: string | null;
+          kind: string | null;
+          title: string | null;
+          detail: string | null;
+          who: string | null;
+          tab: string | null;
+          ref_id: string | null;
+        };
+        Relationships: [];
+      };
       client_job_history: {
         Row: {
           match_id: string | null;

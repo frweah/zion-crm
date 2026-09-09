@@ -18,11 +18,13 @@ import { templatesForService } from "@/lib/form-templates";
 import { PlacementsTab, type PlacementRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
 import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
+import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { money, periodRange, today, CAN_EDIT_BILLING } from "@/lib/constants";
 
 /** Tab order follows the prototype's drawer. */
 const TABS = [
+  { key: "activity", label: "Activity", built: true },
   { key: "overview", label: "Overview", built: true },
   { key: "intake", label: "Intake", built: true, needsEdit: true },
   { key: "notes", label: "Notes", built: true },
@@ -41,10 +43,10 @@ export default async function ClientPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; kind?: string; anchor?: string }>;
+  searchParams: Promise<{ tab?: string; kind?: string; anchor?: string; days?: string }>;
 }) {
   const { id } = await params;
-  const { tab: rawTab, kind: rawKind, anchor: rawAnchor } = await searchParams;
+  const { tab: rawTab, kind: rawKind, anchor: rawAnchor, days: rawDays } = await searchParams;
   const me = await requireStaff();
   const supabase = await createClient();
 
@@ -113,6 +115,45 @@ export default async function ClientPage({
       </nav>
     </>
   );
+
+  if (tab === "activity") {
+    // Thirty days by default, because a timeline that opens on two years of
+    // history answers a question nobody asked.
+    const days = /^[0-9]+$/.test(rawDays ?? "") ? Number(rawDays) : 30;
+    const kind = ACTIVITY_KINDS.includes((rawKind ?? "") as never) ? rawKind! : null;
+
+    let query = supabase
+      .from("client_activity")
+      .select("at, kind, title, detail, who, tab, ref_id")
+      .eq("client_id", id)
+      .order("at", { ascending: false })
+      .limit(500);
+
+    if (days > 0) {
+      query = query.gte("at", new Date(Date.now() - days * 86400000).toISOString());
+    }
+
+    const { data: activity } = await query;
+    const all = (activity ?? []) as ActivityRow[];
+
+    // Counted before the kind filter, so the chips say how much of each there
+    // is rather than how much is currently showing.
+    const counts = new Map<string, number>();
+    for (const row of all) counts.set(row.kind, (counts.get(row.kind) ?? 0) + 1);
+
+    return (
+      <>
+        {header}
+        <ActivityTab
+          clientId={id}
+          rows={kind ? all.filter((r) => r.kind === kind) : all}
+          days={days}
+          kind={kind}
+          counts={counts}
+        />
+      </>
+    );
+  }
 
   if (tab === "intake") {
     // A null row here can mean either "no intake yet" or "the policy declined",

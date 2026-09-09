@@ -32,6 +32,16 @@ begin
   select id into v_manual from public.checklist_tasks
    where auto_key is null and phase = 'Onboarding' order by sort_order limit 1;
 
+  -- The tax-form checks below describe a person who has not yet signed one.
+  -- Rei has now signed hers for real, so the fixture starts by clearing the
+  -- forms inside this transaction — which is rolled back, leaving her real
+  -- W-8BEN untouched. Asserting "starts undone" against live data was only
+  -- ever going to hold until somebody used the feature.
+  delete from public.tax_form_submissions where staff_id = v_rei;
+  update public.contractor_profiles
+     set w8ben_received_on = null, w9_received_on = null
+   where staff_id = v_rei;
+
   -- ── an automatic item cannot be ticked ─────────────────────
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',

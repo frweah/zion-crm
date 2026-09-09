@@ -19,10 +19,17 @@ declare
   v_correct  uuid;
   v_stmt     uuid;
   v_total    numeric;
+  v_baseline numeric;
   failures   text[] := '{}';
 begin
   select id into v_rei  from public.staff where legacy_id = 's2';
   select id into v_marg from public.staff where legacy_id = 's3';
+
+  -- What is already in this period before any fixture is added. Rei logs real
+  -- hours now, so every total below is a difference rather than a figure.
+  select coalesce(total_hours, 0) into v_baseline from public.work_session_totals
+   where staff_id = v_rei and period_start = public.period_start(current_date);
+  v_baseline := coalesce(v_baseline, 0);
 
   -- ── append-only ────────────────────────────────────────────
   insert into public.work_sessions (staff_id, worked_on, hours, description, created_by)
@@ -63,12 +70,16 @@ begin
     raise notice 'ok  the original entry is still on file, with the reason recorded';
   end if;
 
-  select total_hours into v_total from public.work_session_totals
+  -- Measured as a change, not as an absolute. Real hours are logged in this
+  -- period now, and a literal here would have been asserting that nobody had
+  -- done any work — which was only ever true because nobody had started.
+  select coalesce(total_hours, 0) into v_total from public.work_session_totals
    where staff_id = v_rei and period_start = public.period_start(current_date);
-  if v_total <> 4.5 then
-    failures := failures || format('FAILED: period total is %s, expected 4.5 after the correction', v_total);
+  if v_total - v_baseline <> 4.5 then
+    failures := failures || format('FAILED: the correction moved the period total by %s, expected 4.5',
+                                   v_total - v_baseline);
   else
-    raise notice 'ok  the period total counts 4.5, not 10.5';
+    raise notice 'ok  the correction leaves 4.5 in the period total, not 10.5';
   end if;
 
   -- A correction must say why.
