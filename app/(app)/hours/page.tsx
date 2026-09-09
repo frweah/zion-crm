@@ -145,6 +145,7 @@ export default async function HoursPage({
     staffResult,
     timerResult,
     summaryResult,
+    rateResult,
   ] = await Promise.all([
     supabase
       .from("work_sessions")
@@ -173,6 +174,10 @@ export default async function HoursPage({
       .from("my_hours_summary")
       .select("today_hours, period_hours, period_start, period_end")
       .maybeSingle(),
+    // Their own rate. The function takes a staff id, but it is security
+    // invoker over an own-row policy, so passing somebody else's returns
+    // nothing — checked in verify_pay before it was put on a screen.
+    supabase.rpc("pay_rate_on", { p_staff_id: me.id, p_date: today() }),
   ]);
 
   const clients = clientsResult.data ?? [];
@@ -236,6 +241,10 @@ export default async function HoursPage({
         periodEnd={summaryResult.data?.period_end ?? periodEnd}
         clients={clients}
         today={today()}
+        rate={
+          (rateResult.data as unknown as { pay_rate: number; rate_unit: string }[] | null)?.[0] ??
+          null
+        }
       />
 
       <SubmitStatement

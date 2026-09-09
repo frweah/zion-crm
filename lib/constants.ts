@@ -227,3 +227,21 @@ export function jobStatusTone(status: string): "ok" | "warn" | "" {
   if (status === "Not selected") return "";
   return "warn";
 }
+
+/**
+ * A pay rate, written the way it was agreed.
+ *
+ * Shared rather than written twice, because the obvious way to format money is
+ * two decimals — and two decimals is what turned an agreed 5.625 an hour into
+ * 5.63 on somebody's record. A second screen showing rates was the likeliest
+ * place for that to come back.
+ */
+export function formatPayRate(rate: number, unit: string): string {
+  const amount = Number(rate).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+  return unit === "Hourly" ? `${amount} an hour` : `${amount} flat`;
+}

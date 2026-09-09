@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { setStaffPay, deleteStaffPay, type StaffState } from "./checklist-actions";
+import { formatPayRate } from "@/lib/constants";
 
 const initial: StaffState = { error: null, ok: null };
 
@@ -14,16 +15,8 @@ export type PayRow = {
   note: string;
 };
 
-// A rate is shown to whatever precision it was agreed at. Formatting it as
-// money would print 5.625 an hour as $5.63 — which is exactly how the wrong
-// figure got onto a record in the first place.
-const rate = (r: PayRow) =>
-  `${Number(r.pay_rate).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  })}${r.rate_unit === "Hourly" ? " an hour" : " flat"}`;
+// Shared with the Hours screen, which also shows a rate. See formatPayRate.
+const rate = (r: PayRow) => formatPayRate(r.pay_rate, r.rate_unit);
 
 function RemoveRate({ id }: { id: string }) {
   const [state, action, pending] = useActionState(deleteStaffPay, initial);

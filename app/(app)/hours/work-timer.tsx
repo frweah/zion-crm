@@ -7,6 +7,7 @@ import {
   saveTimerSession,
   type HoursState,
 } from "./actions";
+import { formatPayRate } from "@/lib/constants";
 
 const initial: HoursState = { error: null, ok: null };
 
@@ -40,6 +41,7 @@ export function WorkTimer({
   periodEnd,
   clients,
   today,
+  rate,
 }: {
   running: { started_at: string } | null;
   todayHours: number;
@@ -48,6 +50,12 @@ export function WorkTimer({
   periodEnd: string;
   clients: { id: string; name: string }[];
   today: string;
+  /**
+   * The person's own rate, shown only where they came to think about their
+   * time. Nobody else's rate is reachable from here — the database returns
+   * nothing for anybody but the caller.
+   */
+  rate?: { pay_rate: number; rate_unit: string } | null;
 }) {
   const [startState, startAction, starting] = useActionState(startWorkTimer, initial);
   const [discardState, discardAction, discarding] = useActionState(discardWorkTimer, initial);
@@ -79,6 +87,13 @@ export function WorkTimer({
             <b>{Number(periodHours).toLocaleString()}</b> this period ({periodStart} to{" "}
             {periodEnd})
           </p>
+          {rate !== undefined && (
+            <p className="lock" style={{ margin: "4px 0 0" }}>
+              {rate
+                ? `Your rate is ${formatPayRate(rate.pay_rate, rate.rate_unit)}. Work done before a change keeps the rate it was done under.`
+                : "No rate is on file for you yet. Ask the administrator."}
+            </p>
+          )}
         </div>
 
         {!running ? (

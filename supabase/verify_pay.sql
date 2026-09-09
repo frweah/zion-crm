@@ -184,6 +184,22 @@ begin
     raise notice 'ok  a contractor sees their own rates and only their own';
   end if;
 
+  -- The Hours screen shows the caller their own rate through pay_rate_on,
+  -- which takes a staff id as an argument. It is security invoker over an
+  -- own-row policy, so a colleague id returns nothing rather than a rate —
+  -- the property that made it safe to put on a screen at all.
+  if (select pay_rate from public.pay_rate_on(v_rei, current_date)) is null then
+    failures := failures || 'FAILED: a contractor cannot read their own rate through pay_rate_on'::text;
+  else
+    raise notice 'ok  a contractor reads their own rate through pay_rate_on';
+  end if;
+
+  if exists (select 1 from public.pay_rate_on(v_marg, current_date)) then
+    failures := failures || 'FAILED: pay_rate_on handed over a colleague''s rate'::text;
+  else
+    raise notice 'ok  pay_rate_on returns nothing for a colleague, argument or not';
+  end if;
+
   if exists (select 1 from public.staff_pay where staff_id = v_marg) then
     failures := failures || 'FAILED: a colleague''s rate was visible'::text;
   else
