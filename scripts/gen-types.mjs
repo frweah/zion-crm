@@ -104,6 +104,8 @@ const RPC_FUNCTIONS = [
   "fmt_hours",
   "job_status_rank",
   "answer_reminder",
+  "practice_today",
+  "timer_elapsed_hours",
 ];
 
 const { rows: fns } = await client.query(

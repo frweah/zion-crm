@@ -3,9 +3,10 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { refreshNotifications, getAlerts } from "@/lib/alerts";
 import { ROLE_LABEL } from "@/lib/roles";
-import { money, today, arBuckets, STAGES } from "@/lib/constants";
+import { money, today, arBuckets, STAGES, CAN_LOG_HOURS } from "@/lib/constants";
 import { DashboardTask } from "./dashboard-task";
 import { MicrosoftCard } from "./microsoft-card";
+import { WorkTimer } from "../hours/work-timer";
 import { SharedMailboxCard, type SharedMailboxRow } from "./shared-mailbox-card";
 
 export default async function DashboardPage({
@@ -23,7 +24,7 @@ export default async function DashboardPage({
   const [alerts, clientsResult, tasksResult, authsResult, entriesResult, invoicesResult] =
     await Promise.all([
       getAlerts(),
-      supabase.from("clients").select("id, stage, status"),
+      supabase.from("clients").select("id, name, stage, status"),
       supabase
         .from("tasks")
         .select("id, title, due, client_id, assigned_staff_id")
@@ -61,6 +62,16 @@ export default async function DashboardPage({
           .select("address, label, last_run_at, last_mail_sync_at, mail_logged, last_error")
           .order("address")
       : { data: [] };
+
+  // The timer is on both screens on purpose: Hours is where somebody goes to
+  // log time, and the dashboard is where they already are when they start.
+  const [{ data: runningTimer }, { data: hoursSummary }] = await Promise.all([
+    supabase.from("work_session_timers").select("started_at").maybeSingle(),
+    supabase
+      .from("my_hours_summary")
+      .select("today_hours, period_hours, period_start, period_end")
+      .maybeSingle(),
+  ]);
 
   const msParams = await searchParams;
 
@@ -107,6 +118,18 @@ export default async function DashboardPage({
       <p className="sub">
         {ROLE_LABEL[me.role]} view · {me.name}
       </p>
+
+      {CAN_LOG_HOURS.includes(me.role) && (
+        <WorkTimer
+          running={runningTimer ?? null}
+          todayHours={Number(hoursSummary?.today_hours ?? 0)}
+          periodHours={Number(hoursSummary?.period_hours ?? 0)}
+          periodStart={hoursSummary?.period_start ?? today()}
+          periodEnd={hoursSummary?.period_end ?? today()}
+          clients={activeClients.map((c) => ({ id: c.id, name: c.name }))}
+          today={today()}
+        />
+      )}
 
       <MicrosoftCard
         connection={msConnection}

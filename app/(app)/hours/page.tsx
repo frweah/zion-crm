@@ -9,6 +9,7 @@ import {
   ApprovalRow,
   type SessionRow,
 } from "./hours-forms";
+import { WorkTimer } from "./work-timer";
 
 export default async function HoursPage({
   searchParams,
@@ -136,8 +137,15 @@ export default async function HoursPage({
   }
 
   // ── Everyone: my own hours for the period ────────────────────
-  const [sessionsResult, statementResult, totalsResult, clientsResult, staffResult] =
-    await Promise.all([
+  const [
+    sessionsResult,
+    statementResult,
+    totalsResult,
+    clientsResult,
+    staffResult,
+    timerResult,
+    summaryResult,
+  ] = await Promise.all([
     supabase
       .from("work_sessions")
       .select(
@@ -160,6 +168,11 @@ export default async function HoursPage({
       .maybeSingle(),
     supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
     supabase.from("staff").select("id, name"),
+    supabase.from("work_session_timers").select("started_at").maybeSingle(),
+    supabase
+      .from("my_hours_summary")
+      .select("today_hours, period_hours, period_start, period_end")
+      .maybeSingle(),
   ]);
 
   const clients = clientsResult.data ?? [];
@@ -214,6 +227,16 @@ export default async function HoursPage({
           </Link>
         )}
       </div>
+
+      <WorkTimer
+        running={timerResult.data ?? null}
+        todayHours={Number(summaryResult.data?.today_hours ?? 0)}
+        periodHours={Number(summaryResult.data?.period_hours ?? 0)}
+        periodStart={summaryResult.data?.period_start ?? periodStart}
+        periodEnd={summaryResult.data?.period_end ?? periodEnd}
+        clients={clients}
+        today={today()}
+      />
 
       <SubmitStatement
         periodStart={periodStart}

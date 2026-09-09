@@ -211,3 +211,100 @@ export async function reopenStatement(_prev: HoursState, formData: FormData): Pr
   revalidatePath("/hours");
   return { error: null, ok: "Reopened. The hours on it can be corrected again." };
 }
+
+// ─────────────────────────────────────────────────────────────
+// The timer
+//
+// A convenience for logging, not a shift clock. It offers an elapsed figure;
+// the person confirms or corrects it and says what they did, and only then is
+// an ordinary work session written — by logSession's own rules, through the
+// same append-only table.
+// ─────────────────────────────────────────────────────────────
+
+/** Starts the clock. One at a time, which the primary key guarantees. */
+export async function startWorkTimer(_prev: HoursState): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("work_session_timers")
+    .insert({ staff_id: me.id });
+
+  if (error) {
+    return {
+      error: error.code === "23505" ? "A session is already running." : error.message,
+      ok: null,
+    };
+  }
+
+  revalidatePath("/hours");
+  revalidatePath("/dashboard");
+  return { error: null, ok: "Started." };
+}
+
+/**
+ * Stops the clock without logging anything.
+ *
+ * Offered plainly rather than hidden, because the commonest reason to end a
+ * timer is that it was left running by mistake, and somebody who cannot throw
+ * one away will log a wrong figure instead.
+ */
+export async function discardWorkTimer(_prev: HoursState): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("work_session_timers").delete().eq("staff_id", me.id);
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/hours");
+  revalidatePath("/dashboard");
+  return { error: null, ok: "Timer discarded. Nothing was logged." };
+}
+
+/**
+ * Saves what the timer measured, as an ordinary work session.
+ *
+ * The hours arrive from the form rather than being recomputed here: the person
+ * has had the chance to change them, and the figure they agreed to is the one
+ * that should be recorded.
+ */
+export async function saveTimerSession(
+  _prev: HoursState,
+  formData: FormData,
+): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const hours = Number(String(formData.get("hours") ?? "").trim());
+  const description = String(formData.get("description") ?? "").trim();
+  const workedOn = String(formData.get("worked_on") ?? "").trim() || today();
+
+  if (!(hours > 0)) return { error: "How many hours?", ok: null };
+  if (hours > 24) return { error: "A day is not longer than 24 hours.", ok: null };
+  if (!description) {
+    return { error: "Say what the time was spent on — it is the billing record.", ok: null };
+  }
+  if (workedOn > today()) return { error: "That day has not happened yet.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("work_sessions").insert({
+    staff_id: me.id,
+    worked_on: workedOn,
+    hours,
+    description,
+    client_id: String(formData.get("client_id") ?? "").trim() || null,
+    created_by: me.id,
+  });
+
+  if (error) return { error: friendly(error), ok: null };
+
+  // Only once the session exists. A timer cleared before the insert succeeded
+  // would lose the afternoon it was measuring.
+  await supabase.from("work_session_timers").delete().eq("staff_id", me.id);
+
+  revalidatePath("/hours");
+  revalidatePath("/dashboard");
+  return { error: null, ok: `${hours} hours logged.` };
+}

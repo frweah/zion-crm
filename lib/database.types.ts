@@ -2001,6 +2001,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_session_timers: {
+        Row: {
+          staff_id: string;
+          started_at: string;
+          note: string;
+          client_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          started_at?: string;
+          note?: string;
+          client_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          started_at?: string;
+          note?: string;
+          client_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       work_sessions: {
         Row: {
           id: string;
@@ -2124,6 +2148,16 @@ export type Database = {
           total_paid: number | null;
           payment_count: number | null;
           last_paid_on: string | null;
+        };
+        Relationships: [];
+      };
+      my_hours_summary: {
+        Row: {
+          staff_id: string | null;
+          today_hours: number | null;
+          period_hours: number | null;
+          period_start: string | null;
+          period_end: string | null;
         };
         Relationships: [];
       };
@@ -2270,6 +2304,10 @@ export type Database = {
         Args: { d: string | null };
         Returns: string;
       };
+      practice_today: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
         Returns: string;
@@ -2321,6 +2359,10 @@ export type Database = {
       staff_activity: {
         Args: { p_from: string | null; p_to: string | null };
         Returns: string;
+      };
+      timer_elapsed_hours: {
+        Args: { p_started: string | null };
+        Returns: number;
       };
     };
     Enums: { [_ in never]: never };
