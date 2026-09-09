@@ -499,6 +499,23 @@ export default async function BillingPage({
         </table>
       </div>
 
+      {canBill && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="row2" style={{ justifyContent: "space-between" }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Have the PDF USOR sent?</h3>
+              <p className="sub" style={{ margin: "4px 0 0" }}>
+                Read the authorization off it instead of typing it — a rate keyed as 4.50 instead
+                of 45.00 is not noticed until an invoice is short.
+              </p>
+            </div>
+            <Link href="/billing/import" className="btn" style={{ textDecoration: "none" }}>
+              Read an authorization
+            </Link>
+          </div>
+        </div>
+      )}
+
       {canBill && <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} />}
     </>
   );

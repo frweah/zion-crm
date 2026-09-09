@@ -24,6 +24,12 @@ zion-crm-prototype.jsx
 *.dump
 *.sql.gz
 
+# A USOR authorization PDF carries a client's name, ID and counselor. The
+# parser is tested against a made-up one; anything real that lands in this
+# folder while somebody is testing stays out of the repository.
+*authorization*.pdf
+*auth*.pdf
+
 # editors / OS
 .vscode/
 .idea/
