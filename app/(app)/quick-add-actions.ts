@@ -27,21 +27,24 @@ export type QuickAddState = { error: string | null; ok: string | null };
 export async function quickAddOptions(): Promise<{
   clients: { id: string; name: string }[];
   employers: { id: string; name: string }[];
+  categories: { key: string; label: string }[];
   kinds: QuickKind[];
   today: string;
 }> {
   const me = await getCurrentStaff();
-  if (!me) return { clients: [], employers: [], kinds: [], today: today() };
+  if (!me) return { clients: [], employers: [], categories: [], kinds: [], today: today() };
 
   const supabase = await createClient();
-  const [{ data: clients }, { data: employers }] = await Promise.all([
+  const [{ data: clients }, { data: employers }, { data: categories }] = await Promise.all([
     supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
     supabase.from("employers").select("id, name").order("name"),
+    supabase.from("work_categories").select("key, label").eq("active", true).order("sort_order"),
   ]);
 
   return {
     clients: clients ?? [],
     employers: employers ?? [],
+    categories: categories ?? [],
     kinds: kindsForRole(me.role),
     today: today(),
   };
@@ -181,6 +184,7 @@ export async function quickAdd(
       worked_on: str("worked_on"),
       hours: str("hours"),
       description: str("description"),
+      category: str("category") || null,
       client_id: clientId || null,
     }),
   );

@@ -2034,6 +2034,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_categories: {
+        Row: {
+          key: string;
+          label: string;
+          detail: string;
+          billable: boolean;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          detail?: string;
+          billable?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          detail?: string;
+          billable?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
       work_session_timers: {
         Row: {
           staff_id: string;
@@ -2072,6 +2099,7 @@ export type Database = {
           voided: boolean;
           created_by: string | null;
           created_at: string;
+          category: string | null;
         };
         Insert: {
           id?: string;
@@ -2086,6 +2114,7 @@ export type Database = {
           voided?: boolean;
           created_by?: string | null;
           created_at?: string;
+          category?: string | null;
         };
         Update: {
           id?: string;
@@ -2100,6 +2129,7 @@ export type Database = {
           voided?: boolean;
           created_by?: string | null;
           created_at?: string;
+          category?: string | null;
         };
         Relationships: [];
       };
@@ -2305,6 +2335,19 @@ export type Database = {
         };
         Relationships: [];
       };
+      work_hours_by_category: {
+        Row: {
+          staff_id: string | null;
+          month: string | null;
+          category: string | null;
+          label: string | null;
+          billable: boolean | null;
+          hours: number | null;
+          amount: number | null;
+          sessions: number | null;
+        };
+        Relationships: [];
+      };
       work_session_totals: {
         Row: {
           staff_id: string | null;
@@ -2324,6 +2367,9 @@ export type Database = {
           description: string | null;
           client_id: string | null;
           statement_id: string | null;
+          category: string | null;
+          category_label: string | null;
+          category_billable: boolean | null;
           pay_rate: number | null;
           rate_unit: string | null;
           amount: number | null;

@@ -20,6 +20,19 @@ function friendly(error: { message: string }): string {
  * no break: this is a record of work performed, which is what a statement and
  * an invoice are built from.
  */
+/**
+ * The category, if one was chosen.
+ *
+ * Optional on purpose: the practice is adopting categories on work that is
+ * already being logged, and refusing an hour because somebody did not pick
+ * from a list would lose the hour, not gain the category. A blank can be
+ * filled in later; a wrong one needs a correction.
+ */
+function categoryOf(formData: FormData): string | null {
+  const v = String(formData.get("category") ?? "").trim();
+  return v === "" ? null : v;
+}
+
 export async function logSession(_prev: HoursState, formData: FormData): Promise<HoursState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
@@ -43,6 +56,7 @@ export async function logSession(_prev: HoursState, formData: FormData): Promise
     worked_on: workedOn,
     hours: Number(hours),
     description,
+    category: categoryOf(formData),
     client_id: String(formData.get("client_id") ?? "").trim() || null,
     created_by: me.id,
   });
@@ -75,7 +89,7 @@ export async function correctSession(_prev: HoursState, formData: FormData): Pro
 
   const { data: original } = await supabase
     .from("work_sessions")
-    .select("staff_id, worked_on, description, client_id")
+    .select("staff_id, worked_on, description, client_id, category")
     .eq("id", correctsId)
     .maybeSingle();
 
@@ -86,6 +100,7 @@ export async function correctSession(_prev: HoursState, formData: FormData): Pro
     worked_on: original.worked_on,
     hours: Number(hours),
     description: String(formData.get("description") ?? "").trim() || original.description,
+    category: categoryOf(formData) ?? original.category,
     client_id: original.client_id,
     corrects_id: correctsId,
     correction_reason: reason,
@@ -294,6 +309,7 @@ export async function saveTimerSession(
     worked_on: workedOn,
     hours,
     description,
+    category: categoryOf(formData),
     client_id: String(formData.get("client_id") ?? "").trim() || null,
     created_by: me.id,
   });
@@ -307,4 +323,34 @@ export async function saveTimerSession(
   revalidatePath("/hours");
   revalidatePath("/dashboard");
   return { error: null, ok: `${hours} hours logged.` };
+}
+
+/**
+ * Fill in the category on a session that has none.
+ *
+ * The one door the append-only trigger leaves open: blank may become a value,
+ * a value may never become a different value. Anything else is a correction.
+ */
+export async function setSessionCategory(
+  _prev: HoursState,
+  formData: FormData,
+): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const id = String(formData.get("session_id") ?? "");
+  const category = String(formData.get("category") ?? "").trim();
+  if (!id || !category) return { error: "Choose what the time was.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("work_sessions")
+    .update({ category })
+    .eq("id", id)
+    .is("category", null);
+
+  if (error) return { error: friendly(error), ok: null };
+
+  revalidatePath("/hours");
+  return { error: null, ok: "Categorised." };
 }

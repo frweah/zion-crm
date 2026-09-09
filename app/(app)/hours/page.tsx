@@ -8,6 +8,8 @@ import {
   SubmitStatement,
   ApprovalRow,
   type SessionRow,
+  CategoryBreakdown,
+  type CategoryOption,
 } from "./hours-forms";
 import { WorkTimer, HoursSummary } from "./work-timer";
 
@@ -146,11 +148,12 @@ export default async function HoursPage({
     timerResult,
     summaryResult,
     rateResult,
+    categoriesResult,
   ] = await Promise.all([
     supabase
       .from("work_sessions")
       .select(
-        "id, worked_on, hours, description, client_id, voided, corrects_id, correction_reason, statement_id, created_at, created_by",
+        "id, worked_on, hours, description, category, client_id, voided, corrects_id, correction_reason, statement_id, created_at, created_by",
       )
       .eq("staff_id", me.id)
       .gte("worked_on", periodStart)
@@ -178,9 +181,16 @@ export default async function HoursPage({
     // invoker over an own-row policy, so passing somebody else's returns
     // nothing — checked in verify_pay before it was put on a screen.
     supabase.rpc("pay_rate_on", { p_staff_id: me.id, p_date: today() }),
+    supabase
+      .from("work_categories")
+      .select("key, label, detail, billable")
+      .eq("active", true)
+      .order("sort_order"),
   ]);
 
   const clients = clientsResult.data ?? [];
+  const categories = (categoriesResult.data ?? []) as CategoryOption[];
+  const categoryLabel = new Map(categories.map((c) => [c.key, c.label]));
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
   const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
 
@@ -189,6 +199,8 @@ export default async function HoursPage({
     worked_on: s.worked_on,
     hours: Number(s.hours),
     description: s.description,
+    category: s.category,
+    category_label: s.category ? (categoryLabel.get(s.category) ?? s.category) : "",
     client_id: s.client_id,
     client_name: s.client_id ? (clientName.get(s.client_id) ?? "") : "",
     voided: s.voided,
@@ -244,7 +256,12 @@ export default async function HoursPage({
         }
       />
 
-      <WorkTimer running={timerResult.data ?? null} clients={clients} today={today()} />
+      <WorkTimer
+        running={timerResult.data ?? null}
+        clients={clients}
+        categories={categories}
+        today={today()}
+      />
 
       <SubmitStatement
         periodStart={periodStart}
@@ -257,9 +274,11 @@ export default async function HoursPage({
         returnNote={statement?.return_note ?? ""}
       />
 
-      {!locked && <LogSessionForm clients={clients} />}
+      {!locked && <LogSessionForm clients={clients} categories={categories} />}
 
-      <SessionList sessions={sessions} locked={locked} />
+      <CategoryBreakdown sessions={sessions} categories={categories} />
+
+      <SessionList sessions={sessions} locked={locked} categories={categories} />
     </>
   );
 }

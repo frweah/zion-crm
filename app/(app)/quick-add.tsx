@@ -302,6 +302,19 @@ export function QuickAdd() {
                     Hours
                     <input type="number" name="hours" step="0.25" min="0" required />
                   </label>
+                  {options.categories.length > 0 && (
+                    <label className="field">
+                      What kind of time
+                      <select name="category" defaultValue="">
+                        <option value="">— not said —</option>
+                        {options.categories.map((c) => (
+                          <option key={c.key} value={c.key}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label className="field">
                     What the time was spent on
                     <textarea name="description" rows={3} required />

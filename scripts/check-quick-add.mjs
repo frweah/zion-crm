@@ -59,7 +59,7 @@ if (writes.length) {
 }
 
 const reads = [...source.matchAll(/\.from\("(\w+)"\)/g)].map((m) => m[1]).sort();
-const allowedReads = ["client_job_history", "clients", "employers", "lead_matches"];
+const allowedReads = ["client_job_history", "clients", "employers", "lead_matches", "work_categories"];
 const unexpected = [...new Set(reads)].filter((r) => !allowedReads.includes(r));
 if (unexpected.length) {
   fail(`it reads ${unexpected.join(", ")}, which the modal has no use for`);

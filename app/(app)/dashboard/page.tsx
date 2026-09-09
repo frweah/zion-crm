@@ -22,18 +22,32 @@ export default async function DashboardPage({
   // last night's cron run.
   await refreshNotifications();
 
-  const [alerts, clientsResult, tasksResult, authsResult, entriesResult, invoicesResult] =
-    await Promise.all([
-      getAlerts(),
-      supabase.from("clients").select("id, name, stage, status"),
-      supabase
-        .from("tasks")
-        .select("id, title, due, client_id, assigned_staff_id")
-        .eq("status", "Open"),
-      supabase.from("authorizations").select("id, total_hours, carried_used").eq("status", "Open"),
-      supabase.from("service_entries").select("auth_id, hours, non_billable"),
-      supabase.from("invoices").select("date, amount, status"),
-    ]);
+  const [
+    alerts,
+    clientsResult,
+    tasksResult,
+    authsResult,
+    entriesResult,
+    invoicesResult,
+    categoriesResult,
+  ] = await Promise.all([
+    getAlerts(),
+    supabase.from("clients").select("id, name, stage, status"),
+    supabase
+      .from("tasks")
+      .select("id, title, due, client_id, assigned_staff_id")
+      .eq("status", "Open"),
+    supabase.from("authorizations").select("id, total_hours, carried_used").eq("status", "Open"),
+    supabase.from("service_entries").select("auth_id, hours, non_billable"),
+    supabase.from("invoices").select("date, amount, status"),
+    supabase
+      .from("work_categories")
+      .select("key, label")
+      .eq("active", true)
+      .order("sort_order"),
+  ]);
+
+  const workCategories = categoriesResult.data ?? [];
 
   // Their own outstanding onboarding. The view already limits this to the
   // person asking, so no filter here is doing the security.
@@ -138,6 +152,7 @@ export default async function DashboardPage({
         <WorkTimer
           running={runningTimer ?? null}
           clients={activeClients.map((c) => ({ id: c.id, name: c.name }))}
+          categories={workCategories}
           today={today()}
         />
       )}

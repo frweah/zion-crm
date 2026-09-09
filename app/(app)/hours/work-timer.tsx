@@ -75,10 +75,12 @@ export function HoursSummary({
 export function WorkTimer({
   running,
   clients,
+  categories = [],
   today,
 }: {
   running: { started_at: string } | null;
   clients: { id: string; name: string }[];
+  categories?: { key: string; label: string }[];
   today: string;
 }) {
   const [startState, startAction, starting] = useActionState(startWorkTimer, initial);
@@ -195,6 +197,20 @@ export function WorkTimer({
               </select>
             </label>
           </div>
+
+          {categories.length > 0 && (
+            <label className="field" style={{ maxWidth: 240 }}>
+              What kind of time
+              <select name="category" defaultValue="">
+                <option value="">— not said —</option>
+                {categories.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <label className="field">
             What the time was spent on

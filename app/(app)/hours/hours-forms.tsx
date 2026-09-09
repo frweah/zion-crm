@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   logSession,
   correctSession,
+  setSessionCategory,
   submitStatement,
   decideStatement,
   reopenStatement,
@@ -16,11 +17,47 @@ const initial: HoursState = { error: null, ok: null };
 
 type Option = { id: string; name: string };
 
+export type CategoryOption = { key: string; label: string; detail: string; billable: boolean };
+
+/**
+ * The category picker.
+ *
+ * Optional everywhere it appears. The practice is adding categories to work
+ * that is already being logged, and an hour lost because somebody would not
+ * pick from a list is worse than an hour with no category on it.
+ */
+function CategoryField({
+  categories,
+  defaultValue = "",
+  label = "What kind of time",
+}: {
+  categories: CategoryOption[];
+  defaultValue?: string;
+  label?: string;
+}) {
+  if (categories.length === 0) return null;
+  return (
+    <label className="field" style={{ maxWidth: 220 }}>
+      {label}
+      <select name="category" defaultValue={defaultValue}>
+        <option value="">— not said —</option>
+        {categories.map((c) => (
+          <option key={c.key} value={c.key}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export type SessionRow = {
   id: string;
   worked_on: string;
   hours: number;
   description: string;
+  category: string | null;
+  category_label: string;
   client_id: string | null;
   client_name: string;
   voided: boolean;
@@ -37,7 +74,13 @@ function Message({ state }: { state: HoursState }) {
   return null;
 }
 
-export function LogSessionForm({ clients }: { clients: Option[] }) {
+export function LogSessionForm({
+  clients,
+  categories,
+}: {
+  clients: Option[];
+  categories: CategoryOption[];
+}) {
   const [state, action, pending] = useActionState(logSession, initial);
 
   return (
@@ -69,6 +112,7 @@ export function LogSessionForm({ clients }: { clients: Option[] }) {
               ))}
             </select>
           </label>
+          <CategoryField categories={categories} />
           <label className="field" style={{ flex: 3 }}>
             What the time was spent on
             <input name="description" required placeholder="Job search with three clients, employer visits" />
@@ -86,7 +130,13 @@ export function LogSessionForm({ clients }: { clients: Option[] }) {
   );
 }
 
-function CorrectForm({ session }: { session: SessionRow }) {
+function CorrectForm({
+  session,
+  categories,
+}: {
+  session: SessionRow;
+  categories: CategoryOption[];
+}) {
   const [state, action, pending] = useActionState(correctSession, initial);
   const [open, setOpen] = useState(false);
 
@@ -112,6 +162,13 @@ function CorrectForm({ session }: { session: SessionRow }) {
           <input name="description" defaultValue={session.description} />
         </label>
       </div>
+      <div className="row2" style={{ gap: 6, marginTop: 6 }}>
+        <CategoryField
+          categories={categories}
+          defaultValue={session.category ?? ""}
+          label="Kind of time"
+        />
+      </div>
       <label className="field" style={{ marginTop: 6, marginBottom: 0 }}>
         Why
         <input name="correction_reason" required placeholder="Logged 6 by mistake; it was 4.5" />
@@ -128,12 +185,43 @@ function CorrectForm({ session }: { session: SessionRow }) {
   );
 }
 
+/** Filling in a blank, which is the only category change the database allows. */
+function CategoriseForm({
+  session,
+  categories,
+}: {
+  session: SessionRow;
+  categories: CategoryOption[];
+}) {
+  const [state, action, pending] = useActionState(setSessionCategory, initial);
+
+  return (
+    <form action={action} className="row2" style={{ gap: 4, justifyContent: "flex-end" }}>
+      <input type="hidden" name="session_id" value={session.id} />
+      <select name="category" defaultValue="" style={{ maxWidth: 180 }} required>
+        <option value="">say what it was…</option>
+        {categories.map((c) => (
+          <option key={c.key} value={c.key}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+      <button className="btn ghost" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
+        {pending ? "…" : "Save"}
+      </button>
+      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+    </form>
+  );
+}
+
 export function SessionList({
   sessions,
   locked,
+  categories,
 }: {
   sessions: SessionRow[];
   locked: boolean;
+  categories: CategoryOption[];
 }) {
   const corrections = new Map(
     sessions.filter((s) => s.corrects_id).map((s) => [s.corrects_id!, s]),
@@ -169,6 +257,11 @@ export function SessionList({
                   </td>
                   <td>
                     {s.description}
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      {s.category_label || (
+                        <span className="lock">no kind of time recorded</span>
+                      )}
+                    </div>
                     {s.corrects_id && (
                       <div style={{ fontSize: 12, color: "var(--muted)" }}>
                         correction · {s.correction_reason}
@@ -190,7 +283,12 @@ export function SessionList({
                     )}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    {!s.voided && !locked && <CorrectForm session={s} />}
+                    {!s.voided && !locked && !s.category && (
+                      <CategoriseForm session={s} categories={categories} />
+                    )}
+                    {!s.voided && !locked && (
+                      <CorrectForm session={s} categories={categories} />
+                    )}
                     {locked && !s.voided && <span className="lock">settled</span>}
                   </td>
                 </tr>
@@ -397,5 +495,100 @@ export function ApprovalRow({
         )}
       </td>
     </tr>
+  );
+}
+
+/**
+ * Where the period's hours went.
+ *
+ * The reason for asking the question at all: a contractor and the owner can
+ * both see the split without either of them adding anything up, and a large
+ * "not recorded" slice is a visible prompt rather than a silent gap.
+ */
+export function CategoryBreakdown({
+  sessions,
+  categories,
+}: {
+  sessions: SessionRow[];
+  categories: CategoryOption[];
+}) {
+  const live = sessions.filter((s) => !s.voided);
+  const total = live.reduce((t, s) => t + s.hours, 0);
+  if (total === 0) return null;
+
+  const billableKeys = new Set(categories.filter((c) => c.billable).map((c) => c.key));
+
+  const rows = [
+    ...categories.map((c) => ({
+      key: c.key,
+      label: c.label,
+      hours: live.filter((s) => s.category === c.key).reduce((t, s) => t + s.hours, 0),
+    })),
+    {
+      key: "",
+      label: "Not recorded",
+      hours: live.filter((s) => !s.category).reduce((t, s) => t + s.hours, 0),
+    },
+  ].filter((r) => r.hours > 0);
+
+  const reaching = live
+    .filter((s) => s.category && billableKeys.has(s.category))
+    .reduce((t, s) => t + s.hours, 0);
+  const known = live.filter((s) => s.category).reduce((t, s) => t + s.hours, 0);
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <h3 style={{ marginTop: 0 }}>Where the hours went</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        {known === 0 ? (
+          "Nothing in this period says what kind of time it was yet."
+        ) : (
+          <>
+            {Math.round((reaching / known) * 100)}% of the hours that say what they were is work
+            that reaches a client.
+            {known < total && (
+              <>
+                {" "}
+                {(total - known).toFixed(2)} hours do not say.
+              </>
+            )}
+          </>
+        )}
+      </p>
+      <table className="t">
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key || "none"}>
+              <td style={{ width: 200 }}>
+                {r.key ? r.label : <span className="lock">{r.label}</span>}
+              </td>
+              <td>
+                <div
+                  style={{
+                    height: 10,
+                    borderRadius: 5,
+                    background: r.key
+                      ? billableKeys.has(r.key)
+                        ? "var(--lime)"
+                        : "var(--teal)"
+                      : "var(--line)",
+                    width: `${Math.round((r.hours / total) * 100)}%`,
+                    minWidth: 4,
+                  }}
+                />
+              </td>
+              <td style={{ textAlign: "right", width: 110, whiteSpace: "nowrap" }}>
+                <b>{r.hours.toFixed(2)}</b>
+                <span className="lock"> · {Math.round((r.hours / total) * 100)}%</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="lock" style={{ margin: "8px 0 0" }}>
+        Green is time meant to reach a client. This is what the hours were, not what can be
+        invoiced — what may be billed is the authorization&apos;s business.
+      </p>
+    </div>
   );
 }
