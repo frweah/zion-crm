@@ -2315,6 +2315,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_capacity: {
+        Row: {
+          staff_id: string | null;
+          name: string | null;
+          role: string | null;
+          active_clients: number | null;
+          quiet_clients: number | null;
+          front_clients: number | null;
+          open_authorizations: number | null;
+          committed_hours: number | null;
+          committed_value: number | null;
+          hours_30: number | null;
+          hours_90: number | null;
+          client_hours_90: number | null;
+          uncategorised_hours_90: number | null;
+        };
+        Relationships: [];
+      };
       staff_checklist: {
         Row: {
           staff_id: string | null;
