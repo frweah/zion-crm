@@ -25,6 +25,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "A client",
     items: [
       {
+        ask: "See who is waiting at the front and how long they have waited",
+        where: "Referrals — the pipeline, with days in stage",
+        href: "/referrals",
+      },
+      {
         ask: "See everything that has happened to a client",
         where: "Their record opens on Activity",
         href: "/clients",
@@ -100,6 +105,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "Counselors and USOR",
     items: [
       {
+        ask: "Give a counselor or a funder a page of outcomes",
+        where: "Outcomes — pick a period and print it",
+        href: "/outcomes",
+        roles: ["Admin", "Reports"],
+      },
+      {
         ask: "See one counselor's whole caseload",
         where: "Counselors → Directory → their name",
         href: "/counselors?tab=directory",
@@ -129,6 +140,17 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
   {
     group: "My own work",
     items: [
+      {
+        ask: "Decide who the next referral should go to",
+        where: "Capacity — caseload, work owed, hours delivered",
+        href: "/capacity",
+        roles: ["Admin"],
+      },
+      {
+        ask: "See where my hours went",
+        where: "Hours — the split by kind of time, for the period",
+        href: "/hours",
+      },
       {
         ask: "See what needs me today",
         where: "Needs attention — the same five counters as the dashboard",
@@ -169,6 +191,24 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
   {
     group: "Money and admin",
     items: [
+      {
+        ask: "See what is authorized, earned and still owed to us",
+        where: "Revenue — four figures and what is at risk",
+        href: "/revenue",
+        roles: ["Admin", "Billing"],
+      },
+      {
+        ask: "Add an authorization from the PDF USOR sent",
+        where: "Billing → Read an authorization",
+        href: "/billing/import",
+        roles: ["Admin", "Billing"],
+      },
+      {
+        ask: "Send the accountant the month",
+        where: "Monthly export — six CSVs, any month",
+        href: "/exports",
+        roles: ["Admin", "Billing"],
+      },
       {
         ask: "See why an invoice will not send",
         where: "Billing — a required USOR form is not complete yet",
