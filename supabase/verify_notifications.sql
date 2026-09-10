@@ -168,6 +168,8 @@ declare
   after_count  integer;
   first_seen   timestamptz;
   still_seen   timestamptz;
+  v_staff      uuid;
+  v_staff_uid  uuid;
 begin
   select count(*), min(created_at) into before_count, first_seen
     from public.notifications where text like '%ZZ-EXHAUSTED%';
@@ -195,6 +197,120 @@ begin
     raise exception 'FAILED: completing the task did not clear its alert';
   end if;
   raise notice 'ok  completing the task cleared its alert';
+
+  -- ── certifications ─────────────────────────────────────────
+  -- The nightly run is the only thing that will ever mention a CPR card
+  -- before the day it is needed.
+  select id, user_id into v_staff, v_staff_uid from public.staff
+   where active and role <> 'Admin' order by created_at limit 1;
+
+  perform public.generate_notifications();
+
+  if not exists (
+    select 1 from public.notifications
+     where kind = 'credential_missing' and staff_id = v_staff
+       and text like '%CPR%' and level = 'bad' and resolved_at is null
+  ) then
+    raise exception 'FAILED: a missing CPR card raised no alert';
+  end if;
+  raise notice 'ok  a credential nobody has recorded is flagged, in red';
+
+  -- Addressed to the person, not to their role: a colleague has no business
+  -- knowing whose card has run out.
+  if not exists (
+    select 1 from public.notifications
+     where kind = 'credential_missing' and staff_id = v_staff
+       and roles = array['Admin'] and resolved_at is null
+  ) then
+    raise exception 'FAILED: the alert went to a role rather than to the person';
+  end if;
+  raise notice 'ok  and addressed to them and to Admin, rather than to everybody in their role';
+
+  -- A card recorded clears it.
+  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on)
+  values (v_staff, 'cpr', current_date, current_date + 400);
+  perform public.generate_notifications();
+
+  if exists (
+    select 1 from public.notifications
+     where kind = 'credential_missing' and staff_id = v_staff
+       and text like '%CPR%' and resolved_at is null
+  ) then
+    raise exception 'FAILED: recording the card did not clear its alert';
+  end if;
+  raise notice 'ok  recording the card clears it';
+
+  -- Expiring and expired are separate flags, so the day it turned from one
+  -- into the other is still readable afterwards.
+  update public.staff_credentials set expires_on = current_date + 30
+   where staff_id = v_staff and type_key = 'cpr';
+  perform public.generate_notifications();
+
+  if not exists (
+    select 1 from public.notifications
+     where kind = 'credential_expiring' and staff_id = v_staff and level = 'warn'
+       and resolved_at is null
+  ) then
+    raise exception 'FAILED: a card a month from expiry raised nothing';
+  end if;
+  raise notice 'ok  a month out it warns';
+
+  -- Both dates, because the table refuses a card that expires before it was
+  -- issued — which is the constraint doing its job, and a test that has to
+  -- work around it is a test that was describing something impossible.
+  update public.staff_credentials
+     set issued_on = current_date - 800, expires_on = current_date - 1
+   where staff_id = v_staff and type_key = 'cpr';
+  perform public.generate_notifications();
+
+  if exists (
+    select 1 from public.notifications
+     where kind = 'credential_expiring' and staff_id = v_staff and resolved_at is null
+  ) then
+    raise exception 'FAILED: the expiring flag survived the card actually expiring';
+  end if;
+  if not exists (
+    select 1 from public.notifications
+     where kind = 'credential_expired' and staff_id = v_staff and level = 'bad'
+       and resolved_at is null
+  ) then
+    raise exception 'FAILED: a card that has run out raised no alert';
+  end if;
+  raise notice 'ok  and once it runs out that flag closes and a red one opens';
+
+  -- ── who sees a personal alert ──────────────────────────────
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_staff_uid, 'role', 'authenticated')::text, true);
+
+  if not exists (
+    select 1 from public.notifications
+     where kind = 'credential_expired' and resolved_at is null
+  ) then
+    raise exception 'FAILED: somebody cannot see an alert about their own card';
+  end if;
+  raise notice 'ok  the person sees the one about their own card';
+
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  -- ── training hours stay quiet until October ────────────────
+  if extract(month from current_date) < 10 then
+    if exists (select 1 from public.notifications
+                where kind = 'credential_ce' and resolved_at is null) then
+      raise exception 'FAILED: training hours are being chased in month %',
+                      extract(month from current_date);
+    end if;
+    raise notice 'ok  training hours are not chased in month % — a flag that cries all year gets scrolled past',
+                 extract(month from current_date);
+  else
+    if not exists (select 1 from public.notifications
+                    where kind = 'credential_ce' and resolved_at is null) then
+      raise exception 'FAILED: it is month % and short training hours raise nothing',
+                      extract(month from current_date);
+    end if;
+    raise notice 'ok  from October, short training hours are chased';
+  end if;
 
   raise notice '--- NOTIFICATIONS VERIFIED ---';
 end $$;
