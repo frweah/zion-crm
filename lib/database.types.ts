@@ -2085,6 +2085,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_offboarding: {
+        Row: {
+          staff_id: string;
+          last_day: string;
+          reason: string;
+          successor_id: string | null;
+          clients_moved: number;
+          tasks_moved: number;
+          note: string;
+          offboarded_by: string | null;
+          offboarded_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          last_day: string;
+          reason?: string;
+          successor_id?: string | null;
+          clients_moved?: number;
+          tasks_moved?: number;
+          note?: string;
+          offboarded_by?: string | null;
+          offboarded_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          last_day?: string;
+          reason?: string;
+          successor_id?: string | null;
+          clients_moved?: number;
+          tasks_moved?: number;
+          note?: string;
+          offboarded_by?: string | null;
+          offboarded_at?: string;
+        };
+        Relationships: [];
+      };
       staff_pay: {
         Row: {
           id: string;
@@ -2623,6 +2659,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      offboarding_readiness: {
+        Row: {
+          staff_id: string | null;
+          name: string | null;
+          role: string | null;
+          active: boolean | null;
+          active_clients: number | null;
+          open_tasks: number | null;
+          unsubmitted_hours: number | null;
+          open_statements: number | null;
+          running_timers: number | null;
+          documents_held: number | null;
+          mailbox_connected: number | null;
+        };
+        Relationships: [];
+      };
       sms_due_reminders: {
         Row: {
           event_id: string | null;
@@ -2855,6 +2907,10 @@ export type Database = {
       note_tax_form_access: {
         Args: { p_submission_id: string | null };
         Returns: boolean;
+      };
+      offboard_staff: {
+        Args: { p_staff_id: string | null; p_last_day: string | null; p_reason: string | null; p_successor: string | null; p_note: string | null };
+        Returns: { clients_moved: number | null; tasks_moved: number | null; timer_discarded: boolean | null }[];
       };
       pay_rate_on: {
         Args: { p_staff_id: string | null; p_date: string | null };

@@ -143,3 +143,68 @@ export async function setStaffActive(
     ok: `${row?.name ?? "Account"} ${active ? "reactivated" : "deactivated — access removed"}.`,
   };
 }
+
+/**
+ * Offboard somebody, in one act.
+ *
+ * The database does the reassignment, the record and the deactivation in one
+ * transaction. This does the one thing it cannot: banning the auth user, which
+ * lives outside the database. If that call fails the account is already
+ * inactive, so row-level security has already shut the door — the ban is
+ * belt to that braces.
+ */
+export async function offboardStaff(
+  _prev: StaffState,
+  formData: FormData,
+): Promise<StaffState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only the administrator can do that.", ok: null };
+
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const staffId = str("staff_id");
+  const lastDay = str("last_day");
+  const successor = str("successor_id") || null;
+
+  if (!staffId || !lastDay) return { error: "Who, and when was their last day?", ok: null };
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("offboard_staff", {
+    p_staff_id: staffId,
+    p_last_day: lastDay,
+    p_reason: str("reason"),
+    p_successor: successor,
+    p_note: str("note"),
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  const result = Array.isArray(data) ? data[0] : null;
+
+  const { data: row } = await supabase
+    .from("staff")
+    .select("user_id, name")
+    .eq("id", staffId)
+    .maybeSingle();
+
+  if (row?.user_id) {
+    const admin = createAdminClient();
+    await admin.auth.admin.updateUserById(row.user_id, { ban_duration: "876000h" });
+  }
+
+  revalidatePath("/admin/staff");
+  revalidatePath("/clients");
+  revalidatePath("/insights/capacity");
+
+  const moved = Number(result?.clients_moved ?? 0);
+  const tasks = Number(result?.tasks_moved ?? 0);
+
+  return {
+    error: null,
+    ok:
+      `${row?.name ?? "They"} have been offboarded and their access is gone. ` +
+      (moved > 0
+        ? `${moved} client${moved === 1 ? "" : "s"}${tasks > 0 ? ` and ${tasks} task${tasks === 1 ? "" : "s"}` : ""} ${successor ? "moved across" : "left unassigned"}.`
+        : "They had no active clients."),
+  };
+}

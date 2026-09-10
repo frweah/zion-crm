@@ -13,6 +13,7 @@ import {
   type StatusRow,
 } from "./credentials";
 import { StaffDocuments, type DocCategory, type DocRow } from "./documents";
+import { Offboarding, type ReadinessRow, type OffboardedRow } from "./offboarding";
 
 type StaffRow = {
   id: string;
@@ -47,6 +48,8 @@ export default async function StaffPage({
     employmentResult,
     documentResult,
     docCategoryResult,
+    readinessResult,
+    offboardedResult,
   ] = await Promise.all([
     supabase
       .from("staff")
@@ -72,6 +75,8 @@ export default async function StaffPage({
       .select("key, label, detail, system_only")
       .eq("active", true)
       .order("sort_order"),
+    supabase.from("offboarding_readiness").select("*").order("name"),
+    supabase.from("staff_offboarding").select("*"),
   ]);
 
   const staff = (data ?? []) as StaffRow[];
@@ -271,6 +276,14 @@ export default async function StaffPage({
             </div>
           ))}
       </div>
+
+      <Offboarding
+        people={(readinessResult.data ?? []) as unknown as ReadinessRow[]}
+        colleagues={staff.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }))}
+        today={today()}
+        offboarded={(offboardedResult.data ?? []) as unknown as OffboardedRow[]}
+        nameOf={Object.fromEntries(staff.map((s) => [s.id, s.name]))}
+      />
 
       <StaffActivity
         rows={(activityResult.data ?? []) as never}

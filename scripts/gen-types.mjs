@@ -117,6 +117,7 @@ const RPC_FUNCTIONS = [
   "save_intake",
   "note_tax_form_access",
   "note_staff_file_access",
+  "offboard_staff",
 ];
 
 const { rows: fns } = await client.query(
