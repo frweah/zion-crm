@@ -236,6 +236,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         roles: ["Admin"],
       },
       {
+        ask: "Give a client, or their attorney, everything we hold on them",
+        where: "Admin → Records requests — gathered into one document to review, then print",
+        href: "/admin/records-request",
+        roles: ["Admin"],
+      },
+      {
         ask: "Change the legal name or EIN on our tax forms",
         where: "Admin → Settings — the entity, kept apart from the dba",
         href: "/admin/settings",

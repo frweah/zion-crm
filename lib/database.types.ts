@@ -1917,6 +1917,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      records_requests: {
+        Row: {
+          id: string;
+          client_id: string;
+          client_name: string;
+          requested_by: string;
+          requested_on: string;
+          note: string;
+          produced_at: string | null;
+          produced_by: string | null;
+          produced_by_name: string;
+          contents: Json | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          client_name?: string;
+          requested_by: string;
+          requested_on?: string;
+          note?: string;
+          produced_at?: string | null;
+          produced_by?: string | null;
+          produced_by_name?: string;
+          contents?: Json | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          client_name?: string;
+          requested_by?: string;
+          requested_on?: string;
+          note?: string;
+          produced_at?: string | null;
+          produced_by?: string | null;
+          produced_by_name?: string;
+          contents?: Json | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       retention_dispositions: {
         Row: {
           id: number;
@@ -3251,7 +3296,7 @@ export type Database = {
     Functions: {
       answer_reminder: {
         Args: { p_task_id: string | null; p_status: string | null; p_outcome: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       can_see_restricted: {
         Args: { p_client_id: string | null };
@@ -3267,11 +3312,11 @@ export type Database = {
       };
       delete_staff_pay: {
         Args: { p_id: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       exclude_mail_thread: {
         Args: { p_conversation_id: string | null; p_reason: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       fmt_hours: {
         Args: { n: number | null };
@@ -3307,7 +3352,7 @@ export type Database = {
       };
       get_tax_form_sensitive: {
         Args: { p_form_id: string | null };
-        Returns: string;
+        Returns: Json;
       };
       inbox_seen: {
         Args: { p_hashes: string | null };
@@ -3391,7 +3436,7 @@ export type Database = {
       };
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       record_disposition: {
         Args: { p_client: string | null; p_action: string | null; p_reason: string | null };
@@ -3401,9 +3446,13 @@ export type Database = {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null; p_payload: string | null };
         Returns: { client_id: string | null; action: string | null }[];
       };
+      records_request_bundle: {
+        Args: { p_client: string | null; p_purpose: string | null };
+        Returns: Json;
+      };
       refresh_microsoft_tokens: {
         Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       save_intake: {
         Args: { p_client_id: string | null; p_data: Json | null };
@@ -3411,35 +3460,35 @@ export type Database = {
       };
       set_checklist_item: {
         Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_contractor_tin: {
         Args: { p_staff_id: string | null; p_tin: string | null; p_tin_type: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_e_delivery_consent: {
         Args: { p_consent: boolean | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_employer_details: {
         Args: { p_legal_name: string | null; p_address: string | null; p_ein: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_microsoft_error: {
         Args: { p_staff_id: string | null; p_error: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_microsoft_tokens: {
         Args: { p_microsoft_user_id: string | null; p_email: string | null; p_display_name: string | null; p_scopes: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_microsoft_tokens_for_sync: {
         Args: { p_staff_id: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_sms_consent: {
         Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       set_staff_pay: {
         Args: { p_staff_id: string | null; p_rate: number | null; p_unit: string | null; p_effective_from: string | null; p_note: string | null };
@@ -3447,11 +3496,11 @@ export type Database = {
       };
       set_statement_adjustment: {
         Args: { p_statement_id: string | null; p_amount: number | null; p_note: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       sign_tax_form: {
         Args: { p_form_id: string | null; p_sensitive: Json | null; p_tin_last4: string | null; p_signer: string | null; p_ip: string | null };
-        Returns: string;
+        Returns: undefined;
       };
       staff_activity: {
         Args: { p_from: string | null; p_to: string | null };

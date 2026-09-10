@@ -117,6 +117,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Note headings", href: "/admin/note-templates", roles: ADMIN },
       { label: "Access log", href: "/admin/access", roles: ADMIN },
       { label: "Retention", href: "/admin/retention", roles: ADMIN },
+      { label: "Records requests", href: "/admin/records-request", roles: ADMIN },
       { label: "Settings", href: "/admin/settings", roles: ADMIN },
     ],
   },

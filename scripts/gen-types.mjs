@@ -122,6 +122,7 @@ const RPC_FUNCTIONS = [
   "match_inbox_folder",
   "note_template_for",
   "record_disposition",
+  "records_request_bundle",
   "inbox_seen",
 ];
 
@@ -257,13 +258,21 @@ for (const f of fns) {
   // "string" typechecked and was a lie — the callers that needed the columns
   // had to cast their way out of it, which is the opposite of what these
   // types are for. The column types are approximate; the shape is not.
+  // The same lesson as TABLE(...) above, one type later: a function returning
+  // jsonb was being typed "string", which typechecked and was false, and the
+  // caller had to cast through unknown to read a single field out of it. A
+  // type that has to be lied about to be used is not doing its job.
   const returns = /^TABLE\(/i.test(f.result ?? "")
     ? tableRowType(f.result)
     : f.result === "boolean"
       ? "boolean"
-      : ["integer", "bigint", "numeric", "smallint", "real", "double precision"].includes(f.result)
-        ? "number"
-        : "string";
+      : ["json", "jsonb"].includes(f.result)
+        ? "Json"
+        : f.result === "void"
+          ? "undefined"
+          : ["integer", "bigint", "numeric", "smallint", "real", "double precision"].includes(f.result)
+            ? "number"
+            : "string";
   out.push(`        Returns: ${returns};`);
   out.push("      };");
 }
