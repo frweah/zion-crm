@@ -146,6 +146,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "My own work",
     items: [
       {
+        ask: "Send in a copy of my licence, insurance or a certificate",
+        where: "Paperwork — add it to your own documents",
+        href: "/paperwork",
+      },
+      {
         ask: "Log training I have done, or check when my CPR card runs out",
         where: "Paperwork — your certifications are under your tax form",
         href: "/paperwork",

@@ -2019,6 +2019,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_file_categories: {
+        Row: {
+          key: string;
+          label: string;
+          detail: string;
+          system_only: boolean;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          detail?: string;
+          system_only?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          detail?: string;
+          system_only?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
       staff_files: {
         Row: {
           id: string;
@@ -2671,6 +2698,25 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_documents: {
+        Row: {
+          id: string | null;
+          staff_id: string | null;
+          filename: string | null;
+          category: string | null;
+          category_label: string | null;
+          system_generated: boolean | null;
+          note: string | null;
+          size_bytes: number | null;
+          mime_type: string | null;
+          storage_path: string | null;
+          created_at: string | null;
+          uploaded_by: string | null;
+          uploaded_by_name: string | null;
+          backs_a_credential: boolean | null;
+        };
+        Relationships: [];
+      };
       work_hours_by_category: {
         Row: {
           staff_id: string | null;
@@ -2801,6 +2847,10 @@ export type Database = {
       normalize_phone: {
         Args: { p_raw: string | null };
         Returns: string;
+      };
+      note_staff_file_access: {
+        Args: { p_file_id: string | null };
+        Returns: boolean;
       };
       note_tax_form_access: {
         Args: { p_submission_id: string | null };

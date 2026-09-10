@@ -12,6 +12,7 @@ import {
   type CredentialType,
   type StatusRow,
 } from "./credentials";
+import { StaffDocuments, type DocCategory, type DocRow } from "./documents";
 
 type StaffRow = {
   id: string;
@@ -44,6 +45,8 @@ export default async function StaffPage({
     credentialResult,
     typesResult,
     employmentResult,
+    documentResult,
+    docCategoryResult,
   ] = await Promise.all([
     supabase
       .from("staff")
@@ -63,6 +66,12 @@ export default async function StaffPage({
       .eq("active", true)
       .order("sort_order"),
     supabase.from("staff_employment").select("staff_id, transports_clients"),
+    supabase.from("staff_documents").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("staff_file_categories")
+      .select("key, label, detail, system_only")
+      .eq("active", true)
+      .order("sort_order"),
   ]);
 
   const staff = (data ?? []) as StaffRow[];
@@ -78,6 +87,14 @@ export default async function StaffPage({
   const transports = new Map(
     (employmentResult.data ?? []).map((e) => [e.staff_id, Boolean(e.transports_clients)]),
   );
+
+  const docCategories = (docCategoryResult.data ?? []) as DocCategory[];
+  const docsByStaff = new Map<string, DocRow[]>();
+  for (const row of (documentResult.data ?? []) as unknown as DocRow[]) {
+    const list = docsByStaff.get(row.staff_id) ?? [];
+    list.push(row);
+    docsByStaff.set(row.staff_id, list);
+  }
 
   const credentialsByStaff = new Map<string, StatusRow[]>();
   for (const row of (credentialResult.data ?? []) as unknown as StatusRow[]) {
@@ -213,6 +230,27 @@ export default async function StaffPage({
             rows={credentialsByStaff.get(s.id) ?? []}
             types={credentialTypes}
             transports={transports.get(s.id) ?? false}
+          />
+        ))}
+
+      <h1 className="h1" style={{ fontSize: 18, marginTop: 26 }}>
+        Documents
+      </h1>
+      <p className="sub">
+        Everything held on somebody&apos;s file. Opening one is recorded in the access log; a tax
+        form signed in the app appears here too and cannot be removed from here.
+      </p>
+
+      {staff
+        .filter((s) => s.active)
+        .map((s) => (
+          <StaffDocuments
+            key={s.id}
+            staffId={s.id}
+            staffName={s.name}
+            docs={docsByStaff.get(s.id) ?? []}
+            categories={docCategories}
+            canDelete
           />
         ))}
 

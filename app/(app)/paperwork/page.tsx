@@ -8,6 +8,7 @@ import { W4Form } from "./w4-form";
 import { DeliveryConsent } from "./delivery-consent";
 import { DownloadButton } from "./download-button";
 import { MyCredentials } from "./my-credentials";
+import { StaffDocuments, type DocCategory, type DocRow } from "../admin/staff/documents";
 
 export default async function PaperworkPage() {
   const me = await requireStaff();
@@ -19,6 +20,8 @@ export default async function PaperworkPage() {
     submissionsResult,
     staffResult,
     credentialResult,
+    myDocsResult,
+    docCategoryResult,
     ceResult,
   ] = await Promise.all([
       supabase
@@ -44,6 +47,16 @@ export default async function PaperworkPage() {
         .from("staff_credential_status")
         .select("*")
         .eq("staff_id", me.id)
+        .order("sort_order"),
+      supabase
+        .from("staff_documents")
+        .select("*")
+        .eq("staff_id", me.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("staff_file_categories")
+        .select("key, label, detail, system_only")
+        .eq("active", true)
         .order("sort_order"),
       supabase
         .from("ce_entries")
@@ -171,6 +184,13 @@ export default async function PaperworkPage() {
           </table>
         </div>
       )}
+
+      <StaffDocuments
+        staffId={me.id}
+        docs={(myDocsResult.data ?? []) as unknown as DocRow[]}
+        categories={(docCategoryResult.data ?? []) as DocCategory[]}
+        canDelete={false}
+      />
 
       <MyCredentials
         staffId={me.id}
