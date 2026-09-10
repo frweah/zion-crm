@@ -1684,6 +1684,7 @@ export type Database = {
           sent_at: string | null;
           created_at: string;
           created_by: string | null;
+          provider_payload: Json | null;
         };
         Insert: {
           id?: string;
@@ -1700,6 +1701,7 @@ export type Database = {
           sent_at?: string | null;
           created_at?: string;
           created_by?: string | null;
+          provider_payload?: Json | null;
         };
         Update: {
           id?: string;
@@ -1716,6 +1718,7 @@ export type Database = {
           sent_at?: string | null;
           created_at?: string;
           created_by?: string | null;
+          provider_payload?: Json | null;
         };
         Relationships: [];
       };
@@ -2620,7 +2623,7 @@ export type Database = {
         Returns: string;
       };
       record_incoming_sms: {
-        Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null };
+        Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null; p_payload: string | null };
         Returns: string;
       };
       refresh_microsoft_tokens: {

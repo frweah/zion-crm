@@ -111,7 +111,9 @@ begin
   -- The webhook hands the number and the words to the database. Withdrawing
   -- happens here, so it cannot depend on the code that received it choosing
   -- to act.
-  select * into r from public.record_incoming_sms('+1 (801) 555-0142', 'STOP', 'ZZ-provider-1');
+  select * into r from public.record_incoming_sms(
+           '+1 (801) 555-0142', 'STOP', 'ZZ-provider-1',
+           '{"zz": "what the provider posted"}'::jsonb);
   if r.action <> 'withdrawn' then
     failures := failures || format('FAILED: replying STOP came back as "%s"', r.action);
   elsif r.client_id is distinct from v_client then
@@ -149,6 +151,20 @@ begin
     failures := failures || 'FAILED: "stop." in lower case with a full stop did not withdraw'::text;
   else
     raise notice 'ok  "stop." counts, and so does every word a carrier recognises';
+  end if;
+
+  -- ── what the provider sent is kept ─────────────────────────
+  -- Two real replies arrived carrying no message id under any name we look
+  -- for, and there was nothing kept to look at. Keeping the body means the
+  -- next one answers it from evidence rather than from another favour.
+  if not exists (
+    select 1 from public.sms_messages
+     where phone = '+18015550142' and direction = 'Incoming'
+       and provider_payload ->> 'zz' = 'what the provider posted'
+  ) then
+    failures := failures || 'FAILED: the provider payload was not kept'::text;
+  else
+    raise notice 'ok  what the provider posted is kept on the message it arrived as';
   end if;
 
   -- ── and back on again, from the same number ────────────────

@@ -18,6 +18,32 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * The provider's own id for the message, wherever they put it.
+ *
+ * Searched by name at any depth rather than at a fixed path, because the two
+ * real replies that came through carried no id under any of the obvious
+ * names and there was nothing kept to look at. The payload is stored now, so
+ * the next one settles this from evidence — until then this casts a slightly
+ * wider net, and null is an honest answer.
+ */
+function findMessageId(value: unknown, depth = 0): string | null {
+  if (depth > 4 || !value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+
+  for (const key of ["messageId", "smsMessageId", "message_id", "sms_message_id"]) {
+    const found = obj[key];
+    if (typeof found === "string" && found.trim()) return found.trim();
+  }
+
+  for (const nested of Object.values(obj)) {
+    const found = findMessageId(nested, depth + 1);
+    if (found) return found;
+  }
+
+  return null;
+}
+
 /** GoHighLevel's payloads vary by workflow. Look where the number could be. */
 function pick(body: Record<string, unknown>, keys: string[]): string {
   for (const key of keys) {
@@ -83,7 +109,10 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase.rpc("record_incoming_sms", {
     p_phone: phone,
     p_body: text,
-    p_provider_id: pick(body, ["messageId", "message.id", "id"]) || null,
+    p_provider_id: findMessageId(body) ?? (pick(body, ["id"]) || null),
+    // Kept verbatim. What a provider sends is theirs to change, and the row it
+    // arrived on is the only place the change will be visible afterwards.
+    p_payload: body as never,
   });
 
   if (error) {
