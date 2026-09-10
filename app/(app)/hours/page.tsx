@@ -11,6 +11,12 @@ import {
   CategoryBreakdown,
   type CategoryOption,
 } from "./hours-forms";
+import {
+  Expenses,
+  MileageRateForm,
+  type ExpenseCategory,
+  type ExpenseRow,
+} from "./expenses";
 import { WorkTimer, HoursSummary } from "./work-timer";
 
 export default async function HoursPage({
@@ -149,6 +155,10 @@ export default async function HoursPage({
     summaryResult,
     rateResult,
     categoriesResult,
+    expenseResult,
+    expenseCategoryResult,
+    mileageRatesResult,
+    currentRateResult,
   ] = await Promise.all([
     supabase
       .from("work_sessions")
@@ -186,6 +196,23 @@ export default async function HoursPage({
       .select("key, label, detail, billable")
       .eq("active", true)
       .order("sort_order"),
+    supabase
+      .from("expense_values")
+      .select("*")
+      .eq("staff_id", me.id)
+      .gte("incurred_on", periodStart)
+      .lte("incurred_on", periodEnd)
+      .order("incurred_on", { ascending: false }),
+    supabase
+      .from("expense_categories")
+      .select("key, label, detail, is_mileage, needs_receipt")
+      .eq("active", true)
+      .order("sort_order"),
+    supabase
+      .from("mileage_rates")
+      .select("effective_from, cents_per_mile, note")
+      .order("effective_from", { ascending: false }),
+    supabase.rpc("mileage_rate_on", { p_date: today() }),
   ]);
 
   const clients = clientsResult.data ?? [];
@@ -275,6 +302,24 @@ export default async function HoursPage({
       />
 
       {!locked && <LogSessionForm clients={clients} categories={categories} />}
+
+      <Expenses
+        rows={(expenseResult.data ?? []) as unknown as ExpenseRow[]}
+        categories={(expenseCategoryResult.data ?? []) as ExpenseCategory[]}
+        clients={clients}
+        today={today()}
+        locked={locked}
+        currentRate={
+          currentRateResult.data === null ? null : Number(currentRateResult.data)
+        }
+      />
+
+      {me.role === "Admin" && (
+        <MileageRateForm
+          rates={(mileageRatesResult.data ?? []) as never}
+          today={today()}
+        />
+      )}
 
       <CategoryBreakdown sessions={sessions} categories={categories} />
 

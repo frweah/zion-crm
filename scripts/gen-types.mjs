@@ -118,6 +118,7 @@ const RPC_FUNCTIONS = [
   "note_tax_form_access",
   "note_staff_file_access",
   "offboard_staff",
+  "mileage_rate_on",
 ];
 
 const { rows: fns } = await client.query(

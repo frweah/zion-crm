@@ -146,6 +146,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "My own work",
     items: [
       {
+        ask: "Claim mileage or something I paid for",
+        where: "Hours — claimed with the period and paid with it",
+        href: "/hours",
+      },
+      {
         ask: "Send in a copy of my licence, insurance or a certificate",
         where: "Paperwork — add it to your own documents",
         href: "/paperwork",

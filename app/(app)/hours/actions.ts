@@ -170,6 +170,19 @@ export async function submitStatement(_prev: HoursState, formData: FormData): Pr
 
   if (attachError) return { error: friendly(attachError), ok: null };
 
+  // Expenses go the same way, and in the same submission: a period is one
+  // claim for hours and out-of-pocket together, because it becomes one
+  // payment.
+  const { error: expenseError } = await supabase
+    .from("expenses")
+    .update({ statement_id: statementId })
+    .eq("staff_id", me.id)
+    .is("statement_id", null)
+    .gte("incurred_on", periodStart)
+    .lte("incurred_on", periodEnd);
+
+  if (expenseError) return { error: friendly(expenseError), ok: null };
+
   const { error: submitError } = await supabase
     .from("contractor_statements")
     .update({ status: "Submitted" })
@@ -353,4 +366,127 @@ export async function setSessionCategory(
 
   revalidatePath("/hours");
   return { error: null, ok: "Categorised." };
+}
+
+/**
+ * Claim something out of pocket.
+ *
+ * Mileage is miles, never an amount: what it comes to is the rate on the day
+ * it was driven, and that is the database's arithmetic rather than something
+ * anybody types. A claim on a day no rate covers is still recorded — it shows
+ * as miles with no amount, which is a question for Admin rather than a
+ * reason to lose the claim.
+ */
+export async function addExpense(_prev: HoursState, formData: FormData): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const category = str("category");
+  const incurredOn = str("incurred_on");
+  const description = str("description");
+
+  if (!category) return { error: "What kind of expense?", ok: null };
+  if (!incurredOn) return { error: "When was it?", ok: null };
+  if (incurredOn > today()) return { error: "That day has not happened yet.", ok: null };
+
+  const supabase = await createClient();
+  const { data: cat } = await supabase
+    .from("expense_categories")
+    .select("label, is_mileage, needs_receipt")
+    .eq("key", category)
+    .maybeSingle();
+
+  if (!cat) return { error: "Unknown kind of expense.", ok: null };
+
+  const miles = cat.is_mileage ? Number(str("miles")) : null;
+  const amount = cat.is_mileage ? null : Number(str("amount"));
+
+  if (cat.is_mileage && !(miles && miles > 0)) return { error: "How many miles?", ok: null };
+  if (!cat.is_mileage && !(amount && amount > 0)) return { error: "How much was it?", ok: null };
+  if (!description && !cat.is_mileage) {
+    return { error: "Say what it was for — a figure with no description is not a claim.", ok: null };
+  }
+
+  const { error } = await supabase.from("expenses").insert({
+    staff_id: me.id,
+    incurred_on: incurredOn,
+    category,
+    description,
+    amount,
+    miles,
+    from_place: str("from_place"),
+    to_place: str("to_place"),
+    client_id: str("client_id") || null,
+    created_by: me.id,
+  });
+
+  if (error) return { error: friendly(error), ok: null };
+
+  revalidatePath("/hours");
+  return {
+    error: null,
+    ok: cat.is_mileage
+      ? `${miles} miles claimed. What it comes to is worked out from the rate on ${incurredOn}.`
+      : `${cat.label} claimed.`,
+  };
+}
+
+/** Remove a claim that has not been submitted. */
+export async function removeExpense(_prev: HoursState, formData: FormData): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("expenses")
+    .delete()
+    .eq("id", String(formData.get("expense_id") ?? ""))
+    .eq("staff_id", me.id)
+    .is("statement_id", null);
+
+  if (error) return { error: friendly(error), ok: null };
+
+  revalidatePath("/hours");
+  return { error: null, ok: "Claim removed." };
+}
+
+/**
+ * Set the mileage rate from a given date.
+ *
+ * Dated, like a pay rate, so a claim keeps the rate that applied when the
+ * driving happened. Admin only, and nothing computes a mileage amount until
+ * one exists.
+ */
+export async function setMileageRate(_prev: HoursState, formData: FormData): Promise<HoursState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin sets the mileage rate.", ok: null };
+
+  const from = String(formData.get("effective_from") ?? "").trim();
+  const cents = Number(String(formData.get("cents_per_mile") ?? "").trim());
+
+  if (!from) return { error: "From when?", ok: null };
+  if (!(cents > 0)) return { error: "What is the rate, in cents per mile?", ok: null };
+  if (cents > 200) {
+    return { error: "That is over $2 a mile — it is entered in cents, not dollars.", ok: null };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("mileage_rates")
+    .upsert(
+      {
+        effective_from: from,
+        cents_per_mile: cents,
+        note: String(formData.get("note") ?? "").trim(),
+        set_by: me.id,
+      },
+      { onConflict: "effective_from" },
+    );
+
+  if (error) return { error: friendly(error), ok: null };
+
+  revalidatePath("/hours");
+  revalidatePath("/admin/settings");
+  return { error: null, ok: `${cents}c a mile from ${from}.` };
 }

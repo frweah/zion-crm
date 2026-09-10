@@ -813,6 +813,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      expense_categories: {
+        Row: {
+          key: string;
+          label: string;
+          detail: string;
+          is_mileage: boolean;
+          needs_receipt: boolean;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          detail?: string;
+          is_mileage?: boolean;
+          needs_receipt?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          detail?: string;
+          is_mileage?: boolean;
+          needs_receipt?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
+      expenses: {
+        Row: {
+          id: string;
+          staff_id: string;
+          incurred_on: string;
+          category: string;
+          description: string;
+          amount: number | null;
+          miles: number | null;
+          from_place: string;
+          to_place: string;
+          client_id: string | null;
+          receipt_id: string | null;
+          statement_id: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          incurred_on: string;
+          category: string;
+          description?: string;
+          amount?: number | null;
+          miles?: number | null;
+          from_place?: string;
+          to_place?: string;
+          client_id?: string | null;
+          receipt_id?: string | null;
+          statement_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          incurred_on?: string;
+          category?: string;
+          description?: string;
+          amount?: number | null;
+          miles?: number | null;
+          from_place?: string;
+          to_place?: string;
+          client_id?: string | null;
+          receipt_id?: string | null;
+          statement_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
       form_1099_recipients: {
         Row: {
           id: string;
@@ -1410,6 +1491,30 @@ export type Database = {
           events_pulled?: number;
           last_error?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mileage_rates: {
+        Row: {
+          effective_from: string;
+          cents_per_mile: number;
+          note: string;
+          set_by: string | null;
+          set_at: string;
+        };
+        Insert: {
+          effective_from: string;
+          cents_per_mile: number;
+          note?: string;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Update: {
+          effective_from?: string;
+          cents_per_mile?: number;
+          note?: string;
+          set_by?: string | null;
+          set_at?: string;
         };
         Relationships: [];
       };
@@ -2607,6 +2712,9 @@ export type Database = {
           unpriced_hours: number | null;
           rate_unit: string | null;
           period_rate: number | null;
+          expenses: number | null;
+          mileage_miles: number | null;
+          unpriced_miles: number | null;
           computed_amount: number | null;
           approved_hours: number | null;
           approved_amount: number | null;
@@ -2638,6 +2746,28 @@ export type Database = {
           hours_this_year: number | null;
           hours_target: number | null;
           urgency: number | null;
+        };
+        Relationships: [];
+      };
+      expense_values: {
+        Row: {
+          id: string | null;
+          staff_id: string | null;
+          incurred_on: string | null;
+          category: string | null;
+          category_label: string | null;
+          is_mileage: boolean | null;
+          description: string | null;
+          client_id: string | null;
+          miles: number | null;
+          from_place: string | null;
+          to_place: string | null;
+          receipt_id: string | null;
+          statement_id: string | null;
+          created_at: string | null;
+          rate_used: number | null;
+          amount: number | null;
+          unpriced: boolean | null;
         };
         Relationships: [];
       };
@@ -2895,6 +3025,10 @@ export type Database = {
       log_shared_mail_message: {
         Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
+      };
+      mileage_rate_on: {
+        Args: { p_date: string | null };
+        Returns: number;
       };
       normalize_phone: {
         Args: { p_raw: string | null };
