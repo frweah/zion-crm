@@ -173,7 +173,7 @@ export default async function ExportsPage({
         Each file is read through your own account, so it contains exactly what you can see on the
         screens — no more. Nothing restricted is exported at all: no dates of birth, no addresses,
         no tax numbers, whoever asks. Prepared {today()}.{" "}
-        {me.role === "Admin" && <Link href="/contractors">Contractor statements</Link>}
+        {me.role === "Admin" && <Link href="/admin/contractors">Contractor statements</Link>}
       </p>
     </>
   );

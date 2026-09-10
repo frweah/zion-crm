@@ -58,9 +58,9 @@ export function StaffActivity({
         <h3>Staff report</h3>
         <p className="sub" style={{ marginTop: 0 }}>
           {from} to {to}.{" "}
-          <Link href={`/staff?from=${year}-01-01&to=${to}`}>This year</Link>
+          <Link href={`/admin/staff?from=${year}-01-01&to=${to}`}>This year</Link>
           {" · "}
-          <Link href={`/staff?from=${year - 1}-01-01&to=${year - 1}-12-31`}>Last year</Link>
+          <Link href={`/admin/staff?from=${year - 1}-01-01&to=${year - 1}-12-31`}>Last year</Link>
         </p>
       </div>
 

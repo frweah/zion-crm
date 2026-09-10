@@ -49,7 +49,7 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
     redirectTo: `${site}/auth/confirm`,
   });
 
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
 
   if (inviteError) {
     return {
@@ -75,7 +75,7 @@ export async function resendInvite(_prev: StaffState, formData: FormData): Promi
     redirectTo: `${site}/auth/confirm`,
   });
 
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
   return error ? { error: error.message, ok: null } : { error: null, ok: `Invite resent to ${email}.` };
 }
 
@@ -137,7 +137,7 @@ export async function setStaffActive(
     });
   }
 
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
   return {
     error: null,
     ok: `${row?.name ?? "Account"} ${active ? "reactivated" : "deactivated — access removed"}.`,

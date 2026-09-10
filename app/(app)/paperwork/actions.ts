@@ -212,7 +212,7 @@ export async function signW8BEN(
   }
 
   revalidatePath("/paperwork");
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
   return {
     error: null,
     ok: "Signed. Your W-8BEN is on file, and the record shows it was received today.",
@@ -397,7 +397,7 @@ export async function signW9(
   }
 
   revalidatePath("/paperwork");
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
   return {
     error: null,
     ok: "Signed. Your W-9 is on file, and the record shows it was received today.",
@@ -605,7 +605,7 @@ export async function signW4(
   }
 
   revalidatePath("/paperwork");
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
   return {
     error: null,
     ok: "Signed. Your W-4 is on file and will be used for the next payroll run.",

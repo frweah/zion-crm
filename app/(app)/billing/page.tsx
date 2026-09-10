@@ -18,13 +18,12 @@ import {
   type AuthOption,
 } from "./billing-forms";
 
-const TABS = [
-  { key: "authorizations", label: "Authorizations" },
-  { key: "log", label: "Service log" },
-  { key: "completions", label: "Completion services" },
-  { key: "invoices", label: "Invoices" },
-  { key: "rates", label: "Rate schedule" },
-];
+/**
+ * The tabs are the Billing group in the sidebar, drawn once in the layout.
+ * This list is only what the page needs to know to pick a view — the labels
+ * and the order live with the navigation, so the two cannot disagree.
+ */
+const TABS = ["authorizations", "log", "completions", "invoices", "rates"];
 
 export default async function BillingPage({
   searchParams,
@@ -33,7 +32,7 @@ export default async function BillingPage({
 }) {
   const me = await requireStaff();
   const { tab: rawTab, show, filter } = await searchParams;
-  const tab = TABS.some((t) => t.key === rawTab) ? rawTab! : "authorizations";
+  const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
 
   const supabase = await createClient();
   const canBill = CAN_EDIT_BILLING.includes(me.role);
@@ -80,13 +79,6 @@ export default async function BillingPage({
     <>
       <h1 className="h1">Billing</h1>
       <p className="sub">Authorizations, service log, invoices, and receivables</p>
-      <nav className="tabs">
-        {TABS.map((t) => (
-          <Link key={t.key} href={`/billing?tab=${t.key}`} className={t.key === tab ? "on" : ""}>
-            {t.label}
-          </Link>
-        ))}
-      </nav>
     </>
   );
 

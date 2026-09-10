@@ -5,7 +5,6 @@ import { ORG } from "@/lib/roles";
 import { W8BenForm } from "./w8ben-form";
 import { W9Form } from "./w9-form";
 import { W4Form } from "./w4-form";
-import { EmployerDetails } from "./employer-details";
 import { DeliveryConsent } from "./delivery-consent";
 import { DownloadButton } from "./download-button";
 
@@ -13,7 +12,7 @@ export default async function PaperworkPage() {
   const me = await requireStaff();
   const supabase = await createClient();
 
-  const [profileResult, employmentResult, submissionsResult, staffResult, employerResult] =
+  const [profileResult, employmentResult, submissionsResult, staffResult] =
     await Promise.all([
       supabase
         .from("contractor_profiles")
@@ -34,20 +33,11 @@ export default async function PaperworkPage() {
       me.role === "Admin"
         ? supabase.from("staff").select("id, name").eq("active", true)
         : Promise.resolve({ data: [] }),
-      me.role === "Admin"
-        ? supabase.rpc("get_employer_details")
-        : Promise.resolve({ data: null }),
     ]);
 
   const profile = profileResult.data;
   const submissions = submissionsResult.data ?? [];
   const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
-
-  // get_employer_details returns one row; the EIN is reduced to a yes/no here
-  // so the number itself never reaches the browser.
-  const employer = (employerResult.data as unknown as
-    | { legal_name: string; address: string; ein: string }[]
-    | null)?.[0];
 
   const mine = submissions.filter((s) => s.staff_id === me.id);
 
@@ -162,18 +152,6 @@ export default async function PaperworkPage() {
             </tbody>
           </table>
         </div>
-      )}
-
-      {/* The legal name is not prefilled. It is not the trading name — the dba
-          is Zion Vocational Rehabilitation Center and the entity is Zion
-          Healing Academy LLC — and offering the one as the other is how the
-          wrong name gets onto a W-4. The address is safe to suggest. */}
-      {me.role === "Admin" && employer && (
-        <EmployerDetails
-          legalName={employer.legal_name}
-          address={employer.address || ORG.address}
-          hasEin={Boolean(employer.ein)}
-        />
       )}
 
       {me.role === "Admin" && (

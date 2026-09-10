@@ -99,7 +99,7 @@ export async function saveContractorProfile(
     if (tinError) return { error: tinError.message, ok: null };
   }
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return { error: null, ok: "Saved." };
 }
 
@@ -138,7 +138,7 @@ export async function recordContractorPayment(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return { error: null, ok: `Recorded $${amount.toFixed(2)} paid on ${paidOn}.` };
 }
 
@@ -169,7 +169,7 @@ export async function deleteContractorPayment(
   if (error) return { error: error.message, ok: null };
   if (!data) return { error: "That payment is no longer there.", ok: null };
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return { error: null, ok: `Removed the $${Number(data.amount).toFixed(2)} payment.` };
 }
 
@@ -234,7 +234,7 @@ export async function saveTaxYear(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   revalidatePath("/dashboard");
   return {
     error: null,
@@ -264,7 +264,7 @@ export async function generate1099Run(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return { error: null, ok: `The ${year} run is built. Check it before anything is filed.` };
 }
 
@@ -285,7 +285,7 @@ export async function record1099Delivery(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return { error: null, ok: "Delivery recorded." };
 }
 
@@ -317,7 +317,7 @@ export async function recordRunFiled(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return { error: null, ok: "Saved." };
 }
 
@@ -489,7 +489,7 @@ export async function setEDeliveryConsent(
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/paperwork");
-  revalidatePath("/contractors");
+  revalidatePath("/admin/contractors");
   return {
     error: null,
     ok: consent

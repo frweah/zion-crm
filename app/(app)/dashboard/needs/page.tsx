@@ -49,7 +49,7 @@ export default async function NeedsPage({
         {NEEDS.map((n) => (
           <Link
             key={n.key}
-            href={`/needs?list=${n.key}`}
+            href={`/dashboard/needs?list=${n.key}`}
             className={"chip" + (n.key === key ? " gold" : "")}
             style={{ textDecoration: "none" }}
           >

@@ -34,6 +34,6 @@ export async function disconnectMicrosoft(
   if (!data) return { error: "There was nothing to disconnect.", ok: null };
 
   revalidatePath("/dashboard");
-  revalidatePath("/staff");
+  revalidatePath("/admin/staff");
   return { error: null, ok: "Disconnected." };
 }

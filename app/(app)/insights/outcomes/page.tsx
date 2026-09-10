@@ -257,7 +257,7 @@ export default async function OutcomesPage({
             {options.map((p) => (
               <Link
                 key={p.key}
-                href={`/outcomes?period=${p.key}`}
+                href={`/insights/outcomes?period=${p.key}`}
                 className={p.key === period.key ? "on" : ""}
               >
                 {p.label}

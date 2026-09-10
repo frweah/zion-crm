@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveEmployerDetails, type PaperworkState } from "./actions";
+import { saveEmployerDetails, type PaperworkState } from "../../paperwork/actions";
 
 const initial: PaperworkState = { error: null, ok: null };
 

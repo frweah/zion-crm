@@ -10,11 +10,8 @@ import {
   type HoursRequestRow,
 } from "./counselors-view";
 
-const TABS = [
-  { key: "contact", label: "Contact log" },
-  { key: "hours", label: "Hours requests" },
-  { key: "directory", label: "Directory" },
-];
+/** The labels and order live with the navigation; this picks a view. */
+const TABS = ["contact", "hours", "directory"];
 
 export default async function CounselorsPage({
   searchParams,
@@ -23,7 +20,7 @@ export default async function CounselorsPage({
 }) {
   const me = await requireStaff();
   const { tab: rawTab } = await searchParams;
-  const tab = TABS.some((t) => t.key === rawTab) ? rawTab! : "contact";
+  const tab = TABS.includes(rawTab ?? "") ? rawTab! : "contact";
 
   const supabase = await createClient();
   const canEdit = me.role !== "Reports";
@@ -44,13 +41,6 @@ export default async function CounselorsPage({
       <p className="sub">
         Counselor directory, every contact with them, and additional-hours requests
       </p>
-      <nav className="tabs">
-        {TABS.map((t) => (
-          <Link key={t.key} href={`/counselors?tab=${t.key}`} className={t.key === tab ? "on" : ""}>
-            {t.label}
-          </Link>
-        ))}
-      </nav>
     </>
   );
 

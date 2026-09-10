@@ -133,7 +133,7 @@ export async function completeForm(_prev: FormState, formData: FormData): Promis
 
   revalidatePath(`/clients/${clientId}/forms/${formId}`);
   revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/forms");
+  revalidatePath("/billing/forms");
   return { error: null, ok: "Signed and locked." };
 }
 
@@ -224,7 +224,7 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
 
   revalidatePath(`/clients/${clientId}/forms/${formId}`);
   revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/forms");
+  revalidatePath("/billing/forms");
   revalidatePath("/counselors");
   revalidatePath("/billing");
 

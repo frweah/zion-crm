@@ -31,7 +31,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "See who is waiting at the front and how long they have waited",
-        where: "Referrals — the pipeline, with days in stage",
+        where: "Counselors → Referrals — the pipeline, with days in stage",
         href: "/referrals",
       },
       {
@@ -111,8 +111,8 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "Give a counselor or a funder a page of outcomes",
-        where: "Outcomes — pick a period and print it",
-        href: "/outcomes",
+        where: "Insights → Outcomes — pick a period and print it",
+        href: "/insights/outcomes",
         roles: ["Admin", "Reports"],
       },
       {
@@ -122,12 +122,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Record a call or email with a counselor",
-        where: "Counselors — this is what the monthly reporting counts",
+        where: "Counselors → Contact log — this is what the monthly reporting counts",
         href: "/counselors",
       },
       {
         ask: "See which reports have already gone to a counselor",
-        where: "Counselors — the contact log shows what was sent and when",
+        where: "Counselors → Contact log — what was sent and when",
         href: "/counselors",
       },
       {
@@ -137,8 +137,8 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "See the blank USOR templates",
-        where: "Forms",
-        href: "/forms",
+        where: "Billing → Forms",
+        href: "/billing/forms",
       },
     ],
   },
@@ -147,8 +147,8 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "Decide who the next referral should go to",
-        where: "Capacity — caseload, work owed, hours delivered",
-        href: "/capacity",
+        where: "Insights → Capacity — caseload, work owed, hours delivered",
+        href: "/insights/capacity",
         roles: ["Admin"],
       },
       {
@@ -158,8 +158,8 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "See what needs me today",
-        where: "Needs attention — the same five counters as the dashboard",
-        href: "/needs",
+        where: "Dashboard → Needs attention",
+        href: "/dashboard/needs",
       },
       {
         ask: "Log the hours I worked",
@@ -197,21 +197,27 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "Money and admin",
     items: [
       {
+        ask: "Change the legal name or EIN on our tax forms",
+        where: "Admin → Settings — the entity, kept apart from the dba",
+        href: "/admin/settings",
+        roles: ["Admin"],
+      },
+      {
         ask: "See what is authorized, earned and still owed to us",
-        where: "Revenue — four figures and what is at risk",
-        href: "/revenue",
+        where: "Billing → Revenue",
+        href: "/billing/revenue",
         roles: ["Admin", "Billing"],
       },
       {
         ask: "Add an authorization from the PDF USOR sent",
-        where: "Billing → Read an authorization",
+        where: "Billing → Read a PDF",
         href: "/billing/import",
         roles: ["Admin", "Billing"],
       },
       {
         ask: "Send the accountant the month",
-        where: "Monthly export — six CSVs, any month",
-        href: "/exports",
+        where: "Admin → Monthly export",
+        href: "/admin/exports",
         roles: ["Admin", "Billing"],
       },
       {
@@ -235,31 +241,31 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       {
         ask: "Record a payment to a contractor",
         where: "Contractors",
-        href: "/contractors",
+        href: "/admin/contractors",
         roles: ["Admin"],
       },
       {
         ask: "Set a pay rate",
         where: "Staff — rates are dated, so past work keeps the rate it was done under",
-        href: "/staff",
+        href: "/admin/staff",
         roles: ["Admin"],
       },
       {
         ask: "Invite somebody, or remove their access",
         where: "Staff — deactivating removes access the same moment",
-        href: "/staff",
+        href: "/admin/staff",
         roles: ["Admin"],
       },
       {
         ask: "Generate the 1099s",
         where: "Contractors — the threshold has to be confirmed first",
-        href: "/contractors",
+        href: "/admin/contractors",
         roles: ["Admin"],
       },
       {
         ask: "See the numbers for the month",
         where: "Reports",
-        href: "/reports",
+        href: "/insights/reports",
         roles: ["Admin", "Reports", "Billing"],
       },
     ],

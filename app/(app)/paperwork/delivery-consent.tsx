@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { setEDeliveryConsent } from "../contractors/actions";
-import type { ContractorState } from "../contractors/actions";
+import { setEDeliveryConsent } from "../admin/contractors/actions";
+import type { ContractorState } from "../admin/contractors/actions";
 
 const initial: ContractorState = { error: null, ok: null };
 

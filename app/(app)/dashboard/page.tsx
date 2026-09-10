@@ -219,7 +219,7 @@ export default async function DashboardPage({
         {NEEDS.map((n) => (
           <Link
             key={n.key}
-            href={`/needs?list=${n.key}`}
+            href={`/dashboard/needs?list=${n.key}`}
             className="card"
             style={{ textDecoration: "none", color: "inherit" }}
           >

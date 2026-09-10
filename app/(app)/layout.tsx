@@ -1,16 +1,18 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
-import { ROLE_LABEL, ROLE_NAV, ORG, canReach } from "@/lib/roles";
+import { ROLE_LABEL, navFor, ORG, canReach } from "@/lib/roles";
 import { NavLinks } from "./nav-links";
 import { HintBar } from "./hint-bar";
 import { QuickAdd } from "./quick-add";
+import { GroupTabs } from "./group-tabs";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const staff = await requireStaff();
-  const nav = ROLE_NAV[staff.role];
+  const nav = navFor(staff.role);
 
   // Typing a URL should get you no further than the navigation does. Every
   // role has Dashboard, so this cannot loop.
@@ -47,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </span>
         </div>
 
-        <NavLinks items={nav} />
+        <NavLinks groups={nav} />
 
         <div className="roleblock">
           <div style={{ color: "#fff", fontWeight: 500 }}>{staff.name}</div>
@@ -77,6 +79,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         >
           <QuickAdd />
         </div>
+
+        <Suspense fallback={null}>
+          <GroupTabs groups={nav} />
+        </Suspense>
 
         {hint && <HintBar hintKey={hint.key} title={hint.title} body={hint.body} />}
         {children}

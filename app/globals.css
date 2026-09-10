@@ -486,3 +486,25 @@ textarea {
     break-before: page;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Grouped navigation
+   A group header reads as a heading when it is open and as a link when it is
+   not; its screens sit under it, indented enough to be a list and not so far
+   that they look detached.
+   ───────────────────────────────────────────────────────────── */
+.navb.group-on {
+  color: #fff;
+  background: transparent;
+  letter-spacing: 0.01em;
+}
+
+.navb.sub {
+  padding-left: 22px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.navb.sub.on {
+  opacity: 1;
+}
