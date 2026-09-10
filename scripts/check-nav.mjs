@@ -71,6 +71,7 @@ const EXPECTED = {
   Admin: [
     "/admin/access", "/admin/contractors", "/admin/exports", "/admin/inbox",
     "/admin/note-templates",
+    "/admin/retention",
     "/admin/settings", "/admin/staff",
     "/billing", "/billing/forms", "/billing/import", "/billing/revenue",
     "/clients", "/counselors", "/dashboard", "/dashboard/needs", "/hours",

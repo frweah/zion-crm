@@ -224,6 +224,18 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         roles: ["Admin"],
       },
       {
+        ask: "Find out how long we keep a client's file",
+        where: "Admin → Retention — the schedule, and what each period is based on",
+        href: "/admin/retention",
+        roles: ["Admin"],
+      },
+      {
+        ask: "Stop a record being destroyed while something is going on",
+        where: "Admin → Retention — place a legal hold; it outranks the schedule",
+        href: "/admin/retention",
+        roles: ["Admin"],
+      },
+      {
         ask: "Change the legal name or EIN on our tax forms",
         where: "Admin → Settings — the entity, kept apart from the dba",
         href: "/admin/settings",

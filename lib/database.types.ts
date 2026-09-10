@@ -1461,6 +1461,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      legal_holds: {
+        Row: {
+          id: string;
+          client_id: string;
+          reason: string;
+          placed_by: string | null;
+          placed_by_name: string;
+          placed_at: string;
+          lifted_by: string | null;
+          lifted_by_name: string;
+          lifted_at: string | null;
+          lifted_reason: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          reason: string;
+          placed_by?: string | null;
+          placed_by_name?: string;
+          placed_at?: string;
+          lifted_by?: string | null;
+          lifted_by_name?: string;
+          lifted_at?: string | null;
+          lifted_reason?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          reason?: string;
+          placed_by?: string | null;
+          placed_by_name?: string;
+          placed_at?: string;
+          lifted_by?: string | null;
+          lifted_by_name?: string;
+          lifted_at?: string | null;
+          lifted_reason?: string;
+        };
+        Relationships: [];
+      };
       mail_exclusions: {
         Row: {
           conversation_id: string;
@@ -1875,6 +1914,90 @@ export type Database = {
           unit?: string;
           effective_from?: string | null;
           effective_to?: string | null;
+        };
+        Relationships: [];
+      };
+      retention_dispositions: {
+        Row: {
+          id: number;
+          client_id: string | null;
+          client_name: string;
+          policy_key: string;
+          action: string;
+          reason: string;
+          decided_by: string | null;
+          decided_by_name: string;
+          disposed_at: string;
+        };
+        Insert: {
+          id?: number;
+          client_id?: string | null;
+          client_name?: string;
+          policy_key?: string;
+          action: string;
+          reason: string;
+          decided_by?: string | null;
+          decided_by_name?: string;
+          disposed_at?: string;
+        };
+        Update: {
+          id?: number;
+          client_id?: string | null;
+          client_name?: string;
+          policy_key?: string;
+          action?: string;
+          reason?: string;
+          decided_by?: string | null;
+          decided_by_name?: string;
+          disposed_at?: string;
+        };
+        Relationships: [];
+      };
+      retention_policies: {
+        Row: {
+          key: string;
+          label: string;
+          what: string;
+          keep_years: number;
+          clock_starts: string;
+          authority: string;
+          confirmed: boolean;
+          confirmed_by: string | null;
+          confirmed_at: string | null;
+          active: boolean;
+          sort_order: number;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          what: string;
+          keep_years: number;
+          clock_starts: string;
+          authority?: string;
+          confirmed?: boolean;
+          confirmed_by?: string | null;
+          confirmed_at?: string | null;
+          active?: boolean;
+          sort_order?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          what?: string;
+          keep_years?: number;
+          clock_starts?: string;
+          authority?: string;
+          confirmed?: boolean;
+          confirmed_by?: string | null;
+          confirmed_at?: string | null;
+          active?: boolean;
+          sort_order?: number;
+          updated_by?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -2820,6 +2943,26 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_retention: {
+        Row: {
+          client_id: string | null;
+          name: string | null;
+          client_no: number | null;
+          status: string | null;
+          stage: string | null;
+          closed_on: string | null;
+          keep_years: number | null;
+          policy_confirmed: boolean | null;
+          keep_until: string | null;
+          hold_id: string | null;
+          hold_reason: string | null;
+          on_hold: boolean | null;
+          due: boolean | null;
+          disposed_at: string | null;
+          disposed_action: string | null;
+        };
+        Relationships: [];
+      };
       client_sms_consent: {
         Row: {
           client_id: string | null;
@@ -3249,6 +3392,10 @@ export type Database = {
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
         Returns: string;
+      };
+      record_disposition: {
+        Args: { p_client: string | null; p_action: string | null; p_reason: string | null };
+        Returns: number;
       };
       record_incoming_sms: {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null; p_payload: string | null };

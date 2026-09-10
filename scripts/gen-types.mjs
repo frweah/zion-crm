@@ -121,6 +121,7 @@ const RPC_FUNCTIONS = [
   "mileage_rate_on",
   "match_inbox_folder",
   "note_template_for",
+  "record_disposition",
   "inbox_seen",
 ];
 
