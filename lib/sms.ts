@@ -33,12 +33,21 @@ export function reminderText(params: {
   // Short, no link, no marketing, and it says who it is from — a reminder
   // somebody cannot place is a reminder they ignore.
   //
-  // No opt-out line here. The sub-account appends its own — "STOP / Thanks,
-  // Zion Voc Rehab" — and a message carrying two of them reads like a form
-  // letter and costs a second segment. That makes this a dependency worth
-  // knowing about: if that setting is ever turned off in GoHighLevel, these
-  // messages go out with no opt-out notice at all, which is not allowed.
-  // Whoever changes it puts the sentence back here.
+  // No opt-out line here. The GoHighLevel sub-account appends its own —
+  // "STOP / Thanks, Zion Voc Rehab" — and two of them in one text reads like
+  // a form letter.
+  //
+  // It is not appended to every message. The sub-account has periodic opt-out
+  // switched on, so it goes on the first message to a contact and then once
+  // every thirty days. Most reminders therefore carry no STOP line, which is
+  // the intended pattern rather than a gap: the notice belongs in the first
+  // message and periodically after it, and STOP works whether or not the line
+  // is showing — the carrier honours it, and our webhook records it and
+  // withdraws consent.
+  //
+  // That makes the notice a setting in somebody else's system. If periodic
+  // opt-out is ever turned off in GoHighLevel, nothing carries it at all and
+  // the sentence comes back here.
   return (
     `Hi ${first}, a reminder from Zion Vocational Rehab: you have ${
       /^[aeiou]/i.test(params.kind) ? "an" : "a"
