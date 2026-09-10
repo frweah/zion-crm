@@ -69,7 +69,8 @@ if (orphans.length) {
 // not supposed to change, plus the two screens that did not exist before it.
 const EXPECTED = {
   Admin: [
-    "/admin/contractors", "/admin/exports", "/admin/settings", "/admin/staff",
+    "/admin/access", "/admin/contractors", "/admin/exports", "/admin/settings",
+    "/admin/staff",
     "/billing", "/billing/forms", "/billing/import", "/billing/revenue",
     "/clients", "/counselors", "/dashboard", "/dashboard/needs", "/hours",
     "/insights/capacity", "/insights/outcomes", "/insights/reports", "/leads",

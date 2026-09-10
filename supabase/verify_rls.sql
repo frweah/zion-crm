@@ -98,6 +98,7 @@ declare
   v_files      int;
   v_openfile   int;
   v_object     int;
+  v_client     uuid;
   v_privview   int;
   v_sharedview int;
   v_prefs      int;
@@ -119,15 +120,21 @@ begin
     -- depending on how much real data happens to be loaded.
     select count(*) into v_clients   from public.clients where name = 'ZZ RLS Client';
 
-    select count(*) into v_private
-      from public.client_private cp
-      join public.clients c on c.id = cp.client_id
-     where c.name = 'ZZ RLS Client';
+    -- Looked up as the owner earlier in this block would be simpler, but the
+    -- id is needed inside a loop that has already assumed a role, so it is
+    -- read from the name like everything else here.
+    select id into v_client from public.clients where name = 'ZZ RLS Client';
 
-    select count(*) into v_intakes
-      from public.intakes i
-      join public.clients c on c.id = i.client_id
-     where c.name = 'ZZ RLS Client';
+    -- Through the readers, because since 0054 there is no other way in: the
+    -- tables are not readable by anybody signed in, and the function is what
+    -- applies can_see_restricted and writes the access log. The question this
+    -- asks is unchanged — may this role see this client's restricted tier —
+    -- and it now asks it the way the application does.
+    select case when allowed then 1 else 0 end into v_private
+      from public.read_client_private(v_client, 'verify_rls');
+
+    select case when allowed then 1 else 0 end into v_intakes
+      from public.read_client_intake(v_client, 'verify_rls');
 
     select count(*) into v_sensitive
       from public.forms f

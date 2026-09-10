@@ -646,7 +646,19 @@ export async function downloadTaxForm(
   }
 
   const path = String(formData.get("pdf_path") ?? "");
+  const submissionId = String(formData.get("submission_id") ?? "");
   const supabase = await createClient();
+
+  // The PDF is in storage, so the database cannot be the door. It can refuse
+  // to say yes without writing down that it did — and no link is minted
+  // unless it said yes.
+  const { data: allowed, error: logError } = await supabase.rpc("note_tax_form_access", {
+    p_submission_id: submissionId,
+  });
+  if (logError || allowed !== true) {
+    return { error: "That form is not available.", ok: null };
+  }
+
   const { data, error } = await supabase.storage.from("staff-files").createSignedUrl(path, 120);
 
   if (error || !data?.signedUrl) {

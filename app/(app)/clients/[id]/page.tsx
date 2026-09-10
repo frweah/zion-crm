@@ -174,13 +174,11 @@ export default async function ClientPage({
   if (tab === "intake") {
     // A null row here can mean either "no intake yet" or "the policy declined",
     // so the tab is told separately whether this staff member may see one.
-    const { data } = await supabase
-      .from("intakes")
-      .select(
-        "phone, email, address, emergency_name, emergency_phone, goals, availability, transportation, accommodations, submitted_at, updated_on",
-      )
-      .eq("client_id", id)
-      .maybeSingle();
+    const { data: intakeRows } = await supabase.rpc("read_client_intake", {
+      p_client_id: id,
+      p_purpose: "opened the intake tab",
+    });
+    const data = (intakeRows ?? [])[0] ?? null;
 
     return (
       <>
@@ -573,9 +571,14 @@ export default async function ClientPage({
     consentResult,
     textsResult,
   ] = await Promise.all([
-      // A null here means the restricted policy declined, not that the row is
-      // missing — which is the distinction the panel renders.
-      supabase.from("client_private").select("dob, address").eq("client_id", id).maybeSingle(),
+      // Restricted details come through the function that writes the access
+      // log, because there is no longer any other way to them. It returns an
+      // "allowed" flag rather than a null, so the panel can still tell "we do
+      // not hold this" from "this is not for you".
+      supabase.rpc("read_client_private", {
+        p_client_id: id,
+        p_purpose: "shown on the client record",
+      }),
       supabase.from("counselors").select("id, name").order("name"),
       supabase.from("staff").select("id, name").eq("active", true).order("name"),
       supabase.from("offices").select("name").order("name"),
@@ -613,6 +616,10 @@ export default async function ClientPage({
         .limit(8),
     ]);
 
+  // One row or none, and "allowed" says which kind of none: a client we hold
+  // nothing for, or a file this person may not open.
+  const restricted = (privateResult.data ?? [])[0] ?? null;
+
   return (
     <>
       {header}
@@ -635,8 +642,8 @@ export default async function ClientPage({
           />
           <RestrictedPanel
             clientId={detail.id}
-            dob={privateResult.data?.dob ?? null}
-            address={privateResult.data?.address ?? ""}
+            dob={restricted?.dob ?? null}
+            address={restricted?.address ?? ""}
             visible={canSeeRestricted}
             canEdit={canEdit}
           />

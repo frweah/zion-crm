@@ -83,9 +83,29 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into public.sms_messages (client_id, direction, phone, body, kind)
-  values (v_client, 'Outgoing', '+18015550142', 'ZZ a reminder', 'Manual');
-  raise notice 'ok  with consent recorded, a text can be sent';
+  -- Whether a text can go out right now depends on the clock, and this script
+  -- has to say the same thing at ten in the morning and at half past nine at
+  -- night. Both branches are a real check: in hours the send is allowed, out
+  -- of hours it is refused and the refusal has to name the reason rather than
+  -- pretending the client never consented.
+  if public.sms_within_sending_hours(now()) then
+    insert into public.sms_messages (client_id, direction, phone, body, kind)
+    values (v_client, 'Outgoing', '+18015550142', 'ZZ a reminder', 'Manual');
+    raise notice 'ok  with consent recorded, a text can be sent';
+  else
+    begin
+      insert into public.sms_messages (client_id, direction, phone, body, kind)
+      values (v_client, 'Outgoing', '+18015550142', 'ZZ a reminder', 'Manual');
+      failures := failures || 'FAILED: a text went out in the middle of the night'::text;
+    exception when check_violation then
+      if sqlerrm not like '%8am and 9pm%' then
+        failures := failures || format('FAILED: refused out of hours, but for the wrong reason: %s', sqlerrm);
+      else
+        raise notice 'ok  it is % in Utah, so the send was refused for the hour — the consent path is checked by the refusals below',
+                     to_char(now() at time zone 'America/Denver', 'HH12:MIam');
+      end if;
+    end;
+  end if;
 
   -- ── the number, not the person ─────────────────────────────
   update public.clients set phone = '(801) 555-0199' where id = v_client;
@@ -211,6 +231,12 @@ begin
     raise notice 'ok  an appointment tomorrow is due a reminder';
   end if;
 
+  -- The gate is on insert and reads the clock, so these fixtures are written
+  -- as the owner with the trigger stood down. What is being checked here is
+  -- the "one reminder per appointment" index, not the gate — the gate has its
+  -- own checks above and cannot be tested and stood down at the same time.
+  alter table public.sms_messages disable trigger sms_consent_gate;
+
   insert into public.sms_messages (client_id, direction, phone, body, kind, event_id, status)
   values (v_client, 'Outgoing', '+18015550143', 'ZZ reminder', 'Reminder', v_event, 'Sent');
 
@@ -238,6 +264,8 @@ begin
 
   insert into public.sms_messages (client_id, direction, phone, body, kind, event_id, status, error)
   values (v_client, 'Outgoing', '+18015550143', 'ZZ failed', 'Reminder', v_event, 'Failed', 'ZZ carrier said no');
+
+  alter table public.sms_messages enable trigger sms_consent_gate;
 
   if not exists (select 1 from public.sms_due_reminders where event_id = v_event) then
     failures := failures || 'FAILED: an attempt that failed left the appointment un-remindable'::text;

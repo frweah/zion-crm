@@ -6,6 +6,42 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 export type Database = {
   public: {
     Tables: {
+      access_log: {
+        Row: {
+          id: number;
+          at: string;
+          staff_id: string | null;
+          staff_name: string;
+          staff_role: string;
+          subject: string;
+          client_id: string | null;
+          about_staff: string | null;
+          purpose: string;
+        };
+        Insert: {
+          id?: number;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+          staff_role?: string;
+          subject: string;
+          client_id?: string | null;
+          about_staff?: string | null;
+          purpose?: string;
+        };
+        Update: {
+          id?: number;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+          staff_role?: string;
+          subject?: string;
+          client_id?: string | null;
+          about_staff?: string | null;
+          purpose?: string;
+        };
+        Relationships: [];
+      };
       attachments: {
         Row: {
           id: string;
@@ -2544,7 +2580,7 @@ export type Database = {
       };
       form_1099_candidates: {
         Args: { p_year: number | null };
-        Returns: string;
+        Returns: { staff_id: string | null; staff_name: string | null; legal_name: string | null; business_name: string | null; address_snapshot: string | null; tin_type: string | null; tin_last4: string | null; total_paid: number | null; w9_received_on: string | null; ready: boolean | null; problem: string | null }[];
       };
       generate_1099_run: {
         Args: { p_year: number | null };
@@ -2560,15 +2596,15 @@ export type Database = {
       };
       get_employer_details: {
         Args: Record<string, never>;
-        Returns: string;
+        Returns: { legal_name: string | null; address: string | null; ein: string | null }[];
       };
       get_microsoft_tokens: {
         Args: { p_staff_id: string | null };
-        Returns: string;
+        Returns: { access_token: string | null; refresh_token: string | null; expires_at: string | null }[];
       };
       get_microsoft_tokens_for_sync: {
         Args: { p_staff_id: string | null };
-        Returns: string;
+        Returns: { access_token: string | null; refresh_token: string | null; expires_at: string | null }[];
       };
       get_tax_form_sensitive: {
         Args: { p_form_id: string | null };
@@ -2602,9 +2638,13 @@ export type Database = {
         Args: { p_raw: string | null };
         Returns: string;
       };
+      note_tax_form_access: {
+        Args: { p_submission_id: string | null };
+        Returns: boolean;
+      };
       pay_rate_on: {
         Args: { p_staff_id: string | null; p_date: string | null };
-        Returns: string;
+        Returns: { pay_rate: number | null; rate_unit: string | null; effective_from: string | null }[];
       };
       period_end: {
         Args: { d: string | null };
@@ -2618,17 +2658,29 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      read_client_intake: {
+        Args: { p_client_id: string | null; p_purpose: string | null };
+        Returns: { phone: string | null; email: string | null; address: string | null; emergency_name: string | null; emergency_phone: string | null; goals: string | null; availability: string | null; transportation: string | null; accommodations: string | null; submitted_at: string | null; updated_on: string | null; allowed: boolean | null }[];
+      };
+      read_client_private: {
+        Args: { p_client_id: string | null; p_purpose: string | null };
+        Returns: { dob: string | null; address: string | null; allowed: boolean | null }[];
+      };
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
         Returns: string;
       };
       record_incoming_sms: {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null; p_payload: string | null };
-        Returns: string;
+        Returns: { client_id: string | null; action: string | null }[];
       };
       refresh_microsoft_tokens: {
         Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: string;
+      };
+      save_intake: {
+        Args: { p_client_id: string | null; p_data: Json | null };
+        Returns: boolean;
       };
       set_checklist_item: {
         Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note: string | null };
@@ -2676,7 +2728,7 @@ export type Database = {
       };
       staff_activity: {
         Args: { p_from: string | null; p_to: string | null };
-        Returns: string;
+        Returns: { staff_id: string | null; staff_name: string | null; role: string | null; employment_type: string | null; active: boolean | null; hours: number | null; sessions: number | null; days_worked: number | null; statements_submitted: number | null; statements_approved: number | null; amount_paid: number | null; clients_assigned: number | null; tasks_open: number | null; tasks_done: number | null; notes_written: number | null; leads_added: number | null }[];
       };
       timer_elapsed_hours: {
         Args: { p_started: string | null };

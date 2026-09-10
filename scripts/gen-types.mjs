@@ -111,6 +111,11 @@ const RPC_FUNCTIONS = [
   // Called only by the inbound webhook, as the service role — typed here so
   // that call is checked like any other.
   "record_incoming_sms",
+  // The only doors to the restricted tier — every call is a log entry.
+  "read_client_private",
+  "read_client_intake",
+  "save_intake",
+  "note_tax_form_access",
 ];
 
 const { rows: fns } = await client.query(
@@ -122,6 +127,26 @@ const { rows: fns } = await client.query(
     order by p.proname`,
   [RPC_FUNCTIONS],
 );
+
+/** "TABLE(dob date, address text)" into the row shape it returns. */
+function tableRowType(result) {
+  const inner = (result ?? "").replace(/^TABLE\(/i, "").replace(/\)$/, "");
+  const fields = inner
+    .split(",")
+    .map((column) => {
+      const parts = column.trim().split(/\s+/);
+      const name = parts[0];
+      const sqlType = parts.slice(1).join(" ").toLowerCase();
+      const ts = /^bool/.test(sqlType)
+        ? "boolean"
+        : /^(int|bigint|numeric|smallint|real|double)/.test(sqlType)
+          ? "number"
+          : "string";
+      return name + ": " + ts + " | null";
+    })
+    .join("; ");
+  return "{ " + fields + " }[]";
+}
 
 /** "d date, p_client_id uuid" -> { d: string; p_client_id: string } */
 function argsType(args) {
@@ -221,8 +246,13 @@ out.push("    Functions: {");
 for (const f of fns) {
   out.push(`      ${f.proname}: {`);
   out.push(`        Args: ${argsType(f.args)};`);
-  const returns =
-    f.result === "boolean"
+  // A function returning TABLE(...) hands back rows, not a scalar. Calling it
+  // "string" typechecked and was a lie — the callers that needed the columns
+  // had to cast their way out of it, which is the opposite of what these
+  // types are for. The column types are approximate; the shape is not.
+  const returns = /^TABLE\(/i.test(f.result ?? "")
+    ? tableRowType(f.result)
+    : f.result === "boolean"
       ? "boolean"
       : ["integer", "bigint", "numeric", "smallint", "real", "double precision"].includes(f.result)
         ? "number"

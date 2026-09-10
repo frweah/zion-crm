@@ -184,12 +184,15 @@ export async function autofillForm(
         shared.filter((k) => refData[k] !== undefined).map((k) => [k, refData[k]]),
       );
 
-      // Address is restricted; a staff member without access simply gets blanks.
-      const { data: priv } = await supabase
-        .from("client_private")
-        .select("address")
-        .eq("client_id", clientId)
-        .maybeSingle();
+      // Address is restricted; a staff member without access simply gets
+      // blanks. It comes through the logging function, because an address
+      // copied onto a USOR form is as much a read as one shown on a screen —
+      // arguably more, since it leaves with the form.
+      const { data: privRows } = await supabase.rpc("read_client_private", {
+        p_client_id: clientId,
+        p_purpose: `prefilled onto ${templateId}`,
+      });
+      const priv = (privRows ?? [])[0] ?? null;
 
       const parts = (priv?.address ?? "").split(",").map((x) => x.trim());
       const { data: staffRow } = client.assigned_staff_id

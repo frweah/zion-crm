@@ -189,7 +189,7 @@ export default async function PaperworkPage() {
                     )}
                   </td>
                   <td>
-                    <DownloadButton pdfPath={s.pdf_path ?? ""} />
+                    <DownloadButton pdfPath={s.pdf_path ?? ""} submissionId={s.id} />
                   </td>
                 </tr>
               ))}

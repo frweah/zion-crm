@@ -197,6 +197,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "Money and admin",
     items: [
       {
+        ask: "Find out who has looked at a client's file",
+        where: "Admin → Access log — filterable by client and by person",
+        href: "/admin/access",
+        roles: ["Admin"],
+      },
+      {
         ask: "Change the legal name or EIN on our tax forms",
         where: "Admin → Settings — the entity, kept apart from the dba",
         href: "/admin/settings",

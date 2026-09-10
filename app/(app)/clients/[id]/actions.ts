@@ -232,14 +232,12 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
   }
 
   const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("intakes")
-    .select("id")
-    .eq("client_id", clientId)
-    .maybeSingle();
 
+  // No existence check: intakes cannot be read without writing an access-log
+  // entry, and looking one up in order to save it would put "read the intake"
+  // in the log every time somebody typed into it. The database does the
+  // conflict handling, which is where it was happening anyway.
   const payload = {
-    client_id: clientId,
     phone: str("phone"),
     email: str("email"),
     address: str("address"),
@@ -249,14 +247,12 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
     availability: str("availability"),
     transportation: str("transportation") || "Own vehicle",
     accommodations: str("accommodations"),
-    consent_signed: true,
-    staff_id: me.id,
-    ...(existing ? { updated_on: today() } : {}),
   };
 
-  const { error } = await supabase
-    .from("intakes")
-    .upsert(payload, { onConflict: "client_id" });
+  const { data: wasFirst, error } = await supabase.rpc("save_intake", {
+    p_client_id: clientId,
+    p_data: payload,
+  });
 
   if (error) {
     return {
@@ -266,7 +262,7 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
     };
   }
 
-  if (existing) {
+  if (!wasFirst) {
     revalidatePath(`/clients/${clientId}`);
     return { error: null, ok: "Intake updated." };
   }
