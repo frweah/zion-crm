@@ -222,6 +222,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      ce_entries: {
+        Row: {
+          id: string;
+          staff_id: string;
+          on_date: string;
+          hours: number;
+          topic: string;
+          provider: string;
+          file_id: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          on_date: string;
+          hours: number;
+          topic: string;
+          provider?: string;
+          file_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          on_date?: string;
+          hours?: number;
+          topic?: string;
+          provider?: string;
+          file_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
       checklist_tasks: {
         Row: {
           id: string;
@@ -684,6 +720,48 @@ export type Database = {
           notes?: string;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      credential_types: {
+        Row: {
+          key: string;
+          label: string;
+          detail: string;
+          kind: string;
+          expires: boolean;
+          months_valid: number | null;
+          applies_to: string;
+          hours_target: number | null;
+          warn_days: number;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          detail?: string;
+          kind?: string;
+          expires?: boolean;
+          months_valid?: number | null;
+          applies_to?: string;
+          hours_target?: number | null;
+          warn_days?: number;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          detail?: string;
+          kind?: string;
+          expires?: boolean;
+          months_valid?: number | null;
+          applies_to?: string;
+          hours_target?: number | null;
+          warn_days?: number;
+          sort_order?: number;
+          active?: boolean;
         };
         Relationships: [];
       };
@@ -1869,6 +1947,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_credentials: {
+        Row: {
+          id: string;
+          staff_id: string;
+          type_key: string;
+          reference: string;
+          issued_on: string | null;
+          expires_on: string | null;
+          file_id: string | null;
+          note: string;
+          verified_by: string | null;
+          verified_at: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          type_key: string;
+          reference?: string;
+          issued_on?: string | null;
+          expires_on?: string | null;
+          file_id?: string | null;
+          note?: string;
+          verified_by?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          type_key?: string;
+          reference?: string;
+          issued_on?: string | null;
+          expires_on?: string | null;
+          file_id?: string | null;
+          note?: string;
+          verified_by?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
       staff_employment: {
         Row: {
           staff_id: string;
@@ -1876,6 +1999,7 @@ export type Database = {
           started_on: string | null;
           notes: string;
           updated_at: string;
+          transports_clients: boolean;
         };
         Insert: {
           staff_id: string;
@@ -1883,6 +2007,7 @@ export type Database = {
           started_on?: string | null;
           notes?: string;
           updated_at?: string;
+          transports_clients?: boolean;
         };
         Update: {
           staff_id?: string;
@@ -1890,6 +2015,7 @@ export type Database = {
           started_on?: string | null;
           notes?: string;
           updated_at?: string;
+          transports_clients?: boolean;
         };
         Relationships: [];
       };
@@ -2436,6 +2562,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      credential_attention: {
+        Row: {
+          staff_id: string | null;
+          staff_name: string | null;
+          staff_role: string | null;
+          type_key: string | null;
+          label: string | null;
+          state: string | null;
+          expires_on: string | null;
+          days_left: number | null;
+          hours_this_year: number | null;
+          hours_target: number | null;
+          urgency: number | null;
+        };
+        Relationships: [];
+      };
       my_hours_summary: {
         Row: {
           staff_id: string | null;
@@ -2504,6 +2646,28 @@ export type Database = {
           done_on: string | null;
           done_by: string | null;
           note: string | null;
+        };
+        Relationships: [];
+      };
+      staff_credential_status: {
+        Row: {
+          staff_id: string | null;
+          type_key: string | null;
+          label: string | null;
+          kind: string | null;
+          required: boolean | null;
+          sort_order: number | null;
+          credential_id: string | null;
+          reference: string | null;
+          issued_on: string | null;
+          expires_on: string | null;
+          file_id: string | null;
+          verified_at: string | null;
+          hours_this_year: number | null;
+          hours_target: number | null;
+          last_entry_on: string | null;
+          state: string | null;
+          days_left: number | null;
         };
         Relationships: [];
       };

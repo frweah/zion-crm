@@ -6,6 +6,12 @@ import { Checklist, type ChecklistRow } from "./checklist-forms";
 import { StaffActivity } from "./staff-activity";
 import { PayRates, type PayRow } from "./pay-forms";
 import { today } from "@/lib/constants";
+import {
+  StaffCredentials,
+  CeForm,
+  type CredentialType,
+  type StatusRow,
+} from "./credentials";
 
 type StaffRow = {
   id: string;
@@ -30,7 +36,15 @@ export default async function StaffPage({
   const to = params.to ?? today();
   const from = params.from ?? to.slice(0, 4) + "-01-01";
 
-  const [{ data }, checklistResult, activityResult, payResult] = await Promise.all([
+  const [
+    { data },
+    checklistResult,
+    activityResult,
+    payResult,
+    credentialResult,
+    typesResult,
+    employmentResult,
+  ] = await Promise.all([
     supabase
       .from("staff")
       .select("id, name, email, role, active, user_id, invited_at, accepted_at")
@@ -42,6 +56,13 @@ export default async function StaffPage({
       .from("staff_pay")
       .select("id, staff_id, pay_rate, rate_unit, effective_from, note")
       .order("effective_from", { ascending: false }),
+    supabase.from("staff_credential_status").select("*").order("sort_order"),
+    supabase
+      .from("credential_types")
+      .select("key, label, detail, kind, expires, months_valid, applies_to, hours_target")
+      .eq("active", true)
+      .order("sort_order"),
+    supabase.from("staff_employment").select("staff_id, transports_clients"),
   ]);
 
   const staff = (data ?? []) as StaffRow[];
@@ -51,6 +72,18 @@ export default async function StaffPage({
     const list = payByStaff.get(row.staff_id) ?? [];
     list.push(row);
     payByStaff.set(row.staff_id, list);
+  }
+
+  const credentialTypes = (typesResult.data ?? []) as CredentialType[];
+  const transports = new Map(
+    (employmentResult.data ?? []).map((e) => [e.staff_id, Boolean(e.transports_clients)]),
+  );
+
+  const credentialsByStaff = new Map<string, StatusRow[]>();
+  for (const row of (credentialResult.data ?? []) as unknown as StatusRow[]) {
+    const list = credentialsByStaff.get(row.staff_id) ?? [];
+    list.push(row);
+    credentialsByStaff.set(row.staff_id, list);
   }
 
   const checklistByStaff = new Map<string, ChecklistRow[]>();
@@ -160,6 +193,46 @@ export default async function StaffPage({
             )}
           </div>
         ))}
+
+      <h1 className="h1" style={{ fontSize: 18, marginTop: 26 }}>
+        Certifications and clearances
+      </h1>
+      <p className="sub">
+        ACRE, CPR and First Aid, background clearance, continuing education — and a licence and
+        insurance for anybody who transports clients. A renewal is recorded beside the old one,
+        never over it.
+      </p>
+
+      {staff
+        .filter((s) => s.active)
+        .map((s) => (
+          <StaffCredentials
+            key={s.id}
+            staffId={s.id}
+            staffName={s.name}
+            rows={credentialsByStaff.get(s.id) ?? []}
+            types={credentialTypes}
+            transports={transports.get(s.id) ?? false}
+          />
+        ))}
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <h3 style={{ marginTop: 0 }}>Log continuing education for somebody</h3>
+        <p className="sub" style={{ marginTop: 0 }}>
+          People log their own on their Paperwork screen. This is for the certificate that arrives
+          by email addressed to the practice.
+        </p>
+        {staff
+          .filter((s) => s.active)
+          .map((s) => (
+            <div key={s.id} style={{ marginBottom: 10 }}>
+              <div className="lock" style={{ marginBottom: 4 }}>
+                {s.name}
+              </div>
+              <CeForm staffId={s.id} today={today()} forSomebodyElse />
+            </div>
+          ))}
+      </div>
 
       <StaffActivity
         rows={(activityResult.data ?? []) as never}

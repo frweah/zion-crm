@@ -146,6 +146,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "My own work",
     items: [
       {
+        ask: "Log training I have done, or check when my CPR card runs out",
+        where: "Paperwork — your certifications are under your tax form",
+        href: "/paperwork",
+      },
+      {
         ask: "Decide who the next referral should go to",
         where: "Insights → Capacity — caseload, work owed, hours delivered",
         href: "/insights/capacity",
@@ -196,6 +201,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
   {
     group: "Money and admin",
     items: [
+      {
+        ask: "See whose certifications are about to run out",
+        where: "Admin → Staff — every credential, with what is missing or expiring",
+        href: "/admin/staff",
+        roles: ["Admin"],
+      },
       {
         ask: "Find out who has looked at a client's file",
         where: "Admin → Access log — filterable by client and by person",

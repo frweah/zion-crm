@@ -1,19 +1,26 @@
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { fmtStamp } from "@/lib/constants";
+import { fmtStamp, today } from "@/lib/constants";
 import { ORG } from "@/lib/roles";
 import { W8BenForm } from "./w8ben-form";
 import { W9Form } from "./w9-form";
 import { W4Form } from "./w4-form";
 import { DeliveryConsent } from "./delivery-consent";
 import { DownloadButton } from "./download-button";
+import { MyCredentials } from "./my-credentials";
 
 export default async function PaperworkPage() {
   const me = await requireStaff();
   const supabase = await createClient();
 
-  const [profileResult, employmentResult, submissionsResult, staffResult] =
-    await Promise.all([
+  const [
+    profileResult,
+    employmentResult,
+    submissionsResult,
+    staffResult,
+    credentialResult,
+    ceResult,
+  ] = await Promise.all([
       supabase
         .from("contractor_profiles")
         .select(
@@ -33,6 +40,17 @@ export default async function PaperworkPage() {
       me.role === "Admin"
         ? supabase.from("staff").select("id, name").eq("active", true)
         : Promise.resolve({ data: [] }),
+      supabase
+        .from("staff_credential_status")
+        .select("*")
+        .eq("staff_id", me.id)
+        .order("sort_order"),
+      supabase
+        .from("ce_entries")
+        .select("id, on_date, hours, topic, provider")
+        .eq("staff_id", me.id)
+        .order("on_date", { ascending: false })
+        .limit(20),
     ]);
 
   const profile = profileResult.data;
@@ -153,6 +171,13 @@ export default async function PaperworkPage() {
           </table>
         </div>
       )}
+
+      <MyCredentials
+        staffId={me.id}
+        rows={(credentialResult.data ?? []) as never}
+        ce={(ceResult.data ?? []) as never}
+        today={today()}
+      />
 
       {me.role === "Admin" && (
         <div className="card" style={{ marginTop: 14, padding: 0 }}>
