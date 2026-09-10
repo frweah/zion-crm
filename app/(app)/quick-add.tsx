@@ -152,6 +152,13 @@ export function QuickAdd() {
 
               {kind === "note" && (
                 <>
+                  {/*
+                    No headings here, deliberately. Quick add exists to catch
+                    the thing you would otherwise forget between the car and
+                    the desk, and a box that opens with six headings is a box
+                    that gets closed again. The full note screen is where a
+                    session gets written up properly.
+                  */}
                   <label className="field">
                     Type
                     <select name="type" defaultValue="Phone call">

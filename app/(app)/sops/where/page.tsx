@@ -46,7 +46,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Write a note about a visit or a call",
-        where: "The client's Notes tab",
+        where: "The client's Notes tab — pick the activity type and the headings appear",
         href: "/clients",
       },
       {
@@ -227,6 +227,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         ask: "Change the legal name or EIN on our tax forms",
         where: "Admin → Settings — the entity, kept apart from the dba",
         href: "/admin/settings",
+        roles: ["Admin"],
+      },
+      {
+        ask: "Change what a case note starts with",
+        where: "Admin → Note headings — one set per activity type, edit or switch off",
+        href: "/admin/note-templates",
         roles: ["Admin"],
       },
       {

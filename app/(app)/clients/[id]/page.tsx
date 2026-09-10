@@ -195,16 +195,32 @@ export default async function ClientPage({
   }
 
   if (tab === "notes") {
-    const { data } = await supabase
-      .from("notes")
-      .select("id, text, type, ts, at, staff_name, visible_roles")
-      .eq("client_id", id)
-      .order("ts", { ascending: false });
+    const [{ data }, { data: templateRows }] = await Promise.all([
+      supabase
+        .from("notes")
+        .select("id, text, type, ts, at, staff_name, visible_roles")
+        .eq("client_id", id)
+        .order("ts", { ascending: false }),
+      // The headings each activity type starts with. Fetched with the notes
+      // rather than on each dropdown change, so choosing a type is instant —
+      // a skeleton that arrives a moment after the cursor does is worse than
+      // no skeleton at all.
+      supabase.from("note_templates").select("note_type, body").eq("active", true),
+    ]);
+
+    const templates = Object.fromEntries(
+      (templateRows ?? []).map((t) => [t.note_type, t.body]),
+    );
 
     return (
       <>
         {header}
-        <NotesTab clientId={id} notes={(data ?? []) as NoteRow[]} myName={me.name} />
+        <NotesTab
+          clientId={id}
+          notes={(data ?? []) as NoteRow[]}
+          myName={me.name}
+          templates={templates}
+        />
       </>
     );
   }

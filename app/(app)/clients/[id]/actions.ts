@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isOnlyTemplate } from "@/lib/note-template";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, CAN_EDIT_BILLING, today } from "@/lib/constants";
@@ -124,16 +125,29 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
   const text = String(formData.get("text") ?? "").trim();
   if (!text) return { error: "Write something first.", ok: null };
 
+  const type = String(formData.get("type") ?? "General");
+
   const roles = new Set<string>(["Admin"]);
   for (const r of formData.getAll("visible_roles")) roles.add(String(r));
 
   const supabase = await createClient();
+
+  // A note that is nothing but the headings it was handed. The screen stops
+  // this too, but it is checked here as well: the difference between a note
+  // and an empty box with a shape is the whole point of the templates, and a
+  // record that looks like documentation while saying nothing is worse on a
+  // client's file than an honest gap.
+  const { data: template } = await supabase.rpc("note_template_for", { p_type: type });
+  if (template && isOnlyTemplate(text, template)) {
+    return { error: "That is still just the headings — say what happened.", ok: null };
+  }
+
   const { error } = await supabase.from("notes").insert({
     client_id: clientId,
     staff_id: me.id,
     staff_name: me.name,
     text,
-    type: String(formData.get("type") ?? "General"),
+    type,
     visible_roles: [...roles],
   });
 

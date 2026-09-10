@@ -1635,6 +1635,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      note_templates: {
+        Row: {
+          note_type: string;
+          body: string;
+          active: boolean;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          note_type: string;
+          body: string;
+          active?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          note_type?: string;
+          body?: string;
+          active?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notes: {
         Row: {
           id: string;
@@ -3189,6 +3213,10 @@ export type Database = {
       note_tax_form_access: {
         Args: { p_submission_id: string | null };
         Returns: boolean;
+      };
+      note_template_for: {
+        Args: { p_type: string | null };
+        Returns: string;
       };
       offboard_staff: {
         Args: { p_staff_id: string | null; p_last_day: string | null; p_reason: string | null; p_successor: string | null; p_note: string | null };

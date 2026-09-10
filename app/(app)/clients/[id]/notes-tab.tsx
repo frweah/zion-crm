@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { addNote, type DetailState } from "./actions";
 import { NOTE_TYPES, fmtStamp } from "@/lib/constants";
 import { ROLE_NAMES, ROLE_LABEL, type Role } from "@/lib/roles";
+import { onTypeChange } from "@/lib/note-template";
 
 const initial: DetailState = { error: null, ok: null };
 
@@ -21,12 +22,66 @@ export function NotesTab({
   clientId,
   notes,
   myName,
+  templates,
 }: {
   clientId: string;
   notes: NoteRow[];
   myName: string;
+  /** The skeleton each activity type starts with. A type with none is blank. */
+  templates: Record<string, string>;
 }) {
   const [state, action, pending] = useActionState(addNote, initial);
+
+  const [type, setType] = useState("General");
+  const [text, setText] = useState("");
+  // The skeleton last written into the box, so "has this been touched?" is a
+  // comparison rather than a guess. Null the moment they type.
+  const [applied, setApplied] = useState<string | null>(null);
+  // Set when a type changed but the box already held somebody's writing.
+  const [offer, setOffer] = useState("");
+
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  // A saved note leaves an empty box, not the skeleton of whatever was just
+  // written — otherwise the next note looks half-written before it is begun.
+  useEffect(() => {
+    if (state.ok) {
+      setText("");
+      setApplied(null);
+      setOffer("");
+    }
+  }, [state.ok]);
+
+  function chooseType(next: string) {
+    setType(next);
+    const result = onTypeChange(text, applied, templates[next] ?? "");
+
+    if (result.action === "keep") {
+      setOffer(result.offer);
+      return;
+    }
+    setOffer("");
+    setText(result.body);
+    setApplied(result.applied);
+    // Land the cursor after the first heading rather than at the top, so the
+    // first thing typed is an answer.
+    queueMicrotask(() => {
+      const el = box.current;
+      if (!el) return;
+      const at = result.body.indexOf("\n");
+      el.focus();
+      el.setSelectionRange(at < 0 ? el.value.length : at + 1, at < 0 ? el.value.length : at + 1);
+    });
+  }
+
+  function useHeadings() {
+    setText(offer);
+    setApplied(offer);
+    setOffer("");
+    box.current?.focus();
+  }
+
+  const hasTemplate = Boolean(templates[type]);
 
   return (
     <>
@@ -40,7 +95,7 @@ export function NotesTab({
           <div className="row2" style={{ marginBottom: 8 }}>
             <label className="field" style={{ maxWidth: 240 }}>
               Activity type
-              <select name="type" defaultValue="General">
+              <select name="type" value={type} onChange={(e) => chooseType(e.target.value)}>
                 {NOTE_TYPES.map((t) => (
                   <option key={t}>{t}</option>
                 ))}
@@ -49,9 +104,25 @@ export function NotesTab({
             <span className="lock">Stamped with the time and your name — {myName}</span>
           </div>
 
+          {offer && (
+            <div className="alert" style={{ marginBottom: 8 }}>
+              You have already written something, so it has been left alone.{" "}
+              <button type="button" className="btn" onClick={useHeadings}>
+                Replace it with the {type.toLowerCase()} headings
+              </button>
+            </div>
+          )}
+
           <textarea
+            ref={box}
             name="text"
-            rows={3}
+            rows={hasTemplate ? 10 : 3}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              // From here on the text is theirs, whatever it started as.
+              if (applied !== null && e.target.value !== applied) setApplied(null);
+            }}
             placeholder="What happened, what was done, what's next"
             required
           />
@@ -77,6 +148,7 @@ export function NotesTab({
           </div>
           <p className="lock" style={{ margin: "8px 0 0" }}>
             Admin always sees every note.
+            {hasTemplate && " The headings are a starting point — change or delete any of them."}
           </p>
         </form>
       </div>

@@ -120,6 +120,7 @@ const RPC_FUNCTIONS = [
   "offboard_staff",
   "mileage_rate_on",
   "match_inbox_folder",
+  "note_template_for",
   "inbox_seen",
 ];
 
