@@ -49,7 +49,7 @@ export function reminderText(params: {
   // opt-out is ever turned off in GoHighLevel, nothing carries it at all and
   // the sentence comes back here.
   return (
-    `Hi ${first}, a reminder from Zion Vocational Rehab: you have ${
+    `Hi ${first}, a reminder from Zion Voc Rehab: you have ${
       /^[aeiou]/i.test(params.kind) ? "an" : "a"
     } ${params.kind.toLowerCase()} tomorrow, ${params.day} at ${params.time}. ` +
     `Call 385-406-3432 if you need to change it.`
