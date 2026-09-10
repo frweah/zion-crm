@@ -383,3 +383,46 @@ export async function updatePlacement(
   revalidatePath(`/clients/${clientId}`);
   return { error: null, ok: "Saved." };
 }
+
+/**
+ * Record where texting consent stands.
+ *
+ * Granting needs a note saying how it was given, because that note is the
+ * whole evidence if anybody ever asks. Withdrawing needs nothing — it is
+ * always allowed, from anybody, at any time, and putting a hurdle in front of
+ * it would be the wrong instinct in the wrong place.
+ *
+ * The database refuses both if the role is wrong or the client has no usable
+ * number, so this is the shape of the form rather than the rule itself.
+ */
+export async function setSmsConsent(
+  _prev: DetailState,
+  formData: FormData,
+): Promise<DetailState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const clientId = String(formData.get("id") ?? "");
+  const state = String(formData.get("state") ?? "");
+  const method = String(formData.get("method") ?? "Verbal");
+  const note = String(formData.get("note") ?? "").trim();
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_sms_consent", {
+    p_client_id: clientId,
+    p_state: state,
+    p_method: state === "Granted" ? method : "Staff",
+    p_note: note,
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath(`/clients/${clientId}`);
+  return {
+    error: null,
+    ok:
+      state === "Granted"
+        ? "Consent recorded. Appointment reminders will go out the day before."
+        : "Consent withdrawn. Nothing further will be sent to this client.",
+  };
+}

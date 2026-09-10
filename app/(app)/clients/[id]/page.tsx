@@ -21,6 +21,7 @@ import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
+import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { money, periodRange, today, CAN_EDIT_BILLING, jobStatusTone } from "@/lib/constants";
@@ -569,6 +570,8 @@ export default async function ClientPage({
     jobsResult,
     employersResult,
     paperworkResult,
+    consentResult,
+    textsResult,
   ] = await Promise.all([
       // A null here means the restricted policy declined, not that the row is
       // missing — which is the distinction the panel renders.
@@ -597,6 +600,17 @@ export default async function ClientPage({
         .eq("client_id", id)
         .order("state")
         .order("usor"),
+      supabase
+        .from("client_sms_consent")
+        .select("state, consented_phone, client_phone, method, since, can_text")
+        .eq("client_id", id)
+        .maybeSingle(),
+      supabase
+        .from("sms_messages")
+        .select("id, direction, body, kind, status, error, sent_at, created_at")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false })
+        .limit(8),
     ]);
 
   return (
@@ -662,6 +676,14 @@ export default async function ClientPage({
           <PaperworkStrip
             clientId={id}
             rows={(paperworkResult.data ?? []) as PaperworkRow[]}
+          />
+
+          <TextingPanel
+            clientId={id}
+            clientName={detail.name}
+            consent={(consentResult.data ?? null) as ConsentRow | null}
+            texts={(textsResult.data ?? []) as TextRow[]}
+            canEdit={canEdit}
           />
         </div>
       </div>

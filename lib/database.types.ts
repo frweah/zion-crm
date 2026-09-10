@@ -1632,6 +1632,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      sms_consent_events: {
+        Row: {
+          id: string;
+          seq: number;
+          client_id: string;
+          state: string;
+          phone: string;
+          method: string;
+          note: string;
+          at: string;
+          staff_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          client_id: string;
+          state: string;
+          phone: string;
+          method: string;
+          note?: string;
+          at?: string;
+          staff_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          client_id?: string;
+          state?: string;
+          phone?: string;
+          method?: string;
+          note?: string;
+          at?: string;
+          staff_id?: string | null;
+        };
+        Relationships: [];
+      };
+      sms_messages: {
+        Row: {
+          id: string;
+          client_id: string | null;
+          direction: string;
+          phone: string;
+          body: string;
+          kind: string;
+          event_id: string | null;
+          provider: string;
+          provider_message_id: string | null;
+          status: string;
+          error: string;
+          sent_at: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id?: string | null;
+          direction: string;
+          phone: string;
+          body: string;
+          kind?: string;
+          event_id?: string | null;
+          provider?: string;
+          provider_message_id?: string | null;
+          status?: string;
+          error?: string;
+          sent_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string | null;
+          direction?: string;
+          phone?: string;
+          body?: string;
+          kind?: string;
+          event_id?: string | null;
+          provider?: string;
+          provider_message_id?: string | null;
+          status?: string;
+          error?: string;
+          sent_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
       sops: {
         Row: {
           id: string;
@@ -2259,6 +2346,19 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_sms_consent: {
+        Row: {
+          client_id: string | null;
+          client_phone: string | null;
+          state: string | null;
+          consented_phone: string | null;
+          method: string | null;
+          since: string | null;
+          staff_id: string | null;
+          can_text: boolean | null;
+        };
+        Relationships: [];
+      };
       client_stages_reached: {
         Row: {
           client_id: string | null;
@@ -2312,6 +2412,21 @@ export type Database = {
           staff_id: string | null;
           hints_total: number | null;
           hints_seen: number | null;
+        };
+        Relationships: [];
+      };
+      sms_due_reminders: {
+        Row: {
+          event_id: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          phone: string | null;
+          title: string | null;
+          kind: string | null;
+          starts_at: string | null;
+          local_date: string | null;
+          local_day: string | null;
+          local_time: string | null;
         };
         Relationships: [];
       };
@@ -2480,6 +2595,10 @@ export type Database = {
         Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
       };
+      normalize_phone: {
+        Args: { p_raw: string | null };
+        Returns: string;
+      };
       pay_rate_on: {
         Args: { p_staff_id: string | null; p_date: string | null };
         Returns: string;
@@ -2498,6 +2617,10 @@ export type Database = {
       };
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
+        Returns: string;
+      };
+      record_incoming_sms: {
+        Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null };
         Returns: string;
       };
       refresh_microsoft_tokens: {
@@ -2530,6 +2653,10 @@ export type Database = {
       };
       set_microsoft_tokens_for_sync: {
         Args: { p_staff_id: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
+        Returns: string;
+      };
+      set_sms_consent: {
+        Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note: string | null };
         Returns: string;
       };
       set_staff_pay: {

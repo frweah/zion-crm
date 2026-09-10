@@ -25,6 +25,11 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     group: "A client",
     items: [
       {
+        ask: "Let a client have appointment reminders by text",
+        where: "Texting, on their Overview — record that they agreed first",
+        href: "/clients",
+      },
+      {
         ask: "See who is waiting at the front and how long they have waited",
         where: "Referrals — the pipeline, with days in stage",
         href: "/referrals",

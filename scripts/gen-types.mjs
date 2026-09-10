@@ -106,6 +106,11 @@ const RPC_FUNCTIONS = [
   "answer_reminder",
   "practice_today",
   "timer_elapsed_hours",
+  "set_sms_consent",
+  "normalize_phone",
+  // Called only by the inbound webhook, as the service role — typed here so
+  // that call is checked like any other.
+  "record_incoming_sms",
 ];
 
 const { rows: fns } = await client.query(
