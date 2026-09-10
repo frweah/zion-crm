@@ -119,6 +119,8 @@ const RPC_FUNCTIONS = [
   "note_staff_file_access",
   "offboard_staff",
   "mileage_rate_on",
+  "match_inbox_folder",
+  "inbox_seen",
 ];
 
 const { rows: fns } = await client.query(

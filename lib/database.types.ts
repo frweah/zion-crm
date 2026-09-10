@@ -1125,6 +1125,123 @@ export type Database = {
         };
         Relationships: [];
       };
+      inbox_documents: {
+        Row: {
+          id: string;
+          sha256: string;
+          folder_name: string;
+          relative_path: string;
+          filename: string;
+          size_bytes: number;
+          file_modified: string | null;
+          client_id: string | null;
+          kind: string;
+          state: string;
+          parsed: Json | null;
+          proposal: Json | null;
+          storage_path: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          outcome: string;
+          first_seen: string;
+        };
+        Insert: {
+          id?: string;
+          sha256: string;
+          folder_name: string;
+          relative_path: string;
+          filename: string;
+          size_bytes?: number;
+          file_modified?: string | null;
+          client_id?: string | null;
+          kind?: string;
+          state?: string;
+          parsed?: Json | null;
+          proposal?: Json | null;
+          storage_path?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          outcome?: string;
+          first_seen?: string;
+        };
+        Update: {
+          id?: string;
+          sha256?: string;
+          folder_name?: string;
+          relative_path?: string;
+          filename?: string;
+          size_bytes?: number;
+          file_modified?: string | null;
+          client_id?: string | null;
+          kind?: string;
+          state?: string;
+          parsed?: Json | null;
+          proposal?: Json | null;
+          storage_path?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          outcome?: string;
+          first_seen?: string;
+        };
+        Relationships: [];
+      };
+      inbox_folder_map: {
+        Row: {
+          folder_name: string;
+          client_id: string | null;
+          not_a_client: boolean;
+          mapped_by: string | null;
+          mapped_at: string;
+        };
+        Insert: {
+          folder_name: string;
+          client_id?: string | null;
+          not_a_client?: boolean;
+          mapped_by?: string | null;
+          mapped_at?: string;
+        };
+        Update: {
+          folder_name?: string;
+          client_id?: string | null;
+          not_a_client?: boolean;
+          mapped_by?: string | null;
+          mapped_at?: string;
+        };
+        Relationships: [];
+      };
+      inbox_runs: {
+        Row: {
+          id: number;
+          ran_at: string;
+          machine: string;
+          agent_version: string;
+          files_seen: number;
+          files_new: number;
+          folders_seen: number;
+          error: string;
+        };
+        Insert: {
+          id?: number;
+          ran_at?: string;
+          machine?: string;
+          agent_version?: string;
+          files_seen?: number;
+          files_new?: number;
+          folders_seen?: number;
+          error?: string;
+        };
+        Update: {
+          id?: number;
+          ran_at?: string;
+          machine?: string;
+          agent_version?: string;
+          files_seen?: number;
+          files_new?: number;
+          folders_seen?: number;
+          error?: string;
+        };
+        Relationships: [];
+      };
       intakes: {
         Row: {
           id: string;
@@ -2771,6 +2888,29 @@ export type Database = {
         };
         Relationships: [];
       };
+      inbox_pending: {
+        Row: {
+          id: string | null;
+          sha256: string | null;
+          folder_name: string | null;
+          relative_path: string | null;
+          filename: string | null;
+          size_bytes: number | null;
+          file_modified: string | null;
+          first_seen: string | null;
+          kind: string | null;
+          state: string | null;
+          parsed: Json | null;
+          proposal: Json | null;
+          storage_path: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          needs_a_client: boolean | null;
+          needs_typing_in: boolean | null;
+          needs_confirming: boolean | null;
+        };
+        Relationships: [];
+      };
       my_hours_summary: {
         Row: {
           staff_id: string | null;
@@ -3002,6 +3142,10 @@ export type Database = {
         Args: { p_form_id: string | null };
         Returns: string;
       };
+      inbox_seen: {
+        Args: { p_hashes: string | null };
+        Returns: { sha256: string | null; known: boolean | null }[];
+      };
       is_active_staff: {
         Args: Record<string, never>;
         Returns: boolean;
@@ -3025,6 +3169,10 @@ export type Database = {
       log_shared_mail_message: {
         Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
+      };
+      match_inbox_folder: {
+        Args: { p_folder: string | null };
+        Returns: string;
       };
       mileage_rate_on: {
         Args: { p_date: string | null };

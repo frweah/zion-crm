@@ -21,7 +21,15 @@ import { NextResponse, type NextRequest } from "next/server";
  * that strictness is that a new machine endpoint has to be added here, which
  * is a better failure than the alternative.
  */
-const PUBLIC_PATHS = ["/login", "/auth", "/no-access", "/api/cron", "/api/health", "/api/sms"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth",
+  "/no-access",
+  "/api/cron",
+  "/api/health",
+  "/api/sms",
+  "/api/agent",
+];
 // /api/cron already covers the sync sweep — it arrives with a shared secret
 // and no session, because there is nobody signed in at three in the morning.
 //
@@ -32,6 +40,9 @@ const PUBLIC_PATHS = ["/login", "/auth", "/no-access", "/api/cron", "/api/health
 // dropped. It was missing for a day and nothing said so: the redirect is a
 // 307 to a page, so the caller sees a success and there is nothing in any log
 // to notice.
+//
+// /api/agent is the document agent on the owner's machine. Same shape: no
+// session, its own shared secret, checked by both routes behind it.
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

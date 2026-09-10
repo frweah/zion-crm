@@ -242,6 +242,21 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         roles: ["Admin", "Billing"],
       },
       {
+        ask: "Find something USOR sent that is in the documents folder",
+        where: "Admin → Document inbox — read, sorted, and waiting for somebody to confirm",
+        href: "/admin/inbox",
+      },
+      {
+        ask: "Say whose folder a document came out of",
+        where: "Admin → Document inbox — the folders nobody has claimed are at the top",
+        href: "/admin/inbox",
+      },
+      {
+        ask: "Check the documents agent is still running",
+        where: "Admin → Document inbox — it says when it last ran and what it found",
+        href: "/admin/inbox",
+      },
+      {
         ask: "Send the accountant the month",
         where: "Admin → Monthly export",
         href: "/admin/exports",

@@ -69,24 +69,24 @@ if (orphans.length) {
 // not supposed to change, plus the two screens that did not exist before it.
 const EXPECTED = {
   Admin: [
-    "/admin/access", "/admin/contractors", "/admin/exports", "/admin/settings",
-    "/admin/staff",
+    "/admin/access", "/admin/contractors", "/admin/exports", "/admin/inbox",
+    "/admin/settings", "/admin/staff",
     "/billing", "/billing/forms", "/billing/import", "/billing/revenue",
     "/clients", "/counselors", "/dashboard", "/dashboard/needs", "/hours",
     "/insights/capacity", "/insights/outcomes", "/insights/reports", "/leads",
     "/paperwork", "/referrals", "/sops", "/tasks",
   ],
   "Job Search": [
-    "/billing/forms", "/clients", "/counselors", "/dashboard", "/dashboard/needs",
+    "/admin/inbox", "/billing/forms", "/clients", "/counselors", "/dashboard", "/dashboard/needs",
     "/hours", "/leads", "/paperwork", "/referrals", "/sops", "/tasks",
   ],
   Reports: [
-    "/billing/forms", "/clients", "/dashboard", "/dashboard/needs", "/hours",
+    "/admin/inbox", "/billing/forms", "/clients", "/dashboard", "/dashboard/needs", "/hours",
     "/insights/outcomes", "/insights/reports", "/leads", "/paperwork",
     "/referrals", "/sops", "/tasks",
   ],
   Billing: [
-    "/admin/exports", "/billing", "/billing/forms", "/billing/import",
+    "/admin/exports", "/admin/inbox", "/billing", "/billing/forms", "/billing/import",
     "/billing/revenue", "/clients", "/counselors", "/dashboard",
     "/dashboard/needs", "/hours", "/leads", "/paperwork", "/sops",
   ],

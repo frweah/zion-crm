@@ -113,6 +113,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Staff", href: "/admin/staff", roles: ADMIN },
       { label: "Contractors", href: "/admin/contractors", roles: ADMIN },
       { label: "Monthly export", href: "/admin/exports", roles: BILLS },
+      { label: "Document inbox", href: "/admin/inbox", roles: ["Admin", "Billing", "Job Search", "Reports"] },
       { label: "Access log", href: "/admin/access", roles: ADMIN },
       { label: "Settings", href: "/admin/settings", roles: ADMIN },
     ],

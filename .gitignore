@@ -46,3 +46,8 @@ yarn-error.log*
 
 # typescript build info
 *.tsbuildinfo
+
+# The agent's configuration holds the shared secret, and its log names client
+# folders. Both are written beside the installed script, never committed.
+agent/zion-agent.config.json
+agent/*.log
