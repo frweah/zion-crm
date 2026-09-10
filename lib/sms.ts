@@ -31,13 +31,19 @@ export function reminderText(params: {
 }): string {
   const first = params.clientName.trim().split(/\s+/)[0] || "Hello";
   // Short, no link, no marketing, and it says who it is from — a reminder
-  // somebody cannot place is a reminder they ignore. Reply STOP is on every
-  // message because it has to be.
+  // somebody cannot place is a reminder they ignore.
+  //
+  // No opt-out line here. The sub-account appends its own — "STOP / Thanks,
+  // Zion Voc Rehab" — and a message carrying two of them reads like a form
+  // letter and costs a second segment. That makes this a dependency worth
+  // knowing about: if that setting is ever turned off in GoHighLevel, these
+  // messages go out with no opt-out notice at all, which is not allowed.
+  // Whoever changes it puts the sentence back here.
   return (
     `Hi ${first}, a reminder from Zion Vocational Rehab: you have ${
       /^[aeiou]/i.test(params.kind) ? "an" : "a"
     } ${params.kind.toLowerCase()} tomorrow, ${params.day} at ${params.time}. ` +
-    `Call 385-406-3432 if you need to change it. Reply STOP to stop these messages.`
+    `Call 385-406-3432 if you need to change it.`
   );
 }
 
