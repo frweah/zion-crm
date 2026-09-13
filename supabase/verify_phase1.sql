@@ -1,5 +1,12 @@
 -- Zion Vocational Rehab CRM — Phase 1 verification
 --
+-- Dates here are the practice's - public.practice_today() - not the server's
+-- current_date. In the evening in Utah the server is already on tomorrow,
+-- and the checks that refuse a future date now judge by the practice's day
+-- (0075), so a fixture dated by current_date asks for a day that has not
+-- happened yet.
+--
+--
 -- Run this in the Supabase SQL Editor after the four migrations. It checks the
 -- structure, then exercises the billing and form rules against throwaway rows.
 -- Everything happens inside a transaction that is rolled back at the end, so it
@@ -115,12 +122,12 @@ begin
   raise notice 'ok  new client recorded a pipeline stage';
 
   -- Hours within the authorization are accepted.
-  insert into public.service_entries (auth_id, date, hours) values (v_auth, current_date, 6);
+  insert into public.service_entries (auth_id, date, hours) values (v_auth, public.practice_today(), 6);
   raise notice 'ok  service entry within the authorization accepted';
 
   -- Hours beyond the authorization are refused.
   begin
-    insert into public.service_entries (auth_id, date, hours) values (v_auth, current_date, 5);
+    insert into public.service_entries (auth_id, date, hours) values (v_auth, public.practice_today(), 5);
     raise exception 'FAILED: an entry exceeding the authorized hours was accepted';
   exception when check_violation then
     raise notice 'ok  entry beyond the authorized hours refused';
@@ -129,7 +136,7 @@ begin
   -- Future dates are refused.
   begin
     insert into public.service_entries (auth_id, date, hours)
-      values (v_auth, current_date + 1, 1);
+      values (v_auth, public.practice_today() + 1, 1);
     raise exception 'FAILED: a future-dated entry was accepted';
   exception when check_violation then
     raise notice 'ok  future-dated entry refused';

@@ -321,4 +321,57 @@ begin
   raise notice '--- NOTIFICATIONS VERIFIED ---';
 end $$;
 
+-- ── the alerts date from the day they are given ──────────────
+-- generate_notifications() used the server's date, so between six in the
+-- evening and midnight in Utah every rule ran a day ahead. The rules now take
+-- the day they are given, and generate_notifications() gives them Utah's.
+-- A W-8BEN's expiry is worked out from when it was signed and cannot be set,
+-- so this moves the day around the card rather than the card.
+do $$
+declare
+  v_staff   uuid;
+  v_expires date;
+begin
+  select s.id, p.w8ben_expires_on into v_staff, v_expires
+    from public.staff s
+    join public.contractor_profiles p on p.staff_id = s.id
+   where s.active and p.tax_status = 'Foreign person' and p.w8ben_expires_on is not null
+   order by s.created_at
+   limit 1;
+
+  if v_staff is null then
+    raise notice 'ok  (no active foreign contractor with a W-8BEN to date the rules against)';
+    return;
+  end if;
+
+  perform public.generate_notifications_on(v_expires);
+  if not exists (select 1 from public.notifications
+                  where staff_id = v_staff and kind = 'w8ben_expiring' and resolved_at is null) then
+    raise exception 'FAILED: on its last valid day a W-8BEN was not reported as expiring';
+  end if;
+  raise notice 'ok  on its last valid day a W-8BEN is expiring, not expired';
+
+  perform public.generate_notifications_on(v_expires + 1);
+  if not exists (select 1 from public.notifications
+                  where staff_id = v_staff and kind = 'w8ben_expired' and resolved_at is null) then
+    raise exception 'FAILED: the day after its last valid day, the W-8BEN was not reported as expired';
+  end if;
+  raise notice 'ok  and expired the day after: the rules date from the day they are given';
+
+  -- The name pg_cron and the app call dates from the practice's today. For a
+  -- card more than sixty days from expiry, nothing about it should be open.
+  perform public.generate_notifications();
+  if v_expires > public.practice_today() + 60 and exists (
+       select 1 from public.notifications
+        where staff_id = v_staff and kind in ('w8ben_expiring', 'w8ben_expired') and resolved_at is null) then
+    raise exception 'FAILED: generate_notifications() did not date the rules from the practice''s today';
+  end if;
+  raise notice 'ok  generate_notifications() dates everything from the practice''s today';
+
+  if has_function_privilege('authenticated', 'public.generate_notifications_on(date)', 'EXECUTE') then
+    raise exception 'FAILED: somebody signed in can run the alerts for a day of their choosing';
+  end if;
+  raise notice 'ok  choosing the day is not open to anybody signed in';
+end $$;
+
 rollback;

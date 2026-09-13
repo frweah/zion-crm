@@ -1,5 +1,12 @@
 -- Zion Vocational Rehab CRM — 1099 run, delivery and consent verification
 --
+-- Dates here are the practice's - public.practice_today() - not the server's
+-- current_date. In the evening in Utah the server is already on tomorrow,
+-- and the checks that refuse a future date now judge by the practice's day
+-- (0075), so a fixture dated by current_date asks for a day that has not
+-- happened yet.
+--
+--
 -- A run is the point where everything else becomes a filing. So the rules here
 -- are the ones that stop a wrong filing existing at all: no run on an
 -- unconfirmed figure, no run while anybody over the threshold is incomplete,
@@ -72,7 +79,7 @@ begin
   end;
 
   update public.tax_years
-     set confirmed_by = v_admin, confirmed_on = current_date where year = v_year;
+     set confirmed_by = v_admin, confirmed_on = public.practice_today() where year = v_year;
 
   -- ── an incomplete recipient stops everything, by name ──────
   update public.contractor_profiles set address_line1 = '' where staff_id = v_rei;
@@ -134,13 +141,13 @@ begin
 
   -- ── electronic delivery needs consent ──────────────────────
   begin
-    perform public.record_1099_delivery(v_rec, 'Email', current_date);
+    perform public.record_1099_delivery(v_rec, 'Email', public.practice_today());
     failures := failures || 'FAILED: an electronic delivery was recorded without consent'::text;
   exception when check_violation then
     raise notice 'ok  electronic delivery without consent is refused';
   end;
 
-  perform public.record_1099_delivery(v_rec, 'Post', current_date);
+  perform public.record_1099_delivery(v_rec, 'Post', public.practice_today());
   if (select delivery_method from public.form_1099_recipients where id = v_rec) <> 'Post' then
     failures := failures || 'FAILED: posting the copy was not recorded'::text;
   else
@@ -148,7 +155,7 @@ begin
   end if;
 
   begin
-    perform public.record_1099_delivery(v_rec, 'Post', current_date + 1);
+    perform public.record_1099_delivery(v_rec, 'Post', public.practice_today() + 1);
     failures := failures || 'FAILED: a copy was delivered in the future'::text;
   exception when check_violation then
     raise notice 'ok  a copy cannot be delivered in the future';
@@ -170,7 +177,7 @@ begin
   end;
 
   begin
-    perform public.record_1099_delivery(v_rec, 'Post', current_date);
+    perform public.record_1099_delivery(v_rec, 'Post', public.practice_today());
     failures := failures || 'FAILED: a contractor recorded their own delivery'::text;
   exception when insufficient_privilege then
     raise notice 'ok  only Admin can record delivery';
@@ -178,7 +185,7 @@ begin
 
   perform public.set_e_delivery_consent(true);
   if (select e_delivery_consent_on from public.contractor_profiles where staff_id = v_rei)
-     is distinct from current_date then
+     is distinct from public.practice_today() then
     failures := failures || 'FAILED: the contractor could not record their own consent'::text;
   else
     raise notice 'ok  a contractor records their own consent';
