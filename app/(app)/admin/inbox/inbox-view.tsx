@@ -2,12 +2,13 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { money, fmtStamp } from "@/lib/constants";
+import { money, fmtStamp, SERVICE_TYPES } from "@/lib/constants";
 import {
   mapFolder,
   fileDocument,
   ignoreDocument,
   matchWarrant,
+  confirmAuthorization,
   type InboxState,
 } from "./actions";
 
@@ -96,7 +97,174 @@ function UnmatchedFolder({
   );
 }
 
-function DocumentRow({ doc, today }: { doc: PendingRow; today: string }) {
+type AuthCandidate = {
+  id: string;
+  number: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  how: string;
+};
+
+/**
+ * An authorization that arrived, and what to do with it.
+ *
+ * The choices are the authorizations on file for this client whose number the
+ * document carries, and "go by its number". Either way the database decides
+ * the rest: a number already on file gets the PDF attached rather than a
+ * second authorization, and a date on file is kept.
+ */
+function AuthorizationProposal({ doc, canBill }: { doc: PendingRow; canBill: boolean }) {
+  const [state, action, confirming] = useActionState(confirmAuthorization, initial);
+
+  const parsed = (doc.parsed ?? {}) as Record<string, unknown>;
+  const fields = (parsed.fields ?? {}) as Record<string, { value: string; source: string }>;
+  const candidates = (((doc.proposal ?? {}) as Record<string, unknown>).candidates ??
+    []) as AuthCandidate[];
+  const v = (k: string) => fields[k]?.value ?? "";
+  const service = (SERVICE_TYPES as readonly string[]).includes(v("serviceType"))
+    ? v("serviceType")
+    : "";
+
+  const [which, setWhich] = useState(candidates[0]?.id ?? "");
+  const byNumber = which === "";
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <Message state={state} />
+      <p className="sub" style={{ margin: 0 }}>
+        {candidates.length === 0
+          ? "Read from it. No authorization on file for this client carries a number found in it."
+          : candidates.length === 1
+            ? `It carries ${candidates[0].number}, which is on file for this client.`
+            : `It carries ${candidates.length} numbers on file for this client. Choose the one it is.`}
+      </p>
+
+      <table className="t" style={{ marginTop: 6 }}>
+        <tbody>
+          {Object.entries(fields).map(([key, f]) => (
+            <tr key={key}>
+              <td style={{ width: 170 }}>{key}</td>
+              <td>
+                <b>{f.value}</b>
+                <div className="lock">{f.source}</div>
+              </td>
+            </tr>
+          ))}
+          {Object.keys(fields).length === 0 && (
+            <tr>
+              <td className="empty">Nothing could be read from it.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {!canBill ? (
+        <p className="lock" style={{ margin: "8px 0 0" }}>
+          Admin or Billing confirms an authorization.
+        </p>
+      ) : (
+        <form action={action} style={{ marginTop: 10 }}>
+          <input type="hidden" name="document_id" value={doc.id} />
+
+          {candidates.map((c) => (
+            <label key={c.id} className="row2" style={{ gap: 6, alignItems: "center", marginBottom: 4 }}>
+              <input
+                type="radio"
+                name="auth_id"
+                value={c.id}
+                checked={which === c.id}
+                onChange={() => setWhich(c.id)}
+                style={{ width: "auto" }}
+              />
+              <span>
+                <b>{c.number}</b> on file · {c.start_date || "no start date"} →{" "}
+                {c.end_date || "no end date"} · {c.status} <span className="lock">({c.how})</span>
+              </span>
+            </label>
+          ))}
+          <label className="row2" style={{ gap: 6, alignItems: "center", marginBottom: 8 }}>
+            <input
+              type="radio"
+              name="auth_id"
+              value=""
+              checked={byNumber}
+              onChange={() => setWhich("")}
+              style={{ width: "auto" }}
+            />
+            <span>
+              {candidates.length ? "None of these — go by the number below" : "Go by its number"}
+            </span>
+          </label>
+
+          {byNumber && (
+            <div className="row2">
+              <label className="field" style={{ maxWidth: 170 }}>
+                Number
+                <input name="number" defaultValue={v("authNumber")} required />
+              </label>
+              <label className="field" style={{ maxWidth: 220 }}>
+                Service
+                <select name="service_type" defaultValue={service}>
+                  <option value="">Choose…</option>
+                  {SERVICE_TYPES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" style={{ maxWidth: 130 }}>
+                Rate type
+                <select name="rate_type" defaultValue={v("rateType") || "Hourly"}>
+                  <option>Hourly</option>
+                  <option>Flat Fee</option>
+                </select>
+              </label>
+              <label className="field" style={{ maxWidth: 110 }}>
+                Rate or fee
+                <input name="rate" inputMode="decimal" defaultValue={v("rate")} />
+              </label>
+              <label className="field" style={{ maxWidth: 100 }}>
+                Hours
+                <input name="total_hours" inputMode="decimal" defaultValue={v("totalHours")} />
+              </label>
+            </div>
+          )}
+
+          <div className="row2">
+            <label className="field" style={{ maxWidth: 190 }}>
+              Start date
+              <input type="date" name="start_date" defaultValue={v("startDate")} />
+            </label>
+            <label className="field" style={{ maxWidth: 190 }}>
+              End date
+              <input type="date" name="end_date" defaultValue={v("endDate")} />
+            </label>
+          </div>
+
+          <p className="lock" style={{ margin: "0 0 8px" }}>
+            If that number is already on file for this client, the PDF is attached to it and nothing
+            new is made. Dates fill blanks only — a date already on file is kept, and a different one
+            here is reported.
+          </p>
+
+          <button className="btn gold" type="submit" disabled={confirming}>
+            {confirming ? "…" : byNumber ? "Confirm" : "Attach the PDF and fill blank dates"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function DocumentRow({
+  doc,
+  today,
+  canBill,
+}: {
+  doc: PendingRow;
+  today: string;
+  canBill: boolean;
+}) {
   const [fileState, fileAction, filing] = useActionState(fileDocument, initial);
   const [ignoreState, ignoreAction] = useActionState(ignoreDocument, initial);
   const [warrantState, warrantAction, matching] = useActionState(matchWarrant, initial);
@@ -131,36 +299,7 @@ function DocumentRow({ doc, today }: { doc: PendingRow; today: string }) {
       <Message state={ignoreState} />
       <Message state={warrantState} />
 
-      {doc.kind === "Authorization" && (
-        <div style={{ marginTop: 8 }}>
-          <p className="sub" style={{ margin: 0 }}>
-            Read from it — nothing has been created. Check it against the PDF and create the
-            authorization in Billing.
-          </p>
-          <table className="t" style={{ marginTop: 6 }}>
-            <tbody>
-              {Object.entries(fields).map(([key, f]) => (
-                <tr key={key}>
-                  <td style={{ width: 170 }}>{key}</td>
-                  <td>
-                    <b>{f.value}</b>
-                    <div className="lock">{f.source}</div>
-                  </td>
-                </tr>
-              ))}
-              {Object.keys(fields).length === 0 && (
-                <tr>
-                  <td className="empty">Nothing could be read from it.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <p className="lock" style={{ margin: "8px 0 0" }}>
-            <Link href="/billing/import">Create it in Billing</Link> — the same reading, with the
-            fields editable before anything is saved.
-          </p>
-        </div>
-      )}
+      {doc.kind === "Authorization" && <AuthorizationProposal doc={doc} canBill={canBill} />}
 
       {doc.kind === "Warrant" && (
         <div style={{ marginTop: 8 }}>
@@ -232,10 +371,12 @@ export function InboxView({
   pending,
   clients,
   today,
+  canBill,
 }: {
   pending: PendingRow[];
   clients: { id: string; name: string }[];
   today: string;
+  canBill: boolean;
 }) {
   const unmatched = new Map<string, number>();
   for (const d of pending) {
@@ -291,7 +432,7 @@ export function InboxView({
               </p>
             )}
             {rows.map((d) => (
-              <DocumentRow key={d.id} doc={d} today={today} />
+              <DocumentRow canBill={canBill} key={d.id} doc={d} today={today} />
             ))}
           </div>
         );

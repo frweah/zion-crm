@@ -94,6 +94,35 @@ if (indexed.kind !== "Other") {
   ok("a document naming three USOR forms is an index, not a form");
 }
 
+// ── a USOR form with an "Authorization #" box is still the form ──
+// USOR 95 and 96 carry the authorization number in a box. The first real
+// backfill called nine of them authorizations; confirming one would copy a
+// rate onto a client's record off a monthly report.
+const usor95 = pad(`
+DWS - USOR 95
+State of Utah
+Job Coaching Monthly Report
+Authorization #: Z1234567
+`);
+const u95 = classifyDocument(usor95);
+if (u95.kind !== "USOR form") {
+  fail(`a USOR 95 with an authorization number box was classified as "${u95.kind}" (${u95.reason})`);
+} else {
+  ok("a USOR 95 with an \"Authorization #\" box is a USOR form, not an authorization");
+}
+
+// And USOR's own authorization, by the title it prints.
+const usorAuth = pad(`
+Utah State Office of Rehabilitation
+AUTHORIZATION AND INVOICE FOR SERVICE
+Vendor: Example Provider (AUTHNUM Z1234567)
+`);
+if (classifyDocument(usorAuth).kind !== "Authorization") {
+  fail(`USOR's authorization form was classified as "${classifyDocument(usorAuth).kind}"`);
+} else {
+  ok("USOR's own authorization is recognised by the title it prints");
+}
+
 // ── a scan is named, not guessed at ──────────────────────────
 const scanned = classifyDocument("   \n  \n ");
 if (scanned.kind !== "Unreadable") {

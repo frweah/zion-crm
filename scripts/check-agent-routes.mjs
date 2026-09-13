@@ -125,10 +125,24 @@ if (!/\(claimedHash \|\| stored \|\| reprocess\) && claimedHash !== actual/.test
 
 // ── reading again never overrides a decision ─────────────────
 const reprocessBlock = fileRoute.slice(fileRoute.indexOf("if (reprocess) {"), fileRoute.indexOf("// Seen already"));
-if (!/existing\.state !== "Pending"/.test(reprocessBlock) || !/\.eq\("state", "Pending"\)/.test(reprocessBlock)) {
-  fail("reading a document again could replace a proposal somebody has already acted on");
+const rereadUpdate = reprocessBlock.match(/\.update\(\{([^}]*)\}\)/);
+if (!rereadUpdate || /\b(state|decided_by|decided_at|outcome)\b/.test(rereadUpdate[1])) {
+  fail("reading a document again can change what somebody decided about it");
+} else if (!/existing\.state !== "Pending" && !unread/.test(reprocessBlock)) {
+  fail("a decided document can be read again even when the reading it had was a real one");
+} else if (!/\.eq\("state", existing\.state\)/.test(reprocessBlock)) {
+  fail("reading again does not check that the decision is unchanged since it was looked at");
 } else {
-  ok("reading a document again only touches one nobody has acted on");
+  ok("reading again replaces only the reading, never a decision, and a decided document only if the broken server read it");
+}
+
+// ── an authorization is matched to the ones on file ──────────
+if (!fileRoute.includes("authorizationsMentioned(")) {
+  fail("an authorization is no longer checked against that client's authorizations on file");
+} else if (fileRoute.indexOf('rpc("match_inbox_folder"') > fileRoute.indexOf("const reading = await readDocument(bytes, supabase, clientId)")) {
+  fail("a new document is read before its client is known, so it cannot be matched to their authorizations");
+} else {
+  ok("an authorization is matched against the numbers already on file for its client");
 }
 
 // ── an "Unreadable" says why ─────────────────────────────────

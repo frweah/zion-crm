@@ -10,6 +10,7 @@ import {
   type ClientDetail,
 } from "./client-detail";
 import { NotesTab, type NoteRow } from "./notes-tab";
+import { AuthorizationFiles } from "./authorization-files";
 import { TasksTab, type TaskRow } from "./tasks-tab";
 import { IntakeTab, type IntakeRow } from "./intake-tab";
 import { FormsTab, type FormRow, type AuthChoice } from "./forms-tab";
@@ -446,6 +447,40 @@ export default async function ClientPage({
           .in("auth_id", authIds)
       : { data: [] };
 
+    // The PDFs: every file on this client's record, and what the inbox read
+    // off the ones that came through it, so a file carrying one of these
+    // authorizations' numbers can be offered first.
+    const [{ data: clientFiles }, { data: readings }] = await Promise.all([
+      supabase
+        .from("attachments")
+        .select("id, storage_path, filename, category, auth_id, created_at")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("inbox_documents")
+        .select("storage_path, parsed, proposal")
+        .eq("client_id", id)
+        .eq("kind", "Authorization"),
+    ]);
+
+    const readingByPath = new Map(
+      (readings ?? []).map((d) => {
+        const proposal = (d.proposal ?? {}) as { candidates?: { id: string }[] };
+        const fields =
+          ((d.parsed ?? {}) as { fields?: Record<string, { value: string }> }).fields ?? {};
+        return [
+          d.storage_path,
+          {
+            authIds: new Set((proposal.candidates ?? []).map((c) => c.id)),
+            start: fields.startDate?.value ?? "",
+            end: fields.endDate?.value ?? "",
+          },
+        ] as const;
+      }),
+    );
+    const unlinkedFiles = (clientFiles ?? []).filter((f) => !f.auth_id);
+    const mayConfirm = CAN_EDIT_BILLING.includes(me.role);
+
     // Hours used = what was carried over at migration plus everything logged.
     const logged = new Map<string, number>();
     for (const e of entries ?? []) {
@@ -486,6 +521,22 @@ export default async function ClientPage({
                 {a.start_date || "—"} → {a.end_date || "—"} · {a.status}
                 {a.requires_forms && ` · needs: ${a.requires_forms}`}
               </div>
+              <AuthorizationFiles
+                clientId={id}
+                authId={a.id}
+                authNumber={a.number}
+                linked={(clientFiles ?? []).filter((f) => f.auth_id === a.id)}
+                available={unlinkedFiles.map((f) => {
+                  const reading = f.storage_path ? readingByPath.get(f.storage_path) : undefined;
+                  return {
+                    ...f,
+                    suggested: Boolean(reading?.authIds.has(a.id)),
+                    start: reading?.start ?? "",
+                    end: reading?.end ?? "",
+                  };
+                })}
+                canConfirm={mayConfirm}
+              />
             </div>
           );
         })}

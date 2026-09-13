@@ -266,6 +266,12 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         roles: ["Admin", "Billing"],
       },
       {
+        ask: "Attach an authorization's PDF, or fill in its dates from it",
+        where: "The client's Authorizations tab — attach a PDF on file; blank dates fill from it",
+        href: "/clients",
+        roles: ["Admin", "Billing"],
+      },
+      {
         ask: "Find something USOR sent that is in the documents folder",
         where: "Admin → Document inbox — read, sorted, and waiting for somebody to confirm",
         href: "/admin/inbox",

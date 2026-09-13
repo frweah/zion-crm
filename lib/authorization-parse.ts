@@ -92,7 +92,14 @@ const RULES: Rule[] = [
   {
     key: "authNumber",
     name: "authorization number",
-    labels: [/authorization\s*(?:#|no\.?|number)?/i, /\bauth\s*(?:#|no\.?|number)/i],
+    // USOR's own form prints it glued to its label with no space:
+    // "(AUTHNUMV1234567)". So nothing may be required between the label and the
+    // value - a word boundary there read the number off none of the real ones.
+    labels: [
+      /authorization\s*(?:#|no\.?|number)?/i,
+      /\bauth\s*(?:#|no\.?|number)/i,
+      /\bauth\s*num(?:ber)?/i,
+    ],
     value: /([A-Z]{0,4}[-\s]?\d[\d-]{3,})/,
     clean: (v) => v.replace(/\s+/g, "").replace(/-$/, ""),
   },
@@ -133,7 +140,8 @@ const RULES: Rule[] = [
   {
     key: "startDate",
     name: "start date",
-    labels: [/(?:start|begin(?:ning)?|effective|from)\s*date/i, /\bstart\b/i],
+    // "Begin:" partway along a line, on USOR's own form.
+    labels: [/(?:start|begin(?:ning)?|effective|from)\s*date/i, /\bstart\b/i, /\bbegin\b/i],
     value: DATE,
     clean: toIsoDate,
   },
@@ -176,7 +184,12 @@ function applyRule(rule: Rule, lines: string[]): Found | null {
       // OFFICE OF REHABILITATION" is a label and the office reads as "OF
       // REHABILITATION" — which is exactly what it did the first time this
       // was run.
-      const labelled = at.index === 0 || /^\s*[:.]/.test(rest);
+      //
+      // Or opened by a bracket: USOR prints the number as "(AUTHNUMV1234567)"
+      // in the middle of a line, and until this was allowed the number was
+      // read off 0 of 16 real authorizations.
+      const opened = /\(\s*$/.test(line.slice(0, at.index));
+      const labelled = at.index === 0 || opened || /^\s*[:.]/.test(rest);
       if (!labelled) continue;
 
       // The rest of the line, past the label and any separator.

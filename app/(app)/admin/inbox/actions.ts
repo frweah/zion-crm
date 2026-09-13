@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING, CAN_EDIT_CLIENTS } from "@/lib/constants";
+import { CAN_EDIT_BILLING, CAN_EDIT_CLIENTS, SERVICE_TYPES } from "@/lib/constants";
+import { describeConfirmation } from "@/lib/authorization-confirmation";
 
 export type InboxState = { error: string | null; ok: string | null };
 
@@ -219,4 +220,61 @@ export async function matchWarrant(_prev: InboxState, formData: FormData): Promi
   revalidatePath("/billing");
   revalidatePath("/billing/revenue");
   return { error: null, ok: `Invoice marked paid ${paidOn}.` };
+}
+
+/**
+ * Confirm an authorization that arrived in the inbox.
+ *
+ * What matters happens in public.confirm_authorization_document: the PDF goes
+ * on the authorization on file for that number — never a second one — blank
+ * dates are filled and dates on file are kept, and nothing crosses clients.
+ * This reads the form, sends it, and says what happened.
+ */
+export async function confirmAuthorization(
+  _prev: InboxState,
+  formData: FormData,
+): Promise<InboxState> {
+  const me = await getCurrentStaff();
+  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+    return { error: "Only Admin and Billing confirm an authorization.", ok: null };
+  }
+
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const docId = str("document_id");
+  const authId = str("auth_id");
+  const serviceType = str("service_type");
+  const rate = str("rate");
+  const hours = str("total_hours");
+
+  if (!docId) return { error: "Which document?", ok: null };
+  if (!authId && !str("number")) {
+    return { error: "Which authorization is it? Choose one on file, or give its number.", ok: null };
+  }
+  if (!authId && serviceType && !(SERVICE_TYPES as readonly string[]).includes(serviceType)) {
+    return {
+      error: "Choose the service from the list — it decides which USOR forms are required.",
+      ok: null,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("confirm_authorization_document", {
+    p_attachment: null,
+    p_doc: docId,
+    p_auth: authId || null,
+    p_number: authId ? null : str("number"),
+    p_service_type: serviceType || null,
+    p_rate_type: str("rate_type") || null,
+    p_rate: rate ? Number(rate) : null,
+    p_total_hours: hours ? Number(hours) : null,
+    p_start: str("start_date") || null,
+    p_end: str("end_date") || null,
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/admin/inbox");
+  revalidatePath("/billing");
+  revalidatePath("/clients", "layout");
+  return { error: null, ok: describeConfirmation(Array.isArray(data) ? data[0] : null) };
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today, fmtStamp } from "@/lib/constants";
+import { today, fmtStamp, CAN_EDIT_BILLING } from "@/lib/constants";
 import { InboxView, type PendingRow } from "./inbox-view";
 
 /**
@@ -146,6 +146,7 @@ export default async function InboxPage() {
         pending={pending}
         clients={clientsResult.data ?? []}
         today={today()}
+        canBill={CAN_EDIT_BILLING.includes(me.role)}
       />
 
       <p className="lock" style={{ marginTop: 14 }}>

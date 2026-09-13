@@ -123,6 +123,7 @@ const RPC_FUNCTIONS = [
   "note_template_for",
   "record_disposition",
   "records_request_bundle",
+  "confirm_authorization_document",
   "inbox_seen",
 ];
 

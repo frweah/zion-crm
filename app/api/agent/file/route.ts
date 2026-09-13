@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { extractPdfText } from "@/lib/pdf-text";
 import { classifyDocument } from "@/lib/classify-document";
 import { parseAuthorizationText } from "@/lib/authorization-parse";
+import { authorizationsMentioned, type AuthOnFile } from "@/lib/auth-number";
 import { INBOX_BUCKET, inboxStoragePath, isSha256 } from "@/lib/inbox-storage";
 import type { Json } from "@/lib/database.types";
 
@@ -30,11 +31,11 @@ import type { Json } from "@/lib/database.types";
  * storage at that path is not the file it claims to be — and the answer is to
  * stop rather than record a file under a name for a different one.
  *
- * `reprocess=1` reads a stored document again and replaces what was proposed,
- * for a document nobody has acted on yet. It exists because the first real
- * backfill ran while pdf.js could not load on the server and filed readable
- * documents as scans; the files were kept, so they can be read properly
- * without the agent — which remembers them by hash — ever sending them twice.
+ * `reprocess=1` reads a stored document again and replaces the reading. It
+ * exists because the first real backfill ran while pdf.js could not load on
+ * the server and filed readable documents as scans; the files were kept, so
+ * they can be read properly without the agent — which remembers them by hash
+ * — ever sending them twice.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -51,7 +52,11 @@ type Reading = {
 };
 
 /** What the file is and what is proposed for it. Writes nothing. */
-async function readDocument(bytes: Uint8Array, supabase: Supabase): Promise<Reading> {
+async function readDocument(
+  bytes: Uint8Array,
+  supabase: Supabase,
+  clientId: string | null,
+): Promise<Reading> {
   let text = "";
   let pages = 0;
   let readError = "";
@@ -79,7 +84,31 @@ async function readDocument(bytes: Uint8Array, supabase: Supabase): Promise<Read
       missing: read.missing,
       warnings: read.warnings,
     };
-    proposal = { action: "Create an authorization", needs: "confirmation" };
+
+    // Which of this client's authorizations it is. Offered, never applied:
+    // confirming is a person's act, and the database refuses to put it on
+    // another client's authorization or to make a second one with a number
+    // already on file.
+    let candidates: Json = [];
+    if (clientId) {
+      const { data: onFile } = await supabase
+        .from("authorizations")
+        .select("id, number, status, start_date, end_date")
+        .eq("client_id", clientId);
+      candidates = authorizationsMentioned(
+        text,
+        read.fields.authNumber?.value,
+        (onFile ?? []) as AuthOnFile[],
+      ).map((m) => ({
+        id: m.id,
+        number: m.number,
+        status: m.status,
+        start_date: m.start_date,
+        end_date: m.end_date,
+        how: m.how,
+      }));
+    }
+    proposal = { action: "Confirm the authorization", needs: "confirmation", candidates };
   } else if (classification.kind === "Warrant") {
     // Invoices whose amount matches something on the warrant, offered as
     // candidates. Not applied: a warrant listing three payments and an
@@ -187,7 +216,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existing } = await supabase
     .from("inbox_documents")
-    .select("id, kind, state")
+    .select("id, kind, state, client_id, parsed")
     .eq("sha256", actual)
     .maybeSingle();
 
@@ -196,18 +225,30 @@ export async function POST(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: "There is no such document to read again." }, { status: 404 });
     }
-    // Somebody has already decided about it. What they decided stands, even
-    // if it was decided about a wrong reading.
-    if (existing.state !== "Pending") {
+
+    // Marked Unreadable with no reason recorded: that is the server reading it
+    // while pdf.js could not load, which was never a reading at all. A person
+    // having filed such a document since does not turn it into one, so it may
+    // be read again. Any other decided document keeps the reading it had.
+    const earlierReading = existing.parsed as { reason?: unknown } | null;
+    const unread =
+      existing.kind === "Unreadable" &&
+      !(earlierReading && typeof earlierReading === "object" && "reason" in earlierReading);
+
+    if (existing.state !== "Pending" && !unread) {
       return NextResponse.json({ already: true, id: existing.id, kind: existing.kind, left: "decided" });
     }
 
-    const reading = await readDocument(bytes, supabase);
+    const reading = await readDocument(bytes, supabase, existing.client_id);
+
+    // The reading only. What somebody decided — filed, set aside, linked, and
+    // the words recorded for it — stands untouched, and the update applies
+    // only if that decision has not changed since this request looked.
     const { error } = await supabase
       .from("inbox_documents")
       .update({ kind: reading.kind, parsed: reading.parsed, proposal: reading.proposal })
       .eq("id", existing.id)
-      .eq("state", "Pending");
+      .eq("state", existing.state);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -226,12 +267,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ already: true, id: existing.id, kind: existing.kind });
   }
 
-  // ── read it ──────────────────────────────────────────────
-  const reading = await readDocument(bytes, supabase);
-
   // ── whose is it ──────────────────────────────────────────
+  // Before reading, so an authorization can be matched against that client's
+  // authorizations on file.
   const { data: matched } = await supabase.rpc("match_inbox_folder", { p_folder: folder });
   const clientId = (matched as string | null) ?? null;
+
+  // ── read it ──────────────────────────────────────────────
+  const reading = await readDocument(bytes, supabase, clientId);
 
   // ── keep the file ────────────────────────────────────────
   const storagePath = inboxStoragePath(actual);

@@ -34,6 +34,9 @@ export type Classification = {
 const USOR_FORM = /\b(?:DWS[\s-]*)?USOR[\s-]*(\d{2,3})\b/gi;
 
 const AUTHORIZATION_MARKS = [
+  // The title USOR prints across the top of its own authorization:
+  // "AUTHORIZATION AND INVOICE FOR SERVICE". The one mark nothing else carries.
+  /\bauthorization\s+and\s+\w+\s+for\s+services?\b/i,
   /\bauthorization\s*(?:#|no\.?|number)/i,
   /\bauthorization\s+for\s+services\b/i,
   /\bauthorized\s+(?:units|hours)\b/i,
@@ -86,15 +89,21 @@ export function classifyDocument(text: string): Classification {
     };
   }
 
+  // A USOR form names itself, and only one of them: a document listing three
+  // is an index or a covering letter, not a form.
+  //
+  // Checked before the authorization marks, because a USOR 95 or 96 has an
+  // "Authorization #" box on it. The first real backfill called nine of those
+  // forms authorizations for exactly that reason, and a form confirmed as an
+  // authorization is a rate on a client's record copied off a monthly report.
+  // USOR's own authorizations name no USOR form, so this costs them nothing.
+  if (seen.length === 1) {
+    return { kind: "USOR form", reason: `names ${seen[0]} and nothing else`, usor: seen[0], seen };
+  }
+
   const auth = AUTHORIZATION_MARKS.find((r) => r.test(text));
   if (auth) {
     return { kind: "Authorization", reason: `matched ${auth.source}`, seen };
-  }
-
-  // A USOR form names itself, and only one of them: a document listing three
-  // is an index or a covering letter, not a form.
-  if (seen.length === 1) {
-    return { kind: "USOR form", reason: `names ${seen[0]} and nothing else`, usor: seen[0], seen };
   }
 
   return {

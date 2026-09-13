@@ -3302,6 +3302,10 @@ export type Database = {
         Args: { p_client_id: string | null };
         Returns: boolean;
       };
+      confirm_authorization_document: {
+        Args: { p_attachment: string | null; p_doc: string | null; p_auth: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours: number | null; p_start: string | null; p_end: string | null };
+        Returns: { authorization_id: string | null; auth_number: string | null; created: boolean | null; attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
       current_staff_id: {
         Args: Record<string, never>;
         Returns: string;
