@@ -5,7 +5,7 @@ import { extractPdfText } from "@/lib/pdf-text";
 import { classifyDocument } from "@/lib/classify-document";
 import { parseAuthorizationText } from "@/lib/authorization-parse";
 import { authorizationsMentioned, type AuthOnFile } from "@/lib/auth-number";
-import { INBOX_BUCKET, inboxStoragePath, isSha256 } from "@/lib/inbox-storage";
+import { INBOX_BUCKET, STORAGE_MAX_BYTES, inboxStoragePath, isSha256 } from "@/lib/inbox-storage";
 import type { Json } from "@/lib/database.types";
 
 /**
@@ -40,7 +40,7 @@ import type { Json } from "@/lib/database.types";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = STORAGE_MAX_BYTES;
 
 type Supabase = ReturnType<typeof createAdminClient>;
 
@@ -179,7 +179,10 @@ export async function POST(request: NextRequest) {
 
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: "Over 25MB." }, { status: 413 });
+      return NextResponse.json(
+        { error: `Over the ${MAX_BYTES / (1024 * 1024)} MB storage limit.` },
+        { status: 413 },
+      );
     }
     bytes = new Uint8Array(await file.arrayBuffer());
     filename = file.name;

@@ -23,7 +23,7 @@ const CATEGORIES = [
   "Other",
 ];
 
-const MAX_BYTES = 26214400;
+const MAX_BYTES = 52428800;
 
 export type AttachmentRow = {
   id: string;
@@ -132,7 +132,7 @@ export function FilesTab({
     }
     if (file.size > MAX_BYTES) {
       setMessage({
-        error: `${file.name} is ${fileSize(file.size)}. The limit is 25 MB — scan at a lower resolution or split it.`,
+        error: `${file.name} is ${fileSize(file.size)}. The limit is 50 MB — scan at a lower resolution or split it.`,
       });
       return;
     }
@@ -236,7 +236,7 @@ export function FilesTab({
           </div>
 
           <p className="lock" style={{ margin: "10px 0 0" }}>
-            Up to 25 MB. PDFs, images, Word, Excel and text files. Tick restricted for anything
+            Up to 50 MB. PDFs, images, Word, Excel and text files. Tick restricted for anything
             carrying disability, medical or intake detail — a signed intake or a USOR 94.
             {!canSeeRestricted &&
               " You cannot add restricted documents for this client, so that box is disabled."}

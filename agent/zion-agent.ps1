@@ -33,7 +33,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.0.2'
+$AgentVersion = '1.0.3'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -174,7 +174,7 @@ $DirectLimit  = 4MB
 # The client-files bucket's own per-file cap. Anything over it cannot be kept
 # however it is sent, so it is logged and skipped rather than failing inside
 # storage on every run.
-$StorageLimit = 25MB
+$StorageLimit = 50MB
 
 function Send-Fields {
     param([System.Collections.Specialized.OrderedDictionary] $Fields)
@@ -192,7 +192,7 @@ function Send-Fields {
 foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
     try {
         if ($entry.size -gt $StorageLimit) {
-            Write-Log ("Too large to keep ({0:N1} MB; the limit is 25 MB): {1}" -f ($entry.size / 1MB), $entry.path) 'warn'
+            Write-Log ("Too large to keep ({0:N1} MB; the limit is 50 MB): {1}" -f ($entry.size / 1MB), $entry.path) 'warn'
             $failed++
             continue
         }

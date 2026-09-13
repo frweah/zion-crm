@@ -99,7 +99,7 @@ if (!direct || Number(direct[1]) * 1024 * 1024 >= 4.5 * 1024 * 1024) {
 if (!storage || Number(storage[1]) * 1024 * 1024 !== STORAGE_MAX_BYTES) {
   fail("the agent's idea of the storage limit and the server's have drifted apart");
 } else {
-  ok("the agent and the server agree on the 25 MB storage limit");
+  ok(`the agent and the server agree on the ${STORAGE_MAX_BYTES / (1024 * 1024)} MB storage limit`);
 }
 
 if (!agent.includes("/api/agent/upload-url") || !/stored\s*=\s*'1'/.test(agent)) {
