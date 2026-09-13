@@ -61,17 +61,28 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
   // Locally those warnings are now gone. The deployment does not ship the font
   // files (the build trace lists none), so on Vercel they still appear; they
   // do not affect what is read.
-  const require_ = createRequire(import.meta.url);
-  const fontDir =
-    require_
-      .resolve(["pdfjs-dist", "package.json"].join("/"))
-      .replace(/package\.json$/, "")
-      .split(path.sep)
-      .join("/") + "standard_fonts/";
+  //
+  // Best effort, and never allowed to stop a read. The deployment does not
+  // include pdfjs-dist's package.json, so resolving it threw "Cannot find
+  // module 'pdfjs-dist/package.json'" on Vercel - and once the worker was
+  // fixed, that one line was what still filed every document as unreadable.
+  // Without a font directory pdf.js only warns; the text comes out the same.
+  let fontDir: string | undefined;
+  try {
+    const require_ = createRequire(import.meta.url);
+    fontDir =
+      require_
+        .resolve(["pdfjs-dist", "package.json"].join("/"))
+        .replace(/package\.json$/, "")
+        .split(path.sep)
+        .join("/") + "standard_fonts/";
+  } catch {
+    fontDir = undefined;
+  }
 
   const doc = await pdfjs.getDocument({
     data: bytes,
-    standardFontDataUrl: fontDir,
+    ...(fontDir ? { standardFontDataUrl: fontDir } : {}),
     isEvalSupported: false,
     useSystemFonts: false,
     // A form that asks to run JavaScript or fetch something when it opens is

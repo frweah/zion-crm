@@ -229,14 +229,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "There is no such document to read again." }, { status: 404 });
     }
 
-    // Marked Unreadable with no reason recorded: that is the server reading it
-    // while pdf.js could not load, which was never a reading at all. A person
-    // having filed such a document since does not turn it into one, so it may
-    // be read again. Any other decided document keeps the reading it had.
+    // Marked Unreadable with no reason recorded (read while pdf.js could not
+    // load at all), or with a reason that is a read error rather than a finding
+    // ("could not be read: ..."). Neither was ever a reading, and a person
+    // having filed the document since does not turn it into one, so it may be
+    // read again. "No text in the file" is a finding: a document decided on it
+    // keeps it, as does any other decided document.
     const earlierReading = existing.parsed as { reason?: unknown } | null;
+    const earlierReason =
+      earlierReading && typeof earlierReading === "object" && typeof earlierReading.reason === "string"
+        ? earlierReading.reason
+        : null;
     const unread =
       existing.kind === "Unreadable" &&
-      !(earlierReading && typeof earlierReading === "object" && "reason" in earlierReading);
+      (earlierReason === null || earlierReason.startsWith("could not be read:"));
 
     if (existing.state !== "Pending" && !unread) {
       return NextResponse.json({ already: true, id: existing.id, kind: existing.kind, left: "decided" });

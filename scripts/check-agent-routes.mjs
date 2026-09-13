@@ -59,6 +59,24 @@ if (/pathToFileURL/.test(pdfText)) {
   ok("fonts are given as a plain path, not a file:// URL");
 }
 
+// ── nothing optional can stop a read ─────────────────────────
+// After the worker was fixed, resolving pdfjs-dist/package.json to find the
+// font directory threw on Vercel - that file is not in the deployment - and
+// every read still failed. Fonts are optional; finding them must not be fatal.
+const fontBlock = pdfText.slice(pdfText.indexOf("let fontDir"), pdfText.indexOf("pdfjs.getDocument("));
+if (!fontBlock || !/try\s*\{/.test(fontBlock) || !/catch/.test(fontBlock)) {
+  fail("locating pdf.js's fonts can throw and stop the whole read, as it did on Vercel");
+} else {
+  ok("locating pdf.js's fonts is best effort and can never stop a read");
+}
+
+// ── a read error is not a reading ────────────────────────────
+if (!/earlierReason\.startsWith\("could not be read:"\)/.test(fileRoute)) {
+  fail("a document filed after a read error can never be read again once the error is recorded");
+} else {
+  ok("a document that failed to read, filed or not, can be read again; a real scan keeps its finding");
+}
+
 // ── one place names where a document is kept ─────────────────
 const hash = "ab".repeat(32);
 if (!isSha256(hash) || isSha256(hash.toUpperCase()) || isSha256("ab") || isSha256(`${hash}0`)) {
