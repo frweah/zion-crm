@@ -51,3 +51,5 @@ yarn-error.log*
 # folders. Both are written beside the installed script, never committed.
 agent/zion-agent.config.json
 agent/*.log
+# Runtime pause switch for the document agent; state, not source.
+agent/PAUSED

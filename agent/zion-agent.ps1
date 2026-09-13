@@ -66,6 +66,16 @@ function Trim-Log {
 }
 
 # ── configuration ────────────────────────────────────────────
+# A file called PAUSED beside this script stops every run before it reads
+# anything or contacts the CRM. The scheduled task is registered with
+# administrator rights, so disabling it needs an elevated shell; this does not.
+# Delete the file to resume.
+$PausePath = Join-Path $Here 'PAUSED'
+if (Test-Path -LiteralPath $PausePath) {
+    Write-Log "Paused: $PausePath exists. Delete it to resume."
+    Trim-Log
+    exit 0
+}
 if (-not (Test-Path $ConfigPath)) {
     Write-Log "No configuration at $ConfigPath. Run install.cmd first." 'error'
     exit 1
