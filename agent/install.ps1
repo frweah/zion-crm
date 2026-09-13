@@ -87,10 +87,17 @@ Write-Host "  Configuration written to $ConfigPath" -ForegroundColor Green
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
 
-# Every 15 minutes, forever, starting at the next quarter hour. Also at logon,
-# so a machine that was off overnight catches up without waiting.
+# Every 15 minutes, indefinitely. Also at logon, so a machine that was off
+# overnight catches up without waiting.
+#
+# No -RepetitionDuration, on purpose. Leaving it out is what Task Scheduler
+# records as "indefinitely". The obvious alternative, [TimeSpan]::MaxValue,
+# becomes P99999999DT23H59M59S in the task XML, which Task Scheduler refuses
+# ("incorrectly formatted or out of range") - that stopped the first real
+# install at this line. A long finite duration would be accepted but would
+# quietly stop the agent the day it ran out.
 $daily = New-ScheduledTaskTrigger -Once -At (Get-Date).Date `
-    -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration ([TimeSpan]::MaxValue)
+    -RepetitionInterval (New-TimeSpan -Minutes 15)
 $logon = New-ScheduledTaskTrigger -AtLogOn
 
 $settings = New-ScheduledTaskSettingsSet `
