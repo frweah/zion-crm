@@ -77,6 +77,21 @@ if (!/earlierReason\.startsWith\("could not be read:"\)/.test(fileRoute)) {
   ok("a document that failed to read, filed or not, can be read again; a real scan keeps its finding");
 }
 
+// ── the bytes survive being read ─────────────────────────────
+// pdf.js transfers the buffer it is given, emptying the caller's array. The
+// route read each PDF, then uploaded and measured the emptied bytes: 679
+// documents were stored as empty files and recorded as 0 bytes.
+if (!/data: bytes\.slice\(\)/.test(pdfText)) {
+  fail("pdf.js is handed the caller's bytes, which it empties by transferring them");
+} else {
+  ok("pdf.js reads a copy, so the bytes stored are the bytes that arrived");
+}
+if (!/const size = bytes\.byteLength/.test(fileRoute) || !/size_bytes: size,/.test(fileRoute) || !/bytes\.byteLength !== size/.test(fileRoute)) {
+  fail("the route measures or stores the bytes after reading them, when they may have been emptied");
+} else {
+  ok("the route records the size it received and refuses to store bytes that changed while being read");
+}
+
 // ── one place names where a document is kept ─────────────────
 const hash = "ab".repeat(32);
 if (!isSha256(hash) || isSha256(hash.toUpperCase()) || isSha256("ab") || isSha256(`${hash}0`)) {

@@ -210,6 +210,10 @@ export async function POST(request: NextRequest) {
 
   const actual = createHash("sha256").update(bytes).digest("hex");
 
+  // The size as it arrived, taken before anything reads the bytes. Reading
+  // once emptied them in place, and the size recorded afterwards was 0.
+  const size = bytes.byteLength;
+
   if ((claimedHash || stored || reprocess) && claimedHash !== actual) {
     return NextResponse.json(
       { error: "The file does not match the hash sent with it." },
@@ -288,6 +292,14 @@ export async function POST(request: NextRequest) {
   // ── keep the file ────────────────────────────────────────
   const storagePath = inboxStoragePath(actual);
   if (!stored) {
+    // Refuse rather than store something other than what arrived. Bytes that
+    // changed length while being read are not the file the hash names.
+    if (bytes.byteLength !== size) {
+      return NextResponse.json(
+        { error: "The file changed while it was being read. Nothing was stored." },
+        { status: 500 },
+      );
+    }
     const { error: uploadError } = await supabase.storage
       .from(INBOX_BUCKET)
       .upload(storagePath, bytes, { contentType: "application/pdf", upsert: true });
@@ -304,7 +316,7 @@ export async function POST(request: NextRequest) {
       folder_name: folder,
       relative_path: relPath,
       filename,
-      size_bytes: bytes.byteLength,
+      size_bytes: size,
       file_modified: modified || null,
       client_id: clientId,
       kind: reading.kind,

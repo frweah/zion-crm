@@ -80,8 +80,13 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
     fontDir = undefined;
   }
 
+  // A copy, never the caller's bytes. pdf.js hands the buffer it is given to
+  // its worker by transfer, which leaves the caller's array empty - on the
+  // server, in-process, exactly as in a browser. The agent route read each PDF
+  // and then uploaded and measured "the same" bytes: 679 documents were stored
+  // as empty files and recorded as 0 bytes before anybody noticed.
   const doc = await pdfjs.getDocument({
-    data: bytes,
+    data: bytes.slice(),
     ...(fontDir ? { standardFontDataUrl: fontDir } : {}),
     isEvalSupported: false,
     useSystemFonts: false,
