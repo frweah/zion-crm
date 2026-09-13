@@ -93,8 +93,13 @@ begin
   end;
 
   -- ── an approved statement settles the hours ────────────────
+  -- Arranged, not assumed. A real statement for this period can already
+  -- exist - one was drafted on 2026-09-10 - and there is one per person per
+  -- period, so a second insert is refused. Taking the real one over inside
+  -- this rolled-back transaction leaves it exactly as it was afterwards.
   insert into public.contractor_statements (staff_id, period_start, period_end, status)
   values (v_rei, public.period_start(current_date), public.period_end(current_date), 'Draft')
+  on conflict (staff_id, period_start) do update set status = excluded.status
   returning id into v_stmt;
 
   update public.work_sessions set statement_id = v_stmt where id = v_correct;

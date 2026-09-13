@@ -228,7 +228,7 @@ begin
 
   -- A card recorded clears it.
   insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on)
-  values (v_staff, 'cpr', current_date, current_date + 400);
+  values (v_staff, 'cpr', public.practice_today(), public.practice_today() + 400);
   perform public.generate_notifications();
 
   if exists (
@@ -242,7 +242,7 @@ begin
 
   -- Expiring and expired are separate flags, so the day it turned from one
   -- into the other is still readable afterwards.
-  update public.staff_credentials set expires_on = current_date + 30
+  update public.staff_credentials set expires_on = public.practice_today() + 30
    where staff_id = v_staff and type_key = 'cpr';
   perform public.generate_notifications();
 
@@ -255,11 +255,17 @@ begin
   end if;
   raise notice 'ok  a month out it warns';
 
+  -- Utah's date, not the server's. The status view decides expiry by
+  -- practice_today(), and in the evening in Utah the server's date is
+  -- already tomorrow: a card set to expire "yesterday" by current_date is
+  -- still expiring today where the practice is. This failed at 22:40 local
+  -- for exactly that reason. The view was right; the test was not.
+  --
   -- Both dates, because the table refuses a card that expires before it was
   -- issued — which is the constraint doing its job, and a test that has to
   -- work around it is a test that was describing something impossible.
   update public.staff_credentials
-     set issued_on = current_date - 800, expires_on = current_date - 1
+     set issued_on = public.practice_today() - 800, expires_on = public.practice_today() - 1
    where staff_id = v_staff and type_key = 'cpr';
   perform public.generate_notifications();
 
