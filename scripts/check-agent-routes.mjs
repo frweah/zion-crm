@@ -105,6 +105,14 @@ if (!problems.some((p) => p.includes("route"))) {
   ok("both agent routes name the storage path and bucket from one place");
 }
 
+// ── an empty file is not a document ──────────────────────────
+// The first backfill met a 0-byte "PDF". The CRM refuses it, and without this
+// the agent would fail on it every fifteen minutes, forever.
+if (!agent.includes("$f.Length -eq 0") || !agent.includes("Empty file, not sent")) {
+  fail("the agent sends empty files, which the CRM refuses on every run");
+} else {
+  ok("an empty file is skipped with a log line, not retried every run");
+}
 // ── large files go around Vercel's limit ─────────────────────
 const direct = agent.match(/\$DirectLimit\s*=\s*(\d+)MB/);
 const storage = agent.match(/\$StorageLimit\s*=\s*(\d+)MB/);

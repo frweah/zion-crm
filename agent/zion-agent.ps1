@@ -33,7 +33,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.0.3'
+$AgentVersion = '1.0.4'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -112,6 +112,13 @@ Write-Log "Found $($files.Count) PDF file(s)."
 
 $entries = @()
 foreach ($f in $files) {
+    # An empty file is not a document - usually a save that never finished.
+    # Nothing can be read from it and the CRM refuses it, so it is logged and
+    # left out, rather than failing on every run until somebody replaces it.
+    if ($f.Length -eq 0) {
+        Write-Log "Empty file, not sent: $($f.Directory.Name)/$($f.Name)" 'warn'
+        continue
+    }
     try {
         $hash = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLower()
     } catch {
