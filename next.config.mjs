@@ -4,7 +4,11 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/paperwork": ["./assets/irs-forms/**"],
     "/api/**": ["./assets/irs-forms/**"],
-    // pdf.js loads its worker from disk at runtime.
+    // pdf.js's worker and fonts. The worker no longer depends on this entry:
+    // lib/pdf-text.ts imports it with a literal specifier, which is what gets
+    // it traced. This entry never delivered it - the build trace for
+    // /billing/import listed neither the worker nor any font - and it is kept
+    // only as a marker until the fonts are shipped some other way.
     "/billing/import": [
       "./node_modules/pdfjs-dist/legacy/build/**",
       "./node_modules/pdfjs-dist/standard_fonts/**",

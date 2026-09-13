@@ -1,6 +1,6 @@
 import "server-only";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import path from "node:path";
 import { groupIntoLines, type PdfLine, type PdfWord } from "./pdf-lines";
 
 /**
@@ -37,24 +37,37 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
   // requests to this application never touch a PDF.
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-  // pdf.js insists on a worker path even when it will only load a fake one
-  // in-process. Resolved from the package rather than guessed, so it keeps
-  // working wherever node_modules ends up — and pdfjs-dist is left out of the
-  // bundle in next.config for the same reason.
-  // The specifier is assembled at runtime so the bundler leaves it alone: a
-  // literal here makes webpack try to follow an ESM file it cannot inline,
-  // and the build fails rather than the page.
-  const require_ = createRequire(import.meta.url);
-  const workerSpec = ["pdfjs-dist", "legacy", "build", "pdf.worker.mjs"].join("/");
-  pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(require_.resolve(workerSpec)).href;
+  // The worker, imported rather than found on disk. pdf.js looks for
+  // globalThis.pdfjsWorker before it goes looking for a worker file, and a
+  // literal import like this one is traced into the deployment the same way
+  // pdf.mjs above is, so the worker ships with every route that reads a PDF.
+  //
+  // It used to be located at runtime from a specifier assembled so the bundler
+  // would ignore it - which also meant the deployment never included the file.
+  // Locally node_modules is all there and it worked; on Vercel the worker was
+  // missing, every read threw "Setting up fake worker failed", and the
+  // document inbox filed readable authorizations and USOR forms as scans. The
+  // build's own trace for /billing/import showed the same gap.
+  const g = globalThis as { pdfjsWorker?: unknown };
+  if (!g.pdfjsWorker) {
+    g.pdfjsWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  }
 
-  // Where pdf.js finds the fonts it standardises on. Without this every read
-  // logs two warnings per document, and a log nobody can read is a log nobody
-  // reads when something real goes wrong.
+  // Where pdf.js finds the fonts it standardises on. A plain path with forward
+  // slashes and a trailing one: in Node, pdf.js reads these with fs, which
+  // cannot open a file:// URL string - the form this used to pass, and the
+  // reason every read logged "Unable to load font data" even locally. Text
+  // extraction does not need the fonts, so a missing one is only a warning.
+  // Locally those warnings are now gone. The deployment does not ship the font
+  // files (the build trace lists none), so on Vercel they still appear; they
+  // do not affect what is read.
+  const require_ = createRequire(import.meta.url);
   const fontDir =
-    pathToFileURL(
-      require_.resolve(["pdfjs-dist", "package.json"].join("/")).replace(/package\.json$/, ""),
-    ).href + "standard_fonts/";
+    require_
+      .resolve(["pdfjs-dist", "package.json"].join("/"))
+      .replace(/package\.json$/, "")
+      .split(path.sep)
+      .join("/") + "standard_fonts/";
 
   const doc = await pdfjs.getDocument({
     data: bytes,

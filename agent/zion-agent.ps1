@@ -33,7 +33,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.0.1'
+$AgentVersion = '1.0.2'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -166,38 +166,96 @@ if ($wanted.Count -eq 0) {
 $sent = 0
 $failed = 0
 
+# Vercel refuses any request body over 4.5 MB before the CRM sees it (413), so
+# a larger file goes straight to storage on a one-use signed address and the
+# CRM is then told to read it from there. 4 MB leaves room for the multipart
+# wrapping around a file sent the ordinary way.
+$DirectLimit  = 4MB
+# The client-files bucket's own per-file cap. Anything over it cannot be kept
+# however it is sent, so it is logged and skipped rather than failing inside
+# storage on every run.
+$StorageLimit = 25MB
+
+function Send-Fields {
+    param([System.Collections.Specialized.OrderedDictionary] $Fields)
+    $boundary = [System.Guid]::NewGuid().ToString()
+    $LF = "`r`n"
+    $parts = foreach ($k in $Fields.Keys) {
+        "--$boundary", "Content-Disposition: form-data; name=`"$k`"$LF", [string]$Fields[$k]
+    }
+    $body = (@($parts) + "--$boundary--$LF") -join $LF
+    Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/file" `
+        -Headers $headers -ContentType "multipart/form-data; boundary=$boundary" `
+        -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 300
+}
+
 foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
     try {
-        # PowerShell 5.1 has no -Form, so the multipart body is built by hand.
-        $boundary = [System.Guid]::NewGuid().ToString()
-        $LF = "`r`n"
-
-        $fileBytes = [System.IO.File]::ReadAllBytes($entry.full)
-        $fileEnc   = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($fileBytes)
+        if ($entry.size -gt $StorageLimit) {
+            Write-Log ("Too large to keep ({0:N1} MB; the limit is 25 MB): {1}" -f ($entry.size / 1MB), $entry.path) 'warn'
+            $failed++
+            continue
+        }
 
         $name = [System.IO.Path]::GetFileName($entry.full)
 
-        $body = (
-            "--$boundary", "Content-Disposition: form-data; name=`"hash`"$LF", $entry.hash,
-            "--$boundary", "Content-Disposition: form-data; name=`"folder`"$LF", $entry.folder,
-            "--$boundary", "Content-Disposition: form-data; name=`"path`"$LF", $entry.path,
-            "--$boundary", "Content-Disposition: form-data; name=`"modified`"$LF", $entry.modified,
-            "--$boundary",
-            "Content-Disposition: form-data; name=`"file`"; filename=`"$name`"",
-            "Content-Type: application/pdf$LF",
-            $fileEnc,
-            "--$boundary--$LF"
-        ) -join $LF
+        if ($entry.size -gt $DirectLimit) {
+            $ticket = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/upload-url" `
+                -Headers $headers -ContentType 'application/json' `
+                -Body (@{ hash = $entry.hash; size = $entry.size } | ConvertTo-Json -Compress) `
+                -TimeoutSec 60
 
-        $result = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/file" `
-            -Headers $headers -ContentType "multipart/form-data; boundary=$boundary" `
-            -Body ([System.Text.Encoding]::GetEncoding('iso-8859-1').GetBytes($body)) `
-            -TimeoutSec 300
+            if ($ticket.already) {
+                Write-Log "Already had: $($entry.path)"
+                $sent++
+                continue
+            }
+
+            Invoke-WebRequest -Method Put -Uri $ticket.signedUrl -InFile $entry.full `
+                -ContentType 'application/pdf' -Headers @{ 'x-upsert' = 'true' } `
+                -UseBasicParsing -TimeoutSec 600 | Out-Null
+
+            $result = Send-Fields ([ordered]@{
+                stored   = '1'
+                hash     = $entry.hash
+                folder   = $entry.folder
+                path     = $entry.path
+                modified = $entry.modified
+                filename = $name
+            })
+        } else {
+            # PowerShell 5.1 has no -Form, so the multipart body is built by hand.
+            $boundary = [System.Guid]::NewGuid().ToString()
+            $LF = "`r`n"
+
+            $fileBytes = [System.IO.File]::ReadAllBytes($entry.full)
+            $fileEnc   = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($fileBytes)
+
+            $body = (
+                "--$boundary", "Content-Disposition: form-data; name=`"hash`"$LF", $entry.hash,
+                "--$boundary", "Content-Disposition: form-data; name=`"folder`"$LF", $entry.folder,
+                "--$boundary", "Content-Disposition: form-data; name=`"path`"$LF", $entry.path,
+                "--$boundary", "Content-Disposition: form-data; name=`"modified`"$LF", $entry.modified,
+                "--$boundary",
+                "Content-Disposition: form-data; name=`"file`"; filename=`"$name`"",
+                "Content-Type: application/pdf$LF",
+                $fileEnc,
+                "--$boundary--$LF"
+            ) -join $LF
+
+            $result = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/file" `
+                -Headers $headers -ContentType "multipart/form-data; boundary=$boundary" `
+                -Body ([System.Text.Encoding]::GetEncoding('iso-8859-1').GetBytes($body)) `
+                -TimeoutSec 300
+        }
 
         if ($result.already) {
             Write-Log "Already had: $($entry.path)"
         } else {
-            Write-Log "Sent: $($entry.path) -> $($result.kind)"
+            # The reason rides along so a wrong answer leads to the rule, or
+            # the error, that gave it.
+            $why = if ($result.reason) { " ($($result.reason))" } else { '' }
+            Write-Log "Sent: $($entry.path) -> $($result.kind)$why"
         }
         $sent++
     } catch {
