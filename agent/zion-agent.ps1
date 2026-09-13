@@ -24,16 +24,26 @@
 
 [CmdletBinding()]
 param(
-    [string] $ConfigPath = (Join-Path $PSScriptRoot 'zion-agent.config.json')
+    # No default here. Under Windows PowerShell 5.1, $PSScriptRoot is still
+    # empty while a param block's defaults are evaluated for a script run with
+    # powershell.exe -File - which is exactly how the scheduled task runs it.
+    # Join-Path then threw before a single line of the script ran: exit code 1,
+    # no log, no request. That silently stopped the first real install.
+    [string] $ConfigPath
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.0.0'
+$AgentVersion = '1.0.1'
+
+# Where this script lives, worked out in the body where it is reliable, with a
+# fallback for the cases where even there it is not populated.
+$Here = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
+if (-not $ConfigPath) { $ConfigPath = Join-Path $Here 'zion-agent.config.json' }
 
 # ── where the log goes ───────────────────────────────────────
 # Beside the script, rotated by hand if it ever matters. A scheduled task with
 # nowhere to write is a scheduled task nobody can debug.
-$LogPath = Join-Path $PSScriptRoot 'zion-agent.log'
+$LogPath = Join-Path $Here 'zion-agent.log'
 
 function Write-Log {
     param([string] $Message, [string] $Level = 'info')
