@@ -199,6 +199,67 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
+  -- ── each step appears once per person ──────────────────────
+  -- The owner's dashboard once listed "Address on file" three times: the view
+  -- gives Admin everybody's rows, and the dashboard read them unfiltered. So
+  -- the fixture makes one step outstanding for two contractors at once, which
+  -- is the shape that showed the duplicates.
+  insert into public.contractor_profiles (staff_id, address_line1)
+  values (v_rei, ''), (v_marg, '')
+  on conflict (staff_id) do update set address_line1 = '';
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
+
+  select count(*) into v_count from (
+    select staff_id, task_id from public.staff_checklist
+     group by staff_id, task_id having count(*) > 1) d;
+  if v_count <> 0 then
+    failures := failures || format('FAILED: %s checklist steps appear more than once for one person', v_count);
+  else
+    raise notice 'ok  every step appears once per person, across everybody Admin can see';
+  end if;
+
+  -- Proves the next check could fail: unfiltered, one label does repeat.
+  select count(*) into v_count from public.staff_checklist
+   where auto_key = 'address_on_file' and staff_id in (v_rei, v_marg);
+  if v_count <> 2 then
+    failures := failures || format('FAILED: expected the address step for 2 contractors, found %s', v_count);
+  else
+    raise notice 'ok  Admin''s unfiltered read holds one row per person, so a screen must filter';
+  end if;
+
+  select count(*) - count(distinct task_id) into v_count from public.staff_checklist
+   where staff_id = v_rei and phase = 'Onboarding' and required;
+  if v_count <> 0 or not exists (select 1 from public.staff_checklist
+                                  where staff_id = v_rei and phase = 'Onboarding') then
+    failures := failures || 'FAILED: one person''s onboarding list, read by Admin, repeats or is empty'::text;
+  else
+    raise notice 'ok  one person''s onboarding list, as the dashboard reads it, has each step once';
+  end if;
+
+  if exists (select 1 from public.staff_checklist
+              where staff_id = v_admin and phase = 'Onboarding' and required) then
+    failures := failures || 'FAILED: the owner''s own dashboard has onboarding steps'::text;
+  else
+    raise notice 'ok  the owner''s own onboarding list is empty, so their card does not appear';
+  end if;
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_rei_uid, 'role', 'authenticated')::text, true);
+
+  select count(*) - count(distinct task_id) into v_count from public.staff_checklist;
+  if v_count <> 0 then
+    failures := failures || format('FAILED: a contractor''s own checklist repeats %s steps', v_count);
+  else
+    raise notice 'ok  a contractor''s own checklist has each step once';
+  end if;
+
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
   if failures = '{}' then
     raise notice '';
     raise notice '--- CHECKLIST AND STAFF REPORT VERIFIED ---';

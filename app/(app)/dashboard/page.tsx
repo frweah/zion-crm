@@ -49,11 +49,14 @@ export default async function DashboardPage({
 
   const workCategories = categoriesResult.data ?? [];
 
-  // Their own outstanding onboarding. The view already limits this to the
-  // person asking, so no filter here is doing the security.
+  // Their own outstanding onboarding. The view limits a non-Admin to their own
+  // rows, but shows Admin everybody's (the staff screen needs that), so the
+  // staff_id filter is what makes this "mine". Without it the owner saw each
+  // contractor's open steps as their own, one row per contractor.
   const { data: myChecklist } = await supabase
     .from("staff_checklist")
-    .select("label, detail, auto_key, auto_done, done_on, required, phase")
+    .select("task_id, label, detail, auto_key, auto_done, done_on, required, phase")
+    .eq("staff_id", me.id)
     .eq("phase", "Onboarding")
     .eq("required", true)
     .order("sort_order");
@@ -182,7 +185,7 @@ export default async function DashboardPage({
           <h3>Still to do before you are fully set up</h3>
           <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
             {outstanding.map((r) => (
-              <li key={r.label} style={{ fontSize: 13, marginBottom: 4 }}>
+              <li key={r.task_id} style={{ fontSize: 13, marginBottom: 4 }}>
                 {r.label}
                 {r.detail && <div className="lock">{r.detail}</div>}
               </li>
