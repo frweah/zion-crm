@@ -179,10 +179,11 @@ textarea {
   background: none;
   border: 0;
   border-radius: 6px;
-  color: var(--ink-2);
+  /* Full ink at 500: at 14px on a light panel, ink-2 at 400 read as soft. */
+  color: var(--ink);
   font-size: 14px;
   line-height: 22px;
-  font-weight: 400;
+  font-weight: 500;
   text-decoration: none;
 }
 
@@ -213,8 +214,8 @@ textarea {
   transform: rotate(90deg);
 }
 
-/* The open group's screens: indented under a hairline guide, at full ink-2
-   contrast. They are always shown for the group you are in - never lighter,
+/* The open group's screens: indented under a hairline guide, in full ink at
+   the same weight as the headings. They are always shown for the group you are in - never lighter,
    never hidden - because not being able to see them was the complaint. */
 .navsub {
   display: flex;
@@ -231,9 +232,10 @@ textarea {
   margin: 0;
   padding-left: 14px;
   border-radius: 0 6px 6px 0;
-  color: var(--ink-2);
+  color: var(--ink);
   font-size: 14px;
   line-height: 22px;
+  font-weight: 500;
 }
 
 .navb.sub.on {
