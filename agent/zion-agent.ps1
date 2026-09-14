@@ -39,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.2.0'
+$AgentVersion = '1.2.1'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -450,31 +450,47 @@ function Send-WarrantPage {
 
 if ($WarrantsFolder -and -not $Tesseract) {
     Write-Log "Warrants wait in $WarrantsFolder, but Tesseract is not installed to read them." 'warn'
-} elseif ($WarrantsFolder) {
+} elseif ($Tesseract) {
     $warrantEntries = @()
+    if ($WarrantsFolder) {
+        try {
+            foreach ($wf in @(Get-ChildItem -LiteralPath $WarrantsFolder -Recurse -File -Filter '*.pdf' -ErrorAction Stop)) {
+                if ($wf.Length -eq 0) { continue }
+                $warrantEntries += [pscustomobject]@{
+                    hash = (Get-FileHash -LiteralPath $wf.FullName -Algorithm SHA256).Hash.ToLower()
+                    path = $wf.FullName.Substring($WarrantsFolder.Length).TrimStart('\', '/')
+                    full = $wf.FullName
+                }
+            }
+        } catch {
+            Write-Log "Could not read the warrants folder: $($_.Exception.Message)" 'warn'
+        }
+    }
+
+    # Asked every run, _Warrants folder or not: a stub saved in a client's
+    # folder was sent with that client's documents, the CRM recognised it as a
+    # warrant, and it is read here through the same checks - never settled
+    # from the document inbox. The CRM names those by hash ("routed"); this
+    # machine holds them from the client-folder scan above.
+    $wantedWarrants = @()
     try {
-        foreach ($wf in @(Get-ChildItem -LiteralPath $WarrantsFolder -Recurse -File -Filter '*.pdf' -ErrorAction Stop)) {
-            if ($wf.Length -eq 0) { continue }
-            $warrantEntries += [pscustomobject]@{
-                hash = (Get-FileHash -LiteralPath $wf.FullName -Algorithm SHA256).Hash.ToLower()
-                path = $wf.FullName.Substring($WarrantsFolder.Length).TrimStart('\', '/')
-                full = $wf.FullName
+        $answer = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/warrants/manifest" `
+            -Headers $headers -ContentType 'application/json' `
+            -Body (@{ files = @($warrantEntries | Select-Object hash, path) } | ConvertTo-Json -Depth 4 -Compress) -TimeoutSec 60
+        $wantedWarrants = @($answer.wanted | Where-Object { $_ })
+        foreach ($routed in @($answer.routed | Where-Object { $_ })) {
+            $clientFile = $entries | Where-Object { $_.hash -eq $routed.hash } | Select-Object -First 1
+            if (-not $clientFile) { continue }
+            if (-not ($warrantEntries | Where-Object { $_.hash -eq $routed.hash })) {
+                $warrantEntries += [pscustomobject]@{ hash = $clientFile.hash; path = $clientFile.path; full = $clientFile.full }
+            }
+            if (-not ($wantedWarrants | Where-Object { $_.hash -eq $routed.hash })) {
+                Write-Log "A warrant stub in a client folder goes through the warrant checks: $($clientFile.path)"
+                $wantedWarrants += $routed
             }
         }
     } catch {
-        Write-Log "Could not read the warrants folder: $($_.Exception.Message)" 'warn'
-    }
-
-    $wantedWarrants = @()
-    if ($warrantEntries.Count) {
-        try {
-            $answer = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/warrants/manifest" `
-                -Headers $headers -ContentType 'application/json' `
-                -Body (@{ files = @($warrantEntries | Select-Object hash, path) } | ConvertTo-Json -Depth 4 -Compress) -TimeoutSec 60
-            $wantedWarrants = @($answer.wanted)
-        } catch {
-            Write-Log "The CRM did not answer about warrants: $($_.Exception.Message)" 'warn'
-        }
+        Write-Log "The CRM did not answer about warrants: $($_.Exception.Message)" 'warn'
     }
 
     foreach ($w in $wantedWarrants) {

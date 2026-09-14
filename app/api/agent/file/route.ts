@@ -7,6 +7,7 @@ import { parseAuthorizationText } from "@/lib/authorization-parse";
 import { authorizationsMentioned, type AuthOnFile } from "@/lib/auth-number";
 import { INBOX_BUCKET, STORAGE_MAX_BYTES, inboxStoragePath, isSha256 } from "@/lib/inbox-storage";
 import { fileByName, type FilingInput } from "@/lib/file-by-name";
+import { settleRoutedWarrant } from "@/lib/warrant-routing";
 import type { Json } from "@/lib/database.types";
 
 /**
@@ -168,24 +169,17 @@ async function readDocument(
     }
     proposal = { action: "Confirm the authorization", needs: "confirmation", candidates };
   } else if (classification.kind === "Warrant") {
-    // Invoices whose amount matches something on the warrant, offered as
-    // candidates. Not applied: a warrant listing three payments and an
-    // invoice that happens to share a total is exactly the coincidence that
-    // would mark the wrong one paid.
+    // Not settled here, and no invoice is offered to mark paid. A stub in a
+    // client's folder goes through the warrant pipeline like one in _Warrants:
+    // the agent reads it page by page, every line must prove itself (both
+    // copies of the V-number agree, the page adds up, the authorization is on
+    // file), and the pipeline closes this entry (lib/warrant-routing).
     const amounts = "amounts" in classification ? (classification.amounts ?? []) : [];
-    const { data: candidates } = amounts.length
-      ? await supabase
-          .from("invoices")
-          .select("id, number, date, amount, status, auth_id")
-          .eq("status", "Sent")
-          .in("amount", amounts.slice(0, 20))
-      : { data: [] };
-
     parsed = {
       amounts,
       warrantNumber: ("warrantNumber" in classification ? classification.warrantNumber : null) ?? null,
     };
-    proposal = { action: "Mark an invoice paid", needs: "confirmation", candidates: candidates ?? [] };
+    proposal = { action: "Read as a warrant", needs: "the warrant pipeline" };
   } else if (classification.kind === "USOR form") {
     parsed = {
       usor: ("usor" in classification ? classification.usor : null) ?? null,
@@ -504,11 +498,15 @@ export async function POST(request: NextRequest) {
 
   const filed = await fileArrival(supabase, row, reading);
 
+  // The same stub may already have been read from _Warrants.
+  const warrant = reading.kind === "Warrant" ? await settleRoutedWarrant(supabase, actual) : null;
+
   return NextResponse.json({
     id: row.id,
     kind: reading.kind,
     reason: reading.reason,
     matched: Boolean(clientId),
     filed,
+    ...(warrant ? { warrant } : {}),
   });
 }

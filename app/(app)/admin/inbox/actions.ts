@@ -83,12 +83,17 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
   const supabase = await createClient();
   const { data: doc } = await supabase
     .from("inbox_documents")
-    .select("id, client_id, filename, storage_path, size_bytes, state")
+    .select("id, client_id, filename, storage_path, size_bytes, state, kind")
     .eq("id", id)
     .maybeSingle();
 
   if (!doc) return { error: "That document is not in the inbox.", ok: null };
   if (doc.state !== "Pending") return { error: "That one has already been dealt with.", ok: null };
+  // Checked before anything is written, so a stub never lands on a client's
+  // record as a filed copy while the database refuses to close it here.
+  if (doc.kind === "Warrant") {
+    return { error: "A warrant stub is read on Billing → Warrants, not filed from the inbox.", ok: null };
+  }
   if (!doc.client_id) return { error: "Say whose folder it is first.", ok: null };
 
   if (!doc.storage_path) return { error: "That document has no stored file.", ok: null };
@@ -151,76 +156,10 @@ export async function ignoreDocument(_prev: InboxState, formData: FormData): Pro
   return { error: null, ok: "Set aside. The file stays where it is on the machine." };
 }
 
-/**
- * Mark an invoice paid by a warrant.
- *
- * One invoice, chosen by a person from the candidates the amounts suggested.
- * Never applied automatically: a warrant paying three invoices and a fourth
- * that happens to share a total is exactly the coincidence that would mark
- * the wrong one paid, and the error would surface as a chase for money
- * already received.
- */
-export async function matchWarrant(_prev: InboxState, formData: FormData): Promise<InboxState> {
-  const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
-    return { error: "Only Admin and Billing settle invoices.", ok: null };
-  }
-
-  const id = String(formData.get("document_id") ?? "");
-  const invoiceId = String(formData.get("invoice_id") ?? "");
-  const paidOn = String(formData.get("paid_on") ?? "").trim();
-  const warrant = String(formData.get("warrant") ?? "").trim();
-
-  if (!invoiceId) return { error: "Which invoice does it pay?", ok: null };
-  if (!paidOn) return { error: "What date was it paid?", ok: null };
-
-  const supabase = await createClient();
-
-  const { error } = await supabase
-    .from("invoices")
-    .update({ status: "Paid", paid_date: paidOn, warrant })
-    .eq("id", invoiceId)
-    .eq("status", "Sent");
-
-  if (error) return { error: error.message, ok: null };
-
-  const { data: doc } = await supabase
-    .from("inbox_documents")
-    .select("client_id, storage_path, filename, size_bytes")
-    .eq("id", id)
-    .maybeSingle();
-
-  // The warrant itself goes on the client's file, where somebody chasing the
-  // payment later would look for it.
-  if (doc?.client_id && doc.storage_path) {
-    await supabase.from("attachments").insert({
-      client_id: doc.client_id,
-      storage_path: doc.storage_path,
-      filename: doc.filename,
-      mime_type: "application/pdf",
-      size_bytes: doc.size_bytes,
-      category: "Invoice",
-      note: warrant ? `Warrant ${warrant}` : "Warrant",
-      uploaded_by: me.id,
-      uploaded_by_name: me.name,
-    });
-  }
-
-  await supabase
-    .from("inbox_documents")
-    .update({
-      state: "Filed",
-      decided_by: me.id,
-      decided_at: new Date().toISOString(),
-      outcome: `Matched to an invoice, paid ${paidOn}`,
-    })
-    .eq("id", id);
-
-  revalidatePath("/admin/inbox");
-  revalidatePath("/billing");
-  revalidatePath("/billing/revenue");
-  return { error: null, ok: `Invoice marked paid ${paidOn}.` };
-}
+// A warrant stub is not settled here. There used to be a way to mark an
+// invoice paid from one by amount; that skipped the checks every stub now goes
+// through in the warrant pipeline, and the database refuses a person filing,
+// setting aside or reclassifying one (public.inbox_warrant_guard).
 
 /**
  * Put a document on the authorization a person chose for it.

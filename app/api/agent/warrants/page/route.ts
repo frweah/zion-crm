@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSha256 } from "@/lib/inbox-storage";
 import { parseWarrantPage, linesTotal } from "@/lib/warrant-parse";
+import { settleRoutedWarrant } from "@/lib/warrant-routing";
 
 /**
  * One page of a warrant PDF, read by the agent.
@@ -162,6 +163,10 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: final } = await supabase.from("warrant_pages").select("status").eq("id", page.id).single();
+
+  // A stub that arrived with a client's documents closes in the inbox once its
+  // last page is in.
+  await settleRoutedWarrant(supabase, hash);
 
   return NextResponse.json({
     page_id: page.id,

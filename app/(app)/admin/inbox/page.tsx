@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today, fmtStamp, CAN_EDIT_BILLING } from "@/lib/constants";
+import { fmtStamp, CAN_EDIT_BILLING } from "@/lib/constants";
 import { InboxView, type PendingRow, type Placeholder } from "./inbox-view";
 
 /**
@@ -152,7 +152,6 @@ export default async function InboxPage() {
       <InboxView
         pending={pending}
         clients={clientsResult.data ?? []}
-        today={today()}
         canBill={CAN_EDIT_BILLING.includes(me.role)}
         placeholders={(placeholderResult.data ?? []) as Placeholder[]}
       />

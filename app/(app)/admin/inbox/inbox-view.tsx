@@ -2,12 +2,11 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { money, fmtStamp, SERVICE_TYPES } from "@/lib/constants";
+import { fmtStamp, SERVICE_TYPES } from "@/lib/constants";
 import {
   mapFolder,
   fileDocument,
   ignoreDocument,
-  matchWarrant,
   confirmAuthorization,
   linkNamedDocument,
   replacePlaceholder,
@@ -42,7 +41,6 @@ export type PendingRow = {
   needs_a_client: boolean;
 };
 
-type Candidate = { id: string; number: string; date: string; amount: number };
 
 type NamedChoice = {
   id: string;
@@ -437,23 +435,19 @@ function NamedInvoice({ doc, canBill }: { doc: PendingRow; canBill: boolean }) {
 
 function DocumentRow({
   doc,
-  today,
   canBill,
   placeholders,
 }: {
   doc: PendingRow;
-  today: string;
   canBill: boolean;
   placeholders: Placeholder[];
 }) {
   const [fileState, fileAction, filing] = useActionState(fileDocument, initial);
   const [ignoreState, ignoreAction] = useActionState(ignoreDocument, initial);
-  const [warrantState, warrantAction, matching] = useActionState(matchWarrant, initial);
   const [setting, setSetting] = useState(false);
 
   const proposal = (doc.proposal ?? {}) as Record<string, unknown>;
   const parsed = (doc.parsed ?? {}) as Record<string, unknown>;
-  const candidates = (proposal.candidates ?? []) as Candidate[];
   const suggested = String(proposal.category ?? "Other");
   const named = namedOf(doc);
 
@@ -494,7 +488,6 @@ function DocumentRow({
 
       <Message state={fileState} />
       <Message state={ignoreState} />
-      <Message state={warrantState} />
 
       {(doc.kind === "Authorization" || named.named === "Authorization") && (
         <AuthorizationProposal doc={doc} canBill={canBill} placeholders={placeholders} />
@@ -502,41 +495,16 @@ function DocumentRow({
       {named.named === "Invoice" && <NamedInvoice doc={doc} canBill={canBill} />}
 
       {doc.kind === "Warrant" && (
-        <div style={{ marginTop: 8 }}>
-          <p className="sub" style={{ margin: 0 }}>
-            {candidates.length === 0
-              ? "No sent invoice matches any amount on it. Check it by hand."
-              : `${candidates.length} sent invoice${candidates.length === 1 ? "" : "s"} match an amount on it. Pick the one it pays.`}
-          </p>
-          <p className="lock" style={{ margin: "6px 0 0" }}>
-            A USOR warrant stub belongs in the _Warrants folder instead. There every line is checked
-            against its V-number and the page total, and the page is kept on{" "}
-            <Link href="/billing/warrants">Billing → Warrants</Link>. Matched here, it marks one
-            invoice paid by hand, without those checks.
-          </p>
-          {candidates.map((c) => (
-            <form action={warrantAction} key={c.id} className="row2" style={{ gap: 6, marginTop: 6 }}>
-              <input type="hidden" name="document_id" value={doc.id} />
-              <input type="hidden" name="invoice_id" value={c.id} />
-              <input type="hidden" name="warrant" value={String(parsed.warrantNumber ?? "")} />
-              <span style={{ minWidth: 220 }}>
-                <b>{c.number || "(no number)"}</b>{" "}
-                <span className="lock">
-                  {c.date} · {money(Number(c.amount))}
-                </span>
-              </span>
-              <label className="field" style={{ maxWidth: 160, marginBottom: 0 }}>
-                Paid on
-                <input type="date" name="paid_on" defaultValue={today} required />
-              </label>
-              <button className="btn gold" type="submit" disabled={matching}>
-                {matching ? "…" : "This one"}
-              </button>
-            </form>
-          ))}
-        </div>
+        <p className="sub" style={{ margin: "8px 0 0" }}>
+          Read as a USOR warrant stub, so nothing is settled here. The agent reads it page by page on
+          its next run, through the same checks as the _Warrants folder: both copies of each
+          V-number agree, the page adds up, the authorization is on file. Lines that pass are paid,
+          and the rest wait for review, on <Link href="/billing/warrants">Billing → Warrants</Link>.
+          This entry closes by itself once every page is in.
+        </p>
       )}
 
+      {doc.kind !== "Warrant" && (
       <div className="row2" style={{ marginTop: 10, gap: 6 }}>
         {doc.client_id && (
           <form action={fileAction} className="row2" style={{ gap: 6 }}>
@@ -569,6 +537,7 @@ function DocumentRow({
           </form>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -576,13 +545,11 @@ function DocumentRow({
 export function InboxView({
   pending,
   clients,
-  today,
   canBill,
   placeholders,
 }: {
   pending: PendingRow[];
   clients: { id: string; name: string }[];
-  today: string;
   canBill: boolean;
   placeholders: Placeholder[];
 }) {
@@ -648,7 +615,7 @@ export function InboxView({
               </p>
             )}
             {rows.map((d) => (
-              <DocumentRow canBill={canBill} key={d.id} doc={d} today={today} placeholders={placeholders} />
+              <DocumentRow canBill={canBill} key={d.id} doc={d} placeholders={placeholders} />
             ))}
           </div>
         );

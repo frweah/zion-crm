@@ -281,6 +281,30 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
   }
 }
 
+// ── a warrant stub is never settled from the inbox ──────────
+// A stub found in a client folder goes through the warrant pipeline's checks.
+// The inbox has no way to mark an invoice paid, the upload route offers no
+// invoice for a warrant, and the agent reads the stubs the CRM routes to it.
+{
+  const fs = await import("node:fs");
+  const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), "utf8");
+  const inboxActions = read("../app/(app)/admin/inbox/actions.ts");
+  const inboxView = read("../app/(app)/admin/inbox/inbox-view.tsx");
+  const upload = read("../app/api/agent/file/route.ts");
+  const manifest = read("../app/api/agent/warrants/manifest/route.ts");
+  const page = read("../app/api/agent/warrants/page/route.ts");
+
+  if (/from\("invoices"\)/.test(inboxActions) || /matchWarrant|name="paid_on"/.test(inboxView)) {
+    fail("the document inbox can still mark an invoice paid, past the warrant checks");
+  } else if (/from\("invoices"\)/.test(upload) || /Mark an invoice paid/.test(upload)) {
+    fail("a warrant arriving with a client's documents is offered invoices to mark paid");
+  } else if (!/routed/.test(manifest) || !/settleRoutedWarrant/.test(page) || !/\$answer\.routed/.test(agent)) {
+    fail("a warrant stub in a client folder is not read through the warrant pipeline");
+  } else {
+    ok("a warrant stub in a client folder is read through the warrant checks and never settled from the inbox");
+  }
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);
