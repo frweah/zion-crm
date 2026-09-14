@@ -89,10 +89,12 @@ begin
   end if;
 
   -- ── what somebody has decided outranks any matching ────────
+  -- A name no real folder uses. This was once a plausible first name, and it
+  -- collided with real data the day a real folder was mapped under it.
   insert into public.inbox_folder_map (folder_name, client_id, mapped_by)
-  values ('Brienne', v_client, v_admin);
+  values ('ZZ Nicknamefolder', v_client, v_admin);
 
-  if public.match_inbox_folder('brienne') is distinct from v_client then
+  if public.match_inbox_folder('zz nicknamefolder') is distinct from v_client then
     failures := failures || 'FAILED: a folder somebody has already mapped did not match'::text;
   else
     raise notice 'ok  a folder somebody has mapped by hand matches from then on';

@@ -9,6 +9,7 @@ import {
   ignoreDocument,
   matchWarrant,
   confirmAuthorization,
+  linkNamedDocument,
   type InboxState,
 } from "./actions";
 
@@ -30,6 +31,31 @@ export type PendingRow = {
 };
 
 type Candidate = { id: string; number: string; date: string; amount: number };
+
+type NamedChoice = {
+  id: string;
+  number: string;
+  service_type: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+};
+
+/** What lib/file-by-name read off the document's name, and why it stopped. */
+type NamedReading = {
+  pattern?: string;
+  label?: string;
+  v_numbers?: string[];
+  services?: string[];
+  named?: "Authorization" | "Invoice";
+  number?: string | null;
+  service_type?: string | null;
+  why?: string;
+  choices?: NamedChoice[];
+};
+
+const namedOf = (doc: PendingRow): NamedReading =>
+  ((doc.proposal ?? {}) as { filename?: NamedReading }).filename ?? {};
 
 const CATEGORIES = [
   "Signed USOR form",
@@ -119,21 +145,26 @@ function AuthorizationProposal({ doc, canBill }: { doc: PendingRow; canBill: boo
 
   const parsed = (doc.parsed ?? {}) as Record<string, unknown>;
   const fields = (parsed.fields ?? {}) as Record<string, { value: string; source: string }>;
-  const candidates = (((doc.proposal ?? {}) as Record<string, unknown>).candidates ??
-    []) as AuthCandidate[];
+  const named = namedOf(doc);
+  const read = (((doc.proposal ?? {}) as Record<string, unknown>).candidates ?? []) as AuthCandidate[];
+  // A scan offers what its name matched instead, none of them chosen for you.
+  const candidates: AuthCandidate[] = read.length
+    ? read
+    : (named.choices ?? []).map((c) => ({ ...c, how: `${c.service_type} on file` }));
   const v = (k: string) => fields[k]?.value ?? "";
-  const service = (SERVICE_TYPES as readonly string[]).includes(v("serviceType"))
-    ? v("serviceType")
-    : "";
+  const serviceRead = v("serviceType") || named.service_type || "";
+  const service = (SERVICE_TYPES as readonly string[]).includes(serviceRead) ? serviceRead : "";
 
-  const [which, setWhich] = useState(candidates[0]?.id ?? "");
+  const [which, setWhich] = useState(read[0]?.id ?? "");
   const byNumber = which === "";
 
   return (
     <div style={{ marginTop: 8 }}>
       <Message state={state} />
       <p className="sub" style={{ margin: 0 }}>
-        {candidates.length === 0
+        {!read.length && named.why
+          ? `By its name: ${named.why}.`
+          : candidates.length === 0
           ? "Read from it. No authorization on file for this client carries a number found in it."
           : candidates.length === 1
             ? `It carries ${candidates[0].number}, which is on file for this client.`
@@ -201,7 +232,7 @@ function AuthorizationProposal({ doc, canBill }: { doc: PendingRow; canBill: boo
             <div className="row2">
               <label className="field" style={{ maxWidth: 170 }}>
                 Number
-                <input name="number" defaultValue={v("authNumber")} required />
+                <input name="number" defaultValue={v("authNumber") || named.number || ""} required />
               </label>
               <label className="field" style={{ maxWidth: 220 }}>
                 Service
@@ -256,6 +287,64 @@ function AuthorizationProposal({ doc, canBill }: { doc: PendingRow; canBill: boo
   );
 }
 
+/**
+ * An invoice, by its name, that could be for more than one authorization.
+ *
+ * Nothing is chosen for the person: an invoice put on the wrong authorization
+ * shows the wrong one as billed, and the right one as never billed at all.
+ */
+function NamedInvoice({ doc, canBill }: { doc: PendingRow; canBill: boolean }) {
+  const [state, action, linking] = useActionState(linkNamedDocument, initial);
+  const named = namedOf(doc);
+  const choices = named.choices ?? [];
+  const [which, setWhich] = useState("");
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <Message state={state} />
+      <p className="sub" style={{ margin: 0 }}>
+        An invoice{named.why ? ` — ${named.why}` : ""}. Say which authorization it billed; it shows there
+        as billed, and as paid once a payment for that authorization is on file.
+      </p>
+
+      {!canBill ? (
+        <p className="lock" style={{ margin: "8px 0 0" }}>
+          Admin or Billing puts an invoice on its authorization.
+        </p>
+      ) : choices.length === 0 ? (
+        <p className="lock" style={{ margin: "8px 0 0" }}>
+          No authorization on file for this client to put it on. Add the authorization first, or
+          file it against the client below.
+        </p>
+      ) : (
+        <form action={action} style={{ marginTop: 8 }}>
+          <input type="hidden" name="document_id" value={doc.id} />
+          <input type="hidden" name="category" value="Invoice" />
+          {choices.map((c) => (
+            <label key={c.id} className="row2" style={{ gap: 6, alignItems: "center", marginBottom: 4 }}>
+              <input
+                type="radio"
+                name="auth_id"
+                value={c.id}
+                checked={which === c.id}
+                onChange={() => setWhich(c.id)}
+                style={{ width: "auto" }}
+              />
+              <span>
+                <b>{c.number}</b> · {c.service_type} · {c.start_date || "no start date"} →{" "}
+                {c.end_date || "no end date"} · {c.status}
+              </span>
+            </label>
+          ))}
+          <button className="btn gold" type="submit" disabled={linking || !which}>
+            {linking ? "…" : "Put it on this authorization"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function DocumentRow({
   doc,
   today,
@@ -274,8 +363,7 @@ function DocumentRow({
   const parsed = (doc.parsed ?? {}) as Record<string, unknown>;
   const candidates = (proposal.candidates ?? []) as Candidate[];
   const suggested = String(proposal.category ?? "Other");
-
-  const fields = (parsed.fields ?? {}) as Record<string, { value: string; source: string }>;
+  const named = namedOf(doc);
 
   return (
     <div className="card" style={{ marginBottom: 10 }}>
@@ -295,11 +383,23 @@ function DocumentRow({
         <span className={"chip " + (doc.kind === "Unreadable" ? "bad" : "")}>{doc.kind}</span>
       </div>
 
+      {named.pattern && (
+        <p className="lock" style={{ margin: "6px 0 0" }}>
+          Its name: {named.label || named.pattern}
+          {named.v_numbers?.length ? ` · ${named.v_numbers.join(", ")}` : ""}
+          {named.services?.length ? ` · ${named.services.join(" / ")}` : ""}
+          {!named.named && named.why ? ` — ${named.why}` : ""}
+        </p>
+      )}
+
       <Message state={fileState} />
       <Message state={ignoreState} />
       <Message state={warrantState} />
 
-      {doc.kind === "Authorization" && <AuthorizationProposal doc={doc} canBill={canBill} />}
+      {(doc.kind === "Authorization" || named.named === "Authorization") && (
+        <AuthorizationProposal doc={doc} canBill={canBill} />
+      )}
+      {named.named === "Invoice" && <NamedInvoice doc={doc} canBill={canBill} />}
 
       {doc.kind === "Warrant" && (
         <div style={{ marginTop: 8 }}>
@@ -386,7 +486,9 @@ export function InboxView({
   }
 
   const ready = pending.filter((d) => !d.needs_a_client);
-  const byKind = (kind: string) => ready.filter((d) => d.kind === kind);
+  // Grouped by what the document is: its name, where the name settled that,
+  // otherwise what its text was read as.
+  const byKind = (kind: string) => ready.filter((d) => (namedOf(d).named ?? d.kind) === kind);
 
   return (
     <>
@@ -416,13 +518,19 @@ export function InboxView({
         </div>
       )}
 
-      {(["Authorization", "Warrant", "USOR form", "Other", "Unreadable"] as const).map((kind) => {
+      {(["Authorization", "Invoice", "Warrant", "USOR form", "Other", "Unreadable"] as const).map((kind) => {
         const rows = byKind(kind);
         if (rows.length === 0) return null;
         return (
           <div key={kind} style={{ marginBottom: 18 }}>
             <h3 style={{ marginBottom: 6 }}>
-              {kind === "USOR form" ? "USOR forms" : kind === "Other" ? "Everything else" : kind}
+              {kind === "USOR form"
+                ? "USOR forms"
+                : kind === "Other"
+                  ? "Everything else"
+                  : kind === "Invoice"
+                    ? "Invoices"
+                    : kind}
               <span className="lock" style={{ fontWeight: 400 }}> · {rows.length}</span>
             </h3>
             {kind === "Unreadable" && (

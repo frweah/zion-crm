@@ -199,7 +199,7 @@ export default async function ClientPage({
     const [{ data }, { data: templateRows }] = await Promise.all([
       supabase
         .from("notes")
-        .select("id, text, type, ts, at, staff_name, visible_roles")
+        .select("id, text, type, ts, at, staff_name, visible_roles, dated_from, attachment_id")
         .eq("client_id", id)
         .order("ts", { ascending: false }),
       // The headings each activity type starts with. Fetched with the notes
@@ -213,12 +213,24 @@ export default async function ClientPage({
       (templateRows ?? []).map((t) => [t.note_type, t.body]),
     );
 
+    // The file a note was made from. Read through RLS, so a restricted file
+    // somebody may not see simply is not offered.
+    const attachmentIds = (data ?? []).map((n) => n.attachment_id).filter((x): x is string => Boolean(x));
+    const { data: noteFiles } = attachmentIds.length
+      ? await supabase.from("attachments").select("id, storage_path, filename").in("id", attachmentIds)
+      : { data: [] as { id: string; storage_path: string; filename: string }[] };
+    const fileById = new Map((noteFiles ?? []).map((f) => [f.id, f]));
+    const notes: NoteRow[] = (data ?? []).map((n) => ({
+      ...n,
+      file: n.attachment_id ? (fileById.get(n.attachment_id) ?? null) : null,
+    }));
+
     return (
       <>
         {header}
         <NotesTab
           clientId={id}
-          notes={(data ?? []) as NoteRow[]}
+          notes={notes}
           myName={me.name}
           templates={templates}
         />
@@ -481,6 +493,24 @@ export default async function ClientPage({
     const unlinkedFiles = (clientFiles ?? []).filter((f) => !f.auth_id);
     const mayConfirm = CAN_EDIT_BILLING.includes(me.role);
 
+    // An invoice PDF on an authorization shows as billed: paid when a payment
+    // for that authorization is on file, outstanding until then. And any
+    // correction made to the authorization, with its reason.
+    const idsOrNone = authIds.length ? authIds : ["00000000-0000-0000-0000-000000000000"];
+    const [{ data: paidRows }, { data: correctionRows }] = await Promise.all([
+      supabase.from("invoices").select("auth_id, paid_date").in("auth_id", idsOrNone).eq("status", "Paid"),
+      supabase
+        .from("authorization_corrections")
+        .select("auth_id, at, field, was_value, new_value, reason, staff_name")
+        .in("auth_id", idsOrNone)
+        .order("at"),
+    ]);
+    const paidOn = new Map<string, string>();
+    for (const p of paidRows ?? []) {
+      const seen = paidOn.get(p.auth_id);
+      if (p.paid_date && (!seen || p.paid_date > seen)) paidOn.set(p.auth_id, p.paid_date);
+    }
+
     // Hours used = what was carried over at migration plus everything logged.
     const logged = new Map<string, number>();
     for (const e of entries ?? []) {
@@ -536,6 +566,8 @@ export default async function ClientPage({
                   };
                 })}
                 canConfirm={mayConfirm}
+                paidOn={paidOn.get(a.id) ?? null}
+                corrections={(correctionRows ?? []).filter((c) => c.auth_id === a.id)}
               />
             </div>
           );

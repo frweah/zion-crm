@@ -24,7 +24,16 @@ export type AvailableFile = AuthFile & {
 const openInitial: FileState = { error: null, ok: null };
 const linkInitial: LinkState = { error: null, ok: null };
 
-function OpenFile({ file }: { file: AuthFile }) {
+export type Correction = {
+  at: string;
+  field: string;
+  was_value: string;
+  new_value: string;
+  reason: string;
+  staff_name: string;
+};
+
+export function OpenFile({ file }: { file: { storage_path: string } }) {
   const [state, action, opening] = useActionState(getDownloadUrl, openInitial);
 
   // The signed link is short-lived, so it is opened as soon as it arrives.
@@ -59,6 +68,8 @@ export function AuthorizationFiles({
   linked,
   available,
   canConfirm,
+  paidOn,
+  corrections,
 }: {
   clientId: string;
   authId: string;
@@ -66,6 +77,10 @@ export function AuthorizationFiles({
   linked: AuthFile[];
   available: AvailableFile[];
   canConfirm: boolean;
+  /** The latest payment on file for this authorization, if any. */
+  paidOn: string | null;
+  /** How this authorization was corrected, oldest first. */
+  corrections: Correction[];
 }) {
   const ordered = [...available].sort(
     (x, y) =>
@@ -90,6 +105,14 @@ export function AuthorizationFiles({
 
   return (
     <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }}>
+      {corrections.map((c) => (
+        <div key={`${c.at}-${c.field}`} className="lock" style={{ marginBottom: 6 }}>
+          Corrected {c.at.slice(0, 10)}: {c.field === "Client" ? "moved from" : "service was"} {c.was_value} →{" "}
+          {c.new_value}
+          {c.staff_name && ` by ${c.staff_name}`}. {c.reason}
+        </div>
+      ))}
+
       {linked.length === 0 ? (
         <div className="lock">
           No PDF attached
@@ -101,7 +124,14 @@ export function AuthorizationFiles({
         linked.map((f) => (
           <div key={f.id} className="row2" style={{ alignItems: "center", gap: 6 }}>
             <b style={{ fontSize: 13 }}>{f.filename}</b>
-            <span className="chip">{f.category}</span>
+            {/* An invoice we sent: paid once a payment for this authorization is on file. */}
+            {f.category === "Invoice" ? (
+              <span className={"chip " + (paidOn ? "ok" : "warn")}>
+                {paidOn ? `Billed · Paid ${paidOn}` : "Billed · Outstanding"}
+              </span>
+            ) : (
+              <span className="chip">{f.category}</span>
+            )}
             <OpenFile file={f} />
           </div>
         ))

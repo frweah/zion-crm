@@ -5,6 +5,7 @@ import { addNote, type DetailState } from "./actions";
 import { NOTE_TYPES, fmtStamp } from "@/lib/constants";
 import { ROLE_NAMES, ROLE_LABEL, type Role } from "@/lib/roles";
 import { onTypeChange } from "@/lib/note-template";
+import { OpenFile } from "./authorization-files";
 
 const initial: DetailState = { error: null, ok: null };
 
@@ -16,6 +17,10 @@ export type NoteRow = {
   at: string;
   staff_name: string;
   visible_roles: string[];
+  /** For a note made from a document: where its date came from. */
+  dated_from: string;
+  /** The document it was made from, when this person may open it. */
+  file: { storage_path: string; filename: string } | null;
 };
 
 export function NotesTab({
@@ -158,7 +163,8 @@ export function NotesTab({
       {notes.map((n) => (
         <div key={n.id} className="noteitem">
           <div className="meta">
-            <b style={{ color: "var(--ink)" }}>{n.ts ? fmtStamp(n.ts) : n.at}</b> ·{" "}
+            {/* A note made from a document is dated by the document, not a time of day. */}
+            <b style={{ color: "var(--ink)" }}>{n.dated_from ? n.at : n.ts ? fmtStamp(n.ts) : n.at}</b> ·{" "}
             {n.staff_name || "—"}
             {n.type && n.type !== "General" && (
               <>
@@ -171,7 +177,20 @@ export function NotesTab({
               .map((r) => ROLE_LABEL[r as Role] ?? r)
               .join(", ")}
           </div>
-          {n.text}
+          <div className="note-body">{n.text}</div>
+          {(n.file || n.dated_from === "File date (fallback)") && (
+            <div className="row2" style={{ gap: 6, alignItems: "center", marginTop: 4 }}>
+              {n.file && (
+                <>
+                  <span className="lock">{n.file.filename}</span>
+                  <OpenFile file={n.file} />
+                </>
+              )}
+              {n.dated_from === "File date (fallback)" && (
+                <span className="chip warn">Dated by the file&rsquo;s saved date</span>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </>

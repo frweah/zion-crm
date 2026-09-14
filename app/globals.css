@@ -580,6 +580,11 @@ tr.row {
   white-space: pre-wrap;
 }
 
+/* A note made from a document keeps its lines: "Field: value", one per row. */
+.noteitem .note-body {
+  white-space: pre-wrap;
+}
+
 .noteitem .meta {
   margin-bottom: 4px;
   font-size: 12.5px;

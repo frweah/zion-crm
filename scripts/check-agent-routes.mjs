@@ -193,6 +193,24 @@ if (!/parsed = \{ reason: classification\.reason \}/.test(fileRoute)) {
   ok("an Unreadable document keeps the reason, so a wrong one leads to its cause");
 }
 
+// ── every arrival is filed by its name ───────────────────────
+// Filing by name (lib/file-by-name) runs after the document is stored and
+// recorded, never before: a filing that fails must leave the document waiting,
+// not lose it. And refiling reads a stored document for its text only - it is
+// not a back door to replacing the recorded reading.
+const insertAt = fileRoute.indexOf('.from("inbox_documents")\n    .insert(');
+const arrivalFiling = fileRoute.indexOf("await fileArrival(supabase, row, reading)");
+const refileBlock = fileRoute.match(/if \(refile\) \{([\s\S]*?)\n  \}/);
+if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
+  fail("a new arrival is no longer filed by its name after it is recorded");
+} else if (!/try \{[\s\S]*fileByName\([\s\S]*catch/.test(fileRoute)) {
+  fail("a filing that throws could fail the arrival instead of leaving the document waiting");
+} else if (!refileBlock || /\.update\(/.test(refileBlock[1])) {
+  fail("refiling changes the recorded reading, which only reprocess may do");
+} else {
+  ok("every arrival is filed by its name once recorded, a failed filing leaves it waiting, and refiling never rewrites the reading");
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

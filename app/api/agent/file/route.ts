@@ -6,6 +6,7 @@ import { classifyDocument } from "@/lib/classify-document";
 import { parseAuthorizationText } from "@/lib/authorization-parse";
 import { authorizationsMentioned, type AuthOnFile } from "@/lib/auth-number";
 import { INBOX_BUCKET, STORAGE_MAX_BYTES, inboxStoragePath, isSha256 } from "@/lib/inbox-storage";
+import { fileByName, type FilingInput } from "@/lib/file-by-name";
 import type { Json } from "@/lib/database.types";
 
 /**
@@ -36,6 +37,12 @@ import type { Json } from "@/lib/database.types";
  * the server and filed readable documents as scans; the files were kept, so
  * they can be read properly without the agent — which remembers them by hash
  * — ever sending them twice.
+ *
+ * Every new arrival is then filed by what its name says (lib/file-by-name):
+ * a narrative becomes a note, an authorization or invoice goes on its
+ * authorization, and whatever the name and text cannot settle waits here as
+ * before. `refile=1` does the same for a document already stored - the way the
+ * documents that arrived before the rules existed were filed.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -49,6 +56,9 @@ type Reading = {
   reason: string;
   parsed: Json;
   proposal: Json;
+  /** The text and filled form fields, for filing by name. Not stored. */
+  text: string;
+  fields: Record<string, string>;
 };
 
 /** What the file is and what is proposed for it. Writes nothing. */
@@ -58,11 +68,13 @@ async function readDocument(
   clientId: string | null,
 ): Promise<Reading> {
   let text = "";
+  let fields: Record<string, string> = {};
   let pages = 0;
   let readError = "";
   try {
     const extracted = await extractPdfText(bytes);
     text = extracted.plain;
+    fields = extracted.fields;
     pages = extracted.pages;
   } catch (err) {
     readError = err instanceof Error ? err.message : "unreadable";
@@ -144,7 +156,21 @@ async function readDocument(
     parsed = { reason: classification.reason };
   }
 
-  return { kind: classification.kind, reason: classification.reason, parsed, proposal };
+  return { kind: classification.kind, reason: classification.reason, parsed, proposal, text, fields };
+}
+
+/** File it by its name. A failure here never loses the document: it stays waiting. */
+async function fileArrival(
+  supabase: Supabase,
+  doc: FilingInput["doc"],
+  reading: Pick<Reading, "text" | "fields">,
+): Promise<string> {
+  try {
+    const result = await fileByName(supabase, { doc, text: reading.text, fields: reading.fields });
+    return `${result.action}: ${result.detail}`;
+  } catch (err) {
+    return `left waiting: ${err instanceof Error ? err.message : "filing failed"}`;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -170,6 +196,7 @@ export async function POST(request: NextRequest) {
   const modified = String(form.get("modified") ?? "").trim();
   const stored = form.get("stored") === "1";
   const reprocess = form.get("reprocess") === "1";
+  const refile = form.get("refile") === "1";
 
   const supabase = createAdminClient();
 
@@ -186,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
     bytes = new Uint8Array(await file.arrayBuffer());
     filename = file.name;
-  } else if (stored || reprocess) {
+  } else if (stored || reprocess || refile) {
     if (!isSha256(claimedHash)) {
       return NextResponse.json(
         { error: "A stored document is named by its SHA-256 hash." },
@@ -223,9 +250,21 @@ export async function POST(request: NextRequest) {
 
   const { data: existing } = await supabase
     .from("inbox_documents")
-    .select("id, kind, state, client_id, parsed")
+    .select("id, kind, state, client_id, parsed, proposal, filename, file_modified, storage_path")
     .eq("sha256", actual)
     .maybeSingle();
+
+  // ── filing one already here by its name ─────────────────
+  if (refile) {
+    if (!existing) {
+      return NextResponse.json({ error: "There is no such document to file." }, { status: 404 });
+    }
+    // Read for the text and form fields only. The stored reading is not
+    // replaced here; reprocess is the way to do that.
+    const { text, fields } = await readDocument(bytes, supabase, existing.client_id);
+    const filed = await fileArrival(supabase, existing, { text, fields });
+    return NextResponse.json({ id: existing.id, refiled: true, filed });
+  }
 
   // ── reading one again ────────────────────────────────────
   if (reprocess) {
@@ -324,15 +363,18 @@ export async function POST(request: NextRequest) {
       proposal: reading.proposal,
       storage_path: storagePath,
     })
-    .select("id")
+    .select("id, kind, state, client_id, parsed, proposal, filename, file_modified, storage_path")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const filed = await fileArrival(supabase, row, reading);
 
   return NextResponse.json({
     id: row.id,
     kind: reading.kind,
     reason: reading.reason,
     matched: Boolean(clientId),
+    filed,
   });
 }

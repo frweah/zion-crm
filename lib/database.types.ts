@@ -93,6 +93,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      authorization_corrections: {
+        Row: {
+          id: number;
+          at: string;
+          auth_id: string;
+          auth_number: string;
+          field: string;
+          was_value: string;
+          new_value: string;
+          reason: string;
+          staff_id: string | null;
+          staff_name: string;
+        };
+        Insert: {
+          id?: number;
+          at?: string;
+          auth_id: string;
+          auth_number: string;
+          field: string;
+          was_value: string;
+          new_value: string;
+          reason: string;
+          staff_id?: string | null;
+          staff_name?: string;
+        };
+        Update: {
+          id?: number;
+          at?: string;
+          auth_id?: string;
+          auth_number?: string;
+          field?: string;
+          was_value?: string;
+          new_value?: string;
+          reason?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+        };
+        Relationships: [];
+      };
       authorizations: {
         Row: {
           id: string;
@@ -1711,6 +1750,9 @@ export type Database = {
           ts: string;
           visible_roles: string[];
           created_at: string;
+          source_document: string | null;
+          attachment_id: string | null;
+          dated_from: string;
         };
         Insert: {
           id?: string;
@@ -1724,6 +1766,9 @@ export type Database = {
           ts?: string;
           visible_roles?: string[];
           created_at?: string;
+          source_document?: string | null;
+          attachment_id?: string | null;
+          dated_from?: string;
         };
         Update: {
           id?: string;
@@ -1737,6 +1782,9 @@ export type Database = {
           ts?: string;
           visible_roles?: string[];
           created_at?: string;
+          source_document?: string | null;
+          attachment_id?: string | null;
+          dated_from?: string;
         };
         Relationships: [];
       };
@@ -3306,6 +3354,10 @@ export type Database = {
         Args: { p_attachment: string | null; p_doc: string | null; p_auth: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours: number | null; p_start: string | null; p_end: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; created: boolean | null; attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
+      correct_authorization: {
+        Args: { p_auth: string | null; p_reason: string | null; p_service_type: string | null; p_client: string | null };
+        Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
+      };
       current_staff_id: {
         Args: Record<string, never>;
         Returns: string;
@@ -3321,6 +3373,10 @@ export type Database = {
       exclude_mail_thread: {
         Args: { p_conversation_id: string | null; p_reason: string | null };
         Returns: undefined;
+      };
+      file_document_as_note: {
+        Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category: string | null; p_restricted: boolean | null; p_outcome: string | null };
+        Returns: { note_id: string | null; attachment_id: string | null; created: boolean | null }[];
       };
       fmt_hours: {
         Args: { n: number | null };
@@ -3373,6 +3429,10 @@ export type Database = {
       job_status_rank: {
         Args: { p_status: string | null };
         Returns: number;
+      };
+      link_document_to_authorization: {
+        Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start: string | null; p_end: string | null; p_outcome: string | null };
+        Returns: { attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       log_mail_message: {
         Args: { p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };

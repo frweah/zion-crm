@@ -223,6 +223,49 @@ export async function matchWarrant(_prev: InboxState, formData: FormData): Promi
 }
 
 /**
+ * Put a document on the authorization a person chose for it.
+ *
+ * For the invoices and authorizations whose names could not settle which
+ * authorization they belong to. The rules are the database's
+ * (public.link_document_to_authorization): the same client's authorization
+ * only, one authorization per file, and an invoice touches no dates.
+ */
+export async function linkNamedDocument(_prev: InboxState, formData: FormData): Promise<InboxState> {
+  const me = await getCurrentStaff();
+  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+    return { error: "Only Admin and Billing put a document on an authorization.", ok: null };
+  }
+
+  const docId = String(formData.get("document_id") ?? "");
+  const authId = String(formData.get("auth_id") ?? "");
+  const category = String(formData.get("category") ?? "") === "Authorization" ? "Authorization" : "Invoice";
+  if (!docId) return { error: "Which document?", ok: null };
+  if (!authId) return { error: "Which authorization?", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("link_document_to_authorization", {
+    p_doc: docId,
+    p_auth: authId,
+    p_category: category,
+    p_start: null,
+    p_end: null,
+    p_outcome: null,
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/admin/inbox");
+  revalidatePath("/clients", "layout");
+  return {
+    error: null,
+    ok:
+      category === "Invoice"
+        ? "On the authorization as billed — paid if a payment for it is on file."
+        : "Attached to the authorization.",
+  };
+}
+
+/**
  * Confirm an authorization that arrived in the inbox.
  *
  * What matters happens in public.confirm_authorization_document: the PDF goes

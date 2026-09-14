@@ -125,6 +125,9 @@ const RPC_FUNCTIONS = [
   "records_request_bundle",
   "confirm_authorization_document",
   "inbox_seen",
+  "file_document_as_note",
+  "link_document_to_authorization",
+  "correct_authorization",
 ];
 
 const { rows: fns } = await client.query(

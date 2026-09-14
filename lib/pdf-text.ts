@@ -27,6 +27,8 @@ export type PdfText = {
   lines: PdfLine[];
   /** Every line joined, one per row — what the pattern rules read. */
   plain: string;
+  /** Filled-in form fields, by field name. Empty for a PDF with no form. */
+  fields: Record<string, string>;
   pages: number;
   /** True when the file carries no extractable text at all. */
   scanned: boolean;
@@ -121,9 +123,29 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
 
   const plain = lines.map((l) => l.text).join("\n");
 
+  // What was typed into a fillable form. A completed USOR 93, 95 or 96 keeps
+  // its answers - the month it covers, the dates of the visits - in form
+  // fields, and its text layer is only the blank template. Best effort: a PDF
+  // without a form has none, and a form that cannot be read still has its text.
+  const fields: Record<string, string> = {};
+  try {
+    const objects = (await doc.getFieldObjects()) as Record<string, { value?: unknown }[]> | null;
+    for (const [name, widgets] of Object.entries(objects ?? {})) {
+      const value = (widgets ?? [])
+        .map((w) => w.value)
+        .find((v) => v !== undefined && v !== null && v !== "" && v !== "Off" && v !== false);
+      if (value === undefined) continue;
+      const text = value === true ? "Yes" : String(value).replace(/\s+/g, " ").trim();
+      if (text) fields[name] = text;
+    }
+  } catch {
+    // No form, or one pdf.js cannot read. The text above stands.
+  }
+
   return {
     lines,
     plain,
+    fields,
     pages: doc.numPages,
     // A scan often yields a stray character or two from a stamp, so "almost
     // nothing" counts as nothing.
