@@ -196,6 +196,13 @@ function Read-PngWithTesseract {
     $err  = "$base.err"
     $proc = Start-Process -FilePath $Exe -ArgumentList @("`"$Png`"", "`"$base`"", '-l', $Language, '--dpi', '300', 'tsv') `
         -NoNewWindow -PassThru -RedirectStandardError $err -RedirectStandardOutput "$base.out"
+    # Hold the process handle now. Windows PowerShell 5.1 hands back an empty
+    # ExitCode for a process started with -PassThru and waited on with a
+    # timeout unless its handle was taken while it ran - and an empty exit code
+    # is "not 0". Agent 1.1.0 shipped without this line: every page Tesseract
+    # read perfectly well was reported as a failure.
+    $null = $proc.Handle
+
     # A page normally takes a few seconds. The first backfill met one that
     # Tesseract was still chewing on after five minutes; left alone, one bad
     # page would hold every scheduled run behind it. Two minutes, then give up
@@ -204,6 +211,9 @@ function Read-PngWithTesseract {
         try { $proc.Kill() } catch { }
         throw "tesseract gave up after $TimeoutSeconds seconds on one page"
     }
+    # The timed wait can return before redirected output is flushed; the
+    # untimed one after it finishes the job and fills in the exit code.
+    $proc.WaitForExit()
     if ($proc.ExitCode -ne 0) {
         $why = (Get-Content $err -ErrorAction SilentlyContinue | Select-Object -Last 1)
         throw "tesseract exited $($proc.ExitCode): $why"
@@ -231,8 +241,10 @@ function Read-PngWithTesseract {
 
 <#
     A whole PDF. Returns text, confidence (mean over all words), the engine,
-    and how many pages were read, or $null when there was nothing to read.
-    Temporary images are removed whatever happens.
+    and how many pages were read. Text is empty when Tesseract read the pages
+    and found nothing; a failure throws instead, so "nothing on the page" and
+    "could not read the page" can never be confused. Temporary images are
+    removed whatever happens.
 #>
 function Invoke-PdfOcr {
     param([string] $Path, [string] $Exe, [string] $Engine, [int] $MaxPages = 10)
@@ -250,7 +262,6 @@ function Invoke-PdfOcr {
             $words += $page.Words
         }
         $text = ($texts -join "`n`f`n").Trim()
-        if (-not $text) { return $null }
         return [pscustomobject]@{
             Text       = $text
             Confidence = if ($words) { [Math]::Round($weighted / $words, 2) } else { 0 }

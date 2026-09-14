@@ -39,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.1.0'
+$AgentVersion = '1.1.2'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -54,7 +54,11 @@ $LogPath = Join-Path $Here 'zion-agent.log'
 function Write-Log {
     param([string] $Message, [string] $Level = 'info')
     $line = '{0} [{1}] {2}' -f (Get-Date -Format 's'), $Level, $Message
-    Write-Output $line
+    # To the host, never the output stream. In PowerShell whatever a function
+    # writes to output is part of what it returns: logged from inside Get-Ocr,
+    # a failed read came back as the log line instead of $null, looked like a
+    # reading, and was sent to the CRM as "nothing readable" (agent 1.1.1).
+    Write-Host $line
     try { Add-Content -Path $LogPath -Value $line -Encoding utf8 } catch { }
 }
 
@@ -125,6 +129,11 @@ try {
     $Tesseract = $null
 }
 
+# A reading, or $null when OCR failed. An empty reading - the pages were read
+# and nothing is on them - is still a reading, and is the only thing reported
+# to the CRM as "nothing readable". A failure is never reported: the CRM keeps
+# the document on its list and it is tried again next run. Agent 1.1.0 sent a
+# failure as an empty reading, and the CRM stopped asking for those scans.
 function Get-Ocr {
     param([string] $FullPath)
     if (-not $Tesseract) { return $null }
@@ -132,14 +141,14 @@ function Get-Ocr {
         $sw = [Diagnostics.Stopwatch]::StartNew()
         $r = Invoke-PdfOcr -Path $FullPath -Exe $Tesseract -Engine $OcrEngine -MaxPages 10
         $sw.Stop()
-        if ($r) {
+        if ($r.Text) {
             Write-Log ("OCR read {0} of {1} page(s), confidence {2}%, in {3:N0}s" -f $r.Pages, $r.PageCount, $r.Confidence, $sw.Elapsed.TotalSeconds)
         } else {
-            Write-Log 'OCR found no text.'
+            Write-Log ("OCR read {0} page(s) and found no text." -f $r.Pages)
         }
         return $r
     } catch {
-        Write-Log "OCR failed: $($_.Exception.Message)" 'warn'
+        Write-Log "OCR failed, will try again next run: $($_.Exception.Message)" 'warn'
         return $null
     }
 }
@@ -282,6 +291,9 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
             if (-not $hasText) {
                 Write-Log "No text layer, reading with OCR: $($entry.path)"
                 $ocr = Get-Ocr $entry.full
+                # Nothing on the pages is worth nothing to the CRM here; it
+                # records that when it asks for the document later.
+                if ($ocr -and -not $ocr.Text) { $ocr = $null }
             }
         }
 
@@ -364,11 +376,13 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
             if ($Tesseract -and -not $ocr -and $result.kind -eq 'Unreadable') {
                 Write-Log "The CRM found no text; reading with OCR: $($entry.path)"
                 $late = Get-Ocr $entry.full
-                try {
-                    $answer = Send-Ocr $entry.hash $late
-                    Write-Log "OCR sent: $($entry.path) -> $($answer.ocr)"
-                } catch {
-                    Write-Log "OCR not sent for $($entry.path): $($_.Exception.Message)" 'warn'
+                if ($late) {
+                    try {
+                        $answer = Send-Ocr $entry.hash $late
+                        Write-Log "OCR sent: $($entry.path) -> $($answer.ocr)"
+                    } catch {
+                        Write-Log "OCR not sent for $($entry.path): $($_.Exception.Message)" 'warn'
+                    }
                 }
             }
         }
@@ -384,6 +398,20 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
 # before this machine had Tesseract, or that this could not tell about. Read
 # from this machine's own copy, matched by hash, a few per run.
 $ocrSent = 0
+
+# Scans OCR could not finish, and when, kept beside this script. One scan with
+# a page Tesseract cannot read in two minutes would otherwise be the first
+# thing the CRM asks for on every run, costing minutes each time; it is tried
+# again after a week. A read that succeeds - text or none - takes it off.
+$FailedPath = Join-Path $Here 'ocr-failed.json'
+$failedOcr = @{}
+try {
+    if (Test-Path -LiteralPath $FailedPath) {
+        $saved = Get-Content -LiteralPath $FailedPath -Raw | ConvertFrom-Json
+        foreach ($p in $saved.PSObject.Properties) { $failedOcr[$p.Name] = [datetime]$p.Value }
+    }
+} catch { $failedOcr = @{} }
+
 if ($Tesseract -and $OcrPerRun -gt 0) {
     $ask = $null
     try {
@@ -398,8 +426,17 @@ if ($Tesseract -and $OcrPerRun -gt 0) {
         if (-not $w) { continue }
         $local = $entries | Where-Object { $_.hash -eq $w.hash } | Select-Object -First 1
         if (-not $local) { continue }
+        if ($failedOcr.ContainsKey($w.hash) -and $failedOcr[$w.hash] -gt (Get-Date).AddDays(-7)) {
+            Write-Log "Skipping OCR for now (failed $($failedOcr[$w.hash].ToString('s'))): $($local.path)"
+            continue
+        }
         Write-Log "The CRM asked for OCR: $($local.path)"
         $read = Get-Ocr $local.full
+        if (-not $read) {
+            $failedOcr[$w.hash] = Get-Date
+            continue
+        }
+        $failedOcr.Remove($w.hash)
         try {
             $answer = Send-Ocr $w.hash $read
             $filed = if ($answer.filed) { " ($($answer.filed))" } else { '' }
@@ -410,6 +447,14 @@ if ($Tesseract -and $OcrPerRun -gt 0) {
         }
     }
 }
+
+try {
+    $keep = [ordered]@{}
+    foreach ($k in $failedOcr.Keys) {
+        if ($failedOcr[$k] -gt (Get-Date).AddDays(-7)) { $keep[$k] = $failedOcr[$k].ToString('o') }
+    }
+    ($keep | ConvertTo-Json -Compress) | Set-Content -LiteralPath $FailedPath -Encoding utf8
+} catch { }
 
 Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request."
 Trim-Log

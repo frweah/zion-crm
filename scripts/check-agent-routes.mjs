@@ -242,6 +242,18 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
     fail("OCR page images are not kept to their own folder under %TEMP% and removed afterwards");
   } else if (/Invoke-(RestMethod|WebRequest)/.test(ocrModule)) {
     fail("the OCR module talks to the network; it must only read files and run Tesseract");
+  } else if (!/\$null = \$proc\.Handle/.test(ocrModule) || !/\$proc\.WaitForExit\(\)\s*\n\s*if \(\$proc\.ExitCode -ne 0\)/.test(ocrModule)) {
+    // Agent 1.1.0: without the handle, PowerShell 5.1 reports an empty exit
+    // code after a timed wait, and every page Tesseract read was a "failure".
+    fail("Tesseract's exit code is read without holding the process handle, so every page reads as a failure");
+  } else if (/function Write-Log[\s\S]{0,400}?Write-Output/.test(agent)) {
+    // Agent 1.1.1: a log line written to the output stream became part of
+    // Get-Ocr's return value, so a failed read looked like a reading.
+    fail("the agent logs to the output stream, so a log line inside a function becomes part of what it returns");
+  } else if (!/\$read = Get-Ocr \$local\.full\s*\n\s*if \(-not \$read\) \{[^}]*\bcontinue\s*\}/.test(agent) || !/if \(\$late\) \{/.test(agent)) {
+    // Agent 1.1.0 sent a failed read as "nothing readable", and the CRM
+    // stopped asking for those scans.
+    fail("a failed OCR is reported to the CRM as an empty reading, which stops it being asked for again");
   } else {
     ok("the agent reads scans locally before sending, answers the CRM's requests, and leaves no page images behind");
   }
