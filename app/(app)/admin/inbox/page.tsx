@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today, fmtStamp, CAN_EDIT_BILLING } from "@/lib/constants";
-import { InboxView, type PendingRow } from "./inbox-view";
+import { InboxView, type PendingRow, type Placeholder } from "./inbox-view";
 
 /**
  * The document inbox.
@@ -22,7 +22,7 @@ export default async function InboxPage() {
 
   const supabase = await createClient();
 
-  const [pendingResult, clientsResult, runsResult, doneResult] = await Promise.all([
+  const [pendingResult, clientsResult, runsResult, doneResult, placeholderResult] = await Promise.all([
     supabase.from("inbox_pending").select("*").order("first_seen", { ascending: false }),
     supabase.from("clients").select("id, name").order("name"),
     supabase
@@ -34,6 +34,11 @@ export default async function InboxPage() {
       .from("inbox_documents")
       .select("state")
       .neq("state", "Pending"),
+    // Imported "(workbook)" authorizations, which a confirmed scan can replace.
+    supabase
+      .from("authorizations")
+      .select("id, client_id, number, service_type, carried_used, total_hours")
+      .like("number", "(workbook)%"),
   ]);
 
   const pending = (pendingResult.data ?? []) as unknown as PendingRow[];
@@ -147,6 +152,7 @@ export default async function InboxPage() {
         clients={clientsResult.data ?? []}
         today={today()}
         canBill={CAN_EDIT_BILLING.includes(me.role)}
+        placeholders={(placeholderResult.data ?? []) as Placeholder[]}
       />
 
       <p className="lock" style={{ marginTop: 14 }}>

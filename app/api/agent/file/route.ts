@@ -59,13 +59,45 @@ type Reading = {
   /** The text and filled form fields, for filing by name. Not stored. */
   text: string;
   fields: Record<string, string>;
+  /** Set when the text is the agent's OCR of a PDF with no text layer. */
+  ocr: { confidence: number | null } | null;
 };
+
+/** What the agent's Tesseract read off a scan, as it arrives in the form. */
+type OcrPayload = { text: string; engine: string; confidence: number | null; pages: number | null };
+
+function ocrFrom(form: FormData): OcrPayload | null {
+  const encoded = form.get("ocr_text_b64");
+  if (encoded === null && form.get("ocr") !== "1") return null;
+  // Base64 of UTF-8, because the agent builds its multipart body as Latin-1 to
+  // carry the PDF's bytes, and a curly quote or an accent would not survive.
+  let text = "";
+  try {
+    text = Buffer.from(String(encoded ?? ""), "base64").toString("utf8");
+  } catch {
+    text = "";
+  }
+  const number = (key: string) => {
+    const raw = form.get(key);
+    const n = raw === null || raw === "" ? NaN : Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const confidence = number("ocr_confidence");
+  const pages = number("ocr_pages");
+  return {
+    text: text.slice(0, 500_000),
+    engine: String(form.get("ocr_engine") ?? "").slice(0, 120),
+    confidence: confidence === null ? null : Math.max(0, Math.min(100, confidence)),
+    pages: pages && pages > 0 ? Math.round(pages) : null,
+  };
+}
 
 /** What the file is and what is proposed for it. Writes nothing. */
 async function readDocument(
   bytes: Uint8Array,
   supabase: Supabase,
   clientId: string | null,
+  ocr: OcrPayload | null = null,
 ): Promise<Reading> {
   let text = "";
   let fields: Record<string, string> = {};
@@ -79,6 +111,19 @@ async function readDocument(
   } catch (err) {
     readError = err instanceof Error ? err.message : "unreadable";
   }
+
+  // A PDF with no text layer, and the agent's OCR of it: the OCR text is read
+  // in its place. Only then. OCR sent with a PDF that has text of its own is
+  // ignored, so a reading is never a mix of the two, and a PDF this server
+  // could not open at all is not taken on the agent's word to be a scan.
+  const fromOcr = !readError && Boolean(ocr?.text.trim()) && text.replace(/\s/g, "").length < 40;
+  if (fromOcr && ocr) {
+    text = ocr.text;
+    fields = {};
+  }
+  const ocrMark: { [key: string]: Json } = fromOcr
+    ? { text_source: "OCR", ocr_confidence: ocr?.confidence ?? null }
+    : {};
 
   const classification = readError
     ? { kind: "Unreadable" as const, reason: `could not be read: ${readError}`, seen: [] as string[] }
@@ -95,6 +140,7 @@ async function readDocument(
       ),
       missing: read.missing,
       warnings: read.warnings,
+      ...ocrMark,
     };
 
     // Which of this client's authorizations it is. Offered, never applied:
@@ -144,9 +190,11 @@ async function readDocument(
     parsed = {
       usor: ("usor" in classification ? classification.usor : null) ?? null,
       seen: classification.seen,
+      ...ocrMark,
     };
     proposal = { action: "File against the client", category: "Signed USOR form" };
   } else if (classification.kind === "Other") {
+    parsed = fromOcr ? ocrMark : null;
     proposal = { action: "File against the client", category: "Other" };
   } else {
     // Unreadable. The reason is kept on the row: the first backfill filed 36
@@ -156,17 +204,30 @@ async function readDocument(
     parsed = { reason: classification.reason };
   }
 
-  return { kind: classification.kind, reason: classification.reason, parsed, proposal, text, fields };
+  return {
+    kind: classification.kind,
+    reason: classification.reason,
+    parsed,
+    proposal,
+    text,
+    fields,
+    ocr: fromOcr ? { confidence: ocr?.confidence ?? null } : null,
+  };
 }
 
 /** File it by its name. A failure here never loses the document: it stays waiting. */
 async function fileArrival(
   supabase: Supabase,
   doc: FilingInput["doc"],
-  reading: Pick<Reading, "text" | "fields">,
+  reading: Pick<Reading, "text" | "fields" | "ocr">,
 ): Promise<string> {
   try {
-    const result = await fileByName(supabase, { doc, text: reading.text, fields: reading.fields });
+    const result = await fileByName(supabase, {
+      doc,
+      text: reading.text,
+      fields: reading.fields,
+      ocr: reading.ocr,
+    });
     return `${result.action}: ${result.detail}`;
   } catch (err) {
     return `left waiting: ${err instanceof Error ? err.message : "filing failed"}`;
@@ -197,6 +258,8 @@ export async function POST(request: NextRequest) {
   const stored = form.get("stored") === "1";
   const reprocess = form.get("reprocess") === "1";
   const refile = form.get("refile") === "1";
+  const ocrMode = form.get("ocr") === "1";
+  const ocrPayload = ocrFrom(form);
 
   const supabase = createAdminClient();
 
@@ -213,7 +276,7 @@ export async function POST(request: NextRequest) {
     }
     bytes = new Uint8Array(await file.arrayBuffer());
     filename = file.name;
-  } else if (stored || reprocess || refile) {
+  } else if (stored || reprocess || refile || ocrMode) {
     if (!isSha256(claimedHash)) {
       return NextResponse.json(
         { error: "A stored document is named by its SHA-256 hash." },
@@ -250,7 +313,9 @@ export async function POST(request: NextRequest) {
 
   const { data: existing } = await supabase
     .from("inbox_documents")
-    .select("id, kind, state, client_id, parsed, proposal, filename, file_modified, storage_path")
+    .select(
+      "id, kind, state, client_id, parsed, proposal, filename, file_modified, storage_path, ocr_text, ocr_engine, ocr_confidence, ocr_pages",
+    )
     .eq("sha256", actual)
     .maybeSingle();
 
@@ -259,11 +324,70 @@ export async function POST(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: "There is no such document to file." }, { status: 404 });
     }
-    // Read for the text and form fields only. The stored reading is not
-    // replaced here; reprocess is the way to do that.
-    const { text, fields } = await readDocument(bytes, supabase, existing.client_id);
-    const filed = await fileArrival(supabase, existing, { text, fields });
+    // Read for the text and form fields only - with the OCR already on record
+    // for a scan. The stored reading is not replaced here; reprocess does that.
+    const onRecord: OcrPayload | null = existing.ocr_text
+      ? {
+          text: existing.ocr_text,
+          engine: existing.ocr_engine,
+          confidence: existing.ocr_confidence === null ? null : Number(existing.ocr_confidence),
+          pages: existing.ocr_pages,
+        }
+      : null;
+    const reading = await readDocument(bytes, supabase, existing.client_id, onRecord);
+    const filed = await fileArrival(supabase, existing, reading);
     return NextResponse.json({ id: existing.id, refiled: true, filed });
+  }
+
+  // ── the agent's OCR of a scan already here ──────────────
+  if (ocrMode) {
+    if (!existing) {
+      return NextResponse.json({ error: "There is no such document to read." }, { status: 404 });
+    }
+    if (!ocrPayload) {
+      return NextResponse.json({ error: "Send the OCR text." }, { status: 400 });
+    }
+
+    // The server reads the file itself first. OCR is taken only for a PDF with
+    // no text layer; for one with text of its own it is not even kept.
+    const reading = await readDocument(bytes, supabase, existing.client_id, ocrPayload);
+    if (!reading.ocr && reading.kind !== "Unreadable") {
+      return NextResponse.json({ id: existing.id, ocr: "ignored: the file has text of its own" });
+    }
+
+    // Recorded even when Tesseract found nothing, so it is not asked for again.
+    const { error: ocrError } = await supabase
+      .from("inbox_documents")
+      .update({
+        ocr_text: ocrPayload.text,
+        ocr_engine: ocrPayload.engine,
+        ocr_confidence: ocrPayload.confidence,
+        ocr_pages: ocrPayload.pages,
+        ocr_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+    if (ocrError) return NextResponse.json({ error: ocrError.message }, { status: 500 });
+
+    if (!reading.ocr) {
+      return NextResponse.json({ id: existing.id, ocr: "recorded: nothing readable in it" });
+    }
+
+    // A waiting document takes the OCR reading. A decided one keeps its reading
+    // and its decision, and is only added to by filing.
+    let doc: FilingInput["doc"] = existing;
+    if (existing.state === "Pending") {
+      const { data: updated } = await supabase
+        .from("inbox_documents")
+        .update({ kind: reading.kind, parsed: reading.parsed, proposal: reading.proposal })
+        .eq("id", existing.id)
+        .eq("state", "Pending")
+        .select("id, kind, state, client_id, parsed, proposal, filename, file_modified, storage_path")
+        .maybeSingle();
+      if (updated) doc = updated;
+    }
+
+    const filed = await fileArrival(supabase, doc, reading);
+    return NextResponse.json({ id: existing.id, ocr: "read", kind: reading.kind, filed });
   }
 
   // ── reading one again ────────────────────────────────────
@@ -326,7 +450,7 @@ export async function POST(request: NextRequest) {
   const clientId = (matched as string | null) ?? null;
 
   // ── read it ──────────────────────────────────────────────
-  const reading = await readDocument(bytes, supabase, clientId);
+  const reading = await readDocument(bytes, supabase, clientId, ocrPayload);
 
   // ── keep the file ────────────────────────────────────────
   const storagePath = inboxStoragePath(actual);
@@ -362,6 +486,16 @@ export async function POST(request: NextRequest) {
       parsed: reading.parsed,
       proposal: reading.proposal,
       storage_path: storagePath,
+      // The agent's OCR, kept only when it is what the document was read from.
+      ...(reading.ocr && ocrPayload
+        ? {
+            ocr_text: ocrPayload.text,
+            ocr_engine: ocrPayload.engine,
+            ocr_confidence: ocrPayload.confidence,
+            ocr_pages: ocrPayload.pages,
+            ocr_at: new Date().toISOString(),
+          }
+        : {}),
     })
     .select("id, kind, state, client_id, parsed, proposal, filename, file_modified, storage_path")
     .single();

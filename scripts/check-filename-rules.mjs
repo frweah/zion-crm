@@ -170,6 +170,31 @@ if (c.kind !== "pick" || c.choices.length !== 2) fail("two authorizations for th
 c = choose("JC JP JS auth.pdf", [A("1", "V0000370", "Job Coaching")]);
 if (c.kind !== "pick") fail("a file naming several services was put on one authorization");
 
+c = choose("job coach auth.pdf", [A("j", "V0000390", "Job Coaching")], { text: "AUTHORIZATION\nA U T H N U M V 0 0 0 0 3 9 1\nBegin: 05/07/2025" });
+if (c.kind !== "new" || c.number !== "V0000391") fail(`a scan showing a number not on file was put on "the only one for the service" instead of waiting as that authorization (${c.kind}: ${c.why ?? c.how})`);
+
+c = choose("placement auth.pdf", [
+  A("1", "V0000500", "Job Placement", "2025-11-01", "2026-05-01"),
+  A("2", "V0000501", "Job Placement", "2024-01-01", "2024-06-30"),
+], { text: "A U T H N U M V 0 0 0 0 5 0 8", date: "2025-12-01" });
+if (c.kind !== "new" || c.number !== "V0000508") fail(`a scan showing its own number, not on file, was put on the authorization whose dates cover it (${c.kind})`);
+
+c = choose("invoice.pdf", [A("1", "V0000510", "Job Coaching", "2025-01-01", "2025-12-31")], { text: "AUTHNUMV0000519 billing", date: "2025-06-01" });
+if (c.kind !== "pick") fail("an invoice showing an authorization number not on file was billed against another by its dates");
+
+c = choose("SE JC auth.pdf", [
+  A("1", "V0000520", "Job Coaching", "2026-01-01", "2026-08-01"),
+  A("2", "V0000521", "Job Coaching", "2025-01-01", "2025-06-01"),
+  A("3", "V0000522", "Job Placement"),
+], { text: "AUTHNUMV0000522", date: "2026-02-01" });
+if (c.kind !== "pick" || !/V0000522.*Job Placement/.test(c.why)) fail(`a scan showing an on-file number for another service was linked by its dates (${c.kind}: ${c.why ?? c.how})`);
+
+c = choose("auth scan.pdf", [A("j", "V0000530", "Job Coaching")], { text: "A U T H N U M V 0 0 0 0 5 3\nAUTHNUMV0000539" });
+if (c.kind !== "new" || c.number !== "V0000539") fail(`of two readings of one number, the truncated one was proposed (${c.kind}: ${c.number})`);
+
+c = choose("job coach auth.pdf", [A("j", "V0000390", "Job Coaching")], { text: "AUTHNUMV0000390\nBegin: 05/07/2025" });
+if (c.kind !== "linked" || c.auth.id !== "j") fail("a scan showing its own authorization's number, glued to its label, was not linked");
+
 c = choose("placement invoice.pdf", [A("1", "V0000380", "Job Coaching")]);
 if (c.kind !== "pick" || !/^no Job Placement authorization on file \(1 other authorization\)$/.test(c.why)) {
   fail(`an invoice for a service with no authorization on file was put somewhere or misdescribed (${c.kind}: ${c.why})`);
@@ -219,6 +244,23 @@ if (p.action !== "link" || p.category !== "Invoice" || p.authId !== "j" || p.sta
 
 p = plan({ filename: "placement auth.pdf", textKind: "Other", text: "01/31/2026 Job placement 2250\nTotal 01/31/2026" });
 if (p.action !== "link" || p.category !== "Invoice" || p.authId !== "p") fail("a readable invoice named \"auth\" was filed as the authorization, not as its invoice");
+
+p = plan({ filename: "placement auth.pdf", textKind: "Other", text: "AUTHOR1ZATI0N F0R SERV1CES garbled by a scanner 2250", ocr: { confidence: 61 } });
+if (p.action !== "link" || p.category !== "Authorization" || !p.fromOcr) fail("OCR text that failed to read as an authorization turned a scanned authorization into an invoice");
+
+p = plan({ filename: "19 V0000401 PL.pdf", parsedAuth: { start: "2026-01-01", end: "2026-06-30" }, ocr: { confidence: 93 }, text: "A U T H N U M V 0 0 0 0 4 0 1\nBegin: 01/01/2026 End: 06/30/2026" });
+if (p.action !== "link" || p.start !== "2026-01-01" || !p.fromOcr) fail("OCR dates were not used for a scan that shows its own authorization's number");
+
+p = plan({ filename: "19 V0000401 PL.pdf", parsedAuth: { start: "2026-01-01", end: "2026-06-30" }, ocr: { confidence: 93 }, text: "Begin: 01/01/2026 End: 06/30/2026" });
+if (p.action !== "link" || p.start !== null || p.end !== null || !/OCR dates were not used/.test(p.outcome)) {
+  fail("OCR dates were put on an authorization whose number the scan does not show");
+}
+
+p = plan({ filename: "Resume.pdf", text: "Jordan Sample\nExperience\nShelving and stocking, 2019 to 2024", ocr: { confidence: 88 } });
+if (p.action !== "note" || !p.fromOcr || !/Read by OCR from a scan \(Tesseract's confidence 88%\)/.test(p.text)) fail("a note made from OCR text does not say it was read by OCR");
+
+p = plan({ filename: "Resume.pdf", text: "Jordan Sample\nExperience\nShelving and stocking, 2019 to 2024" });
+if (p.action !== "note" || p.fromOcr || /Read by OCR/.test(p.text)) fail("a note from a text layer claims to be OCR");
 
 p = plan({ filename: "placement auth.pdf", textKind: "Unreadable" });
 if (p.action !== "link" || p.category !== "Authorization") fail("a scan named \"auth\" stopped being taken at its name");

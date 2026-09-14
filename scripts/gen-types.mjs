@@ -128,6 +128,7 @@ const RPC_FUNCTIONS = [
   "file_document_as_note",
   "link_document_to_authorization",
   "correct_authorization",
+  "replace_placeholder_authorization",
 ];
 
 const { rows: fns } = await client.query(

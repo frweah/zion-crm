@@ -250,6 +250,7 @@ export async function linkNamedDocument(_prev: InboxState, formData: FormData): 
     p_start: null,
     p_end: null,
     p_outcome: null,
+    p_ocr: false,
   });
 
   if (error) return { error: error.message, ok: null };
@@ -262,6 +263,46 @@ export async function linkNamedDocument(_prev: InboxState, formData: FormData): 
       category === "Invoice"
         ? "On the authorization as billed — paid if a payment for it is on file."
         : "Attached to the authorization.",
+  };
+}
+
+/**
+ * The real authorization for an imported placeholder.
+ *
+ * Confirming it as new would leave the placeholder's carried hours behind on a
+ * second authorization for the same service. This gives the placeholder the
+ * real number instead; public.replace_placeholder_authorization refuses a real
+ * authorization, another client's, and a number already on file, and logs it.
+ */
+export async function replacePlaceholder(_prev: InboxState, formData: FormData): Promise<InboxState> {
+  const me = await getCurrentStaff();
+  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+    return { error: "Only Admin and Billing replace a placeholder.", ok: null };
+  }
+
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  if (!str("document_id") || !str("placeholder_id")) return { error: "Which document and placeholder?", ok: null };
+  if (!str("number")) return { error: "Give the authorization's real number.", ok: null };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("replace_placeholder_authorization", {
+    p_doc: str("document_id"),
+    p_placeholder: str("placeholder_id"),
+    p_number: str("number"),
+    p_start: str("start_date") || null,
+    p_end: str("end_date") || null,
+  });
+  if (error) return { error: error.message, ok: null };
+
+  const row = Array.isArray(data) ? data[0] : null;
+  revalidatePath("/admin/inbox");
+  revalidatePath("/billing");
+  revalidatePath("/clients", "layout");
+  return {
+    error: null,
+    ok: `The placeholder is now ${row?.auth_number ?? str("number")}, with its hours, and the PDF is on it.${
+      row?.conflicts ? ` Dates kept as they were: ${row.conflicts}.` : ""
+    }`,
   };
 }
 

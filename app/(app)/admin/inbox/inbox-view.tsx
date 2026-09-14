@@ -10,8 +10,20 @@ import {
   matchWarrant,
   confirmAuthorization,
   linkNamedDocument,
+  replacePlaceholder,
   type InboxState,
 } from "./actions";
+import { familyOf } from "@/lib/filename-rules";
+
+/** An imported "(workbook)" authorization with no USOR number yet. */
+export type Placeholder = {
+  id: string;
+  client_id: string;
+  number: string;
+  service_type: string;
+  carried_used: number;
+  total_hours: number | null;
+};
 
 const initial: InboxState = { error: null, ok: null };
 
@@ -140,7 +152,69 @@ type AuthCandidate = {
  * the rest: a number already on file gets the PDF attached rather than a
  * second authorization, and a date on file is kept.
  */
-function AuthorizationProposal({ doc, canBill }: { doc: PendingRow; canBill: boolean }) {
+/**
+ * "This is the real authorization for a placeholder."
+ *
+ * Offered beside confirming a new authorization when the client has an
+ * imported "(workbook)" placeholder for the same service. Replacing keeps the
+ * placeholder - and the hours carried on it - rather than creating a second
+ * authorization that starts from zero.
+ */
+function ReplacePlaceholder({
+  doc,
+  placeholder,
+  number,
+  start,
+  end,
+}: {
+  doc: PendingRow;
+  placeholder: Placeholder;
+  number: string;
+  start: string;
+  end: string;
+}) {
+  const [state, action, replacing] = useActionState(replacePlaceholder, initial);
+  return (
+    <form action={action} className="card" style={{ marginTop: 10, background: "var(--bone)" }}>
+      <Message state={state} />
+      <p className="sub" style={{ margin: "0 0 6px" }}>
+        Or: this is the real authorization for the placeholder <b>{placeholder.number}</b> (
+        {placeholder.service_type}, {Number(placeholder.carried_used)} hrs carried
+        {placeholder.total_hours ? ` of ${Number(placeholder.total_hours)}` : ""}). Replacing gives the
+        placeholder this number, so its hours, entries and invoices stay with it and nothing is duplicated.
+      </p>
+      <input type="hidden" name="document_id" value={doc.id} />
+      <input type="hidden" name="placeholder_id" value={placeholder.id} />
+      <div className="row2">
+        <label className="field" style={{ maxWidth: 170 }}>
+          Real number
+          <input name="number" defaultValue={number} required />
+        </label>
+        <label className="field" style={{ maxWidth: 190 }}>
+          Start date
+          <input type="date" name="start_date" defaultValue={start} />
+        </label>
+        <label className="field" style={{ maxWidth: 190 }}>
+          End date
+          <input type="date" name="end_date" defaultValue={end} />
+        </label>
+      </div>
+      <button className="btn" type="submit" disabled={replacing}>
+        {replacing ? "…" : `Replace ${placeholder.number} with this number`}
+      </button>
+    </form>
+  );
+}
+
+function AuthorizationProposal({
+  doc,
+  canBill,
+  placeholders,
+}: {
+  doc: PendingRow;
+  canBill: boolean;
+  placeholders: Placeholder[];
+}) {
   const [state, action, confirming] = useActionState(confirmAuthorization, initial);
 
   const parsed = (doc.parsed ?? {}) as Record<string, unknown>;
@@ -283,6 +357,22 @@ function AuthorizationProposal({ doc, canBill }: { doc: PendingRow; canBill: boo
           </button>
         </form>
       )}
+
+      {canBill &&
+        byNumber &&
+        placeholders
+          .filter((p) => p.client_id === doc.client_id)
+          .filter((p) => !serviceRead || familyOf(p.service_type) === familyOf(serviceRead))
+          .map((p) => (
+            <ReplacePlaceholder
+              key={p.id}
+              doc={doc}
+              placeholder={p}
+              number={v("authNumber") || named.number || ""}
+              start={v("startDate")}
+              end={v("endDate")}
+            />
+          ))}
     </div>
   );
 }
@@ -349,10 +439,12 @@ function DocumentRow({
   doc,
   today,
   canBill,
+  placeholders,
 }: {
   doc: PendingRow;
   today: string;
   canBill: boolean;
+  placeholders: Placeholder[];
 }) {
   const [fileState, fileAction, filing] = useActionState(fileDocument, initial);
   const [ignoreState, ignoreAction] = useActionState(ignoreDocument, initial);
@@ -380,7 +472,15 @@ function DocumentRow({
             · seen {fmtStamp(doc.first_seen)}
           </div>
         </div>
-        <span className={"chip " + (doc.kind === "Unreadable" ? "bad" : "")}>{doc.kind}</span>
+        <span>
+          {parsed.text_source === "OCR" && (
+            <span className="chip warn" style={{ marginRight: 6 }}>
+              Read by OCR
+              {typeof parsed.ocr_confidence === "number" ? ` · ${Math.round(parsed.ocr_confidence)}%` : ""}
+            </span>
+          )}
+          <span className={"chip " + (doc.kind === "Unreadable" ? "bad" : "")}>{doc.kind}</span>
+        </span>
       </div>
 
       {named.pattern && (
@@ -397,7 +497,7 @@ function DocumentRow({
       <Message state={warrantState} />
 
       {(doc.kind === "Authorization" || named.named === "Authorization") && (
-        <AuthorizationProposal doc={doc} canBill={canBill} />
+        <AuthorizationProposal doc={doc} canBill={canBill} placeholders={placeholders} />
       )}
       {named.named === "Invoice" && <NamedInvoice doc={doc} canBill={canBill} />}
 
@@ -472,11 +572,13 @@ export function InboxView({
   clients,
   today,
   canBill,
+  placeholders,
 }: {
   pending: PendingRow[];
   clients: { id: string; name: string }[];
   today: string;
   canBill: boolean;
+  placeholders: Placeholder[];
 }) {
   const unmatched = new Map<string, number>();
   for (const d of pending) {
@@ -540,7 +642,7 @@ export function InboxView({
               </p>
             )}
             {rows.map((d) => (
-              <DocumentRow canBill={canBill} key={d.id} doc={d} today={today} />
+              <DocumentRow canBill={canBill} key={d.id} doc={d} today={today} placeholders={placeholders} />
             ))}
           </div>
         );

@@ -19,6 +19,8 @@ export type NoteRow = {
   visible_roles: string[];
   /** For a note made from a document: where its date came from. */
   dated_from: string;
+  /** Its text was read by OCR from a scan. */
+  from_ocr: boolean;
   /** The document it was made from, when this person may open it. */
   file: { storage_path: string; filename: string } | null;
 };
@@ -178,7 +180,7 @@ export function NotesTab({
               .join(", ")}
           </div>
           <div className="note-body">{n.text}</div>
-          {(n.file || n.dated_from === "File date (fallback)") && (
+          {(n.file || n.from_ocr || n.dated_from === "File date (fallback)") && (
             <div className="row2" style={{ gap: 6, alignItems: "center", marginTop: 4 }}>
               {n.file && (
                 <>
@@ -188,6 +190,9 @@ export function NotesTab({
               )}
               {n.dated_from === "File date (fallback)" && (
                 <span className="chip warn">Dated by the file&rsquo;s saved date</span>
+              )}
+              {n.from_ocr && (
+                <span className="chip warn">Read by OCR — check it against the file</span>
               )}
             </div>
           )}

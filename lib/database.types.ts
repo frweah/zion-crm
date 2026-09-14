@@ -58,6 +58,7 @@ export type Database = {
           uploaded_by: string | null;
           uploaded_by_name: string;
           created_at: string;
+          review_note: string;
         };
         Insert: {
           id?: string;
@@ -74,6 +75,7 @@ export type Database = {
           uploaded_by?: string | null;
           uploaded_by_name?: string;
           created_at?: string;
+          review_note?: string;
         };
         Update: {
           id?: string;
@@ -90,6 +92,7 @@ export type Database = {
           uploaded_by?: string | null;
           uploaded_by_name?: string;
           created_at?: string;
+          review_note?: string;
         };
         Relationships: [];
       };
@@ -151,6 +154,7 @@ export type Database = {
           note: string;
           created_at: string;
           updated_at: string;
+          dates_from_ocr: boolean;
         };
         Insert: {
           id?: string;
@@ -170,6 +174,7 @@ export type Database = {
           note?: string;
           created_at?: string;
           updated_at?: string;
+          dates_from_ocr?: boolean;
         };
         Update: {
           id?: string;
@@ -189,6 +194,7 @@ export type Database = {
           note?: string;
           created_at?: string;
           updated_at?: string;
+          dates_from_ocr?: boolean;
         };
         Relationships: [];
       };
@@ -1183,6 +1189,11 @@ export type Database = {
           decided_at: string | null;
           outcome: string;
           first_seen: string;
+          ocr_text: string | null;
+          ocr_engine: string;
+          ocr_confidence: number | null;
+          ocr_pages: number | null;
+          ocr_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1202,6 +1213,11 @@ export type Database = {
           decided_at?: string | null;
           outcome?: string;
           first_seen?: string;
+          ocr_text?: string | null;
+          ocr_engine?: string;
+          ocr_confidence?: number | null;
+          ocr_pages?: number | null;
+          ocr_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1221,6 +1237,11 @@ export type Database = {
           decided_at?: string | null;
           outcome?: string;
           first_seen?: string;
+          ocr_text?: string | null;
+          ocr_engine?: string;
+          ocr_confidence?: number | null;
+          ocr_pages?: number | null;
+          ocr_at?: string | null;
         };
         Relationships: [];
       };
@@ -1753,6 +1774,7 @@ export type Database = {
           source_document: string | null;
           attachment_id: string | null;
           dated_from: string;
+          from_ocr: boolean;
         };
         Insert: {
           id?: string;
@@ -1769,6 +1791,7 @@ export type Database = {
           source_document?: string | null;
           attachment_id?: string | null;
           dated_from?: string;
+          from_ocr?: boolean;
         };
         Update: {
           id?: string;
@@ -1785,6 +1808,7 @@ export type Database = {
           source_document?: string | null;
           attachment_id?: string | null;
           dated_from?: string;
+          from_ocr?: boolean;
         };
         Relationships: [];
       };
@@ -3375,7 +3399,7 @@ export type Database = {
         Returns: undefined;
       };
       file_document_as_note: {
-        Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category: string | null; p_restricted: boolean | null; p_outcome: string | null };
+        Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category: string | null; p_restricted: boolean | null; p_outcome: string | null; p_ocr: boolean | null };
         Returns: { note_id: string | null; attachment_id: string | null; created: boolean | null }[];
       };
       fmt_hours: {
@@ -3431,7 +3455,7 @@ export type Database = {
         Returns: number;
       };
       link_document_to_authorization: {
-        Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start: string | null; p_end: string | null; p_outcome: string | null };
+        Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start: string | null; p_end: string | null; p_outcome: string | null; p_ocr: boolean | null };
         Returns: { attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       log_mail_message: {
@@ -3517,6 +3541,10 @@ export type Database = {
       refresh_microsoft_tokens: {
         Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: undefined;
+      };
+      replace_placeholder_authorization: {
+        Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start: string | null; p_end: string | null };
+        Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       save_intake: {
         Args: { p_client_id: string | null; p_data: Json | null };

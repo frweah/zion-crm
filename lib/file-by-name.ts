@@ -1,6 +1,7 @@
 import "server-only";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { planDocument, vKey, type AuthLite, type Plan } from "@/lib/filename-rules";
+import { parseAuthorizationText } from "@/lib/authorization-parse";
 import type { Json } from "@/lib/database.types";
 
 /**
@@ -35,6 +36,8 @@ export type FilingInput = {
   };
   text: string;
   fields: Record<string, string>;
+  /** Set when `text` is Tesseract's reading of a scan. */
+  ocr?: { confidence: number | null } | null;
 };
 
 export type FilingResult = { action: Plan["action"] | "skipped"; detail: string };
@@ -89,6 +92,21 @@ export async function fileByName(supabase: Supabase, input: FilingInput): Promis
   const fields = asObject(parsed.fields as Json) as Record<string, { value?: string }>;
   const usor = typeof parsed.usor === "string" ? (parsed.usor.match(/\d+/)?.[0] ?? null) : null;
 
+  // An authorization's dates: from the stored reading, or read now from the
+  // text - which, for a scan, is OCR. An OCR date is used only when both dates
+  // read, both are real dates, the end is not before the start and the parser
+  // raised no doubt about them; half a pair misread is worse than none.
+  let authDates = { start: fields.startDate?.value || null, end: fields.endDate?.value || null };
+  if (!authDates.start && !authDates.end && input.text.replace(/\s/g, "").length >= 40) {
+    const read = parseAuthorizationText(input.text, { pages: 1, scanned: false });
+    const start = read.fields.startDate?.value ?? null;
+    const end = read.fields.endDate?.value ?? null;
+    const doubtful = read.warnings.some((w) => /date/i.test(w));
+    if (!input.ocr || (start && end && start <= end && !doubtful)) {
+      authDates = { start, end };
+    }
+  }
+
   const plan = planDocument({
     filename: doc.filename,
     clientName: client?.name ?? "",
@@ -98,7 +116,8 @@ export async function fileByName(supabase: Supabase, input: FilingInput): Promis
     textUsor: usor,
     text: input.text,
     fields: input.fields,
-    parsedAuth: { start: fields.startDate?.value || null, end: fields.endDate?.value || null },
+    parsedAuth: authDates,
+    ocr: input.ocr ?? null,
     auths: mine,
     numbersElsewhere: elsewhere,
   });
@@ -124,6 +143,7 @@ export async function fileByName(supabase: Supabase, input: FilingInput): Promis
         p_category: plan.category,
         p_restricted: plan.restricted,
         p_outcome: plan.outcome,
+        p_ocr: plan.fromOcr,
       });
       if (error) {
         await remember();
@@ -141,6 +161,7 @@ export async function fileByName(supabase: Supabase, input: FilingInput): Promis
         p_start: plan.start,
         p_end: plan.end,
         p_outcome: plan.outcome,
+        p_ocr: plan.fromOcr,
       });
       if (error) {
         await remember();

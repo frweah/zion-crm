@@ -12,12 +12,18 @@
     What it will not do, ever:
 
       * move, rename, delete or modify anything in the watched folder
-      * write to any other folder on this machine
+      * write outside its own folder, except the page images OCR needs, in a
+        folder of their own under %TEMP%, deleted as soon as they are read
       * send anything but PDFs, and only from inside the watched folder
+      * send a document, or its text, anywhere but the CRM
 
     It sends a list of hashes first and uploads only what the CRM has never
     seen, so running it every fifteen minutes on a folder of two thousand
     files costs one small request.
+
+    Scans: a PDF with no text layer is read with Tesseract on this machine
+    (zion-ocr.ps1) and the text goes up with the file, marked as OCR. When
+    Tesseract is not installed, scans go up as they are, as before.
 
     PowerShell 5.1, which is what Windows already has. No modules to install.
 #>
@@ -33,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.0.4'
+$AgentVersion = '1.1.0'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -94,7 +100,64 @@ if (-not (Test-Path -LiteralPath $WatchFolder)) {
 
 $headers = @{ 'x-zion-agent' = $Secret }
 
-Write-Log "Run starting. Watching: $WatchFolder"
+Write-Log "Run starting ($AgentVersion). Watching: $WatchFolder"
+
+# ── OCR ──────────────────────────────────────────────────────
+# Optional. Without Tesseract the agent does exactly what it did before.
+# How many older scans to read per run, when the CRM asks for them: enough to
+# work through a backlog, few enough that a run never takes the machine for an
+# hour. "ocrPerRun" in the configuration overrides it; 0 turns that off.
+$OcrPerRun = if ($null -ne $config.ocrPerRun) { [int]$config.ocrPerRun } else { 15 }
+$Tesseract = $null
+$OcrEngine = ''
+try {
+    . (Join-Path $Here 'zion-ocr.ps1')
+    $Tesseract = Find-Tesseract ([string]$config.tesseractPath)
+    if ($Tesseract) {
+        $OcrEngine = Get-TesseractVersion $Tesseract
+        Initialize-WinRt
+        Write-Log "OCR available: $OcrEngine"
+    } else {
+        Write-Log 'Tesseract is not installed, so scans are sent without OCR.' 'warn'
+    }
+} catch {
+    Write-Log "OCR is not available: $($_.Exception.Message)" 'warn'
+    $Tesseract = $null
+}
+
+function Get-Ocr {
+    param([string] $FullPath)
+    if (-not $Tesseract) { return $null }
+    try {
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        $r = Invoke-PdfOcr -Path $FullPath -Exe $Tesseract -Engine $OcrEngine -MaxPages 10
+        $sw.Stop()
+        if ($r) {
+            Write-Log ("OCR read {0} of {1} page(s), confidence {2}%, in {3:N0}s" -f $r.Pages, $r.PageCount, $r.Confidence, $sw.Elapsed.TotalSeconds)
+        } else {
+            Write-Log 'OCR found no text.'
+        }
+        return $r
+    } catch {
+        Write-Log "OCR failed: $($_.Exception.Message)" 'warn'
+        return $null
+    }
+}
+
+# The OCR fields as the CRM reads them. The text travels as base64 of UTF-8:
+# the ordinary upload body is built as Latin-1 to carry the PDF's bytes, and
+# an accent or a curly quote in the text would not survive that.
+function Get-OcrFields {
+    param($Ocr)
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    $fields = [ordered]@{
+        ocr_text_b64   = if ($Ocr) { ConvertTo-Base64Utf8 $Ocr.Text } else { '' }
+        ocr_engine     = $OcrEngine
+        ocr_confidence = if ($Ocr) { ([double]$Ocr.Confidence).ToString($inv) } else { '' }
+        ocr_pages      = if ($Ocr) { [string]$Ocr.Pages } else { '' }
+    }
+    return $fields
+}
 
 # ── list what is there ───────────────────────────────────────
 # One subfolder per client. Files loose at the top level are included with an
@@ -163,12 +226,6 @@ try {
 
 Write-Log "$($wanted.Count) file(s) the CRM has not seen."
 
-if ($wanted.Count -eq 0) {
-    Write-Log 'Nothing to send. Run finished.'
-    Trim-Log
-    exit 0
-}
-
 # ── send them ────────────────────────────────────────────────
 $sent = 0
 $failed = 0
@@ -196,6 +253,15 @@ function Send-Fields {
         -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 300
 }
 
+# A scan already with the CRM, and its OCR (or the news that there was none).
+function Send-Ocr {
+    param([string] $Hash, $Ocr)
+    $fields = [ordered]@{ ocr = '1'; hash = $Hash }
+    $ocrFields = Get-OcrFields $Ocr
+    foreach ($k in $ocrFields.Keys) { $fields[$k] = $ocrFields[$k] }
+    Send-Fields $fields
+}
+
 foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
     try {
         if ($entry.size -gt $StorageLimit) {
@@ -205,6 +271,19 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
         }
 
         $name = [System.IO.Path]::GetFileName($entry.full)
+
+        # A PDF with no text layer is read before it goes, so the text arrives
+        # with it. When this cannot tell, it goes as it is and the CRM's answer
+        # below decides.
+        $ocr = $null
+        if ($Tesseract) {
+            $hasText = $true
+            try { $hasText = Test-PdfHasTextLayer $entry.full } catch { $hasText = $true }
+            if (-not $hasText) {
+                Write-Log "No text layer, reading with OCR: $($entry.path)"
+                $ocr = Get-Ocr $entry.full
+            }
+        }
 
         if ($entry.size -gt $DirectLimit) {
             $ticket = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/upload-url" `
@@ -222,14 +301,19 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
                 -ContentType 'application/pdf' -Headers @{ 'x-upsert' = 'true' } `
                 -UseBasicParsing -TimeoutSec 600 | Out-Null
 
-            $result = Send-Fields ([ordered]@{
+            $fields = [ordered]@{
                 stored   = '1'
                 hash     = $entry.hash
                 folder   = $entry.folder
                 path     = $entry.path
                 modified = $entry.modified
                 filename = $name
-            })
+            }
+            if ($ocr) {
+                $ocrFields = Get-OcrFields $ocr
+                foreach ($k in $ocrFields.Keys) { $fields[$k] = $ocrFields[$k] }
+            }
+            $result = Send-Fields $fields
         } else {
             # PowerShell 5.1 has no -Form, so the multipart body is built by hand.
             $boundary = [System.Guid]::NewGuid().ToString()
@@ -238,17 +322,28 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
             $fileBytes = [System.IO.File]::ReadAllBytes($entry.full)
             $fileEnc   = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($fileBytes)
 
-            $body = (
+            $pieces = @(
                 "--$boundary", "Content-Disposition: form-data; name=`"hash`"$LF", $entry.hash,
                 "--$boundary", "Content-Disposition: form-data; name=`"folder`"$LF", $entry.folder,
                 "--$boundary", "Content-Disposition: form-data; name=`"path`"$LF", $entry.path,
-                "--$boundary", "Content-Disposition: form-data; name=`"modified`"$LF", $entry.modified,
+                "--$boundary", "Content-Disposition: form-data; name=`"modified`"$LF", $entry.modified
+            )
+            if ($ocr) {
+                $ocrFields = Get-OcrFields $ocr
+                foreach ($k in $ocrFields.Keys) {
+                    $pieces += "--$boundary"
+                    $pieces += "Content-Disposition: form-data; name=`"$k`"$LF"
+                    $pieces += [string]$ocrFields[$k]
+                }
+            }
+            $pieces += @(
                 "--$boundary",
                 "Content-Disposition: form-data; name=`"file`"; filename=`"$name`"",
                 "Content-Type: application/pdf$LF",
                 $fileEnc,
                 "--$boundary--$LF"
-            ) -join $LF
+            )
+            $body = $pieces -join $LF
 
             $result = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/file" `
                 -Headers $headers -ContentType "multipart/form-data; boundary=$boundary" `
@@ -263,6 +358,19 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
             # the error, that gave it.
             $why = if ($result.reason) { " ($($result.reason))" } else { '' }
             Write-Log "Sent: $($entry.path) -> $($result.kind)$why"
+
+            # The CRM found no text in a PDF this could not tell about: read it
+            # now rather than waiting for the CRM to ask.
+            if ($Tesseract -and -not $ocr -and $result.kind -eq 'Unreadable') {
+                Write-Log "The CRM found no text; reading with OCR: $($entry.path)"
+                $late = Get-Ocr $entry.full
+                try {
+                    $answer = Send-Ocr $entry.hash $late
+                    Write-Log "OCR sent: $($entry.path) -> $($answer.ocr)"
+                } catch {
+                    Write-Log "OCR not sent for $($entry.path): $($_.Exception.Message)" 'warn'
+                }
+            }
         }
         $sent++
     } catch {
@@ -271,7 +379,39 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
     }
 }
 
-Write-Log "Run finished. $sent sent, $failed failed."
+# ── scans the CRM would like read ────────────────────────────
+# Documents the CRM holds with no text and no OCR yet - ones that arrived
+# before this machine had Tesseract, or that this could not tell about. Read
+# from this machine's own copy, matched by hash, a few per run.
+$ocrSent = 0
+if ($Tesseract -and $OcrPerRun -gt 0) {
+    $ask = $null
+    try {
+        $ask = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/ocr-wanted" `
+            -Headers $headers -ContentType 'application/json' `
+            -Body (@{ limit = $OcrPerRun } | ConvertTo-Json -Compress) -TimeoutSec 60
+    } catch {
+        # A CRM that does not have this address yet is not this run failing.
+        Write-Log "The CRM did not ask for any OCR: $($_.Exception.Message)" 'warn'
+    }
+    foreach ($w in @($ask.wanted)) {
+        if (-not $w) { continue }
+        $local = $entries | Where-Object { $_.hash -eq $w.hash } | Select-Object -First 1
+        if (-not $local) { continue }
+        Write-Log "The CRM asked for OCR: $($local.path)"
+        $read = Get-Ocr $local.full
+        try {
+            $answer = Send-Ocr $w.hash $read
+            $filed = if ($answer.filed) { " ($($answer.filed))" } else { '' }
+            Write-Log "OCR sent: $($local.path) -> $($answer.ocr)$filed"
+            $ocrSent++
+        } catch {
+            Write-Log "OCR not sent for $($local.path): $($_.Exception.Message)" 'warn'
+        }
+    }
+}
+
+Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request."
 Trim-Log
 
 # A run that could not send anything it meant to is a failed run, so the task

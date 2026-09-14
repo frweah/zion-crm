@@ -11,6 +11,8 @@ export type AuthFile = {
   category: string;
   auth_id: string | null;
   created_at: string;
+  /** Why this file needs another look - e.g. OCR read a different number on it. */
+  review_note: string;
 };
 
 export type AvailableFile = AuthFile & {
@@ -107,8 +109,10 @@ export function AuthorizationFiles({
     <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }}>
       {corrections.map((c) => (
         <div key={`${c.at}-${c.field}`} className="lock" style={{ marginBottom: 6 }}>
-          Corrected {c.at.slice(0, 10)}: {c.field === "Client" ? "moved from" : "service was"} {c.was_value} →{" "}
-          {c.new_value}
+          Corrected {c.at.slice(0, 10)}:{" "}
+          {c.field === "Document"
+            ? `${c.was_value} taken off this authorization`
+            : `${c.field === "Client" ? "moved from" : c.field === "Number" ? "number was" : "service was"} ${c.was_value} → ${c.new_value}`}
           {c.staff_name && ` by ${c.staff_name}`}. {c.reason}
         </div>
       ))}
@@ -132,6 +136,7 @@ export function AuthorizationFiles({
             ) : (
               <span className="chip">{f.category}</span>
             )}
+            {f.review_note && <span className="chip warn">Check this file: {f.review_note}</span>}
             <OpenFile file={f} />
           </div>
         ))

@@ -144,6 +144,23 @@ export function vKey(number: string): string {
     .replace(/(\d)[A-Z]$/, "$1");
 }
 
+/**
+ * The authorization numbers a document's text shows, as vKeys.
+ *
+ * USOR prints the number twice: in its box ("V0000123") and under the barcode,
+ * glued to its label ("AUTHNUMV0000123"), which OCR often reads with a space
+ * between every character ("A U T H N U M V 0 0 0 0 1 2 3"). All three count.
+ */
+export function vNumbersIn(text: string): string[] {
+  const upper = text.toUpperCase();
+  const joined = upper.replace(/\b([A-Z0-9])\s(?=[A-Z0-9]\b)/g, "$1");
+  const found = new Set<string>();
+  for (const source of [upper, joined]) {
+    for (const m of source.matchAll(/V\s?(\d{6,7})(?!\d)/g)) found.add(m[1]);
+  }
+  return [...found];
+}
+
 export function familyOf(serviceType: string): Family | string {
   if (serviceType.startsWith("WSA")) return "WSA";
   if (serviceType.startsWith("Job Development") || serviceType === "HQ Indicator") return "Job Development";
@@ -571,18 +588,53 @@ export function chooseAuthorization(
   }
 
   const ofService = byFamily(doc.auths);
+  const pool = ofService.length ? ofService : doc.auths;
+  const shown = vNumbersIn(doc.text);
+  const onFile = new Set(doc.auths.map((a) => vKey(a.number)));
+  const strangers = shown.filter((k) => !onFile.has(k));
+
+  // A number the document shows outranks every guess below. OCR of the scans
+  // found 19 PDFs put on "the only authorization for the service" or "the one
+  // whose dates cover it" that each showed an authorization number of their
+  // own - usually one not on file at all. Such a document is that
+  // authorization: an authorization to confirm, or an invoice to pick for.
+  // The longest reading first: OCR drops a digit more often than it adds one.
+  const strangerFirst = [...strangers].sort((a, b) => b.length - a.length)[0];
+  const stranger = (): AuthChoice =>
+    reading.pattern === "Authorization"
+      ? { kind: "new", number: `V${strangerFirst}`, how: `the document shows V${strangerFirst}, which is not on file` }
+      : { kind: "pick", choices: pool, why: `the document shows V${strangerFirst}, which is not an authorization on file` };
+
   if (reading.families.length === 1 && ofService.length === 1) {
+    if (shown.includes(vKey(ofService[0].number))) {
+      return { kind: "linked", auth: ofService[0], how: `the only ${reading.families[0]} authorization on file, and its number is on the document` };
+    }
+    if (strangers.length) return stranger();
+    const otherShown = doc.auths.find((a) => shown.includes(vKey(a.number)));
+    if (otherShown) {
+      return {
+        kind: "pick",
+        choices: doc.auths,
+        why: `the document shows ${otherShown.number}, which is on file as ${otherShown.service_type}`,
+      };
+    }
     return { kind: "linked", auth: ofService[0], how: `the only ${reading.families[0]} authorization on file` };
   }
 
-  const pool = ofService.length ? ofService : doc.auths;
-
-  const tokens = doc.text.toUpperCase().match(/[A-Z0-9]+/g) ?? [];
-  const inText = new Set(tokens.map(vKey).filter((k) => k.length >= 6));
-  const named = pool.filter((a) => vKey(a.number).length >= 6 && inText.has(vKey(a.number)));
+  const named = pool.filter((a) => vKey(a.number).length >= 6 && shown.includes(vKey(a.number)));
   if (named.length === 1) {
     return { kind: "linked", auth: named[0], how: `${named[0].number} in the document` };
   }
+
+  const shownOutsidePool = doc.auths.filter((a) => !pool.includes(a) && shown.includes(vKey(a.number)));
+  if (named.length === 0 && shownOutsidePool.length) {
+    return {
+      kind: "pick",
+      choices: doc.auths,
+      why: `the document shows ${shownOutsidePool[0].number}, which is on file as ${shownOutsidePool[0].service_type}`,
+    };
+  }
+  if (named.length === 0 && strangers.length) return stranger();
 
   const dated = byWindow(pool);
   if (dated.length === 1) {
@@ -637,6 +689,7 @@ export function noteText(
   filename: string,
   date: DocumentDate,
   content: { text: string; fields: Record<string, string> },
+  ocr: { confidence: number | null } | null = null,
 ): string {
   const heading = `${reading.label || "Document"} — ${filename}`;
   const when =
@@ -658,7 +711,12 @@ export function noteText(
         : text
       : "A scan: nothing in it could be read as text. Open the attached file.";
 
-  return `${heading}\n${when}\n\n${body}`;
+  // OCR is a reading, not the document: say so where the words are.
+  const read = ocr
+    ? `\nRead by OCR from a scan${ocr.confidence !== null ? ` (Tesseract's confidence ${Math.round(ocr.confidence)}%)` : ""}: check names, numbers and dates against the attached file.`
+    : "";
+
+  return `${heading}\n${when}${read}\n\n${body}`;
 }
 
 // ── the plan ─────────────────────────────────────────────────
@@ -675,6 +733,8 @@ export type PlanInput = {
   text: string;
   fields: Record<string, string>;
   parsedAuth: { start: string | null; end: string | null } | null;
+  /** The text is Tesseract's reading of a scan, with its mean word confidence. */
+  ocr?: { confidence: number | null } | null;
   auths: AuthLite[];
   /** vKey of every authorization number on file for other clients. */
   numbersElsewhere: string[];
@@ -691,6 +751,7 @@ export type Plan =
       category: Category;
       restricted: boolean;
       outcome: string;
+      fromOcr: boolean;
     }
   | {
       action: "link";
@@ -701,6 +762,7 @@ export type Plan =
       start: string | null;
       end: string | null;
       outcome: string;
+      fromOcr: boolean;
     }
   | { action: "attach"; reading: NameReading; category: Category; outcome: string }
   | { action: "ignore"; reading: NameReading; reason: string }
@@ -749,10 +811,13 @@ export function planDocument(input: PlanInput): Plan {
   // is readable and carries none of an authorization's marks has, every time,
   // been the invoice for it: a date, a service and an amount. The owner's
   // ruling on the first nine, 2026-09-14: "the text is the invoice, whatever
-  // the filename says". A scan has no text to outrank anything.
+  // the filename says". A scan has no text to outrank anything - and OCR text
+  // does not count: a garbled "AUTHORIZATION" is an authorization Tesseract
+  // misread, not an invoice.
   if (
     reading.pattern === "Authorization" &&
     input.textKind === "Other" &&
+    !input.ocr &&
     input.text.replace(/\s/g, "").length >= 40
   ) {
     reading = { ...reading, pattern: "Invoice", category: "Invoice", label: "Invoice" };
@@ -775,10 +840,11 @@ export function planDocument(input: PlanInput): Plan {
         noteType: reading.noteType ?? "General",
         at: date.at,
         datedFrom: date.datedFrom,
-        text: noteText(reading, input.filename, date, content),
+        text: noteText(reading, input.filename, date, content, input.ocr ?? null),
         category: reading.category ?? "Other",
         restricted: reading.restricted,
-        outcome: `Filed as a note: ${reading.label} (${reading.noteType ?? "General"})`,
+        outcome: `Filed as a note: ${reading.label} (${reading.noteType ?? "General"})${input.ocr ? ", read by OCR" : ""}`,
+        fromOcr: Boolean(input.ocr),
       };
     }
 
@@ -795,18 +861,26 @@ export function planDocument(input: PlanInput): Plan {
       });
 
       if (choice.kind === "linked") {
+        // Dates read by OCR go on an authorization only when the scan shows that
+        // authorization's own number. The dates OCR reads are reliable (20 of
+        // 20 in the first sample); which authorization a scan is, is not.
+        const datesTrusted =
+          named === "Authorization" && (!input.ocr || vNumbersIn(input.text).includes(vKey(choice.auth.number)));
+        const withheld = named === "Authorization" && input.ocr && !datesTrusted && Boolean(input.parsedAuth?.start || input.parsedAuth?.end);
         return {
           action: "link",
           reading,
           authId: choice.auth.id,
           authNumber: choice.auth.number,
           category: named,
-          start: named === "Authorization" ? (input.parsedAuth?.start ?? null) : null,
-          end: named === "Authorization" ? (input.parsedAuth?.end ?? null) : null,
+          start: datesTrusted ? (input.parsedAuth?.start ?? null) : null,
+          end: datesTrusted ? (input.parsedAuth?.end ?? null) : null,
           outcome:
-            named === "Invoice"
+            (named === "Invoice"
               ? `Billed against ${choice.auth.number} (${choice.how})`
-              : `Linked to authorization ${choice.auth.number} (${choice.how})`,
+              : `Linked to authorization ${choice.auth.number} (${choice.how})`) +
+            (withheld ? `; its OCR dates were not used, because the scan does not show ${choice.auth.number}` : ""),
+          fromOcr: Boolean(input.ocr),
         };
       }
       if (choice.kind === "new") {

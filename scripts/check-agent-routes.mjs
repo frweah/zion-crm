@@ -180,7 +180,7 @@ if (!rereadUpdate || /\b(state|decided_by|decided_at|outcome)\b/.test(rereadUpda
 // ── an authorization is matched to the ones on file ──────────
 if (!fileRoute.includes("authorizationsMentioned(")) {
   fail("an authorization is no longer checked against that client's authorizations on file");
-} else if (fileRoute.indexOf('rpc("match_inbox_folder"') > fileRoute.indexOf("const reading = await readDocument(bytes, supabase, clientId)")) {
+} else if (fileRoute.indexOf('rpc("match_inbox_folder"') > fileRoute.indexOf("const reading = await readDocument(bytes, supabase, clientId,")) {
   fail("a new document is read before its client is known, so it cannot be matched to their authorizations");
 } else {
   ok("an authorization is matched against the numbers already on file for its client");
@@ -209,6 +209,42 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
   fail("refiling changes the recorded reading, which only reprocess may do");
 } else {
   ok("every arrival is filed by its name once recorded, a failed filing leaves it waiting, and refiling never rewrites the reading");
+}
+
+// ── OCR ──────────────────────────────────────────────────────
+// OCR text is only ever the reading of a PDF with no text layer, is kept apart
+// and marked, and the agent reads scans on this machine with nothing left behind.
+{
+  const fs = await import("node:fs");
+  const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), "utf8");
+  const ocrWanted = read("../app/api/agent/ocr-wanted/route.ts");
+  const ocrModule = read("../agent/zion-ocr.ps1");
+
+  if (!fileRoute.includes('const fromOcr = !readError && Boolean(ocr?.text.trim()) && text.replace(/\\s/g, "").length < 40;')) {
+    fail("OCR text can be read in place of a text layer, or for a PDF the server could not open");
+  } else if (!/\.\.\.\(reading\.ocr && ocrPayload/.test(fileRoute) || !/if \(!reading\.ocr && reading\.kind !== "Unreadable"\)/.test(fileRoute)) {
+    fail("OCR text is kept for a document that has text of its own");
+  } else if (!/text_source: "OCR"/.test(fileRoute)) {
+    fail("a reading made from OCR text is not marked as OCR");
+  } else {
+    ok("OCR is read only for a PDF with no text layer, kept only then, and marked as OCR");
+  }
+
+  if (!/x-zion-agent/.test(ocrWanted) || !/status: 401/.test(ocrWanted) || !/\.is\("ocr_at", null\)/.test(ocrWanted)) {
+    fail("the OCR request list is open without the agent secret, or asks again for scans already read");
+  } else {
+    ok("only the agent can ask which scans to read, and a scan once read is not asked for again");
+  }
+
+  if (!agent.includes("Test-PdfHasTextLayer") || !agent.includes("/api/agent/ocr-wanted") || !agent.includes("ocr_text_b64")) {
+    fail("the agent no longer reads scans before sending them, or no longer answers the CRM's requests for OCR");
+  } else if (!/finally\s*\{\s*Remove-Item -LiteralPath \$work -Recurse -Force/.test(ocrModule) || !/\$env:TEMP/.test(ocrModule)) {
+    fail("OCR page images are not kept to their own folder under %TEMP% and removed afterwards");
+  } else if (/Invoke-(RestMethod|WebRequest)/.test(ocrModule)) {
+    fail("the OCR module talks to the network; it must only read files and run Tesseract");
+  } else {
+    ok("the agent reads scans locally before sending, answers the CRM's requests, and leaves no page images behind");
+  }
 }
 
 console.log("");

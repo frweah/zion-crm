@@ -42,6 +42,9 @@ declare
   v_docB     uuid;
   v_att      uuid;
   v_form     uuid;
+  v_authO    uuid;
+  v_docO     uuid;
+  v_docN     uuid;
   v_count    int;
   r          record;
   failures   text[] := '{}';
@@ -91,8 +94,8 @@ begin
   returning id into v_docB;
 
   -- ── nobody anonymous ───────────────────────────────────────
-  if has_function_privilege('anon', 'public.file_document_as_note(uuid, text, date, text, text, text, boolean, text)', 'execute')
-     or has_function_privilege('anon', 'public.link_document_to_authorization(uuid, uuid, text, date, date, text)', 'execute')
+  if has_function_privilege('anon', 'public.file_document_as_note(uuid, text, date, text, text, text, boolean, text, boolean)', 'execute')
+     or has_function_privilege('anon', 'public.link_document_to_authorization(uuid, uuid, text, date, date, text, boolean)', 'execute')
      or has_function_privilege('anon', 'public.correct_authorization(uuid, text, text, uuid)', 'execute') then
     failures := failures || 'FAILED: an anonymous caller may run a filing or correcting function'::text;
   else
@@ -226,6 +229,47 @@ begin
   exception when check_violation then
     raise notice 'ok  a file already on one authorization is not moved to another';
   end;
+
+  -- ── read by OCR ────────────────────────────────────────────
+  perform set_config('role', 'postgres', true);
+  insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
+  values (v_a, 'ZQ9800004', 'Job Placement', 'Flat Fee', 2250, 'Open') returning id into v_authO;
+  insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path)
+  values ('zy' || repeat('8', 62), 'ZZ Filing One', 'ZZ Filing One/h.pdf', '19 ZQ9800004 JP.pdf', v_a, 'Unreadable', 'Pending', 'inbox/zy/ocr-1.pdf')
+  returning id into v_docO;
+  insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path)
+  values ('zy' || repeat('9', 62), 'ZZ Filing One', 'ZZ Filing One/i.pdf', 'scan notes.pdf', v_a, 'Unreadable', 'Pending', 'inbox/zy/ocr-2.pdf')
+  returning id into v_docN;
+  perform set_config('role', 'service_role', true);
+
+  perform public.link_document_to_authorization(v_docO, v_authO, 'Authorization', date '2025-05-01', date '2025-10-31', null, true);
+  if (select start_date from public.authorizations where id = v_authO) is distinct from date '2025-05-01'
+     or not (select dates_from_ocr from public.authorizations where id = v_authO) then
+    failures := failures || 'FAILED: dates filled from OCR text were not filled, or not marked as OCR'::text;
+  elsif (select dates_from_ocr from public.authorizations where id = v_authA2) then
+    failures := failures || 'FAILED: dates read off a text layer were marked as OCR'::text;
+  else
+    raise notice 'ok  dates filled from OCR text are marked as OCR; dates from a text layer are not';
+  end if;
+
+  select * into r from public.file_document_as_note(
+    v_docN, 'Meeting', date '2025-05-02', 'Read from the document', 'Read by OCR', 'Other', false, null, true);
+  if not (select from_ocr from public.notes where id = r.note_id)
+     or (select from_ocr from public.notes where source_document = v_doc1) then
+    failures := failures || 'FAILED: a note from OCR text is not marked, or an ordinary note is'::text;
+  else
+    raise notice 'ok  a note made from OCR text is marked as OCR, and an ordinary one is not';
+  end if;
+
+  -- A person changing either date takes the dates as theirs.
+  perform set_config('role', 'postgres', true);
+  update public.authorizations set end_date = date '2025-11-30' where id = v_authO;
+  if (select dates_from_ocr from public.authorizations where id = v_authO) then
+    failures := failures || 'FAILED: a date a person changed still says it came from OCR'::text;
+  else
+    raise notice 'ok  once a person changes a date, the authorization no longer says its dates came from OCR';
+  end if;
+  perform set_config('role', 'service_role', true);
 
   -- ── who ────────────────────────────────────────────────────
   if v_js is null then

@@ -199,7 +199,7 @@ export default async function ClientPage({
     const [{ data }, { data: templateRows }] = await Promise.all([
       supabase
         .from("notes")
-        .select("id, text, type, ts, at, staff_name, visible_roles, dated_from, attachment_id")
+        .select("id, text, type, ts, at, staff_name, visible_roles, dated_from, attachment_id, from_ocr")
         .eq("client_id", id)
         .order("ts", { ascending: false }),
       // The headings each activity type starts with. Fetched with the notes
@@ -446,7 +446,7 @@ export default async function ClientPage({
     const { data: auths } = await supabase
       .from("authorizations")
       .select(
-        "id, number, service_type, total_hours, carried_used, rate_type, rate, start_date, end_date, status, requires_forms",
+        "id, number, service_type, total_hours, carried_used, rate_type, rate, start_date, end_date, status, requires_forms, dates_from_ocr",
       )
       .eq("client_id", id)
       .order("start_date", { ascending: false, nullsFirst: false });
@@ -465,7 +465,7 @@ export default async function ClientPage({
     const [{ data: clientFiles }, { data: readings }] = await Promise.all([
       supabase
         .from("attachments")
-        .select("id, storage_path, filename, category, auth_id, created_at")
+        .select("id, storage_path, filename, category, auth_id, created_at, review_note")
         .eq("client_id", id)
         .order("created_at", { ascending: false }),
       supabase
@@ -548,7 +548,8 @@ export default async function ClientPage({
                 </div>
               )}
               <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
-                {a.start_date || "—"} → {a.end_date || "—"} · {a.status}
+                {a.start_date || "—"} → {a.end_date || "—"}
+                {a.dates_from_ocr && " (read by OCR from the scan — check them)"} · {a.status}
                 {a.requires_forms && ` · needs: ${a.requires_forms}`}
               </div>
               <AuthorizationFiles
