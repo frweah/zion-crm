@@ -1379,6 +1379,7 @@ export type Database = {
           service_type: string;
           created_at: string;
           updated_at: string;
+          reconciled_from_warrant: boolean;
         };
         Insert: {
           id?: string;
@@ -1396,6 +1397,7 @@ export type Database = {
           service_type?: string;
           created_at?: string;
           updated_at?: string;
+          reconciled_from_warrant?: boolean;
         };
         Update: {
           id?: string;
@@ -1413,6 +1415,7 @@ export type Database = {
           service_type?: string;
           created_at?: string;
           updated_at?: string;
+          reconciled_from_warrant?: boolean;
         };
         Relationships: [];
       };
@@ -1896,6 +1899,51 @@ export type Database = {
           employer_legal_name?: string;
           employer_address?: string;
           employer_ein?: string;
+        };
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          id: string;
+          auth_id: string;
+          invoice_id: string | null;
+          amount: number;
+          warrant_no: string;
+          warrant_date: string | null;
+          voucher: string;
+          source: string;
+          warrant_line_id: string | null;
+          recorded_by: string | null;
+          recorded_by_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          auth_id: string;
+          invoice_id?: string | null;
+          amount: number;
+          warrant_no?: string;
+          warrant_date?: string | null;
+          voucher?: string;
+          source: string;
+          warrant_line_id?: string | null;
+          recorded_by?: string | null;
+          recorded_by_name?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          auth_id?: string;
+          invoice_id?: string | null;
+          amount?: number;
+          warrant_no?: string;
+          warrant_date?: string | null;
+          voucher?: string;
+          source?: string;
+          warrant_line_id?: string | null;
+          recorded_by?: string | null;
+          recorded_by_name?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -2835,6 +2883,156 @@ export type Database = {
         };
         Relationships: [];
       };
+      warrant_documents: {
+        Row: {
+          id: string;
+          sha256: string;
+          filename: string;
+          relative_path: string;
+          page_count: number;
+          first_seen: string;
+        };
+        Insert: {
+          id?: string;
+          sha256: string;
+          filename: string;
+          relative_path?: string;
+          page_count: number;
+          first_seen?: string;
+        };
+        Update: {
+          id?: string;
+          sha256?: string;
+          filename?: string;
+          relative_path?: string;
+          page_count?: number;
+          first_seen?: string;
+        };
+        Relationships: [];
+      };
+      warrant_lines: {
+        Row: {
+          id: string;
+          page_id: string;
+          line_no: number;
+          raw: string;
+          dept: string;
+          voucher: string;
+          invoice_ref: string;
+          described_ref: string;
+          client_code: string;
+          client_name: string;
+          service_date: string | null;
+          described_amount: number | null;
+          amount: number | null;
+          auth_id: string | null;
+          status: string;
+          problem: string;
+          payment_id: string | null;
+          invoice_id: string | null;
+          decided_by: string | null;
+          decided_by_name: string;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          page_id: string;
+          line_no: number;
+          raw?: string;
+          dept?: string;
+          voucher?: string;
+          invoice_ref?: string;
+          described_ref?: string;
+          client_code?: string;
+          client_name?: string;
+          service_date?: string | null;
+          described_amount?: number | null;
+          amount?: number | null;
+          auth_id?: string | null;
+          status?: string;
+          problem?: string;
+          payment_id?: string | null;
+          invoice_id?: string | null;
+          decided_by?: string | null;
+          decided_by_name?: string;
+          decided_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          page_id?: string;
+          line_no?: number;
+          raw?: string;
+          dept?: string;
+          voucher?: string;
+          invoice_ref?: string;
+          described_ref?: string;
+          client_code?: string;
+          client_name?: string;
+          service_date?: string | null;
+          described_amount?: number | null;
+          amount?: number | null;
+          auth_id?: string | null;
+          status?: string;
+          problem?: string;
+          payment_id?: string | null;
+          invoice_id?: string | null;
+          decided_by?: string | null;
+          decided_by_name?: string;
+          decided_at?: string | null;
+        };
+        Relationships: [];
+      };
+      warrant_pages: {
+        Row: {
+          id: string;
+          document_id: string;
+          page_no: number;
+          image_path: string;
+          ocr_text: string;
+          ocr_confidence: number | null;
+          rotation: number;
+          warrant_no: string;
+          warrant_date: string | null;
+          total: number | null;
+          lines_total: number | null;
+          status: string;
+          problems: string[];
+          received_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          page_no: number;
+          image_path?: string;
+          ocr_text?: string;
+          ocr_confidence?: number | null;
+          rotation?: number;
+          warrant_no?: string;
+          warrant_date?: string | null;
+          total?: number | null;
+          lines_total?: number | null;
+          status?: string;
+          problems?: string[];
+          received_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          page_no?: number;
+          image_path?: string;
+          ocr_text?: string;
+          ocr_confidence?: number | null;
+          rotation?: number;
+          warrant_no?: string;
+          warrant_date?: string | null;
+          total?: number | null;
+          lines_total?: number | null;
+          status?: string;
+          problems?: string[];
+          received_at?: string;
+        };
+        Relationships: [];
+      };
       work_categories: {
         Row: {
           key: string;
@@ -2963,6 +3161,24 @@ export type Database = {
           last_invoice_on: string | null;
           unbilled: number | null;
           committed: number | null;
+        };
+        Relationships: [];
+      };
+      billing_position: {
+        Row: {
+          auth_id: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          auth_number: string | null;
+          service_type: string | null;
+          status: string | null;
+          authorized: number | null;
+          invoiced: number | null;
+          paid: number | null;
+          outstanding: number | null;
+          not_yet_invoiced: number | null;
+          last_paid_on: string | null;
+          payments: number | null;
         };
         Relationships: [];
       };
@@ -3394,6 +3610,10 @@ export type Database = {
         Args: { p_id: string | null };
         Returns: undefined;
       };
+      dismiss_warrant_line: {
+        Args: { p_line: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
       exclude_mail_thread: {
         Args: { p_conversation_id: string | null; p_reason: string | null };
         Returns: undefined;
@@ -3521,6 +3741,14 @@ export type Database = {
       read_client_private: {
         Args: { p_client_id: string | null; p_purpose: string | null };
         Returns: { dob: string | null; address: string | null; allowed: boolean | null }[];
+      };
+      reconcile_warrant_line: {
+        Args: { p_line: string | null; p_by_hand: boolean | null; p_auth: string | null; p_amount: number | null };
+        Returns: string;
+      };
+      reconcile_warrant_page: {
+        Args: { p_page: string | null };
+        Returns: { reconciled: number | null; already_recorded: number | null; needs_review: number | null }[];
       };
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };

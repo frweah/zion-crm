@@ -39,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.1.2'
+$AgentVersion = '1.2.0'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -179,6 +179,11 @@ try {
     Write-Log "Could not read the folder: $($_.Exception.Message)" 'error'
     exit 1
 }
+
+# Warrants are not a client. A _Warrants folder inside the client folders is
+# read by the warrant pass below, never sent to the document inbox.
+$warrantsInside = (Join-Path $WatchFolder '_Warrants') + '\'
+$files = @($files | Where-Object { -not $_.FullName.StartsWith($warrantsInside, [System.StringComparison]::OrdinalIgnoreCase) })
 
 Write-Log "Found $($files.Count) PDF file(s)."
 
@@ -393,6 +398,143 @@ foreach ($entry in ($entries | Where-Object { $wanted -contains $_.hash })) {
     }
 }
 
+# ── warrants ─────────────────────────────────────────────────
+# USOR's warrant stubs, one page per warrant, dropped in a _Warrants folder:
+# beside the client folders, inside them, or wherever "warrantsFolder" in the
+# configuration says. Each page is turned upright, read with Tesseract, and
+# sent with a picture of it; the CRM checks the page against itself and the
+# authorizations on file, and records what it can prove.
+$WarrantsFolder = $null
+$warrantCandidates = @()
+if ($config.warrantsFolder) { $warrantCandidates += [string]$config.warrantsFolder }
+$warrantCandidates += (Join-Path (Split-Path -Parent $WatchFolder) '_Warrants')
+$warrantCandidates += (Join-Path $WatchFolder '_Warrants')
+foreach ($candidate in $warrantCandidates) {
+    if ($candidate -and (Test-Path -LiteralPath $candidate)) { $WarrantsFolder = $candidate; break }
+}
+$WarrantPagesPerRun = if ($null -ne $config.warrantPagesPerRun) { [int]$config.warrantPagesPerRun } else { 60 }
+$warrantPagesSent = 0
+
+function Send-WarrantPage {
+    param($Entry, [int] $PageNo, [int] $PageCount, $Read, [int] $Rotation, [string] $JpegPath)
+    $boundary = [System.Guid]::NewGuid().ToString()
+    $LF = "`r`n"
+    $latin1 = [System.Text.Encoding]::GetEncoding('iso-8859-1')
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    $fields = [ordered]@{
+        hash           = $Entry.hash
+        filename       = [System.IO.Path]::GetFileName($Entry.full)
+        path           = $Entry.path
+        page_no        = [string]$PageNo
+        page_count     = [string]$PageCount
+        rotation       = [string]$Rotation
+        ocr_text_b64   = ConvertTo-Base64Utf8 $Read.Text
+        ocr_confidence = ([double]$Read.Confidence).ToString($inv)
+        ocr_engine     = $OcrEngine
+    }
+    $pieces = @()
+    foreach ($k in $fields.Keys) {
+        $pieces += "--$boundary"
+        $pieces += "Content-Disposition: form-data; name=`"$k`"$LF"
+        $pieces += [string]$fields[$k]
+    }
+    $pieces += "--$boundary"
+    $pieces += "Content-Disposition: form-data; name=`"image`"; filename=`"page.jpg`""
+    $pieces += "Content-Type: image/jpeg$LF"
+    $pieces += $latin1.GetString([System.IO.File]::ReadAllBytes($JpegPath))
+    $pieces += "--$boundary--$LF"
+    Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/warrants/page" `
+        -Headers $headers -ContentType "multipart/form-data; boundary=$boundary" `
+        -Body ($latin1.GetBytes($pieces -join $LF)) -TimeoutSec 120
+}
+
+if ($WarrantsFolder -and -not $Tesseract) {
+    Write-Log "Warrants wait in $WarrantsFolder, but Tesseract is not installed to read them." 'warn'
+} elseif ($WarrantsFolder) {
+    $warrantEntries = @()
+    try {
+        foreach ($wf in @(Get-ChildItem -LiteralPath $WarrantsFolder -Recurse -File -Filter '*.pdf' -ErrorAction Stop)) {
+            if ($wf.Length -eq 0) { continue }
+            $warrantEntries += [pscustomobject]@{
+                hash = (Get-FileHash -LiteralPath $wf.FullName -Algorithm SHA256).Hash.ToLower()
+                path = $wf.FullName.Substring($WarrantsFolder.Length).TrimStart('\', '/')
+                full = $wf.FullName
+            }
+        }
+    } catch {
+        Write-Log "Could not read the warrants folder: $($_.Exception.Message)" 'warn'
+    }
+
+    $wantedWarrants = @()
+    if ($warrantEntries.Count) {
+        try {
+            $answer = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/warrants/manifest" `
+                -Headers $headers -ContentType 'application/json' `
+                -Body (@{ files = @($warrantEntries | Select-Object hash, path) } | ConvertTo-Json -Depth 4 -Compress) -TimeoutSec 60
+            $wantedWarrants = @($answer.wanted)
+        } catch {
+            Write-Log "The CRM did not answer about warrants: $($_.Exception.Message)" 'warn'
+        }
+    }
+
+    foreach ($w in $wantedWarrants) {
+        if (-not $w -or $warrantPagesSent -ge $WarrantPagesPerRun) { continue }
+        $entry = $warrantEntries | Where-Object { $_.hash -eq $w.hash } | Select-Object -First 1
+        if (-not $entry) { continue }
+        $have = @($w.have | ForEach-Object { [int]$_ })
+        Write-Log "Reading warrants: $($entry.path) ($($have.Count) page(s) already with the CRM)"
+
+        $work = Join-Path $env:TEMP ('zion-agent-warrant-' + [System.Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $work -Force | Out-Null
+        try {
+            $rendered = Convert-PdfToPngs -Path $entry.full -WorkDir $work -MaxPages 500
+            for ($i = 0; $i -lt $rendered.Pages.Count; $i++) {
+                $pageNo = $i + 1
+                if ($have -contains $pageNo) { continue }
+                if ($warrantPagesSent -ge $WarrantPagesPerRun) { break }
+                $png = $rendered.Pages[$i]
+                try {
+                    # Stubs are scanned on their side. Tesseract's orientation
+                    # check says how far to turn the page; if the reading is
+                    # still poor, the other right angles are tried and the best
+                    # reading kept.
+                    $rotation = Get-PageRotation -Exe $Tesseract -Png $png
+                    $upright = Rotate-Png -Png $png -Degrees $rotation
+                    $read = Read-PngWithTesseract -Exe $Tesseract -Png $upright -Psm '6'
+                    if ($read.Confidence -lt 60) {
+                        foreach ($alt in 0, 90, 180, 270) {
+                            if ($alt -eq $rotation) { continue }
+                            $altPng = Rotate-Png -Png $png -Degrees $alt
+                            $altRead = Read-PngWithTesseract -Exe $Tesseract -Png $altPng -Psm '6'
+                            if ($altRead.Confidence -gt $read.Confidence + 10) {
+                                $read = $altRead; $upright = $altPng; $rotation = $alt
+                            }
+                        }
+                    }
+                    $jpeg = Join-Path $work ('page{0:D3}.jpg' -f $pageNo)
+                    Save-PageJpeg -Png $upright -Out $jpeg
+                    $sentPage = Send-WarrantPage -Entry $entry -PageNo $pageNo -PageCount $rendered.PageCount `
+                        -Read $read -Rotation $rotation -JpegPath $jpeg
+                    if ($sentPage.already) {
+                        Write-Log "Warrant page $pageNo of $($entry.path) was already with the CRM."
+                    } else {
+                        Write-Log ("Warrant page {0}/{1} ({2}, turned {3}, confidence {4}%): {5} - {6} line(s), {7} reconciled, {8} already recorded, {9} to review" -f `
+                            $pageNo, $rendered.PageCount, $sentPage.warrant_no, $rotation, [Math]::Round($read.Confidence),
+                            $sentPage.status, $sentPage.lines, $sentPage.reconciled, $sentPage.already_recorded, $sentPage.needs_review)
+                    }
+                    $warrantPagesSent++
+                } catch {
+                    Write-Log "Warrant page $pageNo of $($entry.path) not sent, will try again: $($_.Exception.Message)" 'warn'
+                }
+            }
+        } catch {
+            Write-Log "Could not read $($entry.path): $($_.Exception.Message)" 'warn'
+        } finally {
+            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 # ── scans the CRM would like read ────────────────────────────
 # Documents the CRM holds with no text and no OCR yet - ones that arrived
 # before this machine had Tesseract, or that this could not tell about. Read
@@ -456,7 +598,7 @@ try {
     ($keep | ConvertTo-Json -Compress) | Set-Content -LiteralPath $FailedPath -Encoding utf8
 } catch { }
 
-Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request."
+Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request, $warrantPagesSent warrant page(s) read."
 Trim-Log
 
 # A run that could not send anything it meant to is a failed run, so the task

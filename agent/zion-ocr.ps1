@@ -191,10 +191,15 @@ function Convert-PdfToPngs {
     confidence is the mean over the words Tesseract actually recognised.
 #>
 function Read-PngWithTesseract {
-    param([string] $Exe, [string] $Png, [string] $Language = 'eng', [int] $TimeoutSeconds = 120)
+    param([string] $Exe, [string] $Png, [string] $Language = 'eng', [int] $TimeoutSeconds = 120, [string] $Psm = '')
     $base = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Png), [System.IO.Path]::GetFileNameWithoutExtension($Png))
     $err  = "$base.err"
-    $proc = Start-Process -FilePath $Exe -ArgumentList @("`"$Png`"", "`"$base`"", '-l', $Language, '--dpi', '300', 'tsv') `
+    $arguments = @("`"$Png`"", "`"$base`"", '-l', $Language, '--dpi', '300')
+    # A page layout, when the caller knows it: 6 reads a warrant stub's table
+    # as rows of one block, rather than guessing at columns.
+    if ($Psm) { $arguments += @('--psm', $Psm) }
+    $arguments += 'tsv'
+    $proc = Start-Process -FilePath $Exe -ArgumentList $arguments `
         -NoNewWindow -PassThru -RedirectStandardError $err -RedirectStandardOutput "$base.out"
     # Hold the process handle now. Windows PowerShell 5.1 hands back an empty
     # ExitCode for a process started with -PassThru and waited on with a
@@ -271,6 +276,86 @@ function Invoke-PdfOcr {
         }
     } finally {
         Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ── pages that are on their side ─────────────────────────────
+<#
+    How far to turn a page, clockwise, to stand it upright - Tesseract's own
+    orientation check (--psm 0). Its "Rotate: N" is exactly that: a page
+    turned 90 degrees clockwise reports "Rotate: 270" (checked on a real scan).
+    0 when it cannot tell, which the caller treats as "try upright first".
+#>
+function Get-PageRotation {
+    param([string] $Exe, [string] $Png, [int] $TimeoutSeconds = 60)
+    $base = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Png), [System.IO.Path]::GetFileNameWithoutExtension($Png) + '-osd')
+    $proc = Start-Process -FilePath $Exe -ArgumentList @("`"$Png`"", "`"$base`"", '--psm', '0') `
+        -NoNewWindow -PassThru -RedirectStandardError "$base.err" -RedirectStandardOutput "$base.out"
+    $null = $proc.Handle
+    if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+        try { $proc.Kill() } catch { }
+        return 0
+    }
+    $proc.WaitForExit()
+    $osd = Get-Content -LiteralPath "$base.osd" -Raw -ErrorAction SilentlyContinue
+    if ($osd -and $osd -match 'Rotate:\s*(\d+)') { return ([int]$Matches[1]) % 360 }
+    return 0
+}
+
+<# A copy of the page image turned clockwise by 90, 180 or 270 degrees. #>
+function Rotate-Png {
+    param([string] $Png, [int] $Degrees)
+    $d = (($Degrees % 360) + 360) % 360
+    if ($d -eq 0) { return $Png }
+    Add-Type -AssemblyName System.Drawing
+    $flip = switch ($d) {
+        90  { [System.Drawing.RotateFlipType]::Rotate90FlipNone }
+        180 { [System.Drawing.RotateFlipType]::Rotate180FlipNone }
+        270 { [System.Drawing.RotateFlipType]::Rotate270FlipNone }
+        default { throw "Pages turn by right angles, not $d degrees." }
+    }
+    $out = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Png), [System.IO.Path]::GetFileNameWithoutExtension($Png) + "-r$d.png")
+    $img = [System.Drawing.Image]::FromFile($Png)
+    try {
+        $img.RotateFlip($flip)
+        $img.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+    } finally {
+        $img.Dispose()
+    }
+    return $out
+}
+
+<#
+    The picture of a page a person looks at when a line needs review: a JPEG,
+    no wider than it needs to be to read, so a forty-page backfill does not
+    fill storage with 300 dpi images.
+#>
+function Save-PageJpeg {
+    param([string] $Png, [string] $Out, [int] $MaxWidth = 1700, [long] $Quality = 80)
+    Add-Type -AssemblyName System.Drawing
+    $src = [System.Drawing.Image]::FromFile($Png)
+    try {
+        $scale = [Math]::Min(1.0, $MaxWidth / [double]$src.Width)
+        $w = [int][Math]::Round($src.Width * $scale)
+        $h = [int][Math]::Round($src.Height * $scale)
+        $bmp = New-Object System.Drawing.Bitmap($w, $h)
+        try {
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            try {
+                $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                $g.DrawImage($src, 0, 0, $w, $h)
+            } finally {
+                $g.Dispose()
+            }
+            $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' } | Select-Object -First 1
+            $params = New-Object System.Drawing.Imaging.EncoderParameters(1)
+            $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, $Quality)
+            $bmp.Save($Out, $codec, $params)
+        } finally {
+            $bmp.Dispose()
+        }
+    } finally {
+        $src.Dispose()
     }
 }
 

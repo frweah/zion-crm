@@ -259,6 +259,28 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
   }
 }
 
+// ── warrants ─────────────────────────────────────────────────
+// Warrant pages come only from the agent, are never filed as a client's
+// documents, and leave no page images on the machine.
+{
+  const fs = await import("node:fs");
+  const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), "utf8");
+  const warrantManifest = read("../app/api/agent/warrants/manifest/route.ts");
+  const warrantPage = read("../app/api/agent/warrants/page/route.ts");
+
+  if (![warrantManifest, warrantPage].every((r) => /x-zion-agent/.test(r) && /status: 401/.test(r))) {
+    fail("a warrant route answers without the agent secret");
+  } else if (!/rpc\("reconcile_warrant_page"/.test(warrantPage) || /from\("payments"\)\s*\.insert|from\("invoices"\)\s*\.(insert|update)/.test(warrantPage)) {
+    fail("the warrant page route writes payments or invoices itself instead of leaving them to reconcile_warrant_page");
+  } else if (!/warrantsInside = \(Join-Path \$WatchFolder '_Warrants'\)/.test(agent) || !/-not \$_\.FullName\.StartsWith\(\$warrantsInside/.test(agent)) {
+    fail("the agent could send warrant stubs to the document inbox as a client's files");
+  } else if (!/zion-agent-warrant-[\s\S]*?finally \{\s*Remove-Item -LiteralPath \$work -Recurse -Force/.test(agent)) {
+    fail("warrant page images are not removed from the machine after sending");
+  } else {
+    ok("warrant pages come only from the agent, never reach the document inbox, are reconciled only by the database, and leave no images behind");
+  }
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

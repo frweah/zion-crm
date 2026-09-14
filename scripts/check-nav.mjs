@@ -74,7 +74,8 @@ const EXPECTED = {
     "/admin/retention",
     "/admin/records-request",
     "/admin/settings", "/admin/staff",
-    "/billing", "/billing/forms", "/billing/import", "/billing/revenue",
+    "/billing", "/billing/forms", "/billing/import", "/billing/position", "/billing/revenue",
+    "/billing/warrants",
     "/clients", "/counselors", "/dashboard", "/dashboard/needs", "/hours",
     "/insights/capacity", "/insights/outcomes", "/insights/reports", "/leads",
     "/paperwork", "/referrals", "/sops", "/tasks",
@@ -90,7 +91,7 @@ const EXPECTED = {
   ],
   Billing: [
     "/admin/exports", "/admin/inbox", "/billing", "/billing/forms", "/billing/import",
-    "/billing/revenue", "/clients", "/counselors", "/dashboard",
+    "/billing/position", "/billing/revenue", "/billing/warrants", "/clients", "/counselors", "/dashboard",
     "/dashboard/needs", "/hours", "/leads", "/paperwork", "/sops",
   ],
 };

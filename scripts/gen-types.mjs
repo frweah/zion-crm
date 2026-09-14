@@ -129,6 +129,9 @@ const RPC_FUNCTIONS = [
   "link_document_to_authorization",
   "correct_authorization",
   "replace_placeholder_authorization",
+  "reconcile_warrant_line",
+  "reconcile_warrant_page",
+  "dismiss_warrant_line",
 ];
 
 const { rows: fns } = await client.query(

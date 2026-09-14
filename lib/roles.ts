@@ -86,6 +86,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
       { label: "Read a PDF", href: "/billing/import", roles: BILLS },
       { label: "Revenue", href: "/billing/revenue", roles: BILLS },
+      { label: "Paid & outstanding", href: "/billing/position", roles: BILLS },
+      { label: "Warrants", href: "/billing/warrants", roles: BILLS },
     ],
   },
   {
