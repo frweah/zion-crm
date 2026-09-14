@@ -17,6 +17,7 @@ import {
   InvoiceAction,
   type AuthOption,
 } from "./billing-forms";
+import { readPayments } from "@/lib/payments";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
@@ -266,6 +267,12 @@ export default async function BillingPage({
 
     const invoices = (invoiceRows ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
     const ar = arBuckets(invoices);
+
+    // The warrant page each paid invoice was read from, when one was kept.
+    const pageByInvoice = new Map<string, string>();
+    for (const p of await readPayments(supabase)) {
+      if (p.invoice_id && p.page_id && !pageByInvoice.has(p.invoice_id)) pageByInvoice.set(p.invoice_id, p.page_id);
+    }
     const authById = new Map(auths.map((a) => [a.id, a]));
 
     const view = filter === "paid" ? "paid" : filter === "all" ? "all" : "open";
@@ -350,7 +357,20 @@ export default async function BillingPage({
                     <td>
                       <b>{i.number}</b>
                       {i.warrant && (
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{i.warrant}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                          {pageByInvoice.has(i.id) ? (
+                            <a
+                              href={`/billing/warrants/image/${pageByInvoice.get(i.id)}`}
+                              target="_blank"
+                              rel="noopener"
+                              style={{ color: "var(--teal)" }}
+                            >
+                              {i.warrant} · page image
+                            </a>
+                          ) : (
+                            i.warrant
+                          )}
+                        </div>
                       )}
                     </td>
                     <td>{i.service_type || a?.service_type}</td>
@@ -373,6 +393,9 @@ export default async function BillingPage({
                       >
                         {i.status}
                       </span>
+                      {i.status === "Paid" && i.paid_date && (
+                        <div className="lock">paid {i.paid_date}</div>
+                      )}
                     </td>
                     <td>
                       {days !== null ? (

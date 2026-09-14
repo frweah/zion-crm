@@ -183,6 +183,14 @@ export default async function WarrantsPage() {
                         <b>{p.warrant_no || "—"}</b>
                         <div className="lock">
                           page {p.page_no} · {p.warrant_documents?.filename ?? ""}
+                          {p.image_path && (
+                            <>
+                              {" · "}
+                              <a href={`/billing/warrants/image/${p.id}`} target="_blank" rel="noopener" style={{ color: "var(--teal)" }}>
+                                page image
+                              </a>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td>{p.warrant_date ?? "—"}</td>

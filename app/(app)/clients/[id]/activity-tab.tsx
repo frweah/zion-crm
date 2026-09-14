@@ -24,6 +24,7 @@ export const ACTIVITY_KINDS = [
   "Appointment",
   "Mail",
   "Hours",
+  "Payment",
 ] as const;
 
 const WINDOWS = [

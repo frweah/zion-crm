@@ -22,6 +22,9 @@ import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
+import { AuthorizationPayments } from "./authorization-payments";
+import { WarrantLink, recordedHow } from "../../billing/warrants/warrant-link";
+import { readPayments } from "@/lib/payments";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
@@ -497,13 +500,14 @@ export default async function ClientPage({
     // for that authorization is on file, outstanding until then. And any
     // correction made to the authorization, with its reason.
     const idsOrNone = authIds.length ? authIds : ["00000000-0000-0000-0000-000000000000"];
-    const [{ data: paidRows }, { data: correctionRows }] = await Promise.all([
+    const [{ data: paidRows }, { data: correctionRows }, payments] = await Promise.all([
       supabase.from("invoices").select("auth_id, paid_date").in("auth_id", idsOrNone).eq("status", "Paid"),
       supabase
         .from("authorization_corrections")
         .select("auth_id, at, field, was_value, new_value, reason, staff_name")
         .in("auth_id", idsOrNone)
         .order("at"),
+      readPayments(supabase, authIds),
     ]);
     const paidOn = new Map<string, string>();
     for (const p of paidRows ?? []) {
@@ -570,6 +574,7 @@ export default async function ClientPage({
                 paidOn={paidOn.get(a.id) ?? null}
                 corrections={(correctionRows ?? []).filter((c) => c.auth_id === a.id)}
               />
+              <AuthorizationPayments payments={payments.filter((p) => p.auth_id === a.id)} status={a.status} />
             </div>
           );
         })}
@@ -586,59 +591,100 @@ export default async function ClientPage({
     const authIds = (auths ?? []).map((a) => a.id);
     const authById = new Map((auths ?? []).map((a) => [a.id, a]));
 
-    const { data: invoices } = authIds.length
+    // What USOR paid is the payments on record - the workbook's, those read
+    // from warrant stubs, and invoices marked paid by hand - not invoice
+    // statuses. Invoices still waiting to be paid are listed under them.
+    const payments = await readPayments(supabase, authIds);
+    const { data: unpaidRows } = authIds.length
       ? await supabase
           .from("invoices")
-          .select("id, auth_id, number, date, amount, status, warrant, service_type, paid_date")
+          .select("id, auth_id, number, date, amount, status, service_type")
           .in("auth_id", authIds)
+          .in("status", ["Draft", "Sent"])
           .order("date", { ascending: false })
       : { data: [] };
-
-    const rows = invoices ?? [];
-    const totalPaid = rows
-      .filter((i) => i.status === "Paid")
-      .reduce((t, i) => t + Number(i.amount), 0);
+    const unpaid = unpaidRows ?? [];
+    const totalPaid = payments.reduce((t, p) => t + p.amount, 0);
 
     return (
       <>
         {header}
-        {rows.length === 0 ? (
+        {payments.length === 0 && unpaid.length === 0 ? (
           <div className="empty">No payments on record.</div>
         ) : (
-          <div className="card" style={{ padding: 0 }}>
-            <div style={{ fontSize: 13, padding: "12px 16px" }}>
-              Total paid: <b>{money(totalPaid)}</b> across {rows.length} payment
-              {rows.length === 1 ? "" : "s"}
-            </div>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Auth #</th>
-                  <th>Service</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Warrant</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((i) => (
-                  <tr key={i.id}>
-                    <td>{i.date}</td>
-                    <td>{i.number}</td>
-                    <td>{i.service_type || authById.get(i.auth_id)?.service_type || ""}</td>
-                    <td>{money(i.amount)}</td>
-                    <td>
-                      <span className={"chip " + (i.status === "Paid" ? "ok" : "")}>
-                        {i.status}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>{i.warrant}</td>
+          <>
+            <div className="card" style={{ padding: 0, overflowX: "auto", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, padding: "12px 16px" }}>
+                Total paid: <b>{money(totalPaid)}</b> across {payments.length} payment
+                {payments.length === 1 ? "" : "s"}
+              </div>
+              <table className="t">
+                <thead>
+                  <tr>
+                    <th>Paid on</th>
+                    <th>Auth #</th>
+                    <th>Service</th>
+                    <th>Amount</th>
+                    <th>Warrant</th>
+                    <th>Voucher</th>
+                    <th>Recorded</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {payments.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="empty">
+                        Nothing paid yet.
+                      </td>
+                    </tr>
+                  )}
+                  {payments.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.warrant_date ?? "—"}</td>
+                      <td>{authById.get(p.auth_id)?.number}</td>
+                      <td>{authById.get(p.auth_id)?.service_type}</td>
+                      <td>{money(p.amount)}</td>
+                      <td>
+                        <WarrantLink payment={p} />
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.voucher}</td>
+                      <td className="lock">{recordedHow(p)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {unpaid.length > 0 && (
+              <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+                <h3 style={{ padding: "14px 16px 0", margin: 0 }}>Invoiced, not yet paid</h3>
+                <table className="t">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Invoice</th>
+                      <th>Service</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unpaid.map((i) => (
+                      <tr key={i.id}>
+                        <td>{i.date}</td>
+                        <td>{i.number}</td>
+                        <td>{i.service_type || authById.get(i.auth_id)?.service_type || ""}</td>
+                        <td>{money(i.amount)}</td>
+                        <td>
+                          <span className={"chip " + (i.status === "Sent" ? "warn" : "")}>{i.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </>
     );

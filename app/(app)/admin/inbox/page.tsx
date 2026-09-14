@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -59,7 +60,8 @@ export default async function InboxPage() {
       <h1 className="h1">Document inbox</h1>
       <p className="sub">
         Everything the agent has found in the client folders, waiting for somebody to say what it
-        is
+        is. Warrant stubs in the _Warrants folder never come here: they are read line by line on{" "}
+        <Link href="/billing/warrants">Billing → Warrants</Link>
       </p>
 
       <div className="card" style={{ margin: "14px 0" }}>

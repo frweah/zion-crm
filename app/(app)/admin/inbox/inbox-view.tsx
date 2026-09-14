@@ -508,6 +508,12 @@ function DocumentRow({
               ? "No sent invoice matches any amount on it. Check it by hand."
               : `${candidates.length} sent invoice${candidates.length === 1 ? "" : "s"} match an amount on it. Pick the one it pays.`}
           </p>
+          <p className="lock" style={{ margin: "6px 0 0" }}>
+            A USOR warrant stub belongs in the _Warrants folder instead. There every line is checked
+            against its V-number and the page total, and the page is kept on{" "}
+            <Link href="/billing/warrants">Billing → Warrants</Link>. Matched here, it marks one
+            invoice paid by hand, without those checks.
+          </p>
           {candidates.map((c) => (
             <form action={warrantAction} key={c.id} className="row2" style={{ gap: 6, marginTop: 6 }}>
               <input type="hidden" name="document_id" value={doc.id} />
