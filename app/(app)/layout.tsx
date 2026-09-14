@@ -42,27 +42,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="shell">
       <nav className="side">
         <div className="brand">
-          <Image src="/zion-logo.png" alt="" width={52} height={52} priority />
+          <Image src="/zion-logo.png" alt="" width={36} height={36} priority />
           <span>
-            Zion Voc Rehab
+            Zion Vocational Rehab
             <small>CRM</small>
           </span>
         </div>
 
-        <NavLinks groups={nav} />
+        {/* It reads ?tab= to tell same-path screens apart, like the tab strip. */}
+        <Suspense fallback={null}>
+          <NavLinks groups={nav} />
+        </Suspense>
 
         <div className="roleblock">
-          <div style={{ color: "#fff", fontWeight: 500 }}>{staff.name}</div>
+          <div className="who">{staff.name}</div>
           <div>{ROLE_LABEL[staff.role]}</div>
           <div style={{ marginTop: 6, fontSize: 11 }}>
             Counselors {ORG.phone} · Clients {ORG.clientPhone}
           </div>
           <form action="/auth/signout" method="post" style={{ marginTop: 10 }}>
-            <button
-              className="navb"
-              type="submit"
-              style={{ border: "1px solid var(--forest-3)", cursor: "pointer" }}
-            >
+            <button className="btn ghost" type="submit" style={{ width: "100%" }}>
               Sign out
             </button>
           </form>
@@ -74,7 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             — the alternative is finding the client first, which is how a phone
             call ends up not written down. */}
         <div
-          className="row2"
+          className="row2 no-print"
           style={{ justifyContent: "flex-end", marginBottom: 10 }}
         >
           <QuickAdd />

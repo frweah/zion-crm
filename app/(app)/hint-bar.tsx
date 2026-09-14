@@ -29,7 +29,7 @@ export function HintBar({
 
   return (
     <div
-      className="card"
+      className="card hintbar"
       style={{ marginBottom: 14, borderLeft: "3px solid var(--gold)" }}
     >
       <div

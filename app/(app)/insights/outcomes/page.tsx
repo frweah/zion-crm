@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -268,7 +269,10 @@ export default async function OutcomesPage({
       </div>
 
       <div className="card" style={{ margin: "14px 0" }}>
-        <h2 style={{ margin: 0, fontSize: 20 }}>{ORG.name}</h2>
+        <div className="row2" style={{ alignItems: "center", gap: 14 }}>
+          <Image src="/zion-logo.png" alt="Zion Vocational Rehabilitation Center" width={48} height={48} />
+          <h2 style={{ margin: 0 }}>{ORG.name}</h2>
+        </div>
         <p className="sub" style={{ margin: "2px 0 0" }}>
           {ORG.address} · {ORG.phone} · {ORG.email}
         </p>

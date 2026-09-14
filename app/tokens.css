@@ -1,0 +1,69 @@
+/* ─────────────────────────────────────────────────────────────
+   Design tokens — the only file in the application that may name a colour.
+
+   scripts/check-theme.mjs fails the build on a hex or rgb() value anywhere
+   else, and on any pair below used for text that falls under 4.5:1 (or a
+   control edge under 3:1). Change a value here and that check says whether it
+   still reads.
+
+   Warm charcoal on bone, one accent - Zion's forest green - and muted status
+   colours that are never the only signal: every chip and alert carries words.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* ink and paper */
+  --ink: #1f1d1a;
+  --ink-2: #3a3733;
+  --muted: #6f6a62;
+  --bone: #f4f1ea;
+  --paper: #fbfaf7;
+  --line: #e4e0d8;
+  --line-strong: #cfc9bf;
+
+  /* The edge of a text field. The hairline alone is about 1.3:1 against paper,
+     and a field has to be findable (WCAG 1.4.11 asks 3:1 for its boundary). */
+  --field-line: #8c857a;
+
+  /* the one accent */
+  --accent: #1f5a2e;
+  --accent-hover: #184a25;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8efe9;
+  /* --accent-soft at 40% over paper: the table row under the pointer */
+  --accent-soft-hover: #f3f6f1;
+
+  /* status: muted, always paired with a word */
+  --ok: #3f7a4e;
+  --ok-soft: #e6efe8;
+  --warn: #9c7b35;
+  --warn-soft: #f4eddc;
+  --bad: #a24e3b;
+  --bad-soft: #f6e6e1;
+
+  /* Status as text. --warn is 3.8:1 on paper and --ok 4.35:1 on its own tint,
+     both under 4.5:1 for body-size text, so text uses these darker inks while
+     bars, rules and borders keep the lighter colours. */
+  --ok-ink: #336640;
+  --warn-ink: #7a5c1e;
+
+  --focus: var(--accent);
+  --scrim: rgb(31 29 26 / 0.35);
+
+  /* type: self-hosted by next/font in app/layout.tsx, with system fallbacks */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-source-serif), "Iowan Old Style", Georgia, "Times New Roman", serif;
+
+  /* Names the screens were written against, still used in about 170 inline
+     styles. They point at the new palette so nothing needs rewriting to change
+     colour - and nothing else defines a value. */
+  --forest: var(--accent);
+  --forest-2: var(--accent-hover);
+  --forest-3: var(--line-strong);
+  --lime: var(--accent);
+  --lime-deep: var(--accent-hover);
+  --teal: var(--accent);
+  --ivory: var(--bone);
+  --card: var(--paper);
+  --sand: var(--line-strong);
+  --gold: var(--warn-ink);
+  --bg: var(--bone);
+}

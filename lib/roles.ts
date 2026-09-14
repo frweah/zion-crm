@@ -128,6 +128,39 @@ export function navPath(href: string): string {
   return href.split("?")[0];
 }
 
+/**
+ * Which item of a group is the screen being looked at - one answer, used by
+ * both the sidebar and the tab strip so the two cannot disagree.
+ *
+ * Several screens are one path told apart by ?tab= (Billing's Authorizations,
+ * Service log, Invoices...). Matching the path alone marked every one of them
+ * current at once. So: the most specific path wins (/billing/revenue over
+ * /billing); among items on the same path, the one whose tab matches; with no
+ * tab, or one nobody lists, the page's own default - its first tab.
+ */
+export function currentItemHref(
+  items: NavItem[],
+  pathname: string,
+  tab: string | null,
+): string | null {
+  const onPath = items.filter((item) => {
+    const path = navPath(item.href);
+    return pathname === path || pathname.startsWith(path + "/");
+  });
+  if (onPath.length === 0) return null;
+
+  const longest = Math.max(...onPath.map((i) => navPath(i.href).length));
+  const best = onPath.filter((i) => navPath(i.href).length === longest);
+  if (best.length === 1) return best[0].href;
+
+  const tabbed = best.filter((i) => i.href.includes("?tab="));
+  if (tab) {
+    const match = tabbed.find((i) => i.href.split("?tab=")[1] === tab);
+    if (match) return match.href;
+  }
+  return (tabbed[0] ?? best[0]).href;
+}
+
 export function visibleItems(group: NavGroup, role: Role): NavItem[] {
   return group.items.filter((i) => !i.roles || i.roles.includes(role));
 }

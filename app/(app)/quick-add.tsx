@@ -80,7 +80,7 @@ export function QuickAdd() {
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(0,0,0,.35)",
+          background: "var(--scrim)",
           zIndex: 40,
           display: "flex",
           alignItems: "flex-start",
