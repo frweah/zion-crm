@@ -55,7 +55,7 @@ export async function WarrantsToReview({ showAllLink = true }: { showAllLink?: b
   return (
     <>
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <h2 className="h1" style={{ fontSize: 20, margin: 0 }}>
+        <h2 className="h2" style={{ margin: 0 }}>
           Warrant lines needing review
           <span className="lock" style={{ fontWeight: 400 }}> · {waitingLines}</span>
         </h2>

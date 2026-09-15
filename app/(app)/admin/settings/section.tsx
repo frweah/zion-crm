@@ -31,7 +31,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <h1 className="h1">Settings</h1>
+      <h2 className="h2">Organization</h2>
       <p className="sub">What the practice is, and what its paperwork says</p>
 
       <div className="card" style={{ marginTop: 14 }}>

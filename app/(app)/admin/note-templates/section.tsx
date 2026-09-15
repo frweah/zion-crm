@@ -27,7 +27,7 @@ export default async function NoteTemplatesPage() {
 
   return (
     <>
-      <h1 className="h1">Note headings</h1>
+      <h2 className="h2">Note headings</h2>
       <p className="sub">What a new note of each type starts with</p>
 
       <div className="card" style={{ marginTop: 14 }}>

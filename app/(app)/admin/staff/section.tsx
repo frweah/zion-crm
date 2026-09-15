@@ -117,7 +117,7 @@ export default async function StaffPage({
 
   return (
     <>
-      <h1 className="h1">Staff</h1>
+      <h2 className="h2">Staff</h2>
       <p className="sub">
         Accounts, roles and access. Deactivating an account removes access the same moment —
         reassign that person&apos;s active clients first.
@@ -216,9 +216,9 @@ export default async function StaffPage({
           </div>
         ))}
 
-      <h1 className="h1" style={{ fontSize: 18, marginTop: 26 }}>
+      <h3 style={{ marginTop: 26 }}>
         Certifications and clearances
-      </h1>
+      </h3>
       <p className="sub">
         ACRE, CPR and First Aid, background clearance, continuing education — and a licence and
         insurance for anybody who transports clients. A renewal is recorded beside the old one,
@@ -238,9 +238,9 @@ export default async function StaffPage({
           />
         ))}
 
-      <h1 className="h1" style={{ fontSize: 18, marginTop: 26 }}>
+      <h3 style={{ marginTop: 26 }}>
         Documents
-      </h1>
+      </h3>
       <p className="sub">
         Everything held on somebody&apos;s file. Opening one is recorded in the access log; a tax
         form signed in the app appears here too and cannot be removed from here.

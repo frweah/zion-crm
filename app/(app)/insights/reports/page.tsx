@@ -14,18 +14,26 @@ function Stat({
   value,
   label,
   tone,
+  href,
 }: {
   value: string | number;
   label: string;
   tone?: "bad";
+  /** A figure whose home is another screen links there rather than standing alone. */
+  href?: string;
 }) {
-  return (
-    <div className="card">
-      <div className="stat" style={tone === "bad" ? { color: "var(--bad)" } : undefined}>
-        {value}
-        <small>{label}</small>
-      </div>
+  const body = (
+    <div className="stat" style={tone === "bad" ? { color: "var(--bad)" } : undefined}>
+      {value}
+      <small>{label}</small>
     </div>
+  );
+  return href ? (
+    <Link href={href} className="card" style={{ textDecoration: "none", color: "inherit" }}>
+      {body}
+    </Link>
+  ) : (
+    <div className="card">{body}</div>
   );
 }
 
@@ -223,12 +231,17 @@ export default async function ReportsPage({
         <Stat value={show(daysToPlace)} label="median days referral → placement" />
         <Stat value={show(util, "%")} label="authorized hours used" />
         <Stat value={show(daysToPay)} label="median days invoice → paid" />
-        <Stat value={money(ar60)} label="A/R over 60 days" tone={ar60 > 0 ? "bad" : undefined} />
+        <Stat
+          value={money(ar60)}
+          label="A/R over 60 days · aging on Billing → Invoices"
+          tone={ar60 > 0 ? "bad" : undefined}
+          href="/billing?tab=invoices"
+        />
         <Stat value={placements.length} label="placements on record" />
         <Stat value={show(retention, "%")} label="90-day retention (of eligible)" />
         <Stat value={wsaDone} label={`WSAs completed · ${wsaSubmitted} submitted`} />
         <Stat value={avgWage === null ? "—" : `$${avgWage}`} label="average placement wage" />
-        <Stat value={money(paidTotal)} label="total received (all time)" />
+        <Stat value={money(paidTotal)} label="total received (all time) · see Money" href="/insights/money" />
       </div>
 
       {migrationCaveats.length > 0 && (

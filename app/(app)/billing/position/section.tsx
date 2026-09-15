@@ -78,7 +78,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <h1 className="h1">Paid &amp; outstanding</h1>
+      <h2 className="h2">Paid &amp; outstanding</h2>
       <p className="sub">
         What USOR authorized, was invoiced for, and has paid - per client and for the practice.
         Payments come from the workbook, the warrants read from the <Link href="/billing/warrants">_Warrants folder</Link>,

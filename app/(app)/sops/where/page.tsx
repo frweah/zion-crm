@@ -284,8 +284,9 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Check the documents agent is still running",
-        where: "Admin → Documents — it says when it last ran and what it found",
-        href: "/admin/documents",
+        where: "Admin → System — it says when it last ran and what it found",
+        href: "/admin/system#agent",
+        roles: ["Admin", "Billing"],
       },
       {
         ask: "Send the accountant the month",

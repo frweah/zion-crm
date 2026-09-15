@@ -34,7 +34,7 @@ export default async function RecordsRequestPage() {
 
   return (
     <>
-      <h1 className="h1">Records requests</h1>
+      <h2 className="h2">Records requests</h2>
       <p className="sub">
         {open.length} waiting · {answered.length} gathered
       </p>
@@ -56,7 +56,7 @@ export default async function RecordsRequestPage() {
 
       <RequestForm clients={clients ?? []} today={today()} />
 
-      <h2 className="h1" style={{ fontSize: 20, marginTop: 22 }}>Waiting</h2>
+      <h3 style={{ marginTop: 22 }}>Waiting</h3>
       {open.length === 0 ? (
         <div className="empty">Nothing is waiting.</div>
       ) : (
@@ -90,7 +90,7 @@ export default async function RecordsRequestPage() {
         </div>
       )}
 
-      <h2 className="h1" style={{ fontSize: 20, marginTop: 22 }}>Already gathered</h2>
+      <h3 style={{ marginTop: 22 }}>Already gathered</h3>
       {answered.length === 0 ? (
         <div className="empty">Nothing has been gathered yet.</div>
       ) : (

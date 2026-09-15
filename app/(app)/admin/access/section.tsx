@@ -85,7 +85,7 @@ export default async function AccessLogPage({
 
   return (
     <>
-      <h1 className="h1">Access log</h1>
+      <h2 className="h2">Access log</h2>
       <p className="sub">
         Every time somebody opened a client&apos;s restricted details or intake, a contractor&apos;s
         tax number, or a filed tax form

@@ -82,7 +82,7 @@ export default async function ExportsPage({
 
   return (
     <>
-      <h1 className="h1">Monthly export</h1>
+      <h2 className="h2">Monthly export</h2>
       <p className="sub">
         The month as files — for the accountant, the CPA at year end, and anything the screens do
         not answer

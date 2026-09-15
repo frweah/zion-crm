@@ -686,3 +686,44 @@ tr.row {
     break-before: page;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   One header on every screen, and sections under it.
+
+   A screen has one title (.h1, serif), one line of context, and its actions on
+   the right. A page merged from several screens keeps that one title; each
+   former screen becomes a section with an .h2 heading, separated by a rule.
+   No screen inside a page carries a title of its own.
+   ───────────────────────────────────────────────────────────── */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+}
+.page-head .sub {
+  margin: 0;
+}
+.page-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0 0 24px;
+}
+.h2 {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.page-section + .page-section {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}

@@ -235,6 +235,7 @@ export async function saveTaxYear(
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/admin/people");
+  revalidatePath("/admin/system");
   revalidatePath("/dashboard");
   return {
     error: null,

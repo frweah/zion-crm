@@ -1,14 +1,7 @@
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
-import {
-  ProfileEditor,
-  PaymentForm,
-  DeletePayment,
-  TaxYearEditor,
-  type ProfileRow,
-  type TaxYearRow,
-} from "./contractor-forms";
+import { ProfileEditor, PaymentForm, DeletePayment, type ProfileRow } from "./contractor-forms";
 import { GenerateRun, RunPanel, type RecipientRow } from "./run-forms";
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -112,15 +105,6 @@ export default async function ContractorsPage({
     label: `${s.period_start} to ${s.period_end} · ${s.status}`,
   }));
 
-  const yearRows: TaxYearRow[] = years.map((y) => ({
-    year: y.year,
-    federal_threshold: y.federal_threshold,
-    utah_state_copy: y.utah_state_copy,
-    confirmed_on: y.confirmed_on,
-    confirmed_by_name: y.confirmed_by ? (staffName.get(y.confirmed_by) ?? null) : null,
-    notes: y.notes,
-  }));
-
   const yearTotal = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const paidThisYear = [...totals.entries()].filter(([, amount]) => amount > 0);
 
@@ -146,9 +130,9 @@ export default async function ContractorsPage({
     Boolean(filingYearSettings?.confirmed_on) && candidates.length > 0 && notReady.length === 0;
 
   const why = !filingYearSettings
-    ? `There are no settings for ${filingYear} yet. Add the year below.`
+    ? `There are no settings for ${filingYear} yet. Tax years are set in Admin → System.`
     : filingYearSettings.federal_threshold == null
-      ? `The ${filingYear} federal threshold has not been set. Ask the CPA, then enter it below.`
+      ? `The ${filingYear} federal threshold has not been set. Ask the CPA, then enter it in Admin → System → Tax years.`
       : !filingYearSettings.confirmed_on
         ? `The ${filingYear} threshold has been entered but not confirmed. Nothing is filed on an unconfirmed figure.`
         : candidates.length === 0
@@ -157,7 +141,7 @@ export default async function ContractorsPage({
 
   return (
     <>
-      <h1 className="h1">Contractors</h1>
+      <h2 className="h2">Contractors</h2>
       <p className="sub">
         Who is paid, what they were paid, and the details a 1099 needs. Everything here is Admin
         only, in the database as well as on this screen.
@@ -253,10 +237,11 @@ export default async function ContractorsPage({
             </p>
           </div>
 
-          <h3 style={{ marginTop: 18 }}>Tax year settings</h3>
-          {yearRows.map((y) => (
-            <TaxYearEditor key={y.year} row={y} />
-          ))}
+          {/* A setting, so it lives in Admin → System; a 1099 run reads it from there. */}
+          <p className="lock" style={{ marginTop: 14 }}>
+            The federal threshold and state copy for each tax year are set in{" "}
+            <a href="/admin/system#tax-years">Admin → System → Tax years</a>.
+          </p>
         </div>
       </div>
 

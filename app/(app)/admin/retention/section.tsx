@@ -52,7 +52,7 @@ export default async function RetentionPage() {
 
   return (
     <>
-      <h1 className="h1">Retention</h1>
+      <h2 className="h2">Retention</h2>
       <p className="sub">
         {all.length} closed record{all.length === 1 ? "" : "s"} ·{" "}
         {all.filter((r) => r.due).length} past its period ·{" "}
