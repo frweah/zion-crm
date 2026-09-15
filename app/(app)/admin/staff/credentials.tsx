@@ -60,12 +60,15 @@ export function StaffCredentials({
   rows,
   types,
   transports,
+  readOnly,
 }: {
   staffId: string;
   staffName: string;
   rows: StatusRow[];
   types: CredentialType[];
   transports: boolean;
+  /** Somebody inactive: what they held is shown, and nothing can be recorded or changed. */
+  readOnly?: boolean;
 }) {
   const [state, action, pending] = useActionState(recordCredential, initial);
   const [transportState, transportAction, savingTransport] = useActionState(
@@ -94,13 +97,15 @@ export function StaffCredentials({
           </p>
         </div>
 
-        <form action={transportAction}>
-          <input type="hidden" name="staff_id" value={staffId} />
-          <input type="hidden" name="transports" value={transports ? "no" : "yes"} />
-          <button className="btn ghost" type="submit" disabled={savingTransport}>
-            {transports ? "Does not transport clients" : "Transports clients"}
-          </button>
-        </form>
+        {!readOnly && (
+          <form action={transportAction}>
+            <input type="hidden" name="staff_id" value={staffId} />
+            <input type="hidden" name="transports" value={transports ? "no" : "yes"} />
+            <button className="btn ghost" type="submit" disabled={savingTransport}>
+              {transports ? "Does not transport clients" : "Transports clients"}
+            </button>
+          </form>
+        )}
       </div>
 
       {transports && (
@@ -165,7 +170,7 @@ export function StaffCredentials({
                   <span className="lock">nothing on file</span>
                 ),
               action:
-                r.kind !== "hours" ? (
+                r.kind !== "hours" && !readOnly ? (
                   <button
                     className="btn ghost"
                     type="button"

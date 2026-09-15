@@ -54,10 +54,13 @@ export function Checklist({
   name,
   rows,
   phase,
+  readOnly,
 }: {
   name: string;
   rows: ChecklistRow[];
   phase: string;
+  /** Shown as it stands, with nothing to tick - an inactive person's onboarding. */
+  readOnly?: boolean;
 }) {
   const items = rows.filter((r) => r.phase === phase);
   if (items.length === 0) return null;
@@ -105,7 +108,11 @@ export function Checklist({
                   {r.note && <div style={{ fontSize: 12 }}>{r.note}</div>}
                 </>
               ),
-              action: <ItemControl row={r} />,
+              action: readOnly ? (
+                <span className="lock">{done ? `done${r.done_on ? ` ${r.done_on}` : ""}` : "not done"}</span>
+              ) : (
+                <ItemControl row={r} />
+              ),
             },
           };
         })}

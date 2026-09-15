@@ -61,6 +61,13 @@ export async function uploadStaffDocument(
 
   const supabase = await createClient();
 
+  // Checked before the file goes up: an inactive person's file is closed
+  // (public.staff_record_frozen), and the row would be refused anyway.
+  const { data: owner } = await supabase.from("staff").select("name, active").eq("id", staffId).maybeSingle();
+  if (owner && !owner.active) {
+    return { error: `${owner.name} is inactive; their file is kept as it was and nothing can be added.`, ok: null };
+  }
+
   const { data: cat } = await supabase
     .from("staff_file_categories")
     .select("label, system_only")
@@ -170,11 +177,19 @@ export async function deleteStaffDocument(
 
   const { data: file } = await supabase
     .from("staff_files")
-    .select("storage_path, filename")
+    .select("storage_path, filename, staff_id")
     .eq("id", id)
     .maybeSingle();
 
   if (!file) return { error: "That document is not on file.", ok: null };
+
+  // Before the file is touched. The database refuses the row for somebody
+  // inactive, but the file goes first here, so without this the stored copy
+  // would be gone while the row that describes it stayed.
+  const { data: owner } = await supabase.from("staff").select("name, active").eq("id", file.staff_id).maybeSingle();
+  if (owner && !owner.active) {
+    return { error: `${owner.name} is inactive; their file is kept as it was, for retention and audits.`, ok: null };
+  }
 
   const { error: storageError } = await supabase.storage
     .from("staff-files")

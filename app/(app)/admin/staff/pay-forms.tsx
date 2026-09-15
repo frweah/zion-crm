@@ -50,11 +50,14 @@ export function PayRates({
   name,
   rows,
   today,
+  readOnly,
 }: {
   staffId: string;
   name: string;
   rows: PayRow[];
   today: string;
+  /** Somebody inactive: the history is shown as it was, and nothing can be set or removed. */
+  readOnly?: boolean;
 }) {
   const [state, action, pending] = useActionState(setStaffPay, initial);
 
@@ -101,16 +104,22 @@ export function PayRates({
             rate: rate(r),
             note: <span className="lock">{r.note || "—"}</span>,
             actions:
-              r.id === newest?.id ? (
+              r.id === newest?.id && !readOnly ? (
                 <RemoveRate id={r.id} />
               ) : (
-                <span className="lock">what they were paid under</span>
+                <span className="lock">{r.id === newest?.id ? "their last rate" : "what they were paid under"}</span>
               ),
           },
         }))}
         empty={`No rate has been recorded for ${name} yet.`}
       />
 
+      {readOnly ? (
+        <p className="lock" style={{ margin: 0, padding: "10px 16px 16px" }}>
+          Kept as it was when {name.split(" ")[0]} left. No rate can be set or removed.
+        </p>
+      ) : (
+      <>
       <form action={action} style={{ padding: "12px 16px 0" }}>
         <input type="hidden" name="staff_id" value={staffId} />
         <div className="row2" style={{ alignItems: "flex-end" }}>
@@ -145,6 +154,8 @@ export function PayRates({
         keeps the rate it was done under. A date in the future is fine — a raise can be recorded
         before it starts. {name.split(" ")[0]} can see this rate and nobody else&apos;s.
       </p>
+      </>
+      )}
     </div>
   );
 }

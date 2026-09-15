@@ -31,13 +31,13 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
 
   const { data: person } = await supabase
     .from("staff")
-    .select("id, name, email, role, active, user_id, invited_at, accepted_at")
+    .select("id, name, email, role, active, user_id, invited_at, accepted_at, deactivated_at")
     .eq("id", id)
     .maybeSingle();
 
   if (!person) notFound();
 
-  const [payResult, checklistResult, credentialResult, typesResult, employmentResult, documentResult, docCategoryResult] =
+  const [payResult, checklistResult, credentialResult, typesResult, employmentResult, documentResult, docCategoryResult, offboardingResult] =
     await Promise.all([
       supabase
         .from("staff_pay")
@@ -62,7 +62,18 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .select("key, label, detail, system_only")
         .eq("active", true)
         .order("sort_order"),
+      supabase.from("staff_offboarding").select("last_day").eq("staff_id", id).maybeSingle(),
     ]);
+
+  // Somebody who has left keeps a whole, readable record for retention and
+  // audits, and nothing on it changes (owner, 14 Sept 2026). The database
+  // refuses the writes (public.staff_record_frozen); this only stops offering
+  // them. The offboarding checklist is the exception: it is finished after
+  // they have gone.
+  const readOnly = !person.active;
+  const inactiveSince = person.deactivated_at
+    ? new Date(person.deactivated_at).toLocaleDateString("en-CA", { timeZone: "America/Denver" })
+    : (offboardingResult.data?.last_day ?? null);
 
   const checklist = (checklistResult.data ?? []) as ChecklistRow[];
   const transports = Boolean((employmentResult.data ?? [])[0]?.transports_clients);
@@ -95,6 +106,14 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         }
       />
 
+      {readOnly && (
+        <div className="alert" role="status" style={{ marginBottom: 16 }}>
+          <b>Inactive since {inactiveSince ?? "a date that was not recorded"}.</b> {person.name}&apos;s
+          record is kept as it was, read-only, for retention and audits. The offboarding checklist can
+          still be completed; to change anything else, reactivate them.
+        </div>
+      )}
+
       <section id="pay" className="page-section">
         <h2 className="h2">Pay rates</h2>
         <p className="sub">
@@ -106,6 +125,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           name={person.name}
           rows={(payResult.data ?? []) as PayRow[]}
           today={today()}
+          readOnly={readOnly}
         />
       </section>
 
@@ -118,7 +138,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         {onboarding.length === 0 ? (
           <p className="empty">There is no onboarding checklist for {person.name}.</p>
         ) : (
-          <Checklist name={person.name} rows={checklist} phase="Onboarding" />
+          <Checklist name={person.name} rows={checklist} phase="Onboarding" readOnly={readOnly} />
         )}
         {!person.active &&
           (offboarding.length === 0 ? (
@@ -141,14 +161,19 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           rows={(credentialResult.data ?? []) as unknown as StatusRow[]}
           types={(typesResult.data ?? []) as CredentialType[]}
           transports={transports}
+          readOnly={readOnly}
         />
 
-        <h3>Log continuing education for {person.name.split(" ")[0]}</h3>
-        <p className="sub" style={{ marginBottom: 8 }}>
-          People log their own on their Paperwork screen. This is for the certificate that arrives by
-          email addressed to the practice.
-        </p>
-        <CeForm staffId={person.id} today={today()} forSomebodyElse />
+        {!readOnly && (
+          <>
+            <h3>Log continuing education for {person.name.split(" ")[0]}</h3>
+            <p className="sub" style={{ marginBottom: 8 }}>
+              People log their own on their Paperwork screen. This is for the certificate that arrives
+              by email addressed to the practice.
+            </p>
+            <CeForm staffId={person.id} today={today()} forSomebodyElse />
+          </>
+        )}
       </section>
 
       <section id="documents" className="page-section">
@@ -162,7 +187,8 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           staffName={person.name}
           docs={(documentResult.data ?? []) as unknown as DocRow[]}
           categories={(docCategoryResult.data ?? []) as DocCategory[]}
-          canDelete
+          canDelete={!readOnly}
+          readOnly={readOnly}
         />
       </section>
     </>

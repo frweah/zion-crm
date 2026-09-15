@@ -109,6 +109,7 @@ export function StaffDocuments({
   categories,
   canDelete,
   compact,
+  readOnly,
 }: {
   staffId: string;
   staffName?: string;
@@ -116,6 +117,8 @@ export function StaffDocuments({
   categories: DocCategory[];
   canDelete: boolean;
   compact?: boolean;
+  /** Somebody inactive: every document can be opened, and none added or removed. */
+  readOnly?: boolean;
 }) {
   const [state, action, pending] = useActionState(uploadStaffDocument, initial);
   const [adding, setAdding] = useState(false);
@@ -131,9 +134,11 @@ export function StaffDocuments({
             Held privately — you and the administrator, nobody else.
           </p>
         </div>
-        <button className="btn" type="button" onClick={() => setAdding(!adding)}>
-          {adding ? "Cancel" : "Add a document"}
-        </button>
+        {!readOnly && (
+          <button className="btn" type="button" onClick={() => setAdding(!adding)}>
+            {adding ? "Cancel" : "Add a document"}
+          </button>
+        )}
       </div>
 
       {state.error && <div className="alert bad" style={{ marginTop: 10 }}>{state.error}</div>}
@@ -213,7 +218,7 @@ export function StaffDocuments({
               actions: (
                 <span style={{ whiteSpace: "nowrap" }}>
                   <OpenButton id={d.id} />
-                  {canDelete && !d.system_generated && (
+                  {canDelete && !readOnly && !d.system_generated && (
                     <span style={{ marginLeft: 4 }}>
                       <DeleteButton doc={d} />
                     </span>
