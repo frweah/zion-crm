@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today, median } from "@/lib/constants";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 /**
  * The referral pipeline.
@@ -160,12 +162,82 @@ export default async function ReferralsPage({
     );
   }
 
+  const waitingRows: DataRow[] = shown.map((r) => {
+    const counselor = r.counselor_id
+      ? (counselorName.get(r.counselor_id) ?? "—")
+      : r.referring_office || "not recorded";
+    const withStaff = r.assigned_staff_id ? (staffName.get(r.assigned_staff_id) ?? "—") : "nobody";
+    return {
+      key: r.client_id,
+      cells: {
+        client: (
+          <>
+            <Link href={`/clients/${r.client_id}`} style={{ color: "var(--teal)" }}>
+              <b>{r.name}</b>
+            </Link>
+            {r.no_authorization && (
+              <div style={{ fontSize: 12, color: "var(--bad)" }}>nothing authorized</div>
+            )}
+          </>
+        ),
+        stage: <span className="chip">{r.stage}</span>,
+        waiting: (
+          <span style={{ whiteSpace: "nowrap" }}>
+            <span className={"chip " + (r.days_in_stage >= STALLED_DAYS ? "bad" : "")}>
+              {r.days_in_stage} days
+            </span>
+            <div className="lock">
+              {r.stage_since ? `since ${r.stage_since.slice(0, 10)}` : "no stage record"}
+            </div>
+          </span>
+        ),
+        counselor: r.counselor_id ? (
+          <Link href={`/counselors/${r.counselor_id}`} style={{ color: "var(--teal)" }}>
+            {counselor}
+          </Link>
+        ) : (
+          <span className="lock">{counselor}</span>
+        ),
+        with: r.assigned_staff_id ? withStaff : <span className="lock">nobody</span>,
+      },
+      sort: {
+        client: r.name,
+        // Pipeline order, not alphabetical.
+        stage: FUNNEL.indexOf(r.stage as (typeof FUNNEL)[number]),
+        waiting: r.days_in_stage,
+        counselor,
+        with: withStaff,
+      },
+      text: [r.name, r.stage, counselor, withStaff, r.no_authorization ? "nothing authorized" : ""]
+        .filter(Boolean)
+        .join(" "),
+    };
+  });
+
+  const sourceRows: DataRow[] = bySource.map((s) => ({
+    key: s.source,
+    cells: {
+      source: s.source,
+      referred: s.referred,
+      placed: (
+        <>
+          {s.placed}
+          {s.referred > 0 && (
+            <span className="lock"> · {Math.round((s.placed / s.referred) * 100)}%</span>
+          )}
+        </>
+      ),
+      waiting: s.waiting || <span className="lock">none</span>,
+    },
+    sort: { placed: s.placed, waiting: s.waiting },
+  }));
+
   return (
     <>
-      <h1 className="h1">Referrals</h1>
-      <p className="sub">
-        Who has been sent to us, how far they get, and how long they wait at each step
-      </p>
+      <PageHead
+        title="Referrals"
+        context="Who has been sent to us, how far they get, and how long they wait at each step"
+      />
 
       <div
         className="grid"
@@ -214,200 +286,149 @@ export default async function ReferralsPage({
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 18, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>How far people get</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            Everyone who has ever reached each stage, and how many are standing there now. A
-            client at Job Coaching is counted as having reached Job Development, whether or not
-            the workbook remembered it.
-          </p>
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2">How far people get</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Everyone who has ever reached each stage, and how many are standing there now. A
+          client at Job Coaching is counted as having reached Job Development, whether or not
+          the workbook remembered it.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <table className="t" data-layout="funnel: the stages in pipeline order, drawn as bars">
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Ever reached</th>
+                <th>From the stage before</th>
+                <th>Standing here now</th>
+              </tr>
+            </thead>
+            <tbody>
+              {funnel.map((f) => (
+                <tr key={f.stage}>
+                  <td>
+                    <b>{f.stage}</b>
+                  </td>
+                  <td>
+                    <div className="row2" style={{ gap: 8 }}>
+                      <div
+                        style={{
+                          height: 10,
+                          borderRadius: 5,
+                          background: "var(--teal)",
+                          width: `${referredKnown ? Math.round((f.reached / referredKnown) * 100) : 0}%`,
+                          minWidth: f.reached > 0 ? 4 : 0,
+                          flex: "0 0 auto",
+                        }}
+                      />
+                      <span>{f.reached}</span>
+                    </div>
+                  </td>
+                  <td>{f.fromPrevious === null ? "—" : `${f.fromPrevious}%`}</td>
+                  <td>{f.standingHere || <span className="lock">none</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Stage</th>
-              <th>Ever reached</th>
-              <th>From the stage before</th>
-              <th>Standing here now</th>
-            </tr>
-          </thead>
-          <tbody>
-            {funnel.map((f) => (
-              <tr key={f.stage}>
-                <td>
-                  <b>{f.stage}</b>
-                </td>
-                <td>
-                  <div className="row2" style={{ gap: 8 }}>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2" style={{ marginBottom: 8 }}>
+          Referrals arriving, by month
+        </h2>
+        <div className="card">
+          <table className="t" data-layout="bar chart, one row per month">
+            <tbody>
+              {byMonth.map((b) => (
+                <tr key={b.month}>
+                  <td style={{ width: 80 }}>{b.month}</td>
+                  <td>
                     <div
                       style={{
                         height: 10,
                         borderRadius: 5,
-                        background: "var(--teal)",
-                        width: `${referredKnown ? Math.round((f.reached / referredKnown) * 100) : 0}%`,
-                        minWidth: f.reached > 0 ? 4 : 0,
-                        flex: "0 0 auto",
+                        background: "var(--lime)",
+                        width: `${Math.round((b.n / peak) * 100)}%`,
+                        minWidth: b.n > 0 ? 4 : 0,
                       }}
                     />
-                    <span>{f.reached}</span>
-                  </div>
-                </td>
-                <td>{f.fromPrevious === null ? "—" : `${f.fromPrevious}%`}</td>
-                <td>{f.standingHere || <span className="lock">none</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                  <td style={{ textAlign: "right", width: 60 }}>
+                    <b>{b.n}</b>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div className="card" style={{ marginBottom: 18 }}>
-        <h3 style={{ marginTop: 0 }}>Referrals arriving, by month</h3>
-        <table className="t">
-          <tbody>
-            {byMonth.map((b) => (
-              <tr key={b.month}>
-                <td style={{ width: 80 }}>{b.month}</td>
-                <td>
-                  <div
-                    style={{
-                      height: 10,
-                      borderRadius: 5,
-                      background: "var(--lime)",
-                      width: `${Math.round((b.n / peak) * 100)}%`,
-                      minWidth: b.n > 0 ? 4 : 0,
-                    }}
-                  />
-                </td>
-                <td style={{ textAlign: "right", width: 60 }}>
-                  <b>{b.n}</b>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ marginBottom: 18, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <div className="row2" style={{ justifyContent: "space-between" }}>
-            <div>
-              <h3 style={{ margin: 0 }}>
-                {show === "front" ? "Waiting at the front" : "Every active client"}
-              </h3>
-              <p className="sub" style={{ margin: "4px 0 0" }}>
-                Longest wait first.{" "}
-                {stalled.length > 0 && (
-                  <b style={{ color: "var(--bad)" }}>
-                    {stalled.length} have been waiting more than {STALLED_DAYS} days.
-                  </b>
-                )}
-              </p>
-            </div>
-            <div className="tabs" style={{ margin: 0, borderBottom: 0 }}>
-              <Link href="/insights/referrals?show=front" className={show === "front" ? "on" : ""}>
-                Front of the pipeline
-              </Link>
-              <Link href="/insights/referrals?show=all" className={show === "all" ? "on" : ""}>
-                Everyone active
-              </Link>
-            </div>
+      <section style={{ marginBottom: 24 }}>
+        <div
+          className="row2"
+          style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12 }}
+        >
+          <div>
+            <h2 className="h2">{show === "front" ? "Waiting at the front" : "Every active client"}</h2>
+            <p className="sub" style={{ margin: 0 }}>
+              Longest wait first.{" "}
+              {stalled.length > 0 && (
+                <b style={{ color: "var(--bad)" }}>
+                  {stalled.length} have been waiting more than {STALLED_DAYS} days.
+                </b>
+              )}
+            </p>
+          </div>
+          {/* Who to list is a filter on this list, not a tab. */}
+          <div className="segmented">
+            <Link href="/insights/referrals?show=front" className={show === "front" ? "on" : undefined}>
+              Front of the pipeline
+            </Link>
+            <Link href="/insights/referrals?show=all" className={show === "all" ? "on" : undefined}>
+              Everyone active
+            </Link>
           </div>
         </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Stage</th>
-              <th>Waiting</th>
-              <th>Counselor</th>
-              <th>With</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty">
-                  Nobody is waiting at the front of the pipeline.
-                </td>
-              </tr>
-            )}
-            {shown.map((r) => (
-              <tr key={r.client_id}>
-                <td>
-                  <Link href={`/clients/${r.client_id}`} style={{ color: "var(--teal)" }}>
-                    <b>{r.name}</b>
-                  </Link>
-                  {r.no_authorization && (
-                    <div style={{ fontSize: 12, color: "var(--bad)" }}>nothing authorized</div>
-                  )}
-                </td>
-                <td>
-                  <span className="chip">{r.stage}</span>
-                </td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  <span className={"chip " + (r.days_in_stage >= STALLED_DAYS ? "bad" : "")}>
-                    {r.days_in_stage} days
-                  </span>
-                  <div className="lock">
-                    {r.stage_since ? `since ${r.stage_since.slice(0, 10)}` : "no stage record"}
-                  </div>
-                </td>
-                <td>
-                  {r.counselor_id ? (
-                    <Link href={`/counselors/${r.counselor_id}`} style={{ color: "var(--teal)" }}>
-                      {counselorName.get(r.counselor_id) ?? "—"}
-                    </Link>
-                  ) : (
-                    <span className="lock">{r.referring_office || "not recorded"}</span>
-                  )}
-                </td>
-                <td>
-                  {r.assigned_staff_id ? (
-                    (staffName.get(r.assigned_staff_id) ?? "—")
-                  ) : (
-                    <span className="lock">nobody</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Where referrals come from</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            By counselor, or by office where no counselor is recorded.
-          </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="clients"
+            columns={[
+              { key: "client", label: "Client" },
+              { key: "stage", label: "Stage" },
+              { key: "waiting", label: "Waiting" },
+              { key: "counselor", label: "Counselor" },
+              { key: "with", label: "With" },
+            ]}
+            rows={waitingRows}
+            empty={
+              show === "front"
+                ? "Nobody is waiting at the front of the pipeline."
+                : "No client is active."
+            }
+          />
         </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th>Referred</th>
-              <th>Reached placement</th>
-              <th>Still waiting</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bySource.map((s) => (
-              <tr key={s.source}>
-                <td>{s.source}</td>
-                <td>{s.referred}</td>
-                <td>
-                  {s.placed}
-                  {s.referred > 0 && (
-                    <span className="lock"> · {Math.round((s.placed / s.referred) * 100)}%</span>
-                  )}
-                </td>
-                <td>{s.waiting || <span className="lock">none</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      </section>
+
+      <section>
+        <h2 className="h2">Where referrals come from</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          By counselor, or by office where no counselor is recorded.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="sources"
+            columns={[
+              { key: "source", label: "Source" },
+              { key: "referred", label: "Referred", align: "right" },
+              { key: "placed", label: "Reached placement", align: "right" },
+              { key: "waiting", label: "Still waiting", align: "right" },
+            ]}
+            rows={sourceRows}
+            empty="No client has been referred yet."
+          />
+        </div>
+      </section>
     </>
   );
 }

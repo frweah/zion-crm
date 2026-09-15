@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { setSmsConsent } from "./actions";
 import { fmtStamp } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 export type ConsentRow = {
   state: string | null;
@@ -158,29 +159,41 @@ export function TextingPanel({
       )}
 
       {texts.length > 0 && (
-        <table className="t" style={{ marginTop: 12 }}>
-          <tbody>
-            {texts.map((t) => (
-              <tr key={t.id}>
-                <td style={{ width: 130, whiteSpace: "nowrap", verticalAlign: "top" }}>
-                  <span className={"chip " + (t.direction === "Incoming" ? "ok" : "")}>
-                    {t.direction === "Incoming" ? "from them" : "to them"}
+        <div style={{ marginTop: 12 }}>
+          <DataTable
+            label="texts"
+            columns={[
+              { key: "when", label: "When", width: 130 },
+              { key: "body", label: "Message" },
+            ]}
+            rows={texts.map((t) => ({
+              key: t.id,
+              sort: { when: t.sent_at ?? t.created_at, body: t.body },
+              cells: {
+                when: (
+                  <span style={{ whiteSpace: "nowrap" }}>
+                    <span className={"chip " + (t.direction === "Incoming" ? "ok" : "")}>
+                      {t.direction === "Incoming" ? "from them" : "to them"}
+                    </span>
+                    <div className="lock">{fmtStamp(t.sent_at ?? t.created_at)}</div>
                   </span>
-                  <div className="lock">{fmtStamp(t.sent_at ?? t.created_at)}</div>
-                </td>
-                <td>
-                  {t.body}
-                  {t.status === "Failed" && (
-                    <div style={{ fontSize: 12, color: "var(--bad)" }}>
-                      not delivered — {t.error}
-                    </div>
-                  )}
-                  {t.kind === "Reminder" && <div className="lock">appointment reminder</div>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                ),
+                body: (
+                  <>
+                    {t.body}
+                    {t.status === "Failed" && (
+                      <div style={{ fontSize: 12, color: "var(--bad)" }}>
+                        not delivered — {t.error}
+                      </div>
+                    )}
+                    {t.kind === "Reminder" && <div className="lock">appointment reminder</div>}
+                  </>
+                ),
+              },
+            }))}
+            empty="No texts have been sent or received."
+          />
+        </div>
       )}
     </div>
   );

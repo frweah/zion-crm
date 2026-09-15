@@ -25,12 +25,10 @@ export function GroupTabs({
   const pathname = usePathname();
   const tab = useSearchParams().get("tab");
 
-  const current = groups.find(({ items }) =>
-    items.some((i) => {
-      const path = navPath(i.href);
-      return pathname === path || pathname.startsWith(path + "/");
-    }),
-  );
+  // Only on the group's own screens. A record under one of them (a client, a
+  // counselor, a job opening) has its own header and tabs, and a row of group
+  // tabs above those would be tabs stacked on tabs.
+  const current = groups.find(({ items }) => items.some((i) => pathname === navPath(i.href)));
 
   // Nothing to show for a group of one.
   if (!current || current.items.length < 2) return null;

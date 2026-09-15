@@ -19,6 +19,8 @@ import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
 import { RecordActions } from "./record-actions";
+import { RecordHeader } from "../../record-header";
+import { DataTable } from "../../data-table";
 import { AuthorizationPayments } from "./authorization-payments";
 import { WarrantLink } from "../../billing/warrants/warrant-link";
 import { readPayments } from "@/lib/payments";
@@ -99,36 +101,27 @@ export default async function ClientPage({
   const staffName = new Map(staff.map((s) => [s.id, s.name]));
   const assignedName = client.assigned_staff_id ? staffName.get(client.assigned_staff_id) : undefined;
 
+  // The record's own tabs sit directly under its header; they are the only
+  // tabs on this screen.
   const header = (
     <>
-      <p className="sub" style={{ marginBottom: 8 }}>
-        <Link href="/clients" style={{ color: "var(--teal)" }}>
-          ← Clients
-        </Link>
-      </p>
-
-      <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 4 }}>
-        <div>
-          <h1 className="h1">
-            {detail.name}
-            {detail.status !== "Active" && (
-              <span className="chip" style={{ marginLeft: 10, verticalAlign: "middle" }}>
-                {detail.status}
-              </span>
-            )}
-          </h1>
-          <p className="sub" style={{ margin: 0 }}>
-            {detail.client_no ? `Client #${detail.client_no} · ` : ""}
-            {detail.agency_id ? `USOR ID ${detail.agency_id} · ` : ""}
-            {detail.funding_source}
-          </p>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
+      <RecordHeader
+        back={{ href: "/clients", label: "Clients" }}
+        title={detail.name}
+        status={detail.status !== "Active" ? detail.status : null}
+        identity={[
+          detail.client_no ? `Client #${detail.client_no}` : null,
+          detail.agency_id ? `USOR ID ${detail.agency_id}` : null,
+          detail.funding_source,
+        ]}
+        standing={
+          <>
             Counselor {counselor?.name || "not set"} · Assigned to {assignedName ?? "nobody"} ·{" "}
             <span className="chip gold">{detail.stage}</span>
-          </p>
-        </div>
-        <RecordActions clientId={id} tab={tab} staff={staff} myId={me.id} />
-      </div>
+          </>
+        }
+        actions={<RecordActions clientId={id} tab={tab} staff={staff} myId={me.id} />}
+      />
 
       <nav className="tabs">
         {CLIENT_TABS.map((t) => (
@@ -329,7 +322,7 @@ export default async function ClientPage({
           employers={(employers ?? []) as { id: string; name: string }[]}
           canEdit={canEdit}
         />
-        <h3 style={{ margin: "22px 0 8px" }}>Placements</h3>
+        <h2 className="h2" style={{ margin: "22px 0 8px" }}>Placements</h2>
         <PlacementsTab clientId={id} placements={(placements ?? []) as PlacementRow[]} canEdit={canEdit} canBill={canBill} />
         {overlay}
       </>
@@ -449,7 +442,15 @@ export default async function ClientPage({
           </div>
         </div>
 
+        {/*
+          One container for the authorizations, each divided from the next by a
+          hairline: every one carries its own files and payments, so they are a
+          list of items rather than a table, and not a stack of separate cards.
+        */}
+        <h2 className="h2" style={{ margin: "0 0 8px" }}>Authorizations</h2>
         {(auths ?? []).length === 0 && <div className="empty">No authorizations on file. Add them from Billing.</div>}
+        {(auths ?? []).length > 0 && (
+        <div className="list">
         {(auths ?? []).map((a) => {
           const used = Number(a.carried_used ?? 0) + (logged.get(a.id) ?? 0);
           const total = a.total_hours ? Number(a.total_hours) : null;
@@ -458,7 +459,7 @@ export default async function ClientPage({
           const tone = remaining === null ? "" : remaining <= 0 ? "bad" : pct >= 90 ? "warn" : "";
 
           return (
-            <div key={a.id} className="card" style={{ marginBottom: 10 }}>
+            <div key={a.id} className="list-item">
               <div className="row2" style={{ justifyContent: "space-between" }}>
                 <b>{a.number || "(no authorization number)"}</b>
                 <span className="chip gold">{a.service_type}</span>
@@ -500,51 +501,55 @@ export default async function ClientPage({
             </div>
           );
         })}
+        </div>
+        )}
 
-        <div className="card" style={{ padding: 0, overflowX: "auto", marginTop: 14 }}>
-          <h3 style={{ padding: "14px 16px 0", margin: 0 }}>Invoices</h3>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Invoice</th>
-                <th>Service</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Warrant</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="empty">
-                    No invoices for this client.
-                  </td>
-                </tr>
-              )}
-              {invoices.map((i) => (
-                <tr key={i.id}>
-                  <td>{i.date}</td>
-                  <td>{i.number || authNumber.get(i.auth_id)}</td>
-                  <td>{i.service_type}</td>
-                  <td>{money(i.amount)}</td>
-                  <td>
+        <h2 className="h2" style={{ margin: "22px 0 8px" }}>Invoices</h2>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="invoices"
+            columns={[
+              { key: "date", label: "Date" },
+              { key: "number", label: "Invoice" },
+              { key: "service", label: "Service" },
+              { key: "amount", label: "Amount", align: "right" },
+              { key: "status", label: "Status" },
+              { key: "warrant", label: "Warrant" },
+            ]}
+            rows={invoices.map((i) => ({
+              key: i.id,
+              sort: {
+                date: i.date,
+                number: i.number || authNumber.get(i.auth_id) || "",
+                amount: i.amount,
+                status: i.status,
+                warrant: i.status === "Paid" ? (i.warrant ?? "") : "",
+              },
+              cells: {
+                date: i.date,
+                number: i.number || authNumber.get(i.auth_id) || "",
+                service: i.service_type,
+                amount: money(i.amount),
+                status: (
+                  <>
                     <span className={"chip " + (i.status === "Paid" ? "ok" : i.status === "Sent" ? "warn" : "")}>
                       {i.status}
                     </span>
                     {i.status === "Paid" && i.paid_date && <div className="lock">paid {i.paid_date}</div>}
-                  </td>
-                  <td style={{ fontSize: 12 }}>
-                    {i.status === "Paid" ? (
+                  </>
+                ),
+                warrant:
+                  i.status === "Paid" ? (
+                    <span style={{ fontSize: 12 }}>
                       <WarrantLink payment={{ warrant_no: i.warrant ?? "", page_id: pageByInvoice.get(i.id) ?? null }} />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </span>
+                  ) : (
+                    "—"
+                  ),
+              },
+            }))}
+            empty="No invoices for this client."
+          />
         </div>
 
         <div id="paperwork">
@@ -609,46 +614,52 @@ export default async function ClientPage({
       <>
         {header}
 
-        <div className="card" style={{ marginBottom: 14, padding: 0 }}>
-          <div className="row2" style={{ justifyContent: "space-between", padding: "14px 16px 0", gap: 12 }}>
-            <div>
-              <h3 style={{ margin: 0 }}>Progress reports</h3>
-              <p className="sub" style={{ margin: "4px 0 0" }}>
-                Built from notes, hours, job search, placements and counselor contacts, and emailed to
-                the counselor on the record.
-              </p>
-            </div>
-            <Link className="btn" href={`/clients/${id}?tab=documents&report=Weekly`} style={{ textDecoration: "none" }}>
-              Send report
-            </Link>
+        <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
+          <div>
+            <h2 className="h2">Progress reports</h2>
+            <p className="sub" style={{ margin: "4px 0 0" }}>
+              Built from notes, hours, job search, placements and counselor contacts, and emailed to
+              the counselor on the record.
+            </p>
           </div>
-          <table className="t">
-            <tbody>
-              {reports.length === 0 && (
-                <tr>
-                  <td className="empty">No report has been emailed for this client yet.</td>
-                </tr>
-              )}
-              {reports.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ width: 110 }}>{r.date}</td>
-                  <td>
-                    {r.topic}
-                    <div className="lock">{r.outcome}</div>
-                  </td>
-                  <td className="lock" style={{ textAlign: "right" }}>
-                    {r.staff_id ? (staffName.get(r.staff_id) ?? "") : ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Link className="btn" href={`/clients/${id}?tab=documents&report=Weekly`} style={{ textDecoration: "none" }}>
+            Send report
+          </Link>
+        </div>
+        <div className="card" style={{ marginBottom: 14, padding: 0 }}>
+          <DataTable
+            label="reports"
+            columns={[
+              { key: "date", label: "Date", width: 110 },
+              { key: "topic", label: "Report" },
+              { key: "staff", label: "Sent by" },
+            ]}
+            rows={reports.map((r) => {
+              const by = r.staff_id ? (staffName.get(r.staff_id) ?? "") : "";
+              return {
+                key: r.id,
+                sort: { date: r.date, topic: r.topic, staff: by },
+                text: `${r.date} ${r.topic} ${r.outcome} ${by}`,
+                cells: {
+                  date: r.date,
+                  topic: (
+                    <>
+                      {r.topic}
+                      <div className="lock">{r.outcome}</div>
+                    </>
+                  ),
+                  staff: <span className="lock">{by}</span>,
+                },
+              };
+            })}
+            empty="No report has been emailed for this client yet."
+          />
         </div>
 
-        <h3 style={{ margin: "0 0 8px" }}>USOR forms</h3>
+        <h2 className="h2" style={{ margin: "22px 0 8px" }}>USOR forms</h2>
         <FormsTab clientId={id} forms={forms} auths={authChoices} missingForBilling={missingForBilling} />
 
-        <h3 style={{ margin: "22px 0 8px" }}>Files</h3>
+        <h2 className="h2" style={{ margin: "22px 0 8px" }}>Files</h2>
         <FilesTab clientId={id} files={(files ?? []) as AttachmentRow[]} canSeeRestricted={canSeeRestricted} />
         {overlay}
       </>
@@ -758,20 +769,19 @@ export default async function ClientPage({
 
           <div className="card">
             <h3>Stage history</h3>
-            {(historyResult.data ?? []).length === 0 ? (
-              <div className="empty">Nothing recorded yet.</div>
-            ) : (
-              <table className="t">
-                <tbody>
-                  {(historyResult.data ?? []).map((h, i) => (
-                    <tr key={i}>
-                      <td>{h.stage}</td>
-                      <td style={{ color: "var(--muted)" }}>{h.at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <DataTable
+              label="stage changes"
+              columns={[
+                { key: "stage", label: "Stage" },
+                { key: "at", label: "When" },
+              ]}
+              rows={(historyResult.data ?? []).map((h, i) => ({
+                key: `${h.at}-${i}`,
+                sort: { at: h.at },
+                cells: { stage: h.stage, at: <span style={{ color: "var(--muted)" }}>{h.at}</span> },
+              }))}
+              empty="No stage change has been recorded yet."
+            />
           </div>
 
           {/* The paperwork itself lives on Billing, beside the authorizations it gates. */}

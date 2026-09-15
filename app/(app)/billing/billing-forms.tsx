@@ -230,63 +230,50 @@ export function ServiceEntryForm({ auths }: { auths: AuthOption[] }) {
   );
 }
 
-export function CompletionRow({
+/**
+ * The start and completion dates of one flat-fee completion, saved in place.
+ *
+ * This is one cell of the completions table, not a whole row: the page draws
+ * the row's other columns as plain values, so the list can be the one table
+ * with sorting and filtering like every other list of records.
+ */
+export function CompletionDates({
+  completionId,
+  startDate,
   completion,
 }: {
-  completion: {
-    id: string;
-    auth_number: string;
-    client_name: string;
-    service_type: string;
-    start_date: string | null;
-    completion: string | null;
-    billed: boolean;
-    rate: number;
-  };
+  completionId: string;
+  startDate: string | null;
+  completion: string | null;
 }) {
   const [state, action, pending] = useActionState(updateCompletion, initial);
 
   return (
-    <tr>
-      <td>
-        <b>{completion.auth_number}</b>
-      </td>
-      <td>{completion.client_name}</td>
-      <td>{completion.service_type}</td>
-      <td colSpan={2}>
-        <form action={action} className="row2" style={{ gap: 6 }}>
-          <input type="hidden" name="completion_id" value={completion.id} />
-          <input
-            name="start_date"
-            type="date"
-            max={today()}
-            defaultValue={completion.start_date ?? ""}
-            style={{ maxWidth: 150 }}
-          />
-          <input
-            name="completion"
-            type="date"
-            max={today()}
-            defaultValue={completion.completion ?? ""}
-            style={{ maxWidth: 150 }}
-          />
-          <button className="btn ghost" type="submit" disabled={pending}>
-            {pending ? "…" : "Save"}
-          </button>
-        </form>
-        {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
-      </td>
-      <td>{money(completion.rate)}</td>
-      <td>
-        {completion.billed ? (
-          <span className="chip ok">Yes</span>
-        ) : completion.completion ? (
-          <span className="chip warn">ready to invoice</span>
-        ) : (
-          <span className="lock">needs completion date</span>
-        )}
-      </td>
-    </tr>
+    <>
+      <form action={action} className="row2" style={{ gap: 6 }}>
+        <input type="hidden" name="completion_id" value={completionId} />
+        <input
+          name="start_date"
+          type="date"
+          max={today()}
+          defaultValue={startDate ?? ""}
+          style={{ maxWidth: 150 }}
+          aria-label="Start date"
+        />
+        <input
+          name="completion"
+          type="date"
+          max={today()}
+          defaultValue={completion ?? ""}
+          style={{ maxWidth: 150 }}
+          aria-label="Completion date"
+        />
+        <button className="btn ghost" type="submit" disabled={pending}>
+          {pending ? "…" : "Save"}
+        </button>
+      </form>
+      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+    </>
   );
 }
 

@@ -29,7 +29,7 @@ export async function setChecklistItem(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/people");
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   revalidatePath("/dashboard");
   return { error: null, ok: "Saved." };
 }
@@ -67,7 +67,7 @@ export async function setStaffPay(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/people");
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   revalidatePath("/dashboard");
   return { error: null, ok: `Rate recorded from ${from}.` };
 }
@@ -87,7 +87,7 @@ export async function deleteStaffPay(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/people");
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   revalidatePath("/dashboard");
   return { error: null, ok: "Removed." };
 }

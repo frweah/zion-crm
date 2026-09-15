@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 /**
  * Is the documents agent running?
@@ -69,19 +70,33 @@ export async function AgentStatus() {
             </p>
           )}
 
-          <table className="t" style={{ marginTop: 10 }}>
-            <tbody>
-              {runs.slice(1).map((r) => (
-                <tr key={r.ran_at}>
-                  <td style={{ width: 190 }}>{fmtStamp(r.ran_at)}</td>
-                  <td className="lock">
-                    {r.files_seen} files, {r.files_new} new
-                    {r.error && <span style={{ color: "var(--bad)" }}> · {r.error}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h3 style={{ margin: "14px 0 6px", fontSize: 14, lineHeight: "22px" }}>The runs before</h3>
+          <div style={{ border: "1px solid var(--line)", borderRadius: 6 }}>
+            <DataTable
+              label="agent runs"
+              columns={[
+                { key: "when", label: "When" },
+                { key: "seen", label: "Files seen", align: "right" },
+                { key: "new", label: "New", align: "right" },
+                { key: "error", label: "Error" },
+              ]}
+              rows={runs.slice(1).map((r) => ({
+                key: r.ran_at,
+                sort: { when: r.ran_at, seen: Number(r.files_seen), new: Number(r.files_new), error: r.error },
+                cells: {
+                  when: fmtStamp(r.ran_at),
+                  seen: Number(r.files_seen),
+                  new: Number(r.files_new),
+                  error: r.error ? (
+                    <span style={{ color: "var(--bad)" }}>{r.error}</span>
+                  ) : (
+                    <span className="lock">—</span>
+                  ),
+                },
+              }))}
+              empty="There is no earlier run on record."
+            />
+          </div>
         </>
       )}
     </div>

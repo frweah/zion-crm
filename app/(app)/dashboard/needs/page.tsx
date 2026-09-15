@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { NEEDS, loadNeed, countNeeds, type NeedKey } from "@/lib/needs";
+import { PageHead } from "../../page-head";
+import { DataTable } from "../../data-table";
 
 /**
  * The list behind a dashboard counter.
@@ -9,6 +11,9 @@ import { NEEDS, loadNeed, countNeeds, type NeedKey } from "@/lib/needs";
  * Counter and list come from the same function, so a number can never disagree
  * with what it opens — which is how this sort of dashboard usually goes wrong,
  * and how it stops being believed.
+ *
+ * The five lists are a choice of what to show on one screen, not five screens,
+ * so they are a segmented choice rather than tabs.
  */
 export default async function NeedsPage({
   searchParams,
@@ -40,47 +45,49 @@ export default async function NeedsPage({
 
   return (
     <>
-      <h1 className="h1">Needs attention</h1>
-      <p className="sub">
-        {me.role === "Admin" ? "Across everybody." : "Yours."} {explain[key]}
-      </p>
+      <PageHead
+        title="Needs attention"
+        context={`${me.role === "Admin" ? "Across everybody." : "Yours."} ${explain[key]}`}
+      />
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+      <div className="segmented no-print" style={{ marginBottom: 14 }}>
         {NEEDS.map((n) => (
           <Link
             key={n.key}
             href={`/dashboard/needs?list=${n.key}`}
-            className={"chip" + (n.key === key ? " gold" : "")}
-            style={{ textDecoration: "none" }}
+            className={n.key === key ? "on" : undefined}
           >
             {n.label} {counts[n.key]}
           </Link>
         ))}
       </div>
 
+      {/* Rows keep the order the list chose (soonest or quietest first) until a heading is clicked. */}
       <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td className="empty">Nothing here — {active.label.toLowerCase()} is clear.</td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={`${key}-${r.id}`}>
-                <td>
+        <DataTable
+          label={active.label.toLowerCase()}
+          columns={[
+            { key: "item", label: "What" },
+            { key: "when", label: "When", align: "right", width: 120 },
+          ]}
+          rows={rows.map((r) => ({
+            key: `${key}-${r.id}`,
+            cells: {
+              item: (
+                <>
                   <Link href={r.href} style={{ fontWeight: 600 }}>
                     {r.title}
                   </Link>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.detail}</div>
-                </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap", color: "var(--muted)" }}>
-                  {r.when ?? ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <div className="lock">{r.detail}</div>
+                </>
+              ),
+              when: <span style={{ whiteSpace: "nowrap", color: "var(--muted)" }}>{r.when ?? ""}</span>,
+            },
+            sort: { item: r.title, when: r.when },
+            text: `${r.title} ${r.detail} ${r.when ?? ""}`,
+          }))}
+          empty={`Nothing here — ${active.label.toLowerCase()} is clear.`}
+        />
       </div>
     </>
   );

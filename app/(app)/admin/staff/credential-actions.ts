@@ -69,7 +69,7 @@ export async function recordCredential(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/people");
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   revalidatePath("/paperwork");
   return { error: null, ok: `${type.label} recorded.` };
 }
@@ -101,7 +101,7 @@ export async function setTransportsClients(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/people");
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   return {
     error: null,
     ok: transports
@@ -150,6 +150,6 @@ export async function logCeHours(
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/paperwork");
-  revalidatePath("/admin/people");
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   return { error: null, ok: `${hours} hours logged.` };
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { SopEditor, NewSop, type Sop } from "./sop-editor";
+import { PageHead } from "../page-head";
 
 export default async function SopsPage({
   searchParams,
@@ -26,12 +27,14 @@ export default async function SopsPage({
 
   return (
     <>
-      <h1 className="h1">Standard operating procedures</h1>
-      <p className="sub">
-        {isAdmin
-          ? "Everyone sees the procedures for their role. You can edit them here."
-          : "Procedures for your role"}
-      </p>
+      <PageHead
+        title="Standard operating procedures"
+        context={
+          isAdmin
+            ? "Everyone sees the procedures for their role. You can edit them here."
+            : "Procedures for your role"
+        }
+      />
 
       <div className="card" style={{ marginBottom: 14 }}>
         <h3 style={{ margin: 0 }}>

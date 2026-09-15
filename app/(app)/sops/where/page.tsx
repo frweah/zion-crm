@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import type { Role } from "@/lib/roles";
+import { PageHead } from "../../page-head";
+import { DataTable } from "../../data-table";
 
 /**
  * Where do I…?
@@ -308,7 +310,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Approve somebody's statement",
-        where: "Hours — Approvals",
+        where: "My work → Statement approvals",
         href: "/hours?tab=approvals",
         roles: ["Admin"],
       },
@@ -356,33 +358,51 @@ export default async function WhereDoIPage() {
 
   const count = groups.reduce((n, g) => n + g.items.length, 0);
 
+  // One table rather than a card per group: somebody arrives with a word in
+  // mind, so the filter is always on and searches the question and the answer
+  // together. The groups become a column, and the rows keep the order above.
+  const rows = groups.flatMap((group) =>
+    group.items.map((item, i) => ({
+      key: `${group.group}-${i}`,
+      cells: {
+        group: <span style={{ whiteSpace: "nowrap" }}>{group.group}</span>,
+        ask: (
+          <Link href={item.href} style={{ fontWeight: 600 }}>
+            {item.ask}
+          </Link>
+        ),
+        where: item.where,
+      },
+      sort: { group: group.group, ask: item.ask, where: item.where },
+      text: `${group.group} ${item.ask} ${item.where}`,
+    })),
+  );
+
   return (
     <>
-      <h1 className="h1">Where do I…?</h1>
-      <p className="sub">
-        The {count} things people ask for most, and where each one lives. Everything here exists
-        today — <Link href="/sops">the written procedures</Link> say how to do them properly.
-      </p>
+      <PageHead
+        title="Where do I…?"
+        context={
+          <>
+            The {count} things people ask for most, and where each one lives. Everything here exists
+            today — <Link href="/sops">the written procedures</Link> say how to do them properly.
+          </>
+        }
+      />
 
-      {groups.map((group) => (
-        <div key={group.group} className="card" style={{ marginBottom: 14, padding: 0 }}>
-          <h3 style={{ padding: "16px 16px 0" }}>{group.group}</h3>
-          <table className="t">
-            <tbody>
-              {group.items.map((item) => (
-                <tr key={item.ask}>
-                  <td>
-                    <Link href={item.href} style={{ fontWeight: 600 }}>
-                      {item.ask}
-                    </Link>
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{item.where}</div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+      <div className="card" style={{ padding: 0, marginBottom: 14 }}>
+        <DataTable
+          label="questions"
+          filter
+          columns={[
+            { key: "group", label: "Group" },
+            { key: "ask", label: "Where do I…" },
+            { key: "where", label: "Where it is" },
+          ]}
+          rows={rows}
+          empty="There is nothing listed for your role yet."
+        />
+      </div>
 
       <p className="lock">
         Something missing, or somewhere you looked first and did not find it? That is worth saying

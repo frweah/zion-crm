@@ -7,6 +7,7 @@ import {
   deleteStaffDocument,
   type DocumentState,
 } from "./document-actions";
+import { DataTable } from "../../data-table";
 
 const initial: DocumentState = { error: null, ok: null };
 
@@ -127,9 +128,7 @@ export function StaffDocuments({
         <div>
           <h3 style={{ margin: 0 }}>{staffName ? `${staffName} — documents` : "Your documents"}</h3>
           <p className="sub" style={{ margin: "4px 0 0" }}>
-            {docs.length === 0
-              ? "Nothing on file yet."
-              : `${docs.length} on file. Held privately — you and the administrator, nobody else.`}
+            Held privately — you and the administrator, nobody else.
           </p>
         </div>
         <button className="btn" type="button" onClick={() => setAdding(!adding)}>
@@ -179,37 +178,53 @@ export function StaffDocuments({
         </form>
       )}
 
-      {docs.length > 0 && (
-        <table className="t" style={{ marginTop: 10 }}>
-          <tbody>
-            {docs.map((d) => (
-              <tr key={d.id}>
-                <td style={{ width: 150 }}>
+      <div style={{ marginTop: 10, border: "1px solid var(--line)", borderRadius: 6 }}>
+        <DataTable
+          label="documents"
+          columns={[
+            { key: "category", label: "What it is" },
+            { key: "file", label: "File" },
+            { key: "added", label: "Added" },
+            { key: "actions", label: "", sortable: false },
+          ]}
+          rows={docs.map((d) => ({
+            key: d.id,
+            text: `${d.category_label} ${d.filename} ${d.note} ${d.uploaded_by_name ?? ""}`,
+            sort: { category: d.category_label, file: d.filename, added: d.created_at },
+            cells: {
+              category: (
+                <>
                   {d.category_label}
                   {d.backs_a_credential && <div className="lock">evidence for a credential</div>}
-                </td>
-                <td>
+                </>
+              ),
+              file: (
+                <>
                   {d.filename}
                   <div className="lock">
-                    {size(d.size_bytes)} · {d.created_at.slice(0, 10)}
+                    {size(d.size_bytes)}
                     {d.uploaded_by_name && ` · added by ${d.uploaded_by_name}`}
                     {d.system_generated && " · signed in the app"}
                   </div>
                   {d.note && <div style={{ fontSize: 12 }}>{d.note}</div>}
-                </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                </>
+              ),
+              added: d.created_at.slice(0, 10),
+              actions: (
+                <span style={{ whiteSpace: "nowrap" }}>
                   <OpenButton id={d.id} />
                   {canDelete && !d.system_generated && (
                     <span style={{ marginLeft: 4 }}>
                       <DeleteButton doc={d} />
                     </span>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+                </span>
+              ),
+            },
+          }))}
+          empty="Nothing is on file yet."
+        />
+      </div>
 
       <p className="lock" style={{ margin: "10px 0 0" }}>
         Opening somebody else&apos;s document is recorded in the access log. Opening your own is

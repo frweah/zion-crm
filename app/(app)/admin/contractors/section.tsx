@@ -1,11 +1,19 @@
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 import { ProfileEditor, PaymentForm, DeletePayment, type ProfileRow } from "./contractor-forms";
 import { GenerateRun, RunPanel, type RecipientRow } from "./run-forms";
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
+/**
+ * Contractors, a section of Admin → People.
+ *
+ * The details a 1099 needs, the payments made, and the runs built from them.
+ * The per-person details and the runs are each one list with an item apiece,
+ * because every item carries its own form; the payments are the one table.
+ */
 export default async function ContractorsPage({
   searchParams,
 }: {
@@ -106,7 +114,9 @@ export default async function ContractorsPage({
   }));
 
   const yearTotal = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const paidThisYear = [...totals.entries()].filter(([, amount]) => amount > 0);
+  const paidThisYear = [...totals.entries()]
+    .filter(([, amount]) => amount > 0)
+    .sort((a, b) => b[1] - a[1]);
 
   const runs = runsResult.data ?? [];
   const recipientsByRun = new Map<string, RecipientRow[]>();
@@ -152,9 +162,15 @@ export default async function ContractorsPage({
         A signed W-9 fills most of this in by itself. What is here is for the parts it does not
         carry, and for people who gave you a form on paper.
       </p>
-      {rows.map((r) => (
-        <ProfileEditor key={r.staff_id} row={r} />
-      ))}
+      {rows.length === 0 ? (
+        <p className="empty">There is nobody active on the staff list to pay.</p>
+      ) : (
+        <div className="list" style={{ marginBottom: 16 }}>
+          {rows.map((r) => (
+            <ProfileEditor key={r.staff_id} row={r} />
+          ))}
+        </div>
+      )}
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 380px)" }}>
         <div>
@@ -164,46 +180,43 @@ export default async function ContractorsPage({
             defaultDate={today()}
           />
 
-          <div className="card" style={{ marginTop: 14, padding: 0 }}>
-            <h3 style={{ padding: "16px 16px 0" }}>Payments in {year}</h3>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th>Paid</th>
-                  <th>Who</th>
-                  <th>Amount</th>
-                  <th>Method</th>
-                  <th>Reference</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {payments.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="empty">
-                      Nothing recorded for {year}.
-                    </td>
-                  </tr>
-                )}
-                {payments.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.paid_on}</td>
-                    <td>{staffName.get(p.staff_id) ?? "—"}</td>
-                    <td>{usd(Number(p.amount))}</td>
-                    <td>{p.method}</td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {p.reference || "—"}
-                      {p.note && <div>{p.note}</div>}
-                    </td>
-                    <td>
-                      <DeletePayment id={p.id} amount={Number(p.amount)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h3 style={{ marginTop: 18 }}>Payments in {year}</h3>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="payments"
+              columns={[
+                { key: "paid", label: "Paid" },
+                { key: "who", label: "Who" },
+                { key: "amount", label: "Amount", align: "right" },
+                { key: "method", label: "Method" },
+                { key: "reference", label: "Reference" },
+                { key: "remove", label: "", sortable: false },
+              ]}
+              rows={payments.map((p) => {
+                const who = staffName.get(p.staff_id) ?? "—";
+                return {
+                  key: p.id,
+                  text: `${p.paid_on} ${who} ${p.method} ${p.reference ?? ""} ${p.note ?? ""}`,
+                  sort: { amount: Number(p.amount), reference: p.reference },
+                  cells: {
+                    paid: p.paid_on,
+                    who,
+                    amount: usd(Number(p.amount)),
+                    method: p.method,
+                    reference: (
+                      <span className="lock">
+                        {p.reference || "—"}
+                        {p.note && <div>{p.note}</div>}
+                      </span>
+                    ),
+                    remove: <DeletePayment id={p.id} amount={Number(p.amount)} />,
+                  },
+                };
+              })}
+              empty={`Nothing has been recorded for ${year}.`}
+            />
             {payments.length > 0 && (
-              <p className="lock" style={{ padding: "0 16px 16px" }}>
+              <p className="lock" style={{ margin: 0, padding: "10px 14px 14px" }}>
                 {payments.length} payment{payments.length === 1 ? "" : "s"} totalling{" "}
                 {usd(yearTotal)} in {year}.
               </p>
@@ -212,30 +225,28 @@ export default async function ContractorsPage({
         </div>
 
         <div>
-          <div className="card">
-            <h3>Paid in {year}</h3>
-            {paidThisYear.length === 0 ? (
-              <p className="sub" style={{ margin: 0 }}>
-                Nobody has been paid in {year} yet.
-              </p>
-            ) : (
-              <table className="t">
-                <tbody>
-                  {paidThisYear
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([staffId, amount]) => (
-                      <tr key={staffId ?? ""}>
-                        <td>{(staffId && staffName.get(staffId)) ?? "—"}</td>
-                        <td style={{ textAlign: "right" }}>{usd(amount)}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            )}
-            <p className="lock" style={{ marginBottom: 0 }}>
-              Calendar-year totals, which is the figure that goes in box 1.
-            </p>
+          <h3 style={{ marginTop: 0 }}>Paid in {year}</h3>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="contractors"
+              columns={[
+                { key: "who", label: "Who" },
+                { key: "paid", label: "Box 1", align: "right" },
+              ]}
+              rows={paidThisYear.map(([staffId, amount]) => ({
+                key: staffId ?? "",
+                sort: { who: (staffId && staffName.get(staffId)) ?? "", paid: amount },
+                cells: {
+                  who: (staffId && staffName.get(staffId)) ?? "—",
+                  paid: usd(amount),
+                },
+              }))}
+              empty={`Nobody has been paid in ${year} yet.`}
+            />
           </div>
+          <p className="lock" style={{ marginTop: 8 }}>
+            Calendar-year totals, which is the figure that goes in box 1.
+          </p>
 
           {/* A setting, so it lives in Admin → System; a 1099 run reads it from there. */}
           <p className="lock" style={{ marginTop: 14 }}>
@@ -248,17 +259,19 @@ export default async function ContractorsPage({
       <h3 style={{ marginTop: 24 }}>1099-NEC</h3>
       <GenerateRun year={filingYear} canRun={canRun} why={why} />
 
-      {runs.map((run) => (
-        <RunPanel
-          key={run.id}
-          run={run}
-          recipients={recipientsByRun.get(run.id) ?? []}
-          defaultDate={today()}
-        />
-      ))}
-
-      {runs.length === 0 && (
-        <p className="sub">
+      {runs.length > 0 ? (
+        <div className="list" style={{ marginTop: 14 }}>
+          {runs.map((run) => (
+            <RunPanel
+              key={run.id}
+              run={run}
+              recipients={recipientsByRun.get(run.id) ?? []}
+              defaultDate={today()}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="sub" style={{ marginTop: 14 }}>
           No run has been built yet. January 31 is the deadline for both giving contractors their
           copies and filing with the IRS.
         </p>

@@ -7,6 +7,7 @@ import {
   logCeHours,
   type CredentialState,
 } from "./credential-actions";
+import { DataTable } from "../../data-table";
 
 const initial: CredentialState = { error: null, ok: null };
 
@@ -117,19 +118,33 @@ export function StaffCredentials({
         <div className="alert ok" style={{ marginTop: 10 }}>{transportState.ok}</div>
       )}
 
-      <table className="t" style={{ marginTop: 10 }}>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.type_key}>
-              <td style={{ width: 210 }}>
-                {r.label}
-                {!r.required && <div className="lock">not required of them</div>}
-              </td>
-              <td style={{ width: 130 }}>
-                <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>
-              </td>
-              <td>
-                {r.kind === "hours" ? (
+      <div style={{ marginTop: 10, border: "1px solid var(--line)", borderRadius: 6 }}>
+        <DataTable
+          label="certifications"
+          columns={[
+            { key: "credential", label: "Credential" },
+            { key: "state", label: "State" },
+            { key: "detail", label: "On file" },
+            { key: "action", label: "", sortable: false },
+          ]}
+          rows={rows.map((r) => ({
+            key: r.type_key,
+            text: `${r.label} ${r.state} ${r.reference ?? ""}`,
+            sort: {
+              credential: r.label,
+              state: r.state,
+              detail: r.kind === "hours" ? Number(r.hours_this_year) : (r.expires_on ?? r.issued_on),
+            },
+            cells: {
+              credential: (
+                <>
+                  {r.label}
+                  {!r.required && <div className="lock">not required of them</div>}
+                </>
+              ),
+              state: <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>,
+              detail:
+                r.kind === "hours" ? (
                   <>
                     {Number(r.hours_this_year)} of {Number(r.hours_target ?? 0)} hours this year
                   </>
@@ -148,28 +163,23 @@ export function StaffCredentials({
                   </>
                 ) : (
                   <span className="lock">nothing on file</span>
-                )}
-              </td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                {r.kind !== "hours" && (
+                ),
+              action:
+                r.kind !== "hours" ? (
                   <button
                     className="btn ghost"
                     type="button"
-                    style={{ padding: "2px 10px" }}
+                    style={{ padding: "2px 10px", whiteSpace: "nowrap" }}
                     onClick={() => setAdding(adding === r.type_key ? null : r.type_key)}
                   >
-                    {adding === r.type_key
-                      ? "Cancel"
-                      : r.state === "Missing"
-                        ? "Record"
-                        : "Renew"}
+                    {adding === r.type_key ? "Cancel" : r.state === "Missing" ? "Record" : "Renew"}
                   </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                ) : null,
+            },
+          }))}
+          empty={`No certifications or clearances apply to ${staffName} yet.`}
+        />
+      </div>
 
       {adding && (
         <form action={action} style={{ marginTop: 10 }}>

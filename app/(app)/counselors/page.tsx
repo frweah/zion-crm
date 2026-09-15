@@ -2,11 +2,13 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
+import { PageHead } from "../page-head";
+import { DataTable } from "../data-table";
 import {
   LogContactForm,
   AddCounselorForm,
   RequestHoursForm,
-  HoursRequestRowForm,
+  HoursRequestResponse,
   type HoursRequestRow,
 } from "./counselors-view";
 
@@ -40,50 +42,59 @@ export default async function CounselorsPage({
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
 
   const header = (
-    <>
-      <h1 className="h1">Counselors</h1>
-      <p className="sub">
-        Counselor directory, every contact with them, and additional-hours requests
-      </p>
-    </>
+    <PageHead
+      title="Counselors"
+      context="Counselor directory, every contact with them, and additional-hours requests"
+    />
   );
 
   if (tab === "directory") {
+    // One row per counselor rather than one card each: the directory is looked
+    // up, sorted and filtered, which is what a table is for. A card is a summary.
     return (
       <>
         {header}
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            marginBottom: 14,
-          }}
-        >
-          {counselors.map((k) => {
-            const theirs = clients.filter((c) => c.counselor_id === k.id);
-            const active = theirs.filter((c) => c.status === "Active").length;
-            return (
-              <div key={k.id} className="card">
-                <Link href={`/counselors/${k.id}`} style={{ color: "var(--teal)" }}>
-                  <b>{k.name}</b>
-                </Link>
-                <div style={{ fontSize: 13, color: "var(--muted)" }}>{k.agency}</div>
-                <div style={{ fontSize: 13, marginTop: 6 }}>
-                  {k.phone && <div>Phone {k.phone}</div>}
-                  {k.fax && <div>Fax {k.fax}</div>}
-                  {k.email && <div>{k.email}</div>}
-                  {k.office && <div>{k.office}</div>}
-                  {k.notes && <div style={{ color: "var(--muted)" }}>{k.notes}</div>}
-                </div>
-                <div style={{ fontSize: 12, marginTop: 8 }}>
-                  <Link href={`/counselors/${k.id}`}>
-                    Caseload: {active} active
-                  </Link>{" "}
-                  · {theirs.length} in total
-                </div>
-              </div>
-            );
-          })}
+        <div className="card" style={{ padding: 0, marginBottom: 14 }}>
+          <DataTable
+            label="counselors"
+            columns={[
+              { key: "name", label: "Name" },
+              { key: "agency", label: "Agency" },
+              { key: "phone", label: "Phone" },
+              { key: "fax", label: "Fax" },
+              { key: "email", label: "Email" },
+              { key: "office", label: "Office" },
+              { key: "notes", label: "Notes" },
+              { key: "caseload", label: "Caseload", align: "right" },
+            ]}
+            rows={counselors.map((k) => {
+              const theirs = clients.filter((c) => c.counselor_id === k.id);
+              const active = theirs.filter((c) => c.status === "Active").length;
+              return {
+                key: k.id,
+                cells: {
+                  name: (
+                    <Link href={`/counselors/${k.id}`} style={{ color: "var(--teal)" }}>
+                      <b>{k.name}</b>
+                    </Link>
+                  ),
+                  agency: k.agency,
+                  phone: k.phone,
+                  fax: k.fax,
+                  email: k.email,
+                  office: k.office,
+                  notes: k.notes && <span className="lock">{k.notes}</span>,
+                  caseload: (
+                    <Link href={`/counselors/${k.id}`} style={{ whiteSpace: "nowrap" }}>
+                      {active} active · {theirs.length} total
+                    </Link>
+                  ),
+                },
+                sort: { name: k.name, notes: k.notes, caseload: active },
+              };
+            })}
+            empty="No counselors in the directory yet."
+          />
         </div>
         {canEdit && <AddCounselorForm />}
       </>
@@ -141,31 +152,32 @@ export default async function CounselorsPage({
         {canEdit && <RequestHoursForm counselors={counselors} authorizations={authOptions} />}
 
         <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Requested</th>
-                <th>Authorization</th>
-                <th>Client</th>
-                <th>Hours</th>
-                <th>Reason</th>
-                <th>Counselor</th>
-                <th colSpan={2}>Response</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="empty">
-                    No requests yet.
-                  </td>
-                </tr>
-              )}
-              {requests.map((r) => (
-                <HoursRequestRowForm key={r.id} request={r} />
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            label="requests"
+            columns={[
+              { key: "date", label: "Requested" },
+              { key: "auth", label: "Authorization" },
+              { key: "client", label: "Client" },
+              { key: "hours", label: "Hours", align: "right" },
+              { key: "reason", label: "Reason" },
+              { key: "counselor", label: "Counselor" },
+              { key: "response", label: "Response" },
+            ]}
+            rows={requests.map((r) => ({
+              key: r.id,
+              cells: {
+                date: r.date,
+                auth: r.auth_number,
+                client: r.client_name,
+                hours: r.hours,
+                reason: r.reason,
+                counselor: r.counselor_name,
+                response: <HoursRequestResponse request={r} />,
+              },
+              sort: { response: r.response },
+            }))}
+            empty="No additional hours have been requested yet."
+          />
         </div>
 
         <p className="lock" style={{ marginTop: 10 }}>
@@ -197,67 +209,62 @@ export default async function CounselorsPage({
       )}
 
       <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Counselor</th>
-              <th>Client</th>
-              <th>Method</th>
-              <th>Topic</th>
-              <th>Outcome</th>
-              <th>Follow-up</th>
-              <th>By</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(contacts ?? []).length === 0 && (
-              <tr>
-                <td colSpan={8} className="empty">
-                  No contacts logged.
-                </td>
-              </tr>
-            )}
-            {(contacts ?? []).map((x) => (
-              <tr key={x.id}>
-                <td>{x.date}</td>
-                <td>
-                  {x.counselor_id ? (
-                    <Link href={`/counselors/${x.counselor_id}`} style={{ color: "var(--teal)" }}>
-                      {counselorName.get(x.counselor_id) ?? "—"}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {x.client_id ? (
-                    <Link href={`/clients/${x.client_id}`} style={{ color: "var(--teal)" }}>
-                      {clientName.get(x.client_id) ?? "—"}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <span className="chip">{x.method}</span>
-                </td>
-                <td>{x.topic}</td>
-                <td>{x.outcome}</td>
-                <td>
-                  {x.follow_up ? (
-                    <span className={"chip " + (x.follow_up <= today() ? "warn" : "")}>
-                      {x.follow_up}
-                    </span>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>{x.staff_id ? (staffName.get(x.staff_id) ?? "—").split(" ")[0] : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          label="contacts"
+          columns={[
+            { key: "date", label: "Date" },
+            { key: "counselor", label: "Counselor" },
+            { key: "client", label: "Client" },
+            { key: "method", label: "Method" },
+            { key: "topic", label: "Topic" },
+            { key: "outcome", label: "Outcome" },
+            { key: "follow", label: "Follow-up" },
+            { key: "by", label: "By" },
+          ]}
+          rows={(contacts ?? []).map((x) => {
+            const counselor = x.counselor_id ? (counselorName.get(x.counselor_id) ?? "—") : null;
+            const client = x.client_id ? (clientName.get(x.client_id) ?? "—") : null;
+            return {
+              key: x.id,
+              cells: {
+                date: <span style={{ whiteSpace: "nowrap" }}>{x.date}</span>,
+                counselor: x.counselor_id ? (
+                  <Link href={`/counselors/${x.counselor_id}`} style={{ color: "var(--teal)" }}>
+                    {counselor}
+                  </Link>
+                ) : (
+                  "—"
+                ),
+                client: x.client_id ? (
+                  <Link href={`/clients/${x.client_id}`} style={{ color: "var(--teal)" }}>
+                    {client}
+                  </Link>
+                ) : (
+                  "—"
+                ),
+                method: <span className="chip">{x.method}</span>,
+                topic: x.topic,
+                outcome: x.outcome,
+                follow: x.follow_up ? (
+                  <span className={"chip " + (x.follow_up <= today() ? "warn" : "")}>
+                    {x.follow_up}
+                  </span>
+                ) : (
+                  "—"
+                ),
+                by: x.staff_id ? (staffName.get(x.staff_id) ?? "—").split(" ")[0] : "—",
+              },
+              sort: {
+                date: x.date,
+                counselor,
+                client,
+                method: x.method,
+                follow: x.follow_up,
+              },
+            };
+          })}
+          empty="No contacts have been logged yet."
+        />
       </div>
     </>
   );

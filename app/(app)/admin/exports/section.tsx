@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { exportsFor } from "@/lib/exports";
 import { money, today, CAN_EDIT_BILLING } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 /**
  * The monthly export.
@@ -150,23 +151,32 @@ export default async function ExportsPage({
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <tbody>
-            {kinds.map((k) => (
-              <tr key={k.key}>
-                <td>
+        <DataTable
+          label="files"
+          columns={[
+            { key: "file", label: "File" },
+            { key: "download", label: "", sortable: false },
+          ]}
+          rows={kinds.map((k) => ({
+            key: k.key,
+            text: `${k.label} ${k.detail}`,
+            sort: { file: k.label },
+            cells: {
+              file: (
+                <>
                   <b>{k.label}</b>
                   <div className="lock">{k.detail}</div>
-                </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <a className="btn ghost" href={link(k.key)} style={{ textDecoration: "none" }}>
-                    Download CSV
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </>
+              ),
+              download: (
+                <a className="btn ghost" href={link(k.key)} style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
+                  Download CSV
+                </a>
+              ),
+            },
+          }))}
+          empty="There is no export your role can take."
+        />
       </div>
 
       <p className="lock" style={{ marginTop: 10 }}>

@@ -727,3 +727,90 @@ tr.row {
   padding-top: 24px;
   border-top: 1px solid var(--line);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Records, tables, lists and filters - one of each.
+
+   A record (client, counselor, staff member) has the same header. Every list
+   of records is the one table (app/(app)/data-table.tsx): sortable headings, a
+   filter bar when it is long, a sentence when it is empty. A list whose items
+   each carry their own forms is a .list - one container, items divided by a
+   hairline - not a stack of cards; a card is for a summary. A choice of
+   filter or period is .segmented, which is not a tab: tabs move between
+   screens, and a screen's tabs are never stacked under another row of tabs.
+   ───────────────────────────────────────────────────────────── */
+.record-back {
+  margin: 0 0 8px;
+}
+.record-actions {
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.data-table .table-wrap {
+  overflow-x: auto;
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.filter-bar input[type="search"] {
+  max-width: 280px;
+}
+table.t th .sort {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+table.t th .sort:hover,
+table.t th[aria-sort] .sort {
+  color: var(--ink);
+}
+table.t th .sort:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.list {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.list > .list-item {
+  padding: 16px 20px;
+}
+.list > .list-item + .list-item {
+  border-top: 1px solid var(--line);
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.segmented a,
+.segmented button {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 22px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.segmented a.on,
+.segmented button.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 500;
+}

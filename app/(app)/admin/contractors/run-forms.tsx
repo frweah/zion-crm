@@ -9,6 +9,7 @@ import {
   downloadFilingCsv,
   type ContractorState,
 } from "./actions";
+import { DataTable } from "../../data-table";
 
 const initial: ContractorState = { error: null, ok: null };
 const initialFile: ContractorState & { filename?: string; contentBase64?: string } = {
@@ -241,9 +242,9 @@ export function RunPanel({
   const undelivered = recipients.filter((r) => !r.delivered_on).length;
 
   return (
-    <div className="card" style={{ marginTop: 14, padding: 0 }}>
-      <div style={{ padding: "16px 16px 0" }}>
-        <h3>
+    <div className="list-item">
+      <div>
+        <h3 style={{ margin: "0 0 4px" }}>
           {run.year} run
           {run.filed_on ? (
             <span className="chip ok" style={{ marginLeft: 8 }}>
@@ -281,34 +282,43 @@ export function RunPanel({
         />
       </div>
 
-      <table className="t">
-        <thead>
-          <tr>
-            <th>Recipient</th>
-            <th>Box 1</th>
-            <th>Number</th>
-            <th>Copy B</th>
-            <th>Delivered</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recipients.map((r) => (
-            <tr key={r.id}>
-              <td>
-                <b>{r.legal_name}</b>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.address_snapshot}</div>
-                {!r.consent_recorded && (
-                  <div className="lock">has not agreed to electronic delivery — post it</div>
-                )}
-              </td>
-              <td>{usd(Number(r.nonemployee_comp))}</td>
-              <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                {r.tin_type} ending {r.tin_last4}
-              </td>
-              <td>
-                <CopyBButton recipientId={r.id} name={r.legal_name} />
-              </td>
-              <td>
+      <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: 6 }}>
+        <DataTable
+          label="recipients"
+          columns={[
+            { key: "recipient", label: "Recipient" },
+            { key: "box1", label: "Box 1", align: "right" },
+            { key: "number", label: "Number" },
+            { key: "copyb", label: "Copy B", sortable: false },
+            { key: "delivered", label: "Delivered" },
+          ]}
+          rows={recipients.map((r) => ({
+            key: r.id,
+            text: `${r.legal_name} ${r.business_name} ${r.address_snapshot}`,
+            sort: {
+              recipient: r.legal_name,
+              box1: Number(r.nonemployee_comp),
+              number: r.tin_last4,
+              delivered: r.delivered_on,
+            },
+            cells: {
+              recipient: (
+                <>
+                  <b>{r.legal_name}</b>
+                  <div className="lock">{r.address_snapshot}</div>
+                  {!r.consent_recorded && (
+                    <div className="lock">has not agreed to electronic delivery — post it</div>
+                  )}
+                </>
+              ),
+              box1: usd(Number(r.nonemployee_comp)),
+              number: (
+                <span className="lock">
+                  {r.tin_type} ending {r.tin_last4}
+                </span>
+              ),
+              copyb: <CopyBButton recipientId={r.id} name={r.legal_name} />,
+              delivered: (
                 <DeliveryForm
                   recipientId={r.id}
                   consent={r.consent_recorded}
@@ -316,11 +326,12 @@ export function RunPanel({
                   method={r.delivery_method}
                   defaultDate={defaultDate}
                 />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              ),
+            },
+          }))}
+          empty={`Nobody was over the threshold for the ${run.year} run.`}
+        />
+      </div>
     </div>
   );
 }

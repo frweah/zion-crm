@@ -5,6 +5,8 @@ import Link from "next/link";
 import { createTask, setTaskStatus, type TaskState } from "./actions";
 import { answerReminder, type ReminderState } from "./reminder-actions";
 import { today, JOB_STATUSES } from "@/lib/constants";
+import { PageHead } from "../page-head";
+import { DataTable } from "../data-table";
 
 const initial: TaskState = { error: null, ok: null };
 
@@ -142,8 +144,7 @@ export function TasksView({
 
   return (
     <>
-      <h1 className="h1">Tasks</h1>
-      <p className="sub">{scopeNote}</p>
+      <PageHead title="Tasks" context={scopeNote} />
 
       <div className="card" style={{ marginBottom: 14 }}>
         {state.error && <div className="alert bad">{state.error}</div>}
@@ -195,33 +196,34 @@ export function TasksView({
         Show completed ({doneCount})
       </label>
 
+      {/* The tick (or "How did it go?") is a cell of its own, so the rest of the row can sort and filter. */}
       <div className="card" style={{ padding: 0, marginTop: 8 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th style={{ width: 40 }} />
-              <th>Task</th>
-              <th>Client</th>
-              <th>Assigned</th>
-              <th>Due</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty">
-                  No open tasks.
-                </td>
-              </tr>
-            )}
-            {list.map((t) => {
-              const overdue = t.status === "Open" && t.due && t.due < today();
-              return (
-                <tr key={t.id}>
-                  <td>
-                    <StatusBox task={t} />
-                  </td>
-                  <td
+        <DataTable
+          label="tasks"
+          columns={[
+            { key: "done", label: "", sortable: false, width: 40 },
+            { key: "title", label: "Task" },
+            { key: "client", label: "Client" },
+            { key: "assigned", label: "Assigned" },
+            { key: "due", label: "Due" },
+          ]}
+          rows={list.map((t) => {
+            const overdue = t.status === "Open" && t.due && t.due < today();
+            return {
+              key: t.id,
+              sort: {
+                title: t.title,
+                client: t.client_name,
+                assigned: t.assigned_name,
+                due: t.due,
+              },
+              text: [t.title, t.client_name, t.assigned_name, t.due, t.system_generated ? "auto" : ""]
+                .filter(Boolean)
+                .join(" "),
+              cells: {
+                done: <StatusBox task={t} />,
+                title: (
+                  <span
                     style={{
                       textDecoration: t.status === "Done" ? "line-through" : "none",
                       color: t.status === "Done" ? "var(--muted)" : undefined,
@@ -233,25 +235,22 @@ export function TasksView({
                         auto
                       </span>
                     )}
-                  </td>
-                  <td>
-                    {t.client_id ? (
-                      <Link href={`/clients/${t.client_id}`} style={{ color: "var(--teal)" }}>
-                        {t.client_name}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>{t.assigned_name || "—"}</td>
-                  <td>
-                    <span className={"chip " + (overdue ? "bad" : "")}>{t.due ?? "—"}</span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </span>
+                ),
+                client: t.client_id ? (
+                  <Link href={`/clients/${t.client_id}`} style={{ color: "var(--teal)" }}>
+                    {t.client_name}
+                  </Link>
+                ) : (
+                  "—"
+                ),
+                assigned: t.assigned_name || "—",
+                due: <span className={"chip " + (overdue ? "bad" : "")}>{t.due ?? "—"}</span>,
+              },
+            };
+          })}
+          empty={showDone ? "No tasks." : "No open tasks."}
+        />
       </div>
     </>
   );

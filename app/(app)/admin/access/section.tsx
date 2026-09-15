@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp, today } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 /**
  * Who read what.
@@ -12,7 +13,9 @@ import { fmtStamp, today } from "@/lib/constants";
  * reading a list, not a database query written under pressure.
  *
  * Filterable by client and by person, because those are the two shapes the
- * question comes in — "who saw mine" and "what did they look at".
+ * question comes in — "who saw mine" and "what did they look at". The period
+ * and the kind of record are a choice of filter, so they are .segmented rather
+ * than a row of tabs inside a page that already has its own.
  */
 
 const SUBJECTS = [
@@ -80,7 +83,7 @@ export default async function AccessLogPage({
       if (v) params.set(k, v);
       else params.delete(k);
     }
-    return `/admin/system?${params.toString()}`;
+    return `/admin/system?${params.toString()}#access-log`;
   };
 
   return (
@@ -132,26 +135,28 @@ export default async function AccessLogPage({
 
           <div className="field" style={{ marginBottom: 0 }}>
             Since
-            <div className="tabs" style={{ margin: "4px 0 0", borderBottom: 0, flexWrap: "wrap" }}>
-              {[
-                { d: 7, label: "A week" },
-                { d: 30, label: "A month" },
-                { d: 365, label: "A year" },
-                { d: 0, label: "Everything" },
-              ].map((o) => (
-                <Link
-                  key={o.d}
-                  href={link({ days: String(o.d) })}
-                  className={days === o.d ? "on" : ""}
-                >
-                  {o.label}
-                </Link>
-              ))}
+            <div>
+              <div className="segmented" style={{ marginTop: 6 }}>
+                {[
+                  { d: 7, label: "A week" },
+                  { d: 30, label: "A month" },
+                  { d: 365, label: "A year" },
+                  { d: 0, label: "Everything" },
+                ].map((o) => (
+                  <Link
+                    key={o.d}
+                    href={link({ days: String(o.d) })}
+                    className={days === o.d ? "on" : ""}
+                  >
+                    {o.label}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="tabs" style={{ margin: "10px 0 0", borderBottom: 0, flexWrap: "wrap" }}>
+        <div className="segmented" style={{ marginTop: 12 }}>
           <Link href={link({ subject: "" })} className={!subject ? "on" : ""}>
             Everything
           </Link>
@@ -174,51 +179,55 @@ export default async function AccessLogPage({
       )}
 
       <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Who</th>
-              <th>What</th>
-              <th>Whose</th>
-              <th>Why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty">
-                  Nothing recorded in this period.
-                </td>
-              </tr>
-            )}
-            {entries.map((e) => {
-              const refused = e.purpose.endsWith("refused");
-              return (
-                <tr key={e.id} style={refused ? { color: "var(--bad)" } : undefined}>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtStamp(e.at)}</td>
-                  <td>
+        <DataTable
+          label="entries"
+          columns={[
+            { key: "when", label: "When" },
+            { key: "who", label: "Who" },
+            { key: "what", label: "What" },
+            { key: "whose", label: "Whose" },
+            { key: "why", label: "Why" },
+          ]}
+          rows={entries.map((e) => {
+            const refused = e.purpose.endsWith("refused");
+            const whose = e.client_id
+              ? (clientName.get(e.client_id) ?? "a client since removed")
+              : e.about_staff
+                ? (staffName.get(e.about_staff) ?? "a staff member since removed")
+                : "";
+            return {
+              key: String(e.id),
+              text: `${e.staff_name} ${e.staff_role} ${e.subject} ${whose} ${e.purpose}`,
+              sort: { when: e.at, who: e.staff_name, what: e.subject, whose, why: e.purpose },
+              cells: {
+                when: <span style={{ whiteSpace: "nowrap" }}>{fmtStamp(e.at)}</span>,
+                who: (
+                  <>
                     {e.staff_name}
                     <div className="lock">{e.staff_role}</div>
-                  </td>
-                  <td>{e.subject}</td>
-                  <td>
-                    {e.client_id ? (
-                      <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
-                        {clientName.get(e.client_id) ?? "a client since removed"}
-                      </Link>
-                    ) : e.about_staff ? (
-                      (staffName.get(e.about_staff) ?? "a staff member since removed")
-                    ) : (
-                      <span className="lock">—</span>
-                    )}
-                  </td>
-                  <td>{e.purpose || <span className="lock">—</span>}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </>
+                ),
+                what: e.subject,
+                whose: e.client_id ? (
+                  <Link href={`/clients/${e.client_id}`}>{whose}</Link>
+                ) : e.about_staff ? (
+                  whose
+                ) : (
+                  <span className="lock">—</span>
+                ),
+                why: refused ? (
+                  <>
+                    <span className="chip bad">Refused</span>{" "}
+                    <span style={{ color: "var(--bad)" }}>{e.purpose}</span>
+                  </>
+                ) : (
+                  e.purpose || <span className="lock">—</span>
+                ),
+              },
+            };
+          })}
+          empty="Nothing was recorded in this period."
+        />
       </div>
 
       <p className="lock" style={{ marginTop: 10 }}>

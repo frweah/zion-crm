@@ -4,6 +4,8 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, fmtStamp, CAN_EDIT_BILLING } from "@/lib/constants";
 import { WarrantsToReview } from "./review-section";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 /**
  * Every warrant received.
@@ -45,14 +47,66 @@ export default async function WarrantsPage() {
     .filter((l) => ["Reconciled", "Already recorded", "Resolved by hand"].includes(l.status))
     .reduce((s, l) => s + Number(l.amount ?? 0), 0);
 
+  const received: DataRow[] = pages.map((p) => {
+    const lines = p.warrant_lines ?? [];
+    const lineCount = (s: string) => lines.filter((l) => l.status === s).length;
+    return {
+      key: p.id,
+      cells: {
+        warrant: (
+          <>
+            <b>{p.warrant_no || "—"}</b>
+            <div className="lock">
+              page {p.page_no} · {p.warrant_documents?.filename ?? ""}
+              {p.image_path && (
+                <>
+                  {" · "}
+                  <a href={`/billing/warrants/image/${p.id}`} target="_blank" rel="noopener" style={{ color: "var(--teal)" }}>
+                    page image
+                  </a>
+                </>
+              )}
+            </div>
+          </>
+        ),
+        date: p.warrant_date ?? "—",
+        total: p.total !== null ? money(Number(p.total)) : "—",
+        lines: (
+          <span className="lock">
+            {lines.length} · {lineCount("Reconciled")} paid · {lineCount("Already recorded")} recorded ·{" "}
+            {lineCount("Resolved by hand")} by hand · {lineCount("Dismissed")} set aside
+          </span>
+        ),
+        status: (
+          <span className={"chip " + (p.status === "Reconciled" ? "ok" : p.status === "Needs review" ? "warn" : "")}>
+            {p.status}
+          </span>
+        ),
+        received: <span className="lock">{fmtStamp(p.received_at)}</span>,
+      },
+      sort: {
+        warrant: p.warrant_no,
+        date: p.warrant_date,
+        total: p.total === null ? null : Number(p.total),
+        lines: lines.length,
+        status: p.status,
+        received: p.received_at,
+      },
+      text: [p.warrant_no, p.warrant_date, p.warrant_documents?.filename, p.status].filter(Boolean).join(" "),
+    };
+  });
+
   return (
     <>
-      <h1 className="h1">Warrants</h1>
-      <p className="sub">
-        What USOR paid, read from the stubs in the _Warrants folder and reconciled against the
-        authorizations and invoices on file.{" "}
-        <Link href="/billing?tab=invoices#paid-and-outstanding">Paid &amp; outstanding</Link>
-      </p>
+      <PageHead
+        title="Warrants"
+        context="What USOR paid, read from the stubs in the _Warrants folder and reconciled against the authorizations and invoices on file"
+        actions={
+          <Link href="/billing?tab=invoices#paid-and-outstanding" className="btn ghost" style={{ textDecoration: "none" }}>
+            Paid &amp; outstanding
+          </Link>
+        }
+      />
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", marginBottom: 18 }}>
         <div className="card">
@@ -81,71 +135,31 @@ export default async function WarrantsPage() {
         </div>
       </div>
 
-      {pages.length === 0 && (
-        <div className="card">
-          <p className="sub" style={{ margin: 0 }}>
-            No warrants yet. Put the stubs - one PDF, any number of pages - in a folder named
-            <b> _Warrants</b> beside the client folders, and the agent reads them on its next run.
-          </p>
-        </div>
-      )}
-
       {count("Needs review") > 0 && <WarrantsToReview showAllLink={false} />}
 
-      {pages.length > 0 && (
-        <>
-          <h3 style={{ marginTop: 22 }}>Received</h3>
-          <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th>Warrant</th>
-                  <th>Date</th>
-                  <th style={{ textAlign: "right" }}>Total</th>
-                  <th>Lines</th>
-                  <th>Status</th>
-                  <th>Received</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pages.map((p) => {
-                  const lines = p.warrant_lines ?? [];
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        <b>{p.warrant_no || "—"}</b>
-                        <div className="lock">
-                          page {p.page_no} · {p.warrant_documents?.filename ?? ""}
-                          {p.image_path && (
-                            <>
-                              {" · "}
-                              <a href={`/billing/warrants/image/${p.id}`} target="_blank" rel="noopener" style={{ color: "var(--teal)" }}>
-                                page image
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      <td>{p.warrant_date ?? "—"}</td>
-                      <td style={{ textAlign: "right" }}>{p.total !== null ? money(Number(p.total)) : "—"}</td>
-                      <td className="lock">
-                        {lines.length} · {lines.filter((l) => l.status === "Reconciled").length} paid ·{" "}
-                        {lines.filter((l) => l.status === "Already recorded").length} recorded ·{" "}
-                        {lines.filter((l) => l.status === "Resolved by hand").length} by hand ·{" "}
-                        {lines.filter((l) => l.status === "Dismissed").length} set aside
-                      </td>
-                      <td>
-                        <span className={"chip " + (p.status === "Reconciled" ? "ok" : p.status === "Needs review" ? "warn" : "")}>{p.status}</span>
-                      </td>
-                      <td className="lock">{fmtStamp(p.received_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      <h2 className="h2" style={{ margin: "32px 0 8px" }}>
+        Received
+      </h2>
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="warrant pages"
+          columns={[
+            { key: "warrant", label: "Warrant" },
+            { key: "date", label: "Date" },
+            { key: "total", label: "Total", align: "right" },
+            { key: "lines", label: "Lines" },
+            { key: "status", label: "Status" },
+            { key: "received", label: "Received" },
+          ]}
+          rows={received}
+          empty={
+            <>
+              No warrants yet. Put the stubs - one PDF, any number of pages - in a folder named
+              <b> _Warrants</b> beside the client folders, and the agent reads them on its next run.
+            </>
+          }
+        />
+      </div>
     </>
   );
 }

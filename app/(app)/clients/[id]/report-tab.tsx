@@ -87,7 +87,8 @@ export function ReportTab({
         <div className="row2">
           <div className="field" style={{ marginBottom: 0 }}>
             Period
-            <div className="tabs" style={{ margin: "4px 0 0", borderBottom: 0 }}>
+            {/* A choice of period, not a place to go, so segmented rather than tabs. */}
+            <div className="segmented" style={{ display: "flex", marginTop: 4 }}>
               <Link
                 href={link("Weekly", anchor, preset)}
                 className={kind === "Weekly" ? "on" : ""}
@@ -131,7 +132,7 @@ export function ReportTab({
 
         <div className="field" style={{ margin: "12px 0 0" }}>
           Report
-          <div className="tabs" style={{ margin: "4px 0 0", borderBottom: 0, flexWrap: "wrap" }}>
+          <div className="segmented" style={{ display: "flex", marginTop: 4 }}>
             {REPORT_PRESETS.map((p) => (
               <Link
                 key={p.key}
@@ -212,7 +213,7 @@ export function ReportTab({
               <p className="sub" style={{ marginTop: 0 }}>
                 This is exactly what will be sent. Nothing has left yet.
               </p>
-              <table className="t" style={{ marginBottom: 10 }}>
+              <table className="t" data-layout="email preview: To and Subject" style={{ marginBottom: 10 }}>
                 <tbody>
                   <tr>
                     <td style={{ width: 90 }} className="lock">

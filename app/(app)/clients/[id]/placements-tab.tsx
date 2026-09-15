@@ -27,7 +27,7 @@ function retention(p: PlacementRow) {
   return { label: `${days} days in`, cls: days >= 90 ? "chip warn" : "chip" };
 }
 
-function PlacementCard({
+function PlacementItem({
   clientId,
   placement,
   canEdit,
@@ -42,7 +42,7 @@ function PlacementCard({
   const badge = retention(placement);
 
   return (
-    <div className="card" style={{ marginBottom: 10 }}>
+    <div className="list-item">
       <div className="row2" style={{ justifyContent: "space-between" }}>
         <b>
           {placement.employer || "(employer not recorded)"}
@@ -182,15 +182,24 @@ export function PlacementsTab({
     <>
       {placements.length === 0 && <div className="empty">No placements yet.</div>}
 
-      {placements.map((p) => (
-        <PlacementCard
-          key={p.id}
-          clientId={clientId}
-          placement={p}
-          canEdit={canEdit}
-          canBill={canBill}
-        />
-      ))}
+      {/*
+        One container, a placement to each item: each carries its own form, so
+        they are a list rather than a table, and not a stack of separate cards.
+        The form for a new placement is a single panel, so it stays a card.
+      */}
+      {placements.length > 0 && (
+        <div className="list" style={{ marginBottom: 14 }}>
+          {placements.map((p) => (
+            <PlacementItem
+              key={p.id}
+              clientId={clientId}
+              placement={p}
+              canEdit={canEdit}
+              canBill={canBill}
+            />
+          ))}
+        </div>
+      )}
 
       {canEdit && (
         <div className="card">

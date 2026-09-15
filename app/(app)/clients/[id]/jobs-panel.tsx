@@ -74,15 +74,22 @@ function CreatePlacement({ matchId }: { matchId: string }) {
   );
 }
 
-function JobRowEditor({ job, clientId }: { job: JobRow; clientId: string }) {
+/**
+ * One job, and its editor when opened.
+ *
+ * An item in a list rather than a table row: the editor opens underneath the
+ * job with a form of its own, which a table cell cannot hold sensibly.
+ */
+function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
   const [state, action, pending] = useActionState(updateClientJob, initial);
   const [remState, remAction, removing] = useActionState(removeClientJob, initial);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(job.status);
 
   return (
-    <tr>
-      <td>
+    <div className="list-item">
+      <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <b>{job.employer_name}</b>
         <div style={{ fontSize: 12, color: "var(--muted)" }}>
           {job.title}
@@ -96,6 +103,32 @@ function JobRowEditor({ job, clientId }: { job: JobRow; clientId: string }) {
           </div>
         )}
         {job.outcome && <div style={{ fontSize: 12, marginTop: 2 }}>{job.outcome}</div>}
+      </div>
+
+      <div style={{ whiteSpace: "nowrap" }}>
+        <span className={"chip " + jobStatusTone(job.status)}>{job.status}</span>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+          {job.applied_on && <div>applied {job.applied_on}</div>}
+          {job.interview_on && <div>interview {job.interview_on}</div>}
+          {job.follow_up_on && <div>follow up {job.follow_up_on}</div>}
+        </div>
+      </div>
+
+      <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+        {job.status === "Hired" && !job.placement_id && (
+          <CreatePlacement matchId={job.match_id} />
+        )}
+        {job.placement_id && (
+          <Link className="chip ok" href={`/clients/${clientId}?tab=jobs`}>
+            placed
+          </Link>
+        )}{" "}
+        <button className="btn ghost" type="button" onClick={() => setOpen(!open)}>
+          {open ? "Close" : "Edit"}
+        </button>
+      </div>
+      </div>
+
         <Message state={state} />
         {remState.error && (
           <div style={{ color: "var(--bad)", fontSize: 12 }}>{remState.error}</div>
@@ -157,31 +190,7 @@ function JobRowEditor({ job, clientId }: { job: JobRow; clientId: string }) {
             </button>
           </form>
         )}
-      </td>
-
-      <td style={{ whiteSpace: "nowrap", verticalAlign: "top" }}>
-        <span className={"chip " + jobStatusTone(job.status)}>{job.status}</span>
-        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-          {job.applied_on && <div>applied {job.applied_on}</div>}
-          {job.interview_on && <div>interview {job.interview_on}</div>}
-          {job.follow_up_on && <div>follow up {job.follow_up_on}</div>}
-        </div>
-      </td>
-
-      <td style={{ textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>
-        {job.status === "Hired" && !job.placement_id && (
-          <CreatePlacement matchId={job.match_id} />
-        )}
-        {job.placement_id && (
-          <Link className="chip ok" href={`/clients/${clientId}?tab=jobs`}>
-            placed
-          </Link>
-        )}{" "}
-        <button className="btn ghost" type="button" onClick={() => setOpen(!open)}>
-          {open ? "Close" : "Edit"}
-        </button>
-      </td>
-    </tr>
+    </div>
   );
 }
 
@@ -336,35 +345,28 @@ export function JobsPanel({
   const closed = jobs.filter((j) => j.status === "Hired" || j.status === "Not selected");
 
   return (
-    <div className="card" style={{ marginTop: 14, padding: 0 }}>
-      <div style={{ padding: "16px 16px 0" }}>
-        <h3 style={{ margin: 0 }}>Jobs we have tried</h3>
-        <p className="sub" style={{ marginTop: 4 }}>
-          {open.length} still going
-          {closed.length > 0 && `, ${closed.length} finished`}.
-        </p>
-      </div>
+    <section style={{ marginTop: 14 }}>
+      <h2 className="h2">Jobs we have tried</h2>
+      <p className="sub" style={{ marginTop: 4 }}>
+        {open.length} still going
+        {closed.length > 0 && `, ${closed.length} finished`}.
+      </p>
 
-      <table className="t">
-        <tbody>
-          {jobs.length === 0 && (
-            <tr>
-              <td className="empty">
-                Nothing yet. Add the first job this client has applied for.
-              </td>
-            </tr>
-          )}
+      {jobs.length === 0 ? (
+        <div className="empty">Nothing yet. Add the first job this client has applied for.</div>
+      ) : (
+        <div className="list">
           {[...open, ...closed].map((job) => (
-            <JobRowEditor key={job.match_id} job={job} clientId={clientId} />
+            <JobItem key={job.match_id} job={job} clientId={clientId} />
           ))}
-        </tbody>
-      </table>
+        </div>
+      )}
 
       {canEdit && (
-        <div style={{ padding: "0 16px 16px" }}>
+        <div style={{ marginTop: 10 }}>
           <AddJob clientId={clientId} employers={employers} />
         </div>
       )}
-    </div>
+    </section>
   );
 }

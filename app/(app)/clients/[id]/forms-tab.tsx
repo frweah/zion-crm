@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { createForm, type FormState } from "./forms/actions";
 import { FORM_TEMPLATES, templateById } from "@/lib/form-templates";
 import { fmtStamp, today } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 const initial: FormState = { error: null, ok: null };
 
@@ -110,58 +111,61 @@ export function FormsTab({
         )}
       </div>
 
-      {forms.length === 0 ? (
-        <div className="empty">No forms for this client yet.</div>
-      ) : (
-        <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Form</th>
-                <th>Month</th>
-                <th>Status</th>
-                <th>Signed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forms.map((f) => {
-                const t = templateById(f.template_id);
-                return (
-                  <tr key={f.id} className="row">
-                    <td>
-                      <Link
-                        href={`/clients/${clientId}/forms/${f.id}`}
-                        style={{ color: "inherit", fontWeight: 600 }}
-                      >
-                        {t?.usor ?? f.template_id}
-                      </Link>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{t?.name}</div>
-                    </td>
-                    <td>{f.month ?? "—"}</td>
-                    <td>
-                      <span
-                        className={
-                          "chip " +
-                          (f.status === "Sent" ? "ok" : f.status === "Completed" ? "gold" : "")
-                        }
-                      >
-                        {f.status}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {f.status === "Draft"
-                        ? `started ${fmtStamp(f.created_at)}`
-                        : f.status === "Sent"
-                          ? `sent to ${f.sent_to}`
-                          : `${f.completed_by_name} · ${fmtStamp(f.completed_at)}`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="forms"
+          columns={[
+            { key: "form", label: "Form" },
+            { key: "month", label: "Month" },
+            { key: "status", label: "Status" },
+            { key: "signed", label: "Signed" },
+          ]}
+          rows={forms.map((f) => {
+            const t = templateById(f.template_id);
+            const signed =
+              f.status === "Draft"
+                ? `started ${fmtStamp(f.created_at)}`
+                : f.status === "Sent"
+                  ? `sent to ${f.sent_to}`
+                  : `${f.completed_by_name} · ${fmtStamp(f.completed_at)}`;
+            return {
+              key: f.id,
+              sort: {
+                form: t?.usor ?? f.template_id,
+                month: f.month,
+                status: f.status,
+                signed: f.completed_at ?? f.created_at,
+              },
+              text: [t?.usor, t?.name, f.month, f.status, signed].filter(Boolean).join(" "),
+              cells: {
+                form: (
+                  <>
+                    <Link
+                      href={`/clients/${clientId}/forms/${f.id}`}
+                      style={{ color: "inherit", fontWeight: 600 }}
+                    >
+                      {t?.usor ?? f.template_id}
+                    </Link>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{t?.name}</div>
+                  </>
+                ),
+                month: f.month ?? "—",
+                status: (
+                  <span
+                    className={
+                      "chip " + (f.status === "Sent" ? "ok" : f.status === "Completed" ? "gold" : "")
+                    }
+                  >
+                    {f.status}
+                  </span>
+                ),
+                signed: <span style={{ fontSize: 12, color: "var(--muted)" }}>{signed}</span>,
+              },
+            };
+          })}
+          empty="No forms for this client yet."
+        />
+      </div>
     </>
   );
 }

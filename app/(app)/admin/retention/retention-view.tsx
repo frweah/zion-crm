@@ -9,6 +9,7 @@ import {
   recordDisposition,
   type RetentionState,
 } from "./actions";
+import { DataTable } from "../../data-table";
 
 const initial: RetentionState = { error: null, ok: null };
 
@@ -57,16 +58,21 @@ export type Disposition = {
 const date = (s: string | null) => (s ? new Date(s + "T12:00:00").toLocaleDateString() : "—");
 const stamp = (s: string) => new Date(s).toLocaleDateString();
 
-/** One period, and whether anybody has checked it. */
-function PolicyCard({ policy }: { policy: Policy }) {
+/**
+ * One period, and whether anybody has checked it.
+ *
+ * An item in the schedule's list rather than a card of its own: every period
+ * carries its own forms, and a stack of cards reads as a dashboard of equals.
+ */
+function PolicyItem({ policy }: { policy: Policy }) {
   const [saveState, save, saving] = useActionState(savePolicy, initial);
   const [confState, confirm, confirming] = useActionState(confirmPolicy, initial);
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="card" style={{ marginTop: 12 }}>
+    <div className="list-item">
       <div className="row2" style={{ alignItems: "baseline" }}>
-        <h3 style={{ margin: 0 }}>{policy.label}</h3>
+        <b>{policy.label}</b>
         {policy.confirmed ? (
           <span className="chip">
             Confirmed{policy.confirmed_at ? ` ${stamp(policy.confirmed_at)}` : ""}
@@ -75,7 +81,7 @@ function PolicyCard({ policy }: { policy: Policy }) {
           <span className="chip bad">Not checked by anybody</span>
         )}
       </div>
-      <p className="sub" style={{ marginTop: 4 }}>{policy.what}</p>
+      <p className="sub" style={{ margin: "4px 0 0" }}>{policy.what}</p>
 
       <p style={{ margin: "8px 0" }}>
         <b>
@@ -147,8 +153,8 @@ function Holds({ holds, closed }: { holds: Hold[]; closed: Row[] }) {
   const [liftState, lift, lifting] = useActionState(liftHold, initial);
 
   return (
-    <div className="card" style={{ marginTop: 14 }}>
-      <h3 style={{ marginTop: 0 }}>Legal holds</h3>
+    <>
+      <h3 style={{ marginTop: 22 }}>Legal holds</h3>
       <p className="sub" style={{ marginTop: 0 }}>
         A record under hold is not due for anything, whatever the schedule says, and cannot be
         recorded as destroyed. The database refuses it, not this screen.
@@ -159,53 +165,58 @@ function Holds({ holds, closed }: { holds: Hold[]; closed: Row[] }) {
       {liftState.error && <div className="alert bad">{liftState.error}</div>}
       {liftState.ok && <div className="alert ok">{liftState.ok}</div>}
 
-      {holds.length === 0 && <div className="empty">No record is under hold.</div>}
+      {holds.length === 0 && <p className="empty">No record is under hold.</p>}
 
-      {holds.map((h) => (
-        <div key={h.id} className="noteitem">
-          <div className="meta">
-            <b style={{ color: "var(--ink)" }}>
-              {closed.find((c) => c.client_id === h.client_id)?.name ?? "A client"}
-            </b>{" "}
-            · held by {h.placed_by_name || "—"} on {stamp(h.placed_at)}
+      {/* The holds, then placing a new one as the last item of the same list. */}
+      <div className="list">
+        {holds.map((h) => (
+          <div key={h.id} className="list-item">
+            <div className="lock" style={{ marginBottom: 4 }}>
+              <b style={{ color: "var(--ink)" }}>
+                {closed.find((c) => c.client_id === h.client_id)?.name ?? "A client"}
+              </b>{" "}
+              · held by {h.placed_by_name || "—"} on {stamp(h.placed_at)}
+            </div>
+            {h.reason}
+            <form action={lift} style={{ marginTop: 8 }}>
+              <input type="hidden" name="hold_id" value={h.id} />
+              <div className="row2" style={{ alignItems: "flex-end" }}>
+                <label className="field" style={{ flex: 1 }}>
+                  Why it is being lifted
+                  <input name="lifted_reason" placeholder="The audit closed on…" />
+                </label>
+                <button className="btn" disabled={lifting}>Lift</button>
+              </div>
+            </form>
           </div>
-          {h.reason}
-          <form action={lift} style={{ marginTop: 8 }}>
-            <input type="hidden" name="hold_id" value={h.id} />
+        ))}
+
+        <div className="list-item">
+          <form action={place}>
             <div className="row2" style={{ alignItems: "flex-end" }}>
               <label className="field" style={{ flex: 1 }}>
-                Why it is being lifted
-                <input name="lifted_reason" placeholder="The audit closed on…" />
+                Hold a client&apos;s record
+                <select name="client_id" defaultValue="">
+                  <option value="">Choose a closed record…</option>
+                  {closed
+                    .filter((c) => !c.on_hold)
+                    .map((c) => (
+                      <option key={c.client_id} value={c.client_id}>
+                        {c.name} — closed {date(c.closed_on)}
+                      </option>
+                    ))}
+                </select>
               </label>
-              <button className="btn" disabled={lifting}>Lift</button>
+              <label className="field" style={{ flex: 2 }}>
+                Why
+                <input name="reason" placeholder="Records request from the client's attorney, 12 Sep" />
+              </label>
+              <button className="btn gold" disabled={placing}>Place hold</button>
             </div>
           </form>
         </div>
-      ))}
-
-      <form action={place} style={{ marginTop: 12 }}>
-        <div className="row2" style={{ alignItems: "flex-end" }}>
-          <label className="field" style={{ flex: 1 }}>
-            Hold a client's record
-            <select name="client_id" defaultValue="">
-              <option value="">Choose a closed record…</option>
-              {closed
-                .filter((c) => !c.on_hold)
-                .map((c) => (
-                  <option key={c.client_id} value={c.client_id}>
-                    {c.name} — closed {date(c.closed_on)}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="field" style={{ flex: 2 }}>
-            Why
-            <input name="reason" placeholder="Records request from the client's attorney, 12 Sep" />
-          </label>
-          <button className="btn gold" disabled={placing}>Place hold</button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -218,46 +229,48 @@ function DueList({ rows }: { rows: Row[] }) {
   const undated = rows.filter((r) => !r.closed_on);
 
   return (
-    <div className="card" style={{ marginTop: 14 }}>
-      <h3 style={{ marginTop: 0 }}>Past its period</h3>
+    <>
+      <h3 style={{ marginTop: 22 }}>Past its period</h3>
 
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}
 
-      {due.length === 0 && (
-        <div className="empty">
+      {due.length === 0 ? (
+        <p className="empty">
           Nothing has passed its retention period.
           {rows.some((r) => !r.policy_confirmed) &&
             " The client record period has not been confirmed, so nothing can."}
+        </p>
+      ) : (
+        <div className="list">
+          {due.map((r) => (
+            <div key={r.client_id} className="list-item">
+              <div className="lock">
+                <b style={{ color: "var(--ink)" }}>{r.name}</b> · closed {date(r.closed_on)} · period
+                ended {date(r.keep_until)}
+              </div>
+              <form action={act} style={{ marginTop: 8 }}>
+                <input type="hidden" name="client_id" value={r.client_id} />
+                <div className="row2" style={{ alignItems: "flex-end" }}>
+                  <label className="field" style={{ maxWidth: 220 }}>
+                    What was decided
+                    <select name="action" defaultValue="Reviewed — no change">
+                      <option>Reviewed — no change</option>
+                      <option>Kept longer</option>
+                      <option>Destroyed</option>
+                    </select>
+                  </label>
+                  <label className="field" style={{ flex: 1 }}>
+                    And why
+                    <input name="reason" placeholder="Paper file shredded 12 Sep; CRM record kept" />
+                  </label>
+                  <button className="btn" disabled={pending}>Record it</button>
+                </div>
+              </form>
+            </div>
+          ))}
         </div>
       )}
-
-      {due.map((r) => (
-        <div key={r.client_id} className="noteitem">
-          <div className="meta">
-            <b style={{ color: "var(--ink)" }}>{r.name}</b> · closed {date(r.closed_on)} · period
-            ended {date(r.keep_until)}
-          </div>
-          <form action={act} style={{ marginTop: 8 }}>
-            <input type="hidden" name="client_id" value={r.client_id} />
-            <div className="row2" style={{ alignItems: "flex-end" }}>
-              <label className="field" style={{ maxWidth: 220 }}>
-                What was decided
-                <select name="action" defaultValue="Reviewed — no change">
-                  <option>Reviewed — no change</option>
-                  <option>Kept longer</option>
-                  <option>Destroyed</option>
-                </select>
-              </label>
-              <label className="field" style={{ flex: 1 }}>
-                And why
-                <input name="reason" placeholder="Paper file shredded 12 Sep; CRM record kept" />
-              </label>
-              <button className="btn" disabled={pending}>Record it</button>
-            </div>
-          </form>
-        </div>
-      ))}
 
       {(held.length > 0 || undated.length > 0) && (
         <p className="lock" style={{ marginBottom: 0 }}>
@@ -266,7 +279,7 @@ function DueList({ rows }: { rows: Row[] }) {
             `${undated.length} closed without a date in the stage history, so no clock has started — the date would have to be a guess, and a guessed closure date is a guessed destruction date.`}
         </p>
       )}
-    </div>
+    </>
   );
 }
 
@@ -295,40 +308,42 @@ export function RetentionView({
       <DueList rows={rows} />
       <Holds holds={holds} closed={rows} />
 
-      <h2 className="h1" style={{ fontSize: 20, marginTop: 22 }}>The schedule</h2>
-      {policies.map((p) => (
-        <PolicyCard key={p.key} policy={p} />
-      ))}
+      <h3 style={{ marginTop: 22 }}>The schedule</h3>
+      {policies.length === 0 ? (
+        <p className="empty">No retention period has been set up.</p>
+      ) : (
+        <div className="list">
+          {policies.map((p) => (
+            <PolicyItem key={p.key} policy={p} />
+          ))}
+        </div>
+      )}
 
-      <h2 className="h1" style={{ fontSize: 20, marginTop: 22 }}>What has been decided</h2>
-      <div className="card" style={{ marginTop: 12 }}>
-        {dispositions.length === 0 ? (
-          <div className="empty">Nothing has been disposed of or reviewed yet.</div>
-        ) : (
-          <table className="t">
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Record</th>
-                <th>Decision</th>
-                <th>Why</th>
-                <th>By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dispositions.map((d) => (
-                <tr key={d.id}>
-                  <td>{stamp(d.disposed_at)}</td>
-                  <td>{d.client_name}</td>
-                  <td>{d.action}</td>
-                  <td>{d.reason}</td>
-                  <td>{d.decided_by_name}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <p className="lock" style={{ marginBottom: 0 }}>
+      <h3 style={{ marginTop: 22 }}>What has been decided</h3>
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="decisions"
+          columns={[
+            { key: "when", label: "When" },
+            { key: "record", label: "Record" },
+            { key: "decision", label: "Decision" },
+            { key: "why", label: "Why" },
+            { key: "by", label: "By" },
+          ]}
+          rows={dispositions.map((d) => ({
+            key: String(d.id),
+            sort: { when: d.disposed_at },
+            cells: {
+              when: stamp(d.disposed_at),
+              record: d.client_name,
+              decision: d.action,
+              why: d.reason,
+              by: d.decided_by_name,
+            },
+          }))}
+          empty="Nothing has been disposed of or reviewed yet."
+        />
+        <p className="lock" style={{ margin: 0, padding: "10px 14px 14px" }}>
           Append-only. Nothing here can be edited or removed, including by Admin.
         </p>
       </div>

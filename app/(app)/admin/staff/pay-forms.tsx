@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { setStaffPay, deleteStaffPay, type StaffState } from "./checklist-actions";
 import { formatPayRate } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 const initial: StaffState = { error: null, ok: null };
 
@@ -40,6 +41,9 @@ function RemoveRate({ id }: { id: string }) {
  * is not something this screen should be able to change. Only the newest entry
  * can be removed, which covers mistyping the figure you just entered and
  * nothing else.
+ *
+ * It sits on the person's own record now, so it is open rather than folded
+ * away behind their name the way it was in a list of everybody.
  */
 export function PayRates({
   staffId,
@@ -60,11 +64,10 @@ export function PayRates({
   const newest = history[0];
 
   return (
-    <details className="card" style={{ marginBottom: 10 }} open={rows.length === 0}>
-      <summary style={{ cursor: "pointer" }}>
-        <b>{name}</b>{" "}
+    <div className="card" style={{ padding: 0 }}>
+      <div style={{ padding: "16px 16px 12px" }}>
         {current ? (
-          <span className="chip ok">{rate(current)}</span>
+          <span className="chip ok">Now {rate(current)}</span>
         ) : (
           <span className="chip warn">no rate recorded</span>
         )}
@@ -73,44 +76,42 @@ export function PayRates({
             {rate(upcoming[upcoming.length - 1])} from {upcoming[upcoming.length - 1].effective_from}
           </span>
         )}
-      </summary>
+        {state.error && <div className="alert bad" style={{ marginTop: 10 }}>{state.error}</div>}
+        {state.ok && <div className="alert ok" style={{ marginTop: 10 }}>{state.ok}</div>}
+      </div>
 
-      {state.error && <div className="alert bad">{state.error}</div>}
-      {state.ok && <div className="alert ok">{state.ok}</div>}
+      <DataTable
+        label="rates"
+        columns={[
+          { key: "from", label: "From" },
+          { key: "rate", label: "Rate", align: "right" },
+          { key: "note", label: "Note" },
+          { key: "actions", label: "", sortable: false },
+        ]}
+        rows={history.map((r) => ({
+          key: r.id,
+          sort: { from: r.effective_from, rate: Number(r.pay_rate), note: r.note },
+          cells: {
+            from: (
+              <>
+                {r.effective_from}
+                {r.effective_from > today && <div className="lock">not yet in effect</div>}
+              </>
+            ),
+            rate: rate(r),
+            note: <span className="lock">{r.note || "—"}</span>,
+            actions:
+              r.id === newest?.id ? (
+                <RemoveRate id={r.id} />
+              ) : (
+                <span className="lock">what they were paid under</span>
+              ),
+          },
+        }))}
+        empty={`No rate has been recorded for ${name} yet.`}
+      />
 
-      {history.length > 0 && (
-        <table className="t">
-          <thead>
-            <tr>
-              <th>From</th>
-              <th>Rate</th>
-              <th>Note</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((r) => (
-              <tr key={r.id} style={r.effective_from > today ? { opacity: 0.7 } : undefined}>
-                <td>
-                  {r.effective_from}
-                  {r.effective_from > today && <div className="lock">not yet in effect</div>}
-                </td>
-                <td>{rate(r)}</td>
-                <td style={{ fontSize: 12, color: "var(--muted)" }}>{r.note || "—"}</td>
-                <td style={{ textAlign: "right" }}>
-                  {r.id === newest?.id ? (
-                    <RemoveRate id={r.id} />
-                  ) : (
-                    <span className="lock">what they were paid under</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <form action={action} style={{ marginTop: 12 }}>
+      <form action={action} style={{ padding: "12px 16px 0" }}>
         <input type="hidden" name="staff_id" value={staffId} />
         <div className="row2" style={{ alignItems: "flex-end" }}>
           <label className="field">
@@ -139,11 +140,11 @@ export function PayRates({
         </div>
       </form>
 
-      <p className="lock" style={{ marginBottom: 0 }}>
+      <p className="lock" style={{ margin: 0, padding: "10px 16px 16px" }}>
         Setting a rate adds to the history rather than replacing it, so work done before the date
         keeps the rate it was done under. A date in the future is fine — a raise can be recorded
         before it starts. {name.split(" ")[0]} can see this rate and nobody else&apos;s.
       </p>
-    </details>
+    </div>
   );
 }

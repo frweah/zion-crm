@@ -1,19 +1,30 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today } from "@/lib/constants";
+import { today, fmtStamp } from "@/lib/constants";
 import {
   LogSessionForm,
   SessionList,
   SubmitStatement,
-  ApprovalRow,
+  ApprovalActions,
+  type ApprovalStatement,
   type SessionRow,
   CategoryBreakdown,
   type CategoryOption,
 } from "./hours-forms";
 import { Expenses, type ExpenseCategory, type ExpenseRow } from "./expenses";
 import { WorkTimer, HoursSummary } from "./work-timer";
+import { PageHead } from "../page-head";
+import { DataTable } from "../data-table";
 
+/**
+ * Hours, and - for Admin - statement approvals.
+ *
+ * Approvals has its own entry in the sidebar now, so this screen no longer
+ * draws a "My hours / Approvals" strip of its own under the sidebar's. The
+ * address is unchanged: ?tab=approvals still opens the approvals view, and
+ * only for Admin.
+ */
 export default async function HoursPage({
   searchParams,
 }: {
@@ -42,27 +53,6 @@ export default async function HoursPage({
     .maybeSingle();
   const isContractor = (employment?.employment_type ?? "Contractor") === "Contractor";
 
-  const header = (
-    <>
-      <h1 className="h1">Hours</h1>
-      <p className="sub">
-        {isContractor
-          ? "Your work sessions and statements. No clock and no schedule — this is a record of work performed, and the basis of your invoice."
-          : "Your logged work and statements."}
-      </p>
-      {isAdmin && (
-        <nav className="tabs">
-          <Link href="/hours" className={tab === "mine" ? "on" : ""}>
-            My hours
-          </Link>
-          <Link href="/hours?tab=approvals" className={tab === "approvals" ? "on" : ""}>
-            Approvals
-          </Link>
-        </nav>
-      )}
-    </>
-  );
-
   // ── Admin: statements waiting on a decision ──────────────────
   if (tab === "approvals") {
     const [statementsResult, staffResult, sessionsResult] = await Promise.all([
@@ -84,52 +74,101 @@ export default async function HoursPage({
     const statements = statementsResult.data ?? [];
     const waiting = statements.filter((s) => s.status === "Submitted");
 
+    const rows: ApprovalStatement[] = statements.map((s) => ({
+      id: s.id,
+      staff_name: staffName.get(s.staff_id) ?? "—",
+      period_start: s.period_start,
+      period_end: s.period_end,
+      status: s.status,
+      total_hours: Number(totals.get(s.id)?.total_hours ?? 0),
+      total_amount: Number(totals.get(s.id)?.total_amount ?? 0),
+      unpriced_hours: Number(totals.get(s.id)?.unpriced_hours ?? 0),
+      rate_unit: totals.get(s.id)?.rate_unit ?? null,
+      adjustment: Number(totals.get(s.id)?.adjustment ?? 0),
+      adjustment_note: totals.get(s.id)?.adjustment_note ?? "",
+      submitted_at: s.submitted_at,
+    }));
+
     return (
       <>
-        {header}
+        <PageHead
+          title="Statement approvals"
+          context="Contractors' statements for each period, priced by the totals view, waiting on your decision."
+        />
         {waiting.length === 0 && (
           <div className="alert ok">Nothing waiting for approval.</div>
         )}
         <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Who</th>
-                <th>Hours</th>
-                <th>Comes to</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {statements.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    No statements yet.
-                  </td>
-                </tr>
-              )}
-              {statements.map((s) => (
-                <ApprovalRow
-                  key={s.id}
-                  statement={{
-                    id: s.id,
-                    staff_name: staffName.get(s.staff_id) ?? "—",
-                    period_start: s.period_start,
-                    period_end: s.period_end,
-                    status: s.status,
-                    total_hours: Number(totals.get(s.id)?.total_hours ?? 0),
-                    total_amount: Number(totals.get(s.id)?.total_amount ?? 0),
-                    unpriced_hours: Number(totals.get(s.id)?.unpriced_hours ?? 0),
-                    rate_unit: totals.get(s.id)?.rate_unit ?? null,
-                    adjustment: Number(totals.get(s.id)?.adjustment ?? 0),
-                    adjustment_note: totals.get(s.id)?.adjustment_note ?? "",
-                    submitted_at: s.submitted_at,
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            label="statements"
+            columns={[
+              { key: "who", label: "Who" },
+              { key: "hours", label: "Hours", align: "right" },
+              { key: "amount", label: "Comes to", align: "right" },
+              { key: "status", label: "Status" },
+              { key: "decide", label: "", sortable: false },
+            ]}
+            rows={rows.map((s) => ({
+              key: s.id,
+              cells: {
+                who: (
+                  <>
+                    <b>{s.staff_name}</b>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      {s.period_start} to {s.period_end}
+                    </div>
+                  </>
+                ),
+                hours: (
+                  <>
+                    {s.total_hours} hrs
+                    {s.unpriced_hours > 0 && (
+                      <div className="lock">{s.unpriced_hours} on days with no rate</div>
+                    )}
+                  </>
+                ),
+                amount: (
+                  <>
+                    {s.rate_unit === null && s.total_amount === 0 ? (
+                      <span className="lock">no rate on file</span>
+                    ) : (
+                      <b>{s.total_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}</b>
+                    )}
+                    {s.rate_unit === "Flat" && <div className="lock">flat for the period</div>}
+                    {s.adjustment !== 0 && (
+                      <div className="lock">
+                        includes {s.adjustment > 0 ? "+" : ""}
+                        {s.adjustment.toFixed(2)} — {s.adjustment_note}
+                      </div>
+                    )}
+                  </>
+                ),
+                status: (
+                  <>
+                    <span
+                      className={
+                        "chip " + (s.status === "Approved" ? "ok" : s.status === "Submitted" ? "warn" : "")
+                      }
+                    >
+                      {s.status}
+                    </span>
+                    {s.submitted_at && (
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtStamp(s.submitted_at)}</div>
+                    )}
+                  </>
+                ),
+                decide: <ApprovalActions statement={{ id: s.id, status: s.status }} />,
+              },
+              sort: {
+                who: s.staff_name,
+                hours: s.total_hours,
+                amount: s.total_amount,
+                status: s.status,
+              },
+              text: `${s.staff_name} ${s.period_start} ${s.period_end} ${s.status}`,
+            }))}
+            empty="No statements have been submitted yet."
+          />
         </div>
         <p className="lock" style={{ marginTop: 10 }}>
           Approving settles the hours: nothing can be added to the statement or corrected away
@@ -247,20 +286,22 @@ export default async function HoursPage({
 
   return (
     <>
-      {header}
+      <PageHead
+        title="Hours"
+        context={
+          isContractor
+            ? "Your work sessions and statements. No clock and no schedule — this is a record of work performed, and the basis of your invoice."
+            : "Your logged work and statements."
+        }
+      />
 
-      <div className="row2" style={{ marginBottom: 12, alignItems: "center" }}>
-        <Link className="btn ghost" href={`/hours?period=${shift(-1)}`} style={{ textDecoration: "none" }}>
-          ← Previous period
-        </Link>
-        <Link className="btn ghost" href="/hours" style={{ textDecoration: "none" }}>
+      {/* Moving between periods is a choice of which period to look at, so it is segmented. */}
+      <div className="segmented no-print" style={{ marginBottom: 12 }}>
+        <Link href={`/hours?period=${shift(-1)}`}>← Previous period</Link>
+        <Link href="/hours" className={periodStart <= today() && today() <= periodEnd ? "on" : undefined}>
           This period
         </Link>
-        {periodEnd < today() && (
-          <Link className="btn ghost" href={`/hours?period=${shift(15)}`} style={{ textDecoration: "none" }}>
-            Next period →
-          </Link>
-        )}
+        {periodEnd < today() && <Link href={`/hours?period=${shift(15)}`}>Next period →</Link>}
       </div>
 
       <HoursSummary

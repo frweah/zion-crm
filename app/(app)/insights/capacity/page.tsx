@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, today } from "@/lib/constants";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 /**
  * Capacity.
@@ -79,12 +81,82 @@ export default async function CapacityPage() {
   const concentrated =
     carrying.length === 1 && rows.length > 1 ? carrying[0] : null;
 
+  const personRows: DataRow[] = rows.map((r) => {
+    const known = n(r.hours_90) - n(r.uncategorised_hours_90);
+    const share = known > 0 ? Math.round((n(r.client_hours_90) / known) * 100) : null;
+    return {
+      key: r.staff_id,
+      cells: {
+        person: (
+          <>
+            <b>{r.name}</b>
+            <div className="lock">{r.role}</div>
+          </>
+        ),
+        caseload: (
+          <>
+            {n(r.active_clients)} active
+            <div className="lock">
+              {n(r.quiet_clients) > 0 && (
+                <span style={{ color: "var(--bad)" }}>{n(r.quiet_clients)} quiet</span>
+              )}
+              {n(r.quiet_clients) > 0 && n(r.front_clients) > 0 && " · "}
+              {n(r.front_clients) > 0 && `${n(r.front_clients)} at the front`}
+              {n(r.quiet_clients) === 0 && n(r.front_clients) === 0 && "all moving"}
+            </div>
+          </>
+        ),
+        owed:
+          n(r.committed_hours) > 0 ? (
+            <>
+              {n(r.committed_hours).toFixed(0)} hrs
+              <div className="lock">{money(n(r.committed_value))}</div>
+            </>
+          ) : n(r.committed_value) > 0 ? (
+            <>
+              {money(n(r.committed_value))}
+              <div className="lock">flat fees, no hours</div>
+            </>
+          ) : (
+            <span className="lock">nothing</span>
+          ),
+        delivered: (
+          <>
+            {n(r.hours_30).toFixed(2)} hrs
+            <div className="lock">last {RECENT_DAYS} days</div>
+          </>
+        ),
+        reaching:
+          share === null ? (
+            <span className="lock">nothing says what it was</span>
+          ) : (
+            <>
+              {share}%
+              <div className="lock">
+                of {known.toFixed(1)} categorised hours in 90 days
+                {n(r.uncategorised_hours_90) > 0 &&
+                  ` · ${n(r.uncategorised_hours_90).toFixed(1)} not said`}
+              </div>
+            </>
+          ),
+      },
+      sort: {
+        person: r.name,
+        caseload: n(r.active_clients),
+        owed: n(r.committed_value),
+        delivered: n(r.hours_30),
+        reaching: share,
+      },
+      text: [r.name, r.role].join(" "),
+    };
+  });
+
   return (
     <>
-      <h1 className="h1">Capacity</h1>
-      <p className="sub">
-        Who is carrying what, what is owed on it, and what is actually being delivered
-      </p>
+      <PageHead
+        title="Capacity"
+        context="Who is carrying what, what is owed on it, and what is actually being delivered"
+      />
 
       <div
         className="grid"
@@ -150,86 +222,27 @@ export default async function CapacityPage() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 18, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>By person</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            Hours owed are hourly authorizations only — a flat fee is money owed with no hours
-            attached to it, so it is counted in the value and not in the hours.
-          </p>
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2">By person</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Hours owed are hourly authorizations only — a flat fee is money owed with no hours
+          attached to it, so it is counted in the value and not in the hours.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="staff"
+            columns={[
+              { key: "person", label: "Person" },
+              { key: "caseload", label: "Caseload" },
+              { key: "owed", label: "Owed" },
+              { key: "delivered", label: "Delivered" },
+              { key: "reaching", label: "Reaching a client" },
+            ]}
+            rows={personRows}
+            empty="No staff member has a caseload to show."
+          />
         </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Caseload</th>
-              <th>Owed</th>
-              <th>Delivered</th>
-              <th>Reaching a client</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const known = n(r.hours_90) - n(r.uncategorised_hours_90);
-              const share = known > 0 ? Math.round((n(r.client_hours_90) / known) * 100) : null;
-              return (
-                <tr key={r.staff_id}>
-                  <td>
-                    <b>{r.name}</b>
-                    <div className="lock">{r.role}</div>
-                  </td>
-                  <td>
-                    {n(r.active_clients)} active
-                    <div className="lock">
-                      {n(r.quiet_clients) > 0 && (
-                        <span style={{ color: "var(--bad)" }}>
-                          {n(r.quiet_clients)} quiet
-                        </span>
-                      )}
-                      {n(r.quiet_clients) > 0 && n(r.front_clients) > 0 && " · "}
-                      {n(r.front_clients) > 0 && `${n(r.front_clients)} at the front`}
-                      {n(r.quiet_clients) === 0 && n(r.front_clients) === 0 && "all moving"}
-                    </div>
-                  </td>
-                  <td>
-                    {n(r.committed_hours) > 0 ? (
-                      <>
-                        {n(r.committed_hours).toFixed(0)} hrs
-                        <div className="lock">{money(n(r.committed_value))}</div>
-                      </>
-                    ) : n(r.committed_value) > 0 ? (
-                      <>
-                        {money(n(r.committed_value))}
-                        <div className="lock">flat fees, no hours</div>
-                      </>
-                    ) : (
-                      <span className="lock">nothing</span>
-                    )}
-                  </td>
-                  <td>
-                    {n(r.hours_30).toFixed(2)} hrs
-                    <div className="lock">last {RECENT_DAYS} days</div>
-                  </td>
-                  <td>
-                    {share === null ? (
-                      <span className="lock">nothing says what it was</span>
-                    ) : (
-                      <>
-                        {share}%
-                        <div className="lock">
-                          of {known.toFixed(1)} categorised hours in 90 days
-                          {n(r.uncategorised_hours_90) > 0 &&
-                            ` · ${n(r.uncategorised_hours_90).toFixed(1)} not said`}
-                        </div>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      </section>
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>How to read this</h3>

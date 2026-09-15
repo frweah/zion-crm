@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DataTable } from "../../data-table";
 
 export type PaperworkRow = {
   auth_number: string | null;
@@ -33,66 +34,77 @@ export function PaperworkStrip({
   clientId: string;
   rows: PaperworkRow[];
 }) {
-  if (rows.length === 0) {
-    return (
-      <div className="card" style={{ marginTop: 14 }}>
-        <h3 style={{ margin: 0 }}>Paperwork</h3>
-        <p className="sub" style={{ margin: "4px 0 0" }}>
-          No open authorization needs a USOR form yet.
-        </p>
-      </div>
-    );
-  }
-
   const missing = rows.filter((r) => r.state === "Missing").length;
   const complete = rows.filter((r) => r.state === "Complete").length;
 
   return (
-    <div className="card" style={{ marginTop: 14, padding: 0 }}>
-      <div style={{ padding: "16px 16px 0" }}>
-        <h3 style={{ margin: 0 }}>Paperwork</h3>
-        <p className="sub" style={{ margin: "4px 0 0" }}>
-          {missing > 0 ? (
-            <b style={{ color: "var(--bad)" }}>
-              {missing} blocking billing
-            </b>
-          ) : (
-            "Nothing blocking billing"
-          )}
-          {" · "}
-          {complete} of {rows.length} complete
-        </p>
-      </div>
-
-      <table className="t">
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={`${r.usor}-${r.month}-${i}`}>
-              <td>
-                <b>{r.usor}</b>
-                {r.month && <span className="lock"> {r.month}</span>}
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {r.form_name}
-                </div>
-                <div className="lock">
-                  {r.service_type}
-                  {r.auth_number && ` · authorization ${r.auth_number}`}
-                  {Number(r.hours_logged) > 0 && ` · ${r.hours_logged} hours logged`}
-                </div>
-              </td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <p className="lock" style={{ padding: "0 16px 16px" }}>
-        Fill these in on the <Link href={`/clients/${clientId}?tab=documents`}>Documents tab</Link>. An
-        invoice will not send while a form USOR requires is unfinished — that rule is in the
-        database, so this strip is a reminder rather than the thing enforcing it.
+    <section style={{ marginTop: 22 }}>
+      <h2 className="h2">Paperwork</h2>
+      <p className="sub" style={{ margin: "4px 0 8px" }}>
+        {rows.length === 0 ? (
+          "No open authorization needs a USOR form yet."
+        ) : (
+          <>
+            {missing > 0 ? (
+              <b style={{ color: "var(--bad)" }}>{missing} blocking billing</b>
+            ) : (
+              "Nothing blocking billing"
+            )}
+            {" · "}
+            {complete} of {rows.length} complete
+          </>
+        )}
       </p>
-    </div>
+
+      {rows.length > 0 && (
+        <>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="forms"
+              columns={[
+                { key: "form", label: "Form" },
+                { key: "authorization", label: "Authorization" },
+                { key: "state", label: "State" },
+              ]}
+              rows={rows.map((r, i) => ({
+                key: `${r.usor}-${r.month}-${i}`,
+                sort: {
+                  form: `${r.usor ?? ""} ${r.month ?? ""}`,
+                  authorization: r.auth_number,
+                  state: r.state,
+                },
+                text: [r.usor, r.month, r.form_name, r.service_type, r.auth_number, r.state]
+                  .filter(Boolean)
+                  .join(" "),
+                cells: {
+                  form: (
+                    <>
+                      <b>{r.usor}</b>
+                      {r.month && <span className="lock"> {r.month}</span>}
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.form_name}</div>
+                    </>
+                  ),
+                  authorization: (
+                    <span className="lock">
+                      {r.service_type}
+                      {r.auth_number && ` · ${r.auth_number}`}
+                      {Number(r.hours_logged) > 0 && ` · ${r.hours_logged} hours logged`}
+                    </span>
+                  ),
+                  state: <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>,
+                },
+              }))}
+              empty="No open authorization needs a USOR form yet."
+            />
+          </div>
+
+          <p className="lock" style={{ margin: "8px 0 0" }}>
+            Fill these in on the <Link href={`/clients/${clientId}?tab=documents`}>Documents tab</Link>. An
+            invoice will not send while a form USOR requires is unfinished — that rule is in the
+            database, so this strip is a reminder rather than the thing enforcing it.
+          </p>
+        </>
+      )}
+    </section>
   );
 }

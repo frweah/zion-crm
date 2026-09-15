@@ -15,7 +15,8 @@ const initial: DetailState = { error: null, ok: null };
  *
  * Adding a task and sending a report used to be tabs of their own. They are
  * things you do to the record, not places in it, so they sit here beside the
- * name - the same four buttons whichever tab is open.
+ * name - the same four buttons whichever tab is open. The record header lays
+ * them out, so they come back as a fragment rather than a row of their own.
  */
 export function RecordActions({
   clientId,
@@ -29,7 +30,7 @@ export function RecordActions({
   myId: string;
 }) {
   return (
-    <div className="row2 no-print" style={{ gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+    <>
       <Link className="btn ghost" href={`/clients/${clientId}?tab=notes`} style={{ textDecoration: "none" }}>
         Add note
       </Link>
@@ -42,7 +43,7 @@ export function RecordActions({
         Send report
       </Link>
       <QuickAdd clientId={clientId} label="Quick add" />
-    </div>
+    </>
   );
 }
 

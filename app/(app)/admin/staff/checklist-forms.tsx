@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { setChecklistItem, type StaffState } from "./checklist-actions";
+import { DataTable } from "../../data-table";
 
 const initial: StaffState = { error: null, ok: null };
 
@@ -18,54 +19,34 @@ export type ChecklistRow = {
   note: string;
 };
 
+const isDone = (row: ChecklistRow) => (row.auto_key !== null ? row.auto_done === true : row.done_on !== null);
+
 /**
- * One item on somebody's checklist.
+ * What can be done to one item on somebody's checklist.
  *
  * An automatic item has no control at all. It is not a disabled checkbox,
  * because a disabled checkbox reads as "you may not tick this" when what is
  * true is "ticking it would mean nothing" — the item is a report on the data,
  * and the way to complete it is to do the thing.
  */
-function Item({ row }: { row: ChecklistRow }) {
+function ItemControl({ row }: { row: ChecklistRow }) {
   const [state, action, pending] = useActionState(setChecklistItem, initial);
-  const auto = row.auto_key !== null;
-  const done = auto ? row.auto_done === true : row.done_on !== null;
+  const done = isDone(row);
+
+  if (row.auto_key !== null) {
+    return <span className="lock">{done ? "done" : "the system is watching this"}</span>;
+  }
 
   return (
-    <tr>
-      <td style={{ width: 28 }}>
-        {done ? (
-          <span className="chip ok">✓</span>
-        ) : row.required ? (
-          <span className="chip warn">·</span>
-        ) : (
-          <span className="chip">·</span>
-        )}
-      </td>
-      <td>
-        <div style={{ opacity: done ? 0.65 : 1 }}>
-          {row.label}
-          {!row.required && <span className="lock"> optional</span>}
-        </div>
-        {row.detail && <div className="lock">{row.detail}</div>}
-        {row.note && <div style={{ fontSize: 12 }}>{row.note}</div>}
-        {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
-      </td>
-      <td style={{ width: 190, textAlign: "right" }}>
-        {auto ? (
-          <span className="lock">{done ? "done" : "the system is watching this"}</span>
-        ) : (
-          <form action={action} style={{ display: "inline" }}>
-            <input type="hidden" name="staff_id" value={row.staff_id} />
-            <input type="hidden" name="task_id" value={row.task_id} />
-            <input type="hidden" name="done" value={done ? "" : "on"} />
-            <button className="btn ghost" type="submit" disabled={pending}>
-              {pending ? "…" : done ? `done ${row.done_on} — undo` : "Mark done"}
-            </button>
-          </form>
-        )}
-      </td>
-    </tr>
+    <form action={action} style={{ display: "inline" }}>
+      <input type="hidden" name="staff_id" value={row.staff_id} />
+      <input type="hidden" name="task_id" value={row.task_id} />
+      <input type="hidden" name="done" value={done ? "" : "on"} />
+      <button className="btn ghost" type="submit" disabled={pending}>
+        {pending ? "…" : done ? `done ${row.done_on} — undo` : "Mark done"}
+      </button>
+      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+    </form>
   );
 }
 
@@ -81,27 +62,55 @@ export function Checklist({
   const items = rows.filter((r) => r.phase === phase);
   if (items.length === 0) return null;
 
-  const outstanding = items.filter(
-    (r) => r.required && !(r.auto_key ? r.auto_done === true : r.done_on !== null),
-  ).length;
+  const outstanding = items.filter((r) => r.required && !isDone(r)).length;
 
   return (
-    <details className="card" style={{ marginBottom: 10 }} open={phase === "Onboarding" && outstanding > 0}>
-      <summary style={{ cursor: "pointer" }}>
+    <div className="card" style={{ padding: 0, marginBottom: 10 }}>
+      <p style={{ margin: 0, padding: "12px 14px" }}>
         {phase} — {name}{" "}
         {outstanding === 0 ? (
           <span className="chip ok">complete</span>
         ) : (
           <span className="chip warn">{outstanding} outstanding</span>
         )}
-      </summary>
-      <table className="t">
-        <tbody>
-          {items.map((r) => (
-            <Item key={r.task_id} row={r} />
-          ))}
-        </tbody>
-      </table>
-    </details>
+      </p>
+      <DataTable
+        label={`${phase.toLowerCase()} items`}
+        columns={[
+          { key: "state", label: "", sortable: false, width: 28 },
+          { key: "item", label: "Item" },
+          { key: "action", label: "", sortable: false, width: 190, align: "right" },
+        ]}
+        rows={items.map((r) => {
+          const done = isDone(r);
+          return {
+            key: r.task_id,
+            text: `${r.label} ${r.detail} ${r.note}`,
+            sort: { item: r.label },
+            cells: {
+              state: done ? (
+                <span className="chip ok">✓</span>
+              ) : r.required ? (
+                <span className="chip warn">·</span>
+              ) : (
+                <span className="chip">·</span>
+              ),
+              item: (
+                <>
+                  <div style={{ opacity: done ? 0.65 : 1 }}>
+                    {r.label}
+                    {!r.required && <span className="lock"> optional</span>}
+                  </div>
+                  {r.detail && <div className="lock">{r.detail}</div>}
+                  {r.note && <div style={{ fontSize: 12 }}>{r.note}</div>}
+                </>
+              ),
+              action: <ItemControl row={r} />,
+            },
+          };
+        })}
+        empty={`There is nothing on ${name}'s ${phase.toLowerCase()} checklist.`}
+      />
+    </div>
   );
 }

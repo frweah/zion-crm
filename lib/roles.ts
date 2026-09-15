@@ -99,6 +99,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "My work",
     items: [
       { label: "Hours", href: "/hours", roles: EVERYONE },
+      // Was a row of tabs inside Hours, under My work's own tabs.
+      { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
       { label: "Paperwork", href: "/paperwork", roles: EVERYONE },
       { label: "SOPs", href: "/sops", roles: EVERYONE },
     ],

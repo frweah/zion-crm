@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today, fmtStamp } from "@/lib/constants";
+import { RecordHeader } from "../../record-header";
+import { DataTable } from "../../data-table";
 
 /**
  * One counselor's caseload, for us.
@@ -18,13 +20,6 @@ import { today, fmtStamp } from "@/lib/constants";
  */
 const QUIET_DAYS = 30;
 
-const SORTS = [
-  { key: "quiet", label: "Quietest first" },
-  { key: "name", label: "Name" },
-  { key: "stage", label: "Stage" },
-  { key: "next", label: "What is next" },
-];
-
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
   const then = new Date(iso).getTime();
@@ -37,13 +32,12 @@ export default async function CounselorCaseloadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sort?: string; show?: string }>;
+  searchParams: Promise<{ show?: string }>;
 }) {
   const { id } = await params;
-  const { sort: rawSort, show: rawShow } = await searchParams;
+  const { show: rawShow } = await searchParams;
   await requireStaff();
 
-  const sort = SORTS.some((s) => s.key === rawSort) ? rawSort! : "quiet";
   const show = rawShow === "all" ? "all" : rawShow === "quiet" ? "quiet" : "active";
 
   const supabase = await createClient();
@@ -102,20 +96,12 @@ export default async function CounselorCaseloadPage({
     };
   });
 
+  // Quietest first: never-touched at the top, because they are the ones nobody
+  // is going to remember on their own. That is only the order the table opens
+  // in - its headings sort by name, stage or what is next when asked.
   const visible = rows
     .filter((r) => (show === "all" ? true : show === "quiet" ? r.quiet : r.status === "Active"))
     .sort((a, b) => {
-      if (sort === "name") return a.name.localeCompare(b.name);
-      if (sort === "stage") return a.stage.localeCompare(b.stage) || a.name.localeCompare(b.name);
-      if (sort === "next") {
-        // Something booked beats nothing booked, soonest first.
-        if (!a.next && !b.next) return a.name.localeCompare(b.name);
-        if (!a.next) return 1;
-        if (!b.next) return -1;
-        return (a.next.at ?? "").localeCompare(b.next.at ?? "");
-      }
-      // Quietest first: never-touched at the top, because they are the ones
-      // nobody is going to remember on their own.
       const av = a.days ?? Number.MAX_SAFE_INTEGER;
       const bv = b.days ?? Number.MAX_SAFE_INTEGER;
       return bv - av || a.name.localeCompare(b.name);
@@ -124,23 +110,25 @@ export default async function CounselorCaseloadPage({
   const activeCount = rows.filter((r) => r.status === "Active").length;
   const quietCount = rows.filter((r) => r.quiet).length;
 
-  const link = (s: string, w: string) => `/counselors/${id}?sort=${s}&show=${w}`;
+  const link = (w: string) => `/counselors/${id}?show=${w}`;
 
   return (
     <>
-      <p className="sub" style={{ marginBottom: 8 }}>
-        <Link href="/counselors?tab=directory" style={{ color: "var(--teal)" }}>
-          ← Counselors
-        </Link>
-      </p>
-
-      <h1 className="h1">{counselor.name}</h1>
-      <p className="sub">
-        {counselor.agency}
-        {counselor.office && ` · ${counselor.office}`}
-        {counselor.phone && ` · ${counselor.phone}`}
-        {counselor.email && ` · ${counselor.email}`}
-      </p>
+      <RecordHeader
+        back={{ href: "/counselors?tab=directory", label: "Counselors" }}
+        title={counselor.name}
+        identity={[counselor.agency, counselor.office, counselor.phone, counselor.email]}
+        actions={
+          <>
+            <Link className="btn gold" href="/counselors?tab=contact" style={{ textDecoration: "none" }}>
+              Log contact
+            </Link>
+            <Link className="btn ghost" href="/counselors?tab=contact" style={{ textDecoration: "none" }}>
+              Full contact log
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", margin: "12px 0" }}>
         <div className="card">
@@ -163,87 +151,67 @@ export default async function CounselorCaseloadPage({
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div className="row2">
-          <div className="field" style={{ marginBottom: 0 }}>
-            Show
-            <div className="tabs" style={{ margin: "4px 0 0", borderBottom: 0 }}>
-              <Link href={link(sort, "active")} className={show === "active" ? "on" : ""}>
-                Active
-              </Link>
-              <Link href={link(sort, "quiet")} className={show === "quiet" ? "on" : ""}>
-                Gone quiet
-              </Link>
-              <Link href={link(sort, "all")} className={show === "all" ? "on" : ""}>
-                Everyone
-              </Link>
-            </div>
-          </div>
-
-          <div className="field" style={{ marginBottom: 0 }}>
-            Sort
-            <div className="tabs" style={{ margin: "4px 0 0", borderBottom: 0, flexWrap: "wrap" }}>
-              {SORTS.map((s) => (
-                <Link key={s.key} href={link(s.key, show)} className={sort === s.key ? "on" : ""}>
-                  {s.label}
-                </Link>
-              ))}
-            </div>
+      <section className="page-section">
+        <h2 className="h2">Caseload</h2>
+        <div className="row2 no-print" style={{ alignItems: "center", gap: 8, margin: "8px 0" }}>
+          <span className="lock">Show</span>
+          <div className="segmented">
+            <Link href={link("active")} className={show === "active" ? "on" : undefined}>
+              Active
+            </Link>
+            <Link href={link("quiet")} className={show === "quiet" ? "on" : undefined}>
+              Gone quiet
+            </Link>
+            <Link href={link("all")} className={show === "all" ? "on" : undefined}>
+              Everyone
+            </Link>
           </div>
         </div>
-      </div>
 
-      <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Stage</th>
-              <th>Assigned to</th>
-              <th>Last activity</th>
-              <th>Next</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty">
-                  {rows.length === 0
-                    ? "No clients on this counselor's caseload."
-                    : "Nobody matches that filter."}
-                </td>
-              </tr>
-            )}
-            {visible.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  <Link href={`/clients/${r.id}`} style={{ color: "var(--teal)" }}>
-                    <b>{r.name}</b>
-                  </Link>
-                  <div className="lock">
-                    {r.client_no ? `#${r.client_no}` : ""}
-                    {r.agency_id ? ` · USOR ID ${r.agency_id}` : ""}
-                    {r.status !== "Active" ? ` · ${r.status}` : ""}
-                  </div>
-                </td>
-                <td>
-                  <span className="chip">{r.stage}</span>
-                </td>
-                <td>{r.assigned_staff_id ? (staffName.get(r.assigned_staff_id) ?? "—") : "—"}</td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  {r.last ? (
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="clients"
+            columns={[
+              { key: "client", label: "Client" },
+              { key: "stage", label: "Stage" },
+              { key: "assigned", label: "Assigned to" },
+              { key: "last", label: "Last activity" },
+              { key: "next", label: "Next" },
+            ]}
+            rows={visible.map((r) => {
+              const assigned = r.assigned_staff_id ? (staffName.get(r.assigned_staff_id) ?? "—") : "—";
+              return {
+                key: r.id,
+                cells: {
+                  client: (
                     <>
-                      <span className={"chip " + (r.quiet ? "bad" : "")}>
-                        {r.days === 0 ? "today" : `${r.days} days ago`}
-                      </span>
-                      <div className="lock">{r.last.slice(0, 10)}</div>
+                      <Link href={`/clients/${r.id}`} style={{ color: "var(--teal)" }}>
+                        <b>{r.name}</b>
+                      </Link>
+                      <div className="lock">
+                        {r.client_no ? `#${r.client_no}` : ""}
+                        {r.agency_id ? ` · USOR ID ${r.agency_id}` : ""}
+                        {r.status !== "Active" ? ` · ${r.status}` : ""}
+                      </div>
                     </>
-                  ) : (
-                    <span className={"chip " + (r.quiet ? "bad" : "")}>nothing recorded</span>
-                  )}
-                </td>
-                <td>
-                  {r.next ? (
+                  ),
+                  stage: <span className="chip">{r.stage}</span>,
+                  assigned,
+                  last: (
+                    <span style={{ whiteSpace: "nowrap" }}>
+                      {r.last ? (
+                        <>
+                          <span className={"chip " + (r.quiet ? "bad" : "")}>
+                            {r.days === 0 ? "today" : `${r.days} days ago`}
+                          </span>
+                          <div className="lock">{r.last.slice(0, 10)}</div>
+                        </>
+                      ) : (
+                        <span className={"chip " + (r.quiet ? "bad" : "")}>nothing recorded</span>
+                      )}
+                    </span>
+                  ),
+                  next: r.next ? (
                     <>
                       {r.next.kind} · {fmtStamp(r.next.at)}
                       <div className="lock">{r.next.title}</div>
@@ -252,58 +220,75 @@ export default async function CounselorCaseloadPage({
                     <Link href={`/clients/${r.id}?tab=activity`} className="lock">
                       nothing booked
                     </Link>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="lock" style={{ marginTop: 10 }}>
-        Quiet means nothing recorded for {QUIET_DAYS} days — no note, appointment, email, job
-        application, stage change or logged hour. Same measure as the dashboard's inactive-clients list.
-      </p>
-
-      <div className="card" style={{ marginTop: 14, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Recent contact with {counselor.name.split(" ")[0]}</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            The last fifteen, across the whole caseload.{" "}
-            <Link href="/counselors">Full contact log</Link>
-          </p>
+                  ),
+                },
+                sort: {
+                  client: r.name,
+                  stage: r.stage,
+                  assigned,
+                  last: r.last,
+                  next: r.next?.at ?? null,
+                },
+                text: `${r.name} ${r.client_no ?? ""} ${r.agency_id ?? ""} ${r.stage} ${assigned}`,
+              };
+            })}
+            empty={
+              rows.length === 0
+                ? "No clients are on this counselor's caseload."
+                : "Nobody on this caseload matches that choice."
+            }
+          />
         </div>
-        <table className="t">
-          <tbody>
-            {(contacts ?? []).length === 0 && (
-              <tr>
-                <td className="empty">Nothing logged with this counselor yet.</td>
-              </tr>
-            )}
-            {(contacts ?? []).map((x) => (
-              <tr key={x.id}>
-                <td style={{ whiteSpace: "nowrap" }}>{x.date}</td>
-                <td>
-                  <span className="chip">{x.method}</span>
-                </td>
-                <td>
-                  {x.client_id ? (
+
+        <p className="lock" style={{ marginTop: 10 }}>
+          Quiet means nothing recorded for {QUIET_DAYS} days — no note, appointment, email, job
+          application, stage change or logged hour. Same measure as the dashboard's inactive-clients list.
+        </p>
+      </section>
+
+      <section className="page-section">
+        <h2 className="h2">Recent contact with {counselor.name.split(" ")[0]}</h2>
+        <p className="sub" style={{ margin: "0 0 10px" }}>
+          The last fifteen, across the whole caseload.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="contacts"
+            columns={[
+              { key: "date", label: "Date" },
+              { key: "method", label: "Method" },
+              { key: "client", label: "Client" },
+              { key: "topic", label: "Topic" },
+            ]}
+            rows={(contacts ?? []).map((x) => {
+              const client = x.client_id ? (clientName.get(x.client_id) ?? "—") : null;
+              return {
+                key: x.id,
+                cells: {
+                  date: <span style={{ whiteSpace: "nowrap" }}>{x.date}</span>,
+                  method: <span className="chip">{x.method}</span>,
+                  client: x.client_id ? (
                     <Link href={`/clients/${x.client_id}`} style={{ color: "var(--teal)" }}>
-                      {clientName.get(x.client_id) ?? "—"}
+                      {client}
                     </Link>
                   ) : (
                     "—"
-                  )}
-                </td>
-                <td>
-                  {x.topic}
-                  {x.outcome && <div className="lock">{x.outcome}</div>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  ),
+                  topic: (
+                    <>
+                      {x.topic}
+                      {x.outcome && <div className="lock">{x.outcome}</div>}
+                    </>
+                  ),
+                },
+                sort: { date: x.date, method: x.method, client, topic: x.topic },
+                text: `${x.date} ${x.method} ${client ?? ""} ${x.topic} ${x.outcome ?? ""}`,
+              };
+            })}
+            empty="Nothing has been logged with this counselor yet."
+          />
+        </div>
+      </section>
 
       <p className="lock" style={{ marginTop: 10 }}>
         Internal view. {counselor.name} has no login here — anything they should see is sent to

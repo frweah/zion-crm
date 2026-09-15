@@ -1,3 +1,5 @@
+import { PageHead } from "./page-head";
+
 /**
  * Stand-in for a screen that has not been ported yet.
  *
@@ -8,8 +10,7 @@
 export function Placeholder({ title, note }: { title: string; note?: string }) {
   return (
     <>
-      <h1 className="h1">{title}</h1>
-      <p className="sub">{note ?? "Ported from the prototype in Phase 2."}</p>
+      <PageHead title={title} context={note ?? "Ported from the prototype in Phase 2."} />
       <div className="card">
         <h3>Not built yet</h3>
         <p className="sub" style={{ margin: 0 }}>

@@ -8,6 +8,7 @@ import { DashboardTask } from "./dashboard-task";
 import { MicrosoftCard } from "./microsoft-card";
 import { WorkTimer, HoursSummary } from "../hours/work-timer";
 import { NEEDS, loadNeed, countNeeds } from "@/lib/needs";
+import { PageHead } from "../page-head";
 
 /**
  * The dashboard: one page.
@@ -79,10 +80,7 @@ export default async function DashboardPage({
 
   return (
     <>
-      <h1 className="h1">Dashboard</h1>
-      <p className="sub">
-        {ROLE_LABEL[me.role]} view · {me.name}
-      </p>
+      <PageHead title="Dashboard" context={`${ROLE_LABEL[me.role]} view · ${me.name}`} />
 
       {CAN_LOG_HOURS.includes(me.role) && (
         <HoursSummary

@@ -26,8 +26,8 @@ export function TemplateEditor({
   const [state, action, pending] = useActionState(saveNoteTemplate, initial);
 
   return (
-    <div className="card" style={{ marginTop: 12 }}>
-      <div className="row2" style={{ alignItems: "baseline" }}>
+    <div className="list-item">
+      <div className="row2" style={{ alignItems: "baseline", marginBottom: 8 }}>
         <h3 style={{ margin: 0 }}>{noteType}</h3>
         {!active && <span className="chip">Off — starts blank</span>}
       </div>

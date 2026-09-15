@@ -11,6 +11,8 @@ import {
   CLIENT_SORT_LABELS,
   type ClientSort,
 } from "@/lib/list-filters";
+import { PageHead } from "../page-head";
+import { DataTable } from "../data-table";
 import { AddClientPanel } from "./clients-view";
 import { FilterBar } from "./filter-bar";
 import { SavedViews, type SavedView } from "./saved-views";
@@ -165,30 +167,92 @@ export default async function ClientsPage({
   const query_ = toQuery(filters);
   const flagged = rows.filter((r) => r.import_review).length;
 
-  const header = (col: ClientSort) => {
+  /*
+   * The sort in the address is the one a saved view remembers, so it stays a
+   * choice of its own above the list. The table's headings sort what is on the
+   * screen without touching the address.
+   */
+  const sortChoice = (col: ClientSort) => {
     const active = filters.sort === col;
     return (
-      <th key={col} style={{ whiteSpace: "nowrap" }}>
-        <Link
-          href={sortLink(filters, col)}
-          style={{ color: active ? "var(--forest)" : "inherit", textDecoration: "none" }}
-        >
-          {CLIENT_SORT_LABELS[col]}
-          {active && <span style={{ marginLeft: 4 }}>{filters.dir === "asc" ? "▲" : "▼"}</span>}
-        </Link>
-      </th>
+      <Link key={col} href={sortLink(filters, col)} className={active ? "on" : ""}>
+        {CLIENT_SORT_LABELS[col]}
+        {active && (filters.dir === "asc" ? " ↑" : " ↓")}
+      </Link>
     );
   };
 
+  const lastActivityDays = (r: Row) =>
+    r.last_activity ? daysBetween(r.last_activity.slice(0, 10), today()) : null;
+
+  const columns = CLIENT_SORTS.map((col) => ({ key: col, label: CLIENT_SORT_LABELS[col] }));
+
+  const tableRows = rows.map((c) => {
+    const d = lastActivityDays(c);
+    return {
+      key: c.id,
+      text: [c.name, c.client_no, c.agency_id, c.counselor_name, c.referring_office, c.stage, c.assigned_name]
+        .filter(Boolean)
+        .join(" "),
+      sort: {
+        name: c.name.toLowerCase(),
+        clientNo: c.client_no,
+        counselor: c.counselor_name,
+        office: c.referring_office,
+        stage: c.stage,
+        assigned: c.assigned_name,
+        createdAt: c.created_at,
+        lastActivity: c.last_activity,
+      },
+      cells: {
+        name: (
+          <>
+            <Link href={`/clients/${c.id}`} style={{ color: "inherit", fontWeight: 600 }}>
+              {c.name}
+            </Link>
+            {c.status !== "Active" && (
+              <span className="chip" style={{ marginLeft: 6 }}>
+                {c.status}
+              </span>
+            )}
+            {c.import_review && (
+              <span className="chip warn" style={{ marginLeft: 6 }} title={c.import_review}>
+                review
+              </span>
+            )}
+          </>
+        ),
+        clientNo: c.client_no ?? "",
+        counselor: c.counselor_name,
+        office: c.referring_office,
+        stage: <span className="chip gold">{c.stage}</span>,
+        assigned: c.assigned_name || "—",
+        createdAt: <span style={{ whiteSpace: "nowrap" }}>{c.created_at}</span>,
+        lastActivity:
+          d === null ? (
+            "—"
+          ) : (
+            <span className={"chip " + (d >= 60 ? "warn" : "")} style={{ whiteSpace: "nowrap" }}>
+              {d === 0 ? "today" : `${d}d ago`}
+            </span>
+          ),
+      },
+    };
+  });
+
   return (
     <>
-      <h1 className="h1">Clients</h1>
-      <p className="sub">
-        {me.role === "Reports"
-          ? "All clients — complete intake from the client record"
-          : "All clients"}
-        {flagged > 0 && ` · ${flagged} flagged for review in this list`}
-      </p>
+      <PageHead
+        title="Clients"
+        context={
+          <>
+            {me.role === "Reports"
+              ? "All clients — complete intake from the client record"
+              : "All clients"}
+            {flagged > 0 && ` · ${flagged} flagged for review in this list`}
+          </>
+        }
+      />
 
       <SavedViews
         screen="clients"
@@ -217,64 +281,20 @@ export default async function ClientsPage({
         />
       )}
 
+      <div className="row2 no-print" style={{ alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span className="lock">Sort by</span>
+        <div className="segmented">{CLIENT_SORTS.map(sortChoice)}</div>
+      </div>
+
+      {/* The filter bar above already searches this list, so the table does not add a second box. */}
       <div className="card" style={{ padding: 0 }}>
-        <table className="t">
-          <thead>
-            <tr>{CLIENT_SORTS.map(header)}</tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={CLIENT_SORTS.length} className="empty">
-                  {isFiltered(filters)
-                    ? "No clients match these filters."
-                    : "No clients yet."}
-                </td>
-              </tr>
-            )}
-            {rows.map((c) => (
-              <tr key={c.id} className="row">
-                <td>
-                  <Link href={`/clients/${c.id}`} style={{ color: "inherit", fontWeight: 600 }}>
-                    {c.name}
-                  </Link>
-                  {c.status !== "Active" && (
-                    <span className="chip" style={{ marginLeft: 6 }}>
-                      {c.status}
-                    </span>
-                  )}
-                  {c.import_review && (
-                    <span className="chip warn" style={{ marginLeft: 6 }} title={c.import_review}>
-                      review
-                    </span>
-                  )}
-                </td>
-                <td>{c.client_no ?? ""}</td>
-                <td>{c.counselor_name}</td>
-                <td>{c.referring_office}</td>
-                <td>
-                  <span className="chip gold">{c.stage}</span>
-                </td>
-                <td>{c.assigned_name || "—"}</td>
-                <td style={{ whiteSpace: "nowrap" }}>{c.created_at}</td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  {c.last_activity ? (
-                    (() => {
-                      const d = daysBetween(c.last_activity.slice(0, 10), today());
-                      return (
-                        <span className={"chip " + (d >= 60 ? "warn" : "")}>
-                          {d === 0 ? "today" : `${d}d ago`}
-                        </span>
-                      );
-                    })()
-                  ) : (
-                    "—"
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          label="clients"
+          filter={false}
+          columns={columns}
+          rows={tableRows}
+          empty={isFiltered(filters) ? "No clients match these filters." : "No clients yet."}
+        />
       </div>
     </>
   );

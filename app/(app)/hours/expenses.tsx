@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { addExpense, removeExpense, setMileageRate, type HoursState } from "./actions";
 import { money } from "@/lib/constants";
+import { DataTable } from "../data-table";
 
 const initial: HoursState = { error: null, ok: null };
 
@@ -171,61 +172,78 @@ export function Expenses({
         </form>
       )}
 
+      {/* The summary line above already says when nothing is claimed, so the table only appears once something is. */}
       {rows.length > 0 && (
-        <table className="t" style={{ marginTop: 12 }}>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td style={{ width: 110, whiteSpace: "nowrap" }}>{r.incurred_on}</td>
-                <td style={{ width: 120 }}>{r.category_label}</td>
-                <td>
-                  {r.is_mileage ? (
-                    <>
-                      {Number(r.miles)} miles
-                      {(r.from_place || r.to_place) && (
-                        <span className="lock">
-                          {" "}
-                          {r.from_place} → {r.to_place}
-                        </span>
-                      )}
-                      {r.rate_used && <div className="lock">at {Number(r.rate_used)}c a mile</div>}
-                    </>
-                  ) : (
-                    r.description
-                  )}
-                  {r.is_mileage && r.description && (
-                    <div className="lock">{r.description}</div>
-                  )}
-                </td>
-                <td style={{ textAlign: "right", width: 110, whiteSpace: "nowrap" }}>
-                  {r.unpriced ? (
-                    <span className="chip warn">no rate yet</span>
-                  ) : (
-                    <b>{money(Number(r.amount ?? 0))}</b>
-                  )}
-                </td>
-                <td style={{ textAlign: "right", width: 90 }}>
-                  {r.statement_id ? (
-                    <span className="lock">claimed</span>
-                  ) : (
-                    !locked && (
-                      <form action={removeAction} style={{ display: "inline" }}>
-                        <input type="hidden" name="expense_id" value={r.id} />
-                        <button
-                          className="btn ghost"
-                          type="submit"
-                          style={{ padding: "2px 10px" }}
-                        >
-                          Remove
-                        </button>
-                      </form>
-                    )
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ marginTop: 12 }}>
+          <DataTable
+            label="expenses"
+            columns={[
+              { key: "when", label: "When", width: 110 },
+              { key: "what", label: "What", width: 120 },
+              { key: "detail", label: "Detail" },
+              { key: "amount", label: "Amount", align: "right", width: 110 },
+              { key: "remove", label: "", sortable: false, width: 90 },
+            ]}
+            rows={rows.map((r) => ({
+              key: r.id,
+              cells: {
+                when: <span style={{ whiteSpace: "nowrap" }}>{r.incurred_on}</span>,
+                what: r.category_label,
+                detail: (
+                  <>
+                    {r.is_mileage ? (
+                      <>
+                        {Number(r.miles)} miles
+                        {(r.from_place || r.to_place) && (
+                          <span className="lock">
+                            {" "}
+                            {r.from_place} → {r.to_place}
+                          </span>
+                        )}
+                        {r.rate_used && <div className="lock">at {Number(r.rate_used)}c a mile</div>}
+                      </>
+                    ) : (
+                      r.description
+                    )}
+                    {r.is_mileage && r.description && <div className="lock">{r.description}</div>}
+                  </>
+                ),
+                amount: (
+                  <span style={{ whiteSpace: "nowrap" }}>
+                    {r.unpriced ? (
+                      <span className="chip warn">no rate yet</span>
+                    ) : (
+                      <b>{money(Number(r.amount ?? 0))}</b>
+                    )}
+                  </span>
+                ),
+                remove: (
+                  <div style={{ textAlign: "right" }}>
+                    {r.statement_id ? (
+                      <span className="lock">claimed</span>
+                    ) : (
+                      !locked && (
+                        <form action={removeAction} style={{ display: "inline" }}>
+                          <input type="hidden" name="expense_id" value={r.id} />
+                          <button className="btn ghost" type="submit" style={{ padding: "2px 10px" }}>
+                            Remove
+                          </button>
+                        </form>
+                      )
+                    )}
+                  </div>
+                ),
+              },
+              sort: {
+                when: r.incurred_on,
+                detail: r.is_mileage ? Number(r.miles) : r.description,
+                amount: r.unpriced ? null : Number(r.amount ?? 0),
+              },
+              text: `${r.incurred_on} ${r.category_label} ${r.description} ${r.from_place} ${r.to_place}`,
+            }))}
+            empty="Nothing claimed for this period."
+          />
+        </div>
       )}
     </div>
   );
@@ -284,20 +302,32 @@ export function MileageRateForm({
         </div>
       </form>
 
+      {/* No rates is already said by the warning above, so the table only appears once there is one. */}
       {rates.length > 0 && (
-        <table className="t" style={{ marginTop: 10 }}>
-          <tbody>
-            {rates.map((r) => (
-              <tr key={r.effective_from}>
-                <td style={{ width: 140 }}>from {r.effective_from}</td>
-                <td>
-                  <b>{Number(r.cents_per_mile)}c</b> a mile
-                </td>
-                <td className="lock">{r.note}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ marginTop: 10 }}>
+          <DataTable
+            label="rates"
+            columns={[
+              { key: "from", label: "From", width: 140 },
+              { key: "rate", label: "Rate", align: "right" },
+              { key: "note", label: "Note" },
+            ]}
+            rows={rates.map((r) => ({
+              key: r.effective_from,
+              cells: {
+                from: r.effective_from,
+                rate: (
+                  <>
+                    <b>{Number(r.cents_per_mile)}c</b> a mile
+                  </>
+                ),
+                note: <span className="lock">{r.note}</span>,
+              },
+              sort: { rate: Number(r.cents_per_mile), note: r.note },
+            }))}
+            empty="No mileage rate has been set."
+          />
+        </div>
       )}
     </div>
   );

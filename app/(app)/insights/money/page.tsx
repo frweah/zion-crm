@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, today, daysBetween, CAN_EDIT_BILLING } from "@/lib/constants";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 /**
  * Revenue.
@@ -212,13 +214,93 @@ export default async function RevenuePage() {
     );
   }
 
+  const riskRows: DataRow[] = risks.map(({ e, reasons }) => {
+    const client = clientName.get(e.client_id) ?? "—";
+    return {
+      key: e.auth_id,
+      cells: {
+        client: (
+          <>
+            <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
+              <b>{client}</b>
+            </Link>
+            <div className="lock">
+              {e.auth_number || "(no number)"} · {e.service_type}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--bad)" }}>{reasons.join(" · ")}</div>
+          </>
+        ),
+        unearned: <b>{money(n(e.committed))}</b>,
+      },
+      sort: { client, unearned: n(e.committed) },
+      text: [client, e.auth_number, e.service_type, ...reasons].filter(Boolean).join(" "),
+    };
+  });
+
+  const openRows: DataRow[] = open.map((e) => {
+    const client = clientName.get(e.client_id) ?? "—";
+    return {
+      key: e.auth_id,
+      cells: {
+        client: (
+          <>
+            <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
+              {client}
+            </Link>
+            <div className="lock">{e.auth_number || "(no number)"}</div>
+          </>
+        ),
+        service: (
+          <>
+            {e.service_type}
+            <div className="lock">
+              {e.rate_type === "Hourly" ? `${money(n(e.rate))} an hour` : "flat fee, earned on completion"}
+            </div>
+          </>
+        ),
+        authorized: money(n(e.authorized)),
+        earned: (
+          <>
+            {money(n(e.earned))}
+            {n(e.unbilled) > 0 && (
+              <div className="lock" style={{ color: "var(--bad)" }}>
+                {money(n(e.unbilled))} not invoiced
+              </div>
+            )}
+          </>
+        ),
+        toEarn: <b>{money(n(e.committed))}</b>,
+        hours: (
+          <span style={{ whiteSpace: "nowrap" }}>
+            {e.total_hours == null ? (
+              <span className="lock">{e.completed_on ? `completed ${e.completed_on}` : "not started"}</span>
+            ) : (
+              <>
+                {n(e.hours_used)} / {n(e.total_hours)}
+                <div className="lock">{n(e.hours_left)} left</div>
+              </>
+            )}
+          </span>
+        ),
+      },
+      sort: {
+        client,
+        service: e.service_type,
+        authorized: n(e.authorized),
+        earned: n(e.earned),
+        toEarn: n(e.committed),
+        hours: e.total_hours == null ? null : n(e.hours_left),
+      },
+      text: [client, e.auth_number, e.service_type, e.rate_type].filter(Boolean).join(" "),
+    };
+  });
+
   return (
     <>
-      <h1 className="h1">Money</h1>
-      <p className="sub">
-        What USOR has authorized, what we have earned against it, and what has been paid — live
-        from the record
-      </p>
+      <PageHead
+        title="Money"
+        context="What USOR has authorized, what we have earned against it, and what has been paid — live from the record"
+      />
 
       <div
         className="grid"
@@ -276,194 +358,129 @@ export default async function RevenuePage() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 18 }}>
-        <h3 style={{ marginTop: 0 }}>Money in, by month</h3>
-        <p className="sub" style={{ marginTop: 0 }}>
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2">Money in, by month</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
           Invoiced against received. A month where the two diverge is a month USOR has not paid
           yet, not a month we did not work.
         </p>
-        <table className="t">
-          <tbody>
-            {byMonth.map((b) => (
-              <tr key={b.month}>
-                <td style={{ width: 80, whiteSpace: "nowrap" }}>{b.month}</td>
-                <td>
-                  <div
-                    style={{
-                      height: 10,
-                      borderRadius: 5,
-                      background: "var(--lime)",
-                      width: `${Math.round((b.received / peak) * 100)}%`,
-                      minWidth: b.received > 0 ? 4 : 0,
-                    }}
-                    title={`received ${money(b.received)}`}
-                  />
-                  {b.invoiced !== b.received && (
+        <div className="card">
+          <table className="t" data-layout="bar chart, one row per month">
+            <tbody>
+              {byMonth.map((b) => (
+                <tr key={b.month}>
+                  <td style={{ width: 80, whiteSpace: "nowrap" }}>{b.month}</td>
+                  <td>
                     <div
                       style={{
-                        height: 4,
-                        marginTop: 3,
-                        borderRadius: 2,
-                        background: "var(--line)",
-                        width: `${Math.round((b.invoiced / peak) * 100)}%`,
-                        minWidth: b.invoiced > 0 ? 4 : 0,
+                        height: 10,
+                        borderRadius: 5,
+                        background: "var(--lime)",
+                        width: `${Math.round((b.received / peak) * 100)}%`,
+                        minWidth: b.received > 0 ? 4 : 0,
                       }}
-                      title={`invoiced ${money(b.invoiced)}`}
+                      title={`received ${money(b.received)}`}
                     />
-                  )}
-                </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <b>{money(b.received)}</b>
-                  {b.invoiced !== b.received && (
-                    <div className="lock">{money(b.invoiced)} invoiced</div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ marginBottom: 18, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Worth watching</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            Open authorizations where the money is at risk — quiet for {RISK_QUIET_DAYS} days,
-            ending within {RISK_ENDING_DAYS}, nearly out of hours, or blocked by paperwork.
-          </p>
+                    {b.invoiced !== b.received && (
+                      <div
+                        style={{
+                          height: 4,
+                          marginTop: 3,
+                          borderRadius: 2,
+                          background: "var(--line)",
+                          width: `${Math.round((b.invoiced / peak) * 100)}%`,
+                          minWidth: b.invoiced > 0 ? 4 : 0,
+                        }}
+                        title={`invoiced ${money(b.invoiced)}`}
+                      />
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <b>{money(b.received)}</b>
+                    {b.invoiced !== b.received && (
+                      <div className="lock">{money(b.invoiced)} invoiced</div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table className="t">
-          <tbody>
-            {risks.length === 0 && (
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2">Worth watching</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Open authorizations where the money is at risk — quiet for {RISK_QUIET_DAYS} days,
+          ending within {RISK_ENDING_DAYS}, nearly out of hours, or blocked by paperwork.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="authorizations"
+            columns={[
+              { key: "client", label: "Client and why" },
+              { key: "unearned", label: "Unearned", align: "right" },
+            ]}
+            rows={riskRows}
+            empty={
+              undated > 0
+                ? `Nothing to show. ${undated} of ${open.length} open authorizations carry no start date, so how long they have been quiet cannot be worked out — this section stays empty until they have one, or until hours start being logged against them.`
+                : "Nothing at risk: every open authorization has been worked recently and has room left."
+            }
+          />
+        </div>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2">Open authorizations</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Every one still open, largest first by what is left to earn.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="authorizations"
+            columns={[
+              { key: "client", label: "Client" },
+              { key: "service", label: "Service" },
+              { key: "authorized", label: "Authorized", align: "right" },
+              { key: "earned", label: "Earned", align: "right" },
+              { key: "toEarn", label: "To earn", align: "right" },
+              { key: "hours", label: "Hours" },
+            ]}
+            rows={openRows}
+            empty="No authorization is open."
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="h2">Where the money comes from</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Received all time, and what is still authorized, by service.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <table className="t" data-layout="totals by service, not a list of records">
+            <thead>
               <tr>
-                <td className="empty">
-                  {undated > 0
-                    ? `Nothing to show. ${undated} of ${open.length} open authorizations carry no start date, so how long they have been quiet cannot be worked out — this section stays empty until they have one, or until hours start being logged against them.`
-                    : "Nothing at risk: every open authorization has been worked recently and has room left."}
-                </td>
+                <th>Service</th>
+                <th style={{ textAlign: "right" }}>Received</th>
+                <th style={{ textAlign: "right" }}>Still to earn</th>
               </tr>
-            )}
-            {risks.map(({ e, reasons }) => (
-              <tr key={e.auth_id}>
-                <td>
-                  <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
-                    <b>{clientName.get(e.client_id) ?? "—"}</b>
-                  </Link>
-                  <div className="lock">
-                    {e.auth_number || "(no number)"} · {e.service_type}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--bad)" }}>{reasons.join(" · ")}</div>
-                </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <b>{money(n(e.committed))}</b>
-                  <div className="lock">unearned</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ marginBottom: 18, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Open authorizations</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            Every one still open, largest first by what is left to earn.
-          </p>
+            </thead>
+            <tbody>
+              {byService.map((s) => (
+                <tr key={s.service}>
+                  <td>{s.service}</td>
+                  <td style={{ textAlign: "right" }}>{money(s.received)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {s.committed > 0 ? <b>{money(s.committed)}</b> : <span className="lock">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Service</th>
-              <th style={{ textAlign: "right" }}>Authorized</th>
-              <th style={{ textAlign: "right" }}>Earned</th>
-              <th style={{ textAlign: "right" }}>To earn</th>
-              <th>Hours</th>
-            </tr>
-          </thead>
-          <tbody>
-            {open.length === 0 && (
-              <tr>
-                <td colSpan={6} className="empty">
-                  No open authorizations.
-                </td>
-              </tr>
-            )}
-            {open.map((e) => (
-              <tr key={e.auth_id}>
-                <td>
-                  <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
-                    {clientName.get(e.client_id) ?? "—"}
-                  </Link>
-                  <div className="lock">{e.auth_number || "(no number)"}</div>
-                </td>
-                <td>
-                  {e.service_type}
-                  <div className="lock">
-                    {e.rate_type === "Hourly"
-                      ? `${money(n(e.rate))} an hour`
-                      : "flat fee, earned on completion"}
-                  </div>
-                </td>
-                <td style={{ textAlign: "right" }}>{money(n(e.authorized))}</td>
-                <td style={{ textAlign: "right" }}>
-                  {money(n(e.earned))}
-                  {n(e.unbilled) > 0 && (
-                    <div className="lock" style={{ color: "var(--bad)" }}>
-                      {money(n(e.unbilled))} not invoiced
-                    </div>
-                  )}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <b>{money(n(e.committed))}</b>
-                </td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  {e.total_hours == null ? (
-                    <span className="lock">
-                      {e.completed_on ? `completed ${e.completed_on}` : "not started"}
-                    </span>
-                  ) : (
-                    <>
-                      {n(e.hours_used)} / {n(e.total_hours)}
-                      <div className="lock">{n(e.hours_left)} left</div>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Where the money comes from</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            Received all time, and what is still authorized, by service.
-          </p>
-        </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Service</th>
-              <th style={{ textAlign: "right" }}>Received</th>
-              <th style={{ textAlign: "right" }}>Still to earn</th>
-            </tr>
-          </thead>
-          <tbody>
-            {byService.map((s) => (
-              <tr key={s.service}>
-                <td>{s.service}</td>
-                <td style={{ textAlign: "right" }}>{money(s.received)}</td>
-                <td style={{ textAlign: "right" }}>
-                  {s.committed > 0 ? <b>{money(s.committed)}</b> : <span className="lock">—</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      </section>
 
       <p className="lock" style={{ marginTop: 10 }}>
         Hourly work earns by the hour; flat-fee work earns on completion, so a flat fee with no

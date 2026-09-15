@@ -13,6 +13,7 @@ import {
   type InboxState,
 } from "./actions";
 import { familyOf } from "@/lib/filename-rules";
+import { DataTable } from "../../data-table";
 
 /** An imported "(workbook)" authorization with no USOR number yet. */
 export type Placeholder = {
@@ -86,25 +87,18 @@ function Message({ state }: { state: InboxState }) {
 /** A folder whose name is nobody in the CRM. Answered once, then remembered. */
 function UnmatchedFolder({
   folder,
-  count,
   clients,
 }: {
   folder: string;
-  count: number;
   clients: { id: string; name: string }[];
 }) {
   const [state, action, pending] = useActionState(mapFolder, initial);
 
+  // Both answers share one state, so they sit in one cell of the table.
   return (
-    <tr>
-      <td>
-        <b>{folder}</b>
-        <div className="lock">
-          {count} document{count === 1 ? "" : "s"} waiting
-        </div>
-        <Message state={state} />
-      </td>
-      <td>
+    <>
+      <Message state={state} />
+      <div className="row2" style={{ gap: 6, alignItems: "center" }}>
         <form action={action} className="row2" style={{ gap: 6 }}>
           <input type="hidden" name="folder" value={folder} />
           <select name="client_id" defaultValue="" style={{ maxWidth: 240 }}>
@@ -119,8 +113,6 @@ function UnmatchedFolder({
             {pending ? "…" : "That is them"}
           </button>
         </form>
-      </td>
-      <td style={{ textAlign: "right" }}>
         <form action={action}>
           <input type="hidden" name="folder" value={folder} />
           <input type="hidden" name="not_a_client" value="yes" />
@@ -128,8 +120,8 @@ function UnmatchedFolder({
             Not a client
           </button>
         </form>
-      </td>
-    </tr>
+      </div>
+    </>
   );
 }
 
@@ -243,7 +235,7 @@ function AuthorizationProposal({
             : `It carries ${candidates.length} numbers on file for this client. Choose the one it is.`}
       </p>
 
-      <table className="t" style={{ marginTop: 6 }}>
+      <table className="t" data-layout="fields read from one document, as name and value" style={{ marginTop: 6 }}>
         <tbody>
           {Object.entries(fields).map(([key, f]) => (
             <tr key={key}>
@@ -452,7 +444,7 @@ function DocumentRow({
   const named = namedOf(doc);
 
   return (
-    <div className="card" style={{ marginBottom: 10 }}>
+    <div className="list-item">
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <b>{doc.filename}</b>
@@ -568,28 +560,34 @@ export function InboxView({
   return (
     <>
       {unmatched.size > 0 && (
-        <div className="card" style={{ marginBottom: 14, padding: 0 }}>
-          <div style={{ padding: "16px 16px 0" }}>
-            <h3 style={{ margin: 0 }}>Folders that are not a client</h3>
-            <p className="sub" style={{ margin: "4px 0 0" }}>
-              {unmatched.size} folder{unmatched.size === 1 ? "" : "s"} whose name matches nobody in
-              the CRM. Nothing from them is filed until somebody says whose they are — a first
-              name matched to the nearest client is how one person&apos;s authorization lands on
-              another&apos;s record.
-            </p>
+        <div style={{ marginBottom: 18 }}>
+          <h3 style={{ margin: 0 }}>Folders that are not a client</h3>
+          <p className="sub" style={{ margin: "4px 0 8px" }}>
+            {unmatched.size} folder{unmatched.size === 1 ? "" : "s"} whose name matches nobody in
+            the CRM. Nothing from them is filed until somebody says whose they are — a first
+            name matched to the nearest client is how one person&apos;s authorization lands on
+            another&apos;s record.
+          </p>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="folders"
+              columns={[
+                { key: "folder", label: "Folder" },
+                { key: "waiting", label: "Waiting", align: "right" },
+                { key: "whose", label: "Whose they are", sortable: false },
+              ]}
+              rows={[...unmatched.entries()].map(([folder, count]) => ({
+                key: folder,
+                sort: { folder, waiting: count },
+                cells: {
+                  folder: <b>{folder}</b>,
+                  waiting: count,
+                  whose: <UnmatchedFolder folder={folder} clients={clients} />,
+                },
+              }))}
+              empty="Every folder matches a client."
+            />
           </div>
-          <table className="t">
-            <tbody>
-              {[...unmatched.entries()].map(([folder, count]) => (
-                <UnmatchedFolder
-                  key={folder}
-                  folder={folder}
-                  count={count}
-                  clients={clients}
-                />
-              ))}
-            </tbody>
-          </table>
         </div>
       )}
 
@@ -614,19 +612,18 @@ export function InboxView({
                 client; what they say has to be read by a person.
               </p>
             )}
-            {rows.map((d) => (
-              <DocumentRow canBill={canBill} key={d.id} doc={d} placeholders={placeholders} />
-            ))}
+            {/* One list per kind: each document carries its own forms, so not a card apiece. */}
+            <div className="list">
+              {rows.map((d) => (
+                <DocumentRow canBill={canBill} key={d.id} doc={d} placeholders={placeholders} />
+              ))}
+            </div>
           </div>
         );
       })}
 
       {pending.length === 0 && (
-        <div className="card">
-          <p className="sub" style={{ margin: 0 }}>
-            Nothing waiting. Everything the agent has sent has been filed or set aside.
-          </p>
-        </div>
+        <p className="empty">Nothing is waiting. Everything the agent has sent has been filed or set aside.</p>
       )}
     </>
   );

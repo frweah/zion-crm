@@ -1,4 +1,5 @@
 import { CeForm, type StatusRow } from "../admin/staff/credentials";
+import { DataTable } from "../data-table";
 
 const TONE: Record<string, string> = {
   Expired: "bad",
@@ -45,37 +46,42 @@ export function MyCredentials({
 
   return (
     <>
-      <div className="card" style={{ marginTop: 14, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Your certifications</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            {problems.length === 0 ? (
-              "Everything you need is on file and current."
-            ) : (
-              <>
-                <b style={{ color: "var(--bad)" }}>
-                  {problems.length} {problems.length === 1 ? "needs" : "need"} attention
-                </b>{" "}
-                — the administrator records these once they have seen the card, so send it to them
-                rather than waiting to be asked.
-              </>
-            )}
-          </p>
-        </div>
+      <section style={{ marginTop: 24 }}>
+        <h2 className="h2">Your certifications</h2>
+        <p className="sub" style={{ margin: "0 0 10px" }}>
+          {problems.length === 0 ? (
+            "Everything you need is on file and current."
+          ) : (
+            <>
+              <b style={{ color: "var(--bad)" }}>
+                {problems.length} {problems.length === 1 ? "needs" : "need"} attention
+              </b>{" "}
+              — the administrator records these once they have seen the card, so send it to them
+              rather than waiting to be asked.
+            </>
+          )}
+        </p>
 
-        <table className="t">
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.type_key}>
-                <td style={{ width: 210 }}>
-                  {r.label}
-                  {!r.required && <div className="lock">not required of you</div>}
-                </td>
-                <td style={{ width: 130 }}>
-                  <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>
-                </td>
-                <td>
-                  {r.kind === "hours" ? (
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="certifications"
+            columns={[
+              { key: "label", label: "Certification", width: 210 },
+              { key: "state", label: "State", width: 130 },
+              { key: "detail", label: "Detail" },
+            ]}
+            rows={rows.map((r) => ({
+              key: r.type_key,
+              cells: {
+                label: (
+                  <>
+                    {r.label}
+                    {!r.required && <div className="lock">not required of you</div>}
+                  </>
+                ),
+                state: <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>,
+                detail:
+                  r.kind === "hours" ? (
                     <>
                       {Number(r.hours_this_year)} of {Number(r.hours_target ?? 0)} hours this year
                     </>
@@ -90,13 +96,18 @@ export function MyCredentials({
                     <>issued {r.issued_on}</>
                   ) : (
                     <span className="lock">nothing on file</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  ),
+              },
+              sort: {
+                label: r.label,
+                state: r.state,
+                detail: r.expires_on ?? r.issued_on ?? null,
+              },
+            }))}
+            empty="No certifications are asked of you."
+          />
+        </div>
+      </section>
 
       {hoursRow && (
         <div className="card" style={{ marginTop: 14 }}>
@@ -109,21 +120,34 @@ export function MyCredentials({
 
           <CeForm staffId={staffId} today={today} />
 
+          {/* The line above already gives the year's total, so the list only appears once there is training in it. */}
           {ce.length > 0 && (
-            <table className="t" style={{ marginTop: 12 }}>
-              <tbody>
-                {ce.map((e) => (
-                  <tr key={e.id}>
-                    <td style={{ width: 110, whiteSpace: "nowrap" }}>{e.on_date}</td>
-                    <td style={{ width: 70 }}>{Number(e.hours)} hrs</td>
-                    <td>
-                      {e.topic}
-                      {e.provider && <div className="lock">{e.provider}</div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ marginTop: 12 }}>
+              <DataTable
+                label="training"
+                columns={[
+                  { key: "date", label: "Date", width: 110 },
+                  { key: "hours", label: "Hours", align: "right", width: 70 },
+                  { key: "topic", label: "Topic" },
+                ]}
+                rows={ce.map((e) => ({
+                  key: e.id,
+                  cells: {
+                    date: <span style={{ whiteSpace: "nowrap" }}>{e.on_date}</span>,
+                    hours: `${Number(e.hours)} hrs`,
+                    topic: (
+                      <>
+                        {e.topic}
+                        {e.provider && <div className="lock">{e.provider}</div>}
+                      </>
+                    ),
+                  },
+                  sort: { date: e.on_date, hours: Number(e.hours), topic: e.topic },
+                  text: `${e.on_date} ${e.topic} ${e.provider}`,
+                }))}
+                empty="No training has been logged this year."
+              />
+            </div>
           )}
         </div>
       )}

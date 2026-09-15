@@ -42,18 +42,21 @@ export default async function NoteTemplatesPage() {
         </p>
       </div>
 
-      {NOTE_TYPES.map((t) => {
-        const row = held.get(t);
-        return (
-          <TemplateEditor
-            key={t}
-            noteType={t}
-            body={row?.body ?? ""}
-            active={Boolean(row?.active)}
-            updatedAt={row?.updated_at ?? null}
-          />
-        );
-      })}
+      {/* One list, a type to an item: each carries its own form, so not a card apiece. */}
+      <div className="list" style={{ marginTop: 14 }}>
+        {NOTE_TYPES.map((t) => {
+          const row = held.get(t);
+          return (
+            <TemplateEditor
+              key={t}
+              noteType={t}
+              body={row?.body ?? ""}
+              active={Boolean(row?.active)}
+              updatedAt={row?.updated_at ?? null}
+            />
+          );
+        })}
+      </div>
     </>
   );
 }

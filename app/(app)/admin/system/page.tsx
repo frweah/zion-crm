@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, today, CAN_EDIT_BILLING } from "@/lib/constants";
 import { PageHead } from "../../page-head";
+import { DataTable } from "../../data-table";
 import SettingsSection from "../settings/section";
 import NoteTemplatesSection from "../note-templates/section";
 import AccessLogSection from "../access/section";
@@ -100,29 +101,29 @@ export default async function SystemPage({
           it, and it is keyed by funding source so a second funder can be added without code
           changes.
         </p>
-        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Subcategory</th>
-                <th>Approved fee</th>
-                <th>Unit</th>
-                <th>Funder</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(rates ?? []).map((r, i) => (
-                <tr key={i}>
-                  <td>{r.service}</td>
-                  <td>{r.sub}</td>
-                  <td>{money(r.fee)}</td>
-                  <td>{r.unit}</td>
-                  <td>{r.funding_source}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="rates"
+            columns={[
+              { key: "service", label: "Service" },
+              { key: "sub", label: "Subcategory" },
+              { key: "fee", label: "Approved fee", align: "right" },
+              { key: "unit", label: "Unit" },
+              { key: "funder", label: "Funder" },
+            ]}
+            rows={(rates ?? []).map((r, i) => ({
+              key: `${r.funding_source}-${r.service}-${r.sub}-${i}`,
+              sort: { fee: Number(r.fee) },
+              cells: {
+                service: r.service,
+                sub: r.sub,
+                fee: money(r.fee),
+                unit: r.unit,
+                funder: r.funding_source,
+              },
+            }))}
+            empty="The rate schedule is empty."
+          />
         </div>
       </section>
 
@@ -137,7 +138,12 @@ export default async function SystemPage({
           {yearRows.length === 0 ? (
             <div className="empty">No tax years are set up.</div>
           ) : (
-            yearRows.map((y) => <TaxYearEditor key={y.year} row={y} />)
+            // One list, a year to an item: each is its own form, not a card apiece.
+            <div className="list">
+              {yearRows.map((y) => (
+                <TaxYearEditor key={y.year} row={y} />
+              ))}
+            </div>
           )}
         </section>
       )}

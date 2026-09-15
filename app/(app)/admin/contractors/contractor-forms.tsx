@@ -47,7 +47,7 @@ export function ProfileEditor({ row }: { row: ProfileRow }) {
   const foreign = taxStatus === "Foreign person";
 
   return (
-    <details className="card" style={{ marginBottom: 12 }}>
+    <details className="list-item">
       <summary style={{ cursor: "pointer" }}>
         <b>{row.name}</b>
         <span className="chip" style={{ marginLeft: 8 }}>
@@ -297,8 +297,8 @@ export function TaxYearEditor({ row }: { row: TaxYearRow }) {
   const [state, action, pending] = useActionState(saveTaxYear, initial);
 
   return (
-    <div className="card" style={{ marginBottom: 12 }}>
-      <h3>
+    <div className="list-item">
+      <h3 style={{ margin: "0 0 10px" }}>
         {row.year}{" "}
         {row.confirmed_on ? (
           <span className="chip ok">

@@ -4,6 +4,8 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { money, today, daysBetween, median } from "@/lib/constants";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 /**
  * The outcomes one-pager.
@@ -243,29 +245,54 @@ export default async function OutcomesPage({
     );
   }
 
+  const placementRows: DataRow[] = [...started]
+    .sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? ""))
+    .map((p, i) => ({
+      key: `${p.client_id}-${i}`,
+      cells: {
+        started: p.start_date,
+        employer: p.employer || "—",
+        position: p.title || "—",
+        checks: (
+          <span className="lock">
+            {[p.check30 && "30", p.check60 && "60", p.check90 && "90"].filter(Boolean).join(" · ") ||
+              "none recorded"}
+          </span>
+        ),
+      },
+      sort: { checks: [p.check30, p.check60, p.check90].filter(Boolean).length },
+    }));
+
+  const counselorTableRows: DataRow[] = counselorRows.map((r) => ({
+    key: r.name,
+    cells: { name: r.name, referred: r.referred, served: r.served },
+  }));
+
+  // A section and its table print together rather than splitting over a page.
+  const section = { marginBottom: 14, breakInside: "avoid" as const };
+
   return (
     <>
+      {/* The screen's header never prints: the letterhead below is the printed title. */}
       <div className="no-print">
-        <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div>
-            <h1 className="h1">Outcomes</h1>
-            <p className="sub" style={{ margin: 0 }}>
-              One page to hand to a counselor or a funder. Use your browser&apos;s print to make
-              a PDF.
-            </p>
-          </div>
-          <div className="tabs" style={{ margin: 0, borderBottom: 0, flexWrap: "wrap" }}>
-            {options.map((p) => (
-              <Link
-                key={p.key}
-                href={`/insights/outcomes?period=${p.key}`}
-                className={p.key === period.key ? "on" : ""}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+        <PageHead
+          title="Outcomes"
+          context="One page to hand to a counselor or a funder. Use your browser's print to make a PDF."
+          actions={
+            // The period is a choice about this page's figures, not a tab.
+            <div className="segmented">
+              {options.map((p) => (
+                <Link
+                  key={p.key}
+                  href={`/insights/outcomes?period=${p.key}`}
+                  className={p.key === period.key ? "on" : undefined}
+                >
+                  {p.label}
+                </Link>
+              ))}
+            </div>
+          }
+        />
       </div>
 
       <div className="card" style={{ margin: "14px 0" }}>
@@ -317,102 +344,83 @@ export default async function OutcomesPage({
         />
       </div>
 
-      <div className="card" style={{ marginBottom: 14, padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}>
-          <h3 style={{ margin: 0 }}>Service delivered</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            Hours logged in the period, and money received for that service in the period.
-          </p>
-        </div>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Service</th>
-              <th style={{ textAlign: "right" }}>Hours</th>
-              <th style={{ textAlign: "right" }}>Received</th>
-            </tr>
-          </thead>
-          <tbody>
-            {services.length === 0 && (
-              <tr>
-                <td colSpan={3} className="empty">
-                  Nothing logged or received in this period.
-                </td>
-              </tr>
-            )}
-            {services.map((s) => (
-              <tr key={s.service}>
-                <td>{s.service}</td>
-                <td style={{ textAlign: "right" }}>
-                  {s.hours > 0 ? s.hours : <span className="lock">—</span>}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  {s.received > 0 ? money(s.received) : <span className="lock">—</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {started.length > 0 && (
-        <div className="card" style={{ marginBottom: 14, padding: 0 }}>
-          <div style={{ padding: "16px 16px 0" }}>
-            <h3 style={{ margin: 0 }}>Placements in the period</h3>
-          </div>
-          <table className="t">
+      <section style={section}>
+        <h2 className="h2">Service delivered</h2>
+        <p className="sub" style={{ marginBottom: 8 }}>
+          Hours logged in the period, and money received for that service in the period.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <table className="t" data-layout="totals by service, not a list of records">
             <thead>
               <tr>
-                <th>Started</th>
-                <th>Employer</th>
-                <th>Position</th>
-                <th>Checks</th>
+                <th>Service</th>
+                <th style={{ textAlign: "right" }}>Hours</th>
+                <th style={{ textAlign: "right" }}>Received</th>
               </tr>
             </thead>
             <tbody>
-              {started
-                .sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? ""))
-                .map((p, i) => (
-                  <tr key={`${p.client_id}-${i}`}>
-                    <td>{p.start_date}</td>
-                    <td>{p.employer || "—"}</td>
-                    <td>{p.title || "—"}</td>
-                    <td className="lock">
-                      {[p.check30 && "30", p.check60 && "60", p.check90 && "90"]
-                        .filter(Boolean)
-                        .join(" · ") || "none recorded"}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {counselorRows.length > 0 && (
-        <div className="card" style={{ marginBottom: 14, padding: 0 }}>
-          <div style={{ padding: "16px 16px 0" }}>
-            <h3 style={{ margin: 0 }}>By counselor</h3>
-          </div>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Counselor</th>
-                <th style={{ textAlign: "right" }}>Referred in period</th>
-                <th style={{ textAlign: "right" }}>Served in period</th>
-              </tr>
-            </thead>
-            <tbody>
-              {counselorRows.map((r) => (
-                <tr key={r.name}>
-                  <td>{r.name}</td>
-                  <td style={{ textAlign: "right" }}>{r.referred}</td>
-                  <td style={{ textAlign: "right" }}>{r.served}</td>
+              {services.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="empty">
+                    Nothing logged or received in this period.
+                  </td>
+                </tr>
+              )}
+              {services.map((s) => (
+                <tr key={s.service}>
+                  <td>{s.service}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {s.hours > 0 ? s.hours : <span className="lock">—</span>}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {s.received > 0 ? money(s.received) : <span className="lock">—</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </section>
+
+      {started.length > 0 && (
+        <section style={section}>
+          <h2 className="h2" style={{ marginBottom: 8 }}>
+            Placements in the period
+          </h2>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="placements"
+              columns={[
+                { key: "started", label: "Started" },
+                { key: "employer", label: "Employer" },
+                { key: "position", label: "Position" },
+                { key: "checks", label: "Checks" },
+              ]}
+              rows={placementRows}
+              empty="No placement started in this period."
+            />
+          </div>
+        </section>
+      )}
+
+      {counselorRows.length > 0 && (
+        <section style={section}>
+          <h2 className="h2" style={{ marginBottom: 8 }}>
+            By counselor
+          </h2>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="counselors"
+              columns={[
+                { key: "name", label: "Counselor" },
+                { key: "referred", label: "Referred in period", align: "right" },
+                { key: "served", label: "Served in period", align: "right" },
+              ]}
+              rows={counselorTableRows}
+              empty="No counselor referred or had a client served in this period."
+            />
+          </div>
+        </section>
       )}
 
       <div className="card">

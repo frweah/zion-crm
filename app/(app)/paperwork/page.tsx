@@ -9,6 +9,8 @@ import { DeliveryConsent } from "./delivery-consent";
 import { DownloadButton } from "./download-button";
 import { MyCredentials } from "./my-credentials";
 import { StaffDocuments, type DocCategory, type DocRow } from "../admin/staff/documents";
+import { PageHead } from "../page-head";
+import { DataTable } from "../data-table";
 
 export default async function PaperworkPage() {
   const me = await requireStaff();
@@ -100,8 +102,7 @@ export default async function PaperworkPage() {
 
   return (
     <>
-      <h1 className="h1">Paperwork</h1>
-      <p className="sub">Your tax form, completed and signed here rather than on paper.</p>
+      <PageHead title="Paperwork" context="Your tax form, completed and signed here rather than on paper." />
 
       {signed ? (
         <>
@@ -158,15 +159,23 @@ export default async function PaperworkPage() {
         <DeliveryConsent consentedOn={profile.e_delivery_consent_on} />
       )}
 
+      {/* Somebody who has never started a form has no history, so the section only appears once they have. */}
       {mine.length > 0 && (
-        <div className="card" style={{ marginTop: 14, padding: 0 }}>
-          <h3 style={{ padding: "16px 16px 0" }}>Your history</h3>
-          <table className="t">
-            <tbody>
-              {mine.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.form_type}</td>
-                  <td>
+        <section style={{ marginTop: 24 }}>
+          <h2 className="h2">Your history</h2>
+          <div className="card" style={{ padding: 0, marginTop: 8 }}>
+            <DataTable
+              label="forms"
+              columns={[
+                { key: "form", label: "Form" },
+                { key: "status", label: "Status" },
+                { key: "when", label: "When" },
+              ]}
+              rows={mine.map((s) => ({
+                key: s.id,
+                cells: {
+                  form: s.form_type,
+                  status: (
                     <span
                       className={
                         "chip " + (s.status === "Signed" ? "ok" : s.status === "Draft" ? "" : "warn")
@@ -174,15 +183,19 @@ export default async function PaperworkPage() {
                     >
                       {s.status}
                     </span>
-                  </td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {s.signed_at ? `signed ${fmtStamp(s.signed_at)}` : `started ${fmtStamp(s.created_at)}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  ),
+                  when: (
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                      {s.signed_at ? `signed ${fmtStamp(s.signed_at)}` : `started ${fmtStamp(s.created_at)}`}
+                    </span>
+                  ),
+                },
+                sort: { status: s.status, when: s.signed_at ?? s.created_at },
+              }))}
+              empty="You have not started a tax form yet."
+            />
+          </div>
+        </section>
       )}
 
       <StaffDocuments
@@ -200,50 +213,47 @@ export default async function PaperworkPage() {
       />
 
       {me.role === "Admin" && (
-        <div className="card" style={{ marginTop: 14, padding: 0 }}>
-          <h3 style={{ padding: "16px 16px 0" }}>Everyone&apos;s paperwork</h3>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Who</th>
-                <th>Form</th>
-                <th>Status</th>
-                <th>Signed</th>
-                <th>PDF</th>
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    Nothing filed yet.
-                  </td>
-                </tr>
-              )}
-              {submissions.map((s) => (
-                <tr key={s.id}>
-                  <td>{staffName.get(s.staff_id) ?? "—"}</td>
-                  <td>{s.form_type}</td>
-                  <td>
-                    <span className={"chip " + (s.status === "Signed" ? "ok" : "")}>{s.status}</span>
-                  </td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {s.signed_at ? `${s.signer_name} · ${fmtStamp(s.signed_at)}` : "—"}
-                    {s.pdf_sha256 && (
-                      <div title="SHA-256 of the filed PDF">{s.pdf_sha256.slice(0, 12)}…</div>
-                    )}
-                  </td>
-                  <td>
-                    <DownloadButton pdfPath={s.pdf_path ?? ""} submissionId={s.id} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="lock" style={{ padding: "0 16px 16px" }}>
+        <section style={{ marginTop: 24 }}>
+          <h2 className="h2">Everyone&apos;s paperwork</h2>
+          <p className="sub" style={{ margin: "0 0 10px" }}>
             The completed PDFs are in each person&apos;s file, readable by you only.
           </p>
-        </div>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="forms"
+              columns={[
+                { key: "who", label: "Who" },
+                { key: "form", label: "Form" },
+                { key: "status", label: "Status" },
+                { key: "signed", label: "Signed" },
+                { key: "pdf", label: "PDF", sortable: false },
+              ]}
+              rows={submissions.map((s) => {
+                const who = staffName.get(s.staff_id) ?? "—";
+                return {
+                  key: s.id,
+                  cells: {
+                    who,
+                    form: s.form_type,
+                    status: <span className={"chip " + (s.status === "Signed" ? "ok" : "")}>{s.status}</span>,
+                    signed: (
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                        {s.signed_at ? `${s.signer_name} · ${fmtStamp(s.signed_at)}` : "—"}
+                        {s.pdf_sha256 && (
+                          <div title="SHA-256 of the filed PDF">{s.pdf_sha256.slice(0, 12)}…</div>
+                        )}
+                      </div>
+                    ),
+                    pdf: <DownloadButton pdfPath={s.pdf_path ?? ""} submissionId={s.id} />,
+                  },
+                  sort: { status: s.status, signed: s.signed_at },
+                  text: `${who} ${s.form_type} ${s.status} ${s.signer_name ?? ""}`,
+                };
+              })}
+              empty="Nobody has filed a tax form yet."
+            />
+          </div>
+        </section>
       )}
     </>
   );

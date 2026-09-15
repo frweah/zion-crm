@@ -9,6 +9,8 @@ import {
   STAGES,
   POST_JD_STAGES,
 } from "@/lib/constants";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 function Stat({
   value,
@@ -218,10 +220,31 @@ export default async function ReportsPage({
     );
   }
 
+  const caseloadRows: DataRow[] = caseload.map((x) => ({
+    key: x.name,
+    cells: { name: x.name, n: <b>{x.n}</b> },
+    sort: { n: x.n },
+  }));
+
+  const utilisationRows: DataRow[] = auths.map((a) => {
+    const used =
+      a.total_hours != null
+        ? `${usedByAuth.get(a.id) ?? 0} / ${a.total_hours} hrs`
+        : completionByAuth.get(a.id)
+          ? "completed"
+          : "in progress";
+    return {
+      key: a.id,
+      cells: { number: a.number || "—", service: a.service_type, used },
+      // The share of hours used; a flat fee has no share and sorts last.
+      sort: { used: a.total_hours ? (usedByAuth.get(a.id) ?? 0) / Number(a.total_hours) : null },
+      text: [a.number, a.service_type, used].filter(Boolean).join(" "),
+    };
+  });
+
   return (
     <>
-      <h1 className="h1">Key performance indicators</h1>
-      <p className="sub">All-time, calculated live from the record</p>
+      <PageHead title="Key performance indicators" context="All-time, calculated live from the record" />
 
       <div
         className="grid"
@@ -270,11 +293,10 @@ export default async function ReportsPage({
         </Link>
       </div>
 
+      {/* The monthly report is a section of this screen, not a second screen, so its heading is an h2. */}
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
-          <h1 className="h1" style={{ fontSize: 18 }}>
-            Monthly report
-          </h1>
+          <h2 className="h2">Monthly report</h2>
           <p className="sub" style={{ margin: 0 }}>
             Read-only summary for reporting
           </p>
@@ -307,7 +329,7 @@ export default async function ReportsPage({
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
         <div className="card">
           <h3>Caseload by stage (active clients)</h3>
-          <table className="t">
+          <table className="t" data-layout="key and value: a count for each stage, in pipeline order">
             <tbody>
               {byStage.map((x) => (
                 <tr key={x.stage}>
@@ -321,53 +343,31 @@ export default async function ReportsPage({
           </table>
         </div>
 
-        <div className="card">
-          <h3>Active caseload per staff member</h3>
-          <table className="t">
-            <tbody>
-              {caseload.map((x) => (
-                <tr key={x.name}>
-                  <td>{x.name}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <b>{x.n}</b>
-                  </td>
-                </tr>
-              ))}
-              {caseload.length === 0 && (
-                <tr>
-                  <td className="empty">No staff to report on.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="card" style={{ padding: 0 }}>
+          <h3 style={{ padding: "20px 20px 0" }}>Active caseload per staff member</h3>
+          <DataTable
+            label="staff"
+            columns={[
+              { key: "name", label: "Staff member" },
+              { key: "n", label: "Active clients", align: "right" },
+            ]}
+            rows={caseloadRows}
+            empty="No staff to report on."
+          />
         </div>
 
-        <div className="card" style={{ gridColumn: "1 / -1" }}>
-          <h3>Authorization utilisation</h3>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Authorization</th>
-                <th>Service</th>
-                <th>Used</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auths.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.number || "—"}</td>
-                  <td>{a.service_type}</td>
-                  <td>
-                    {a.total_hours != null
-                      ? `${usedByAuth.get(a.id) ?? 0} / ${a.total_hours} hrs`
-                      : completionByAuth.get(a.id)
-                        ? "completed"
-                        : "in progress"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card" style={{ gridColumn: "1 / -1", padding: 0 }}>
+          <h3 style={{ padding: "20px 20px 0" }}>Authorization utilisation</h3>
+          <DataTable
+            label="authorizations"
+            columns={[
+              { key: "number", label: "Authorization" },
+              { key: "service", label: "Service" },
+              { key: "used", label: "Used" },
+            ]}
+            rows={utilisationRows}
+            empty="No authorizations are on file."
+          />
         </div>
       </div>
     </>

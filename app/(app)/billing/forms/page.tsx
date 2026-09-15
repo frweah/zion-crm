@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { FORM_TEMPLATES, templateById } from "@/lib/form-templates";
 import { fmtStamp } from "@/lib/constants";
 import { emailConfigured } from "@/lib/email";
+import { PageHead } from "../../page-head";
+import { DataTable, type DataRow } from "../../data-table";
 
 export default async function FormsLibraryPage() {
   await requireStaff();
@@ -25,12 +27,88 @@ export default async function FormsLibraryPage() {
   const pending = forms.filter((f) => f.status !== "Sent");
   const sent = forms.filter((f) => f.status === "Sent");
 
+  const formName = (templateId: string) => templateById(templateId)?.usor ?? templateId;
+
+  const pendingRows: DataRow[] = pending.map((f) => {
+    const client = clientName.get(f.client_id) ?? "—";
+    const touched =
+      f.status === "Draft"
+        ? `started ${fmtStamp(f.created_at)}`
+        : `signed ${fmtStamp(f.completed_at)} by ${f.completed_by_name}`;
+    return {
+      key: f.id,
+      cells: {
+        form: (
+          <Link href={`/clients/${f.client_id}/forms/${f.id}`} style={{ color: "inherit", fontWeight: 600 }}>
+            {formName(f.template_id)}
+          </Link>
+        ),
+        client,
+        month: f.month ?? "—",
+        status: <span className={"chip " + (f.status === "Completed" ? "gold" : "")}>{f.status}</span>,
+        touched: <span style={{ fontSize: 12, color: "var(--muted)" }}>{touched}</span>,
+      },
+      sort: {
+        form: formName(f.template_id),
+        status: f.status,
+        touched: f.status === "Draft" ? f.created_at : f.completed_at,
+      },
+      text: [formName(f.template_id), client, f.month, f.status, touched].filter(Boolean).join(" "),
+    };
+  });
+
+  const sentRows: DataRow[] = sent.map((f) => {
+    const client = clientName.get(f.client_id) ?? "—";
+    return {
+      key: f.id,
+      cells: {
+        form: (
+          <Link href={`/clients/${f.client_id}/forms/${f.id}`} style={{ color: "inherit" }}>
+            {formName(f.template_id)}
+          </Link>
+        ),
+        client,
+        sent: (
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+            {fmtStamp(f.sent_at)} → {f.sent_to}
+          </span>
+        ),
+      },
+      sort: { form: formName(f.template_id), sent: f.sent_at },
+      text: [formName(f.template_id), client, f.sent_to].filter(Boolean).join(" "),
+    };
+  });
+
+  const templateRows: DataRow[] = FORM_TEMPLATES.map((t) => {
+    const billing = t.requiredForBilling ? `Yes${t.monthly ? " · monthly" : ""}` : "No";
+    return {
+      key: t.id,
+      cells: {
+        form: (
+          <>
+            <b>{t.usor}</b>
+            <div style={{ fontSize: 12 }}>{t.name}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.due}</div>
+          </>
+        ),
+        applies: t.incoming
+          ? "Received from the counselor"
+          : t.services.length
+            ? t.services.join(", ")
+            : "—",
+        billing: <span className={"chip " + (t.requiredForBilling ? "warn" : "")}>{billing}</span>,
+      },
+      sort: { form: t.usor, billing },
+      text: [t.usor, t.name, t.due, t.services.join(" "), billing].join(" "),
+    };
+  });
+
   return (
     <>
-      <h1 className="h1">Forms</h1>
-      <p className="sub">
-        The DWS-USOR forms, what is outstanding, and what has gone to counselors
-      </p>
+      <PageHead
+        title="Forms"
+        context="The DWS-USOR forms, what is outstanding, and what has gone to counselors"
+      />
 
       {!emailConfigured() && (
         <div className="alert">
@@ -39,116 +117,61 @@ export default async function FormsLibraryPage() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <h3>In progress</h3>
-        {pending.length === 0 ? (
-          <div className="empty">Nothing outstanding.</div>
-        ) : (
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Form</th>
-                <th>Client</th>
-                <th>Month</th>
-                <th>Status</th>
-                <th>Last touched</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((f) => (
-                <tr key={f.id} className="row">
-                  <td>
-                    <Link
-                      href={`/clients/${f.client_id}/forms/${f.id}`}
-                      style={{ color: "inherit", fontWeight: 600 }}
-                    >
-                      {templateById(f.template_id)?.usor ?? f.template_id}
-                    </Link>
-                  </td>
-                  <td>{clientName.get(f.client_id) ?? "—"}</td>
-                  <td>{f.month ?? "—"}</td>
-                  <td>
-                    <span className={"chip " + (f.status === "Completed" ? "gold" : "")}>
-                      {f.status}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {f.status === "Draft"
-                      ? `started ${fmtStamp(f.created_at)}`
-                      : `signed ${fmtStamp(f.completed_at)} by ${f.completed_by_name}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2" style={{ marginBottom: 8 }}>
+          In progress
+        </h2>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="forms"
+            columns={[
+              { key: "form", label: "Form" },
+              { key: "client", label: "Client" },
+              { key: "month", label: "Month" },
+              { key: "status", label: "Status" },
+              { key: "touched", label: "Last touched" },
+            ]}
+            rows={pendingRows}
+            empty="Nothing outstanding: no form is in progress."
+          />
+        </div>
+      </section>
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <h3>Sent to counselors</h3>
-        {sent.length === 0 ? (
-          <div className="empty">None sent yet.</div>
-        ) : (
-          <table className="t">
-            <tbody>
-              {sent.map((f) => (
-                <tr key={f.id} className="row">
-                  <td>
-                    <Link
-                      href={`/clients/${f.client_id}/forms/${f.id}`}
-                      style={{ color: "inherit" }}
-                    >
-                      {templateById(f.template_id)?.usor ?? f.template_id}
-                    </Link>
-                  </td>
-                  <td>{clientName.get(f.client_id) ?? "—"}</td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {fmtStamp(f.sent_at)} → {f.sent_to}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <section style={{ marginBottom: 24 }}>
+        <h2 className="h2" style={{ marginBottom: 8 }}>
+          Sent to counselors
+        </h2>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="forms"
+            columns={[
+              { key: "form", label: "Form" },
+              { key: "client", label: "Client" },
+              { key: "sent", label: "Sent" },
+            ]}
+            rows={sentRows}
+            empty="No form has been sent to a counselor yet."
+          />
+        </div>
+      </section>
 
-      <div className="card">
-        <h3>The forms and when they are due</h3>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Form</th>
-              <th>Applies to</th>
-              <th>Required for billing</th>
-            </tr>
-          </thead>
-          <tbody>
-            {FORM_TEMPLATES.map((t) => (
-              <tr key={t.id}>
-                <td>
-                  <b>{t.usor}</b>
-                  <div style={{ fontSize: 12 }}>{t.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.due}</div>
-                </td>
-                <td style={{ fontSize: 12 }}>
-                  {t.incoming
-                    ? "Received from the counselor"
-                    : t.services.length
-                      ? t.services.join(", ")
-                      : "—"}
-                </td>
-                <td>
-                  {t.requiredForBilling ? (
-                    <span className="chip warn">Yes{t.monthly ? " · monthly" : ""}</span>
-                  ) : (
-                    <span className="chip">No</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <section>
+        <h2 className="h2" style={{ marginBottom: 8 }}>
+          The forms and when they are due
+        </h2>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="forms"
+            columns={[
+              { key: "form", label: "Form" },
+              { key: "applies", label: "Applies to" },
+              { key: "billing", label: "Required for billing" },
+            ]}
+            rows={templateRows}
+            empty="No form templates are defined."
+          />
+        </div>
+      </section>
     </>
   );
 }

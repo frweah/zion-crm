@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, CAN_EDIT_BILLING } from "@/lib/constants";
+import { DataTable, type DataRow } from "../../data-table";
 
 /**
  * Paid & outstanding.
@@ -76,6 +77,54 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
     </div>
   );
 
+  // One row a client. Their authorizations open underneath the name rather
+  // than as rows of their own, so the columns always add up to that client.
+  const clientRows: DataRow[] = list.map(([id, c]) => ({
+    key: id,
+    cells: {
+      client: (
+        <details>
+          <summary style={{ cursor: "pointer" }}>
+            <b>{c.name}</b>{" "}
+            <span className="lock">
+              · {c.rows.length} authorization{c.rows.length === 1 ? "" : "s"}
+            </span>
+          </summary>
+          <ul style={{ listStyle: "none", margin: "6px 0 0", padding: 0 }}>
+            {c.rows.map((r) => (
+              <li key={r.auth_id} className="lock" style={{ padding: "2px 0" }}>
+                <Link href={`/clients/${id}?tab=billing`}>{r.auth_number || "(no number)"}</Link> ·{" "}
+                {r.service_type} · {r.status} — {money(Number(r.authorized ?? 0))} authorized ·{" "}
+                {money(Number(r.invoiced ?? 0))} invoiced · {money(Number(r.paid ?? 0))} paid ·{" "}
+                {money(Number(r.outstanding ?? 0))} outstanding
+              </li>
+            ))}
+          </ul>
+        </details>
+      ),
+      authorized: money(c.totals.authorized),
+      invoiced: money(c.totals.invoiced),
+      paid: money(c.totals.paid),
+      outstanding: (
+        <span style={c.totals.outstanding > 0 ? { color: "var(--bad)" } : undefined}>
+          {money(c.totals.outstanding)}
+        </span>
+      ),
+      notYet: money(c.totals.notYet),
+      lastPaid: <span className="lock">{c.lastPaid ?? "—"}</span>,
+    },
+    sort: {
+      client: c.name,
+      authorized: c.totals.authorized,
+      invoiced: c.totals.invoiced,
+      paid: c.totals.paid,
+      outstanding: c.totals.outstanding,
+      notYet: c.totals.notYet,
+      lastPaid: c.lastPaid,
+    },
+    text: [c.name, ...c.rows.map((r) => r.auth_number ?? "")].join(" "),
+  }));
+
   return (
     <>
       <h2 className="h2">Paid &amp; outstanding</h2>
@@ -93,88 +142,43 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
         {tile(overall.notYet, "authorized, not yet invoiced")}
       </div>
 
-      <div className="row2" style={{ gap: 8, marginBottom: 10 }}>
-        <Link className={"btn " + (owedOnly ? "ghost" : "")} href="/billing?tab=invoices#paid-and-outstanding">
-          All clients
-        </Link>
-        <Link className={"btn " + (owedOnly ? "" : "ghost")} href="/billing?tab=invoices&show=outstanding#paid-and-outstanding">
-          Only clients with money outstanding
-        </Link>
+      {/* Which clients to show is a filter on this list, not a tab. */}
+      <div style={{ marginBottom: 10 }}>
+        <div className="segmented">
+          <Link className={owedOnly ? undefined : "on"} href="/billing?tab=invoices#paid-and-outstanding">
+            All clients
+          </Link>
+          <Link className={owedOnly ? "on" : undefined} href="/billing?tab=invoices&show=outstanding#paid-and-outstanding">
+            Only clients with money outstanding
+          </Link>
+        </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th style={{ textAlign: "right" }}>Authorized</th>
-              <th style={{ textAlign: "right" }}>Invoiced</th>
-              <th style={{ textAlign: "right" }}>Paid</th>
-              <th style={{ textAlign: "right" }}>Outstanding</th>
-              <th style={{ textAlign: "right" }}>Not yet invoiced</th>
-              <th>Last paid</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map(([id, c]) => (
-              <tr key={id} style={{ verticalAlign: "top" }}>
-                <td>
-                  <details>
-                    <summary style={{ cursor: "pointer" }}>
-                      <b>{c.name}</b> <span className="lock">· {c.rows.length} authorization{c.rows.length === 1 ? "" : "s"}</span>
-                    </summary>
-                    <table className="t" style={{ marginTop: 6 }}>
-                      <tbody>
-                        {c.rows.map((r) => (
-                          <tr key={r.auth_id}>
-                            <td className="lock">
-                              <Link href={`/clients/${id}?tab=billing`}>{r.auth_number || "(no number)"}</Link> · {r.service_type} · {r.status}
-                            </td>
-                            <td className="lock" style={{ textAlign: "right" }}>{money(Number(r.authorized ?? 0))}</td>
-                            <td className="lock" style={{ textAlign: "right" }}>{money(Number(r.invoiced ?? 0))}</td>
-                            <td className="lock" style={{ textAlign: "right" }}>{money(Number(r.paid ?? 0))}</td>
-                            <td className="lock" style={{ textAlign: "right" }}>{money(Number(r.outstanding ?? 0))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </details>
-                </td>
-                <td style={{ textAlign: "right" }}>{money(c.totals.authorized)}</td>
-                <td style={{ textAlign: "right" }}>{money(c.totals.invoiced)}</td>
-                <td style={{ textAlign: "right" }}>{money(c.totals.paid)}</td>
-                <td style={{ textAlign: "right", color: c.totals.outstanding > 0 ? "var(--bad)" : undefined }}>
-                  {money(c.totals.outstanding)}
-                </td>
-                <td style={{ textAlign: "right" }}>{money(c.totals.notYet)}</td>
-                <td className="lock">{c.lastPaid ?? "—"}</td>
-              </tr>
-            ))}
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={7} className="empty">
-                  {owedOnly ? "Nothing outstanding." : "No authorizations on file."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-          {list.length > 0 && (
-            <tfoot>
-              <tr>
-                <td>
-                  <b>All clients</b>
-                </td>
-                <td style={{ textAlign: "right" }}><b>{money(overall.authorized)}</b></td>
-                <td style={{ textAlign: "right" }}><b>{money(overall.invoiced)}</b></td>
-                <td style={{ textAlign: "right" }}><b>{money(overall.paid)}</b></td>
-                <td style={{ textAlign: "right" }}><b>{money(overall.outstanding)}</b></td>
-                <td style={{ textAlign: "right" }}><b>{money(overall.notYet)}</b></td>
-                <td />
-              </tr>
-            </tfoot>
-          )}
-        </table>
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="clients"
+          columns={[
+            { key: "client", label: "Client" },
+            { key: "authorized", label: "Authorized", align: "right" },
+            { key: "invoiced", label: "Invoiced", align: "right" },
+            { key: "paid", label: "Paid", align: "right" },
+            { key: "outstanding", label: "Outstanding", align: "right" },
+            { key: "notYet", label: "Not yet invoiced", align: "right" },
+            { key: "lastPaid", label: "Last paid" },
+          ]}
+          rows={clientRows}
+          empty={owedOnly ? "Nothing outstanding: no client is owed money." : "No authorizations are on file."}
+        />
       </div>
+
+      {/* The practice's totals, which were the table's footer. They count every client, whichever are showing. */}
+      {rows.length > 0 && (
+        <p className="lock" style={{ margin: "8px 0 0" }}>
+          <b>All clients:</b> {money(overall.authorized)} authorized · {money(overall.invoiced)} invoiced ·{" "}
+          {money(overall.paid)} paid · {money(overall.outstanding)} outstanding · {money(overall.notYet)} not yet
+          invoiced.
+        </p>
+      )}
     </>
   );
 }

@@ -6,6 +6,7 @@ import {
   removeSharedMailbox,
   type SharedState,
 } from "./shared-mailbox-actions";
+import { DataTable } from "../data-table";
 
 const initial: SharedState = { error: null, ok: null };
 
@@ -53,31 +54,41 @@ export function SharedMailboxCard({ mailboxes }: { mailboxes: SharedMailboxRow[]
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}
 
-      {mailboxes.length > 0 && (
-        <table className="t">
-          <tbody>
-            {mailboxes.map((m) => (
-              <tr key={m.address}>
-                <td>
-                  <b>{m.address}</b>
-                  {m.label && <div style={{ fontSize: 12, color: "var(--muted)" }}>{m.label}</div>}
-                  {m.last_run_at ? (
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                      Last swept {new Date(m.last_run_at).toLocaleString()} · {m.mail_logged} logged
-                    </div>
-                  ) : (
-                    <div className="lock">Not swept yet.</div>
-                  )}
-                  {m.last_error && <div className="alert warn">{m.last_error}</div>}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <Remove address={m.address} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable
+        label="mailboxes"
+        columns={[
+          { key: "address", label: "Mailbox" },
+          { key: "swept", label: "Last swept" },
+          { key: "logged", label: "Logged", align: "right" },
+          { key: "remove", label: "", sortable: false },
+        ]}
+        rows={mailboxes.map((m) => ({
+          key: m.address,
+          cells: {
+            address: (
+              <>
+                <b>{m.address}</b>
+                {m.label && <div className="lock">{m.label}</div>}
+                {m.last_error && <div className="alert warn">{m.last_error}</div>}
+              </>
+            ),
+            swept: m.last_run_at ? (
+              new Date(m.last_run_at).toLocaleString()
+            ) : (
+              <span className="lock">Not swept yet.</span>
+            ),
+            logged: m.mail_logged,
+            remove: (
+              <div style={{ textAlign: "right" }}>
+                <Remove address={m.address} />
+              </div>
+            ),
+          },
+          sort: { address: m.address, swept: m.last_run_at, logged: m.mail_logged },
+          text: `${m.address} ${m.label}`,
+        }))}
+        empty="No shared mailbox is being read yet."
+      />
 
       <form action={action} style={{ marginTop: 12 }}>
         <div className="row2" style={{ alignItems: "flex-end" }}>

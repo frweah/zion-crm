@@ -174,7 +174,7 @@ function FieldInput({
         <div className="field">
           {field.l}
           <div style={{ overflowX: "auto", marginTop: 6 }}>
-            <table className="t">
+            <table className="t" data-layout="the form's own grid of inputs">
               <thead>
                 <tr>
                   {cols.map((c) => (

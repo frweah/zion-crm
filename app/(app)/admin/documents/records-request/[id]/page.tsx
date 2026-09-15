@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
+import { RecordHeader } from "../../../../record-header";
 import { Section } from "./section";
 
 /**
@@ -18,7 +18,12 @@ import { Section } from "./section";
  * stored copy would drift from the record it claims to be, and the question
  * "what did we send in March" is answered by the copy that was sent, not by
  * this screen.
+ *
+ * A records request is a record, so it has the record header, back to the
+ * requests on Admin → Documents.
  */
+const BACK = { href: "/admin/documents#records-requests", label: "Documents" };
+
 export default async function RecordsBundlePage({
   params,
 }: {
@@ -46,7 +51,7 @@ export default async function RecordsBundlePage({
   if (error) {
     return (
       <>
-        <h1 className="h1">Records request</h1>
+        <RecordHeader back={BACK} title="Records request" identity={[request.client_name]} />
         <div className="alert bad">{error.message}</div>
       </>
     );
@@ -82,17 +87,12 @@ export default async function RecordsBundlePage({
 
   return (
     <>
-      <div className="no-print">
-        <Link href="/admin/documents#records-requests">← All records requests</Link>
-      </div>
-
-      <h1 className="h1" style={{ marginTop: 8 }}>
-        {request.client_name} — complete record
-      </h1>
-      <p className="sub">
-        {ORG.name} · gathered {new Date().toLocaleDateString()} by {me.name} · requested by{" "}
-        {request.requested_by} on {request.requested_on}
-      </p>
+      <RecordHeader
+        back={BACK}
+        title={`${request.client_name} — complete record`}
+        identity={[ORG.name, `gathered ${new Date().toLocaleDateString()} by ${me.name}`]}
+        standing={`Requested by ${request.requested_by} on ${request.requested_on}`}
+      />
 
       <div className="alert no-print" style={{ marginTop: 12 }}>
         <b>Read this before it leaves the building.</b> Notes carry the roles they were visible to

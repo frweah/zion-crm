@@ -60,7 +60,7 @@ export function Section({
     return (
       <div className="card" style={{ marginTop: 14 }}>
         <h3 style={{ marginTop: 0 }}>{title}</h3>
-        <table className="t">
+        <table className="t" data-layout="records bundle printed as a document, field and value">
           <tbody>
             {entries.map(([k, v]) => (
               <tr key={k}>
@@ -98,7 +98,7 @@ export function Section({
                 </b>
               </div>
             )}
-            <table className="t">
+            <table className="t" data-layout="records bundle printed as a document, field and value">
               <tbody>
                 {Object.entries(row)
                   .filter(([k]) => !HIDE.has(k))

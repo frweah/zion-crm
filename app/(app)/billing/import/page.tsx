@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { CAN_EDIT_BILLING } from "@/lib/constants";
 import { ImportForm } from "./import-form";
+import { PageHead } from "../../page-head";
 
 /**
  * Reading an authorization off the PDF USOR sends.
@@ -31,10 +32,10 @@ export default async function ImportAuthorizationPage() {
         </Link>
       </p>
 
-      <h1 className="h1">Read an authorization</h1>
-      <p className="sub">
-        Upload the PDF USOR sent, check what it says, and create the authorization from it
-      </p>
+      <PageHead
+        title="Read an authorization"
+        context="Upload the PDF USOR sent, check what it says, and create the authorization from it"
+      />
 
       <ImportForm clients={clients ?? []} />
 

@@ -39,7 +39,7 @@ export default async function SettingsPage() {
         <p className="sub" style={{ marginTop: 0 }}>
           These are deliberately different and are not to be reconciled.
         </p>
-        <table className="t">
+        <table className="t" data-layout="two names side by side with where each is used">
           <tbody>
             <tr>
               <td style={{ width: 200 }}>
@@ -78,20 +78,20 @@ export default async function SettingsPage() {
 
       <div className="card" style={{ marginTop: 14 }}>
         <h3 style={{ marginTop: 0 }}>Kept elsewhere, on purpose</h3>
-        <table className="t">
+        <table className="t" data-layout="setting and where it is kept, as label and explanation">
           <tbody>
             <tr>
               <td style={{ width: 200 }}>Tax years and 1099 thresholds</td>
               <td>
-                <Link href="/admin/people#contractors">Contractors</Link> — they sit
-                with the run they govern, and no run can be built on an unconfirmed threshold.
+                <Link href="/admin/system#tax-years">Tax years</Link>, further down this page — a
+                1099 run on People reads them, and no run can be built on an unconfirmed threshold.
               </td>
             </tr>
             <tr>
               <td>Pay rates</td>
               <td>
-                <Link href="/admin/people">Staff</Link> — dated records against a person, so work
-                keeps the rate it was done under.
+                Each person&apos;s record, from <Link href="/admin/people">People</Link> — dated
+                records against a person, so work keeps the rate it was done under.
               </td>
             </tr>
             <tr>

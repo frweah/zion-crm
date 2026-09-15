@@ -13,7 +13,7 @@ import {
 import {
   AddAuthorizationForm,
   ServiceEntryForm,
-  CompletionRow,
+  CompletionDates,
   NewInvoiceForm,
   InvoiceAction,
   type AuthOption,
@@ -21,6 +21,8 @@ import {
 import { readPayments } from "@/lib/payments";
 import { WarrantsToReview } from "./warrants/review-section";
 import PositionSection from "./position/section";
+import { PageHead } from "../page-head";
+import { DataTable, type DataRow } from "../data-table";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
@@ -84,11 +86,20 @@ export default async function BillingPage({
     used: usedByAuth.get(a.id) ?? 0,
   });
 
+  // One header on every Billing tab. Reading an authorization off the PDF is
+  // the one thing Billing starts from, so it sits on the right wherever you are.
   const header = (
-    <>
-      <h1 className="h1">Billing</h1>
-      <p className="sub">Authorizations, service log, invoices, and receivables</p>
-    </>
+    <PageHead
+      title="Billing"
+      context="Authorizations, service log, invoices, and receivables"
+      actions={
+        canBill ? (
+          <Link href="/billing/import" className="btn" style={{ textDecoration: "none" }}>
+            Read an authorization
+          </Link>
+        ) : undefined
+      }
+    />
   );
 
   // ── Service log ───────────────────────────────────────────
@@ -97,6 +108,48 @@ export default async function BillingPage({
     const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
     const authById = new Map(auths.map((a) => [a.id, a]));
     const hourly = auths.filter((a) => a.rate_type === "Hourly" && a.status === "Open");
+
+    const logRows: DataRow[] = [...entries]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map((e) => {
+        const a = authById.get(e.auth_id);
+        const client = a ? (clientName.get(a.client_id) ?? "—") : "—";
+        const staff = e.staff_id ? (staffName.get(e.staff_id) ?? "—").split(" ")[0] : "—";
+        return {
+          key: e.id,
+          cells: {
+            date: e.date,
+            auth: a?.number || "—",
+            client,
+            hours: (
+              <>
+                {e.hours}
+                {e.non_billable && (
+                  <span className="chip" style={{ marginLeft: 6 }}>
+                    non-billable
+                  </span>
+                )}
+              </>
+            ),
+            staff,
+            notes: (
+              <>
+                {e.primary_code && (
+                  <span className="chip" style={{ marginRight: 4 }}>
+                    #{e.primary_code}
+                    {e.secondary_code ? `/${e.secondary_code}` : ""}
+                  </span>
+                )}
+                {e.notes}
+              </>
+            ),
+          },
+          sort: { hours: Number(e.hours), notes: e.notes ?? "" },
+          text: [e.date, a?.number, client, staff, e.notes, e.primary_code, e.non_billable ? "non-billable" : ""]
+            .filter(Boolean)
+            .join(" "),
+        };
+      });
 
     return (
       <>
@@ -110,58 +163,19 @@ export default async function BillingPage({
         {canLog && <ServiceEntryForm auths={hourly.map(toOption)} />}
 
         <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Authorization</th>
-                <th>Client</th>
-                <th>Hours</th>
-                <th>Staff</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="empty">
-                    No service entries yet. The workbook carried authorizations and payments, but
-                    no hour-by-hour log — this fills up as staff record their time.
-                  </td>
-                </tr>
-              )}
-              {[...entries]
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .map((e) => {
-                  const a = authById.get(e.auth_id);
-                  return (
-                    <tr key={e.id}>
-                      <td>{e.date}</td>
-                      <td>{a?.number}</td>
-                      <td>{a ? (clientName.get(a.client_id) ?? "—") : "—"}</td>
-                      <td>
-                        {e.hours}
-                        {e.non_billable && (
-                          <span className="chip" style={{ marginLeft: 6 }}>
-                            non-billable
-                          </span>
-                        )}
-                      </td>
-                      <td>{e.staff_id ? (staffName.get(e.staff_id) ?? "—").split(" ")[0] : "—"}</td>
-                      <td>
-                        {e.primary_code && (
-                          <span className="chip" style={{ marginRight: 4 }}>
-                            #{e.primary_code}
-                            {e.secondary_code ? `/${e.secondary_code}` : ""}
-                          </span>
-                        )}
-                        {e.notes}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
+          <DataTable
+            label="service entries"
+            columns={[
+              { key: "date", label: "Date" },
+              { key: "auth", label: "Authorization" },
+              { key: "client", label: "Client" },
+              { key: "hours", label: "Hours", align: "right" },
+              { key: "staff", label: "Staff" },
+              { key: "notes", label: "Notes" },
+            ]}
+            rows={logRows}
+            empty="No service entries yet. The workbook carried authorizations and payments, but no hour-by-hour log — this fills up as staff record their time."
+          />
         </div>
       </>
     );
@@ -191,6 +205,66 @@ export default async function BillingPage({
     const paidCount = invoices.filter((i) => i.status === "Paid");
     const paidTotal = paidCount.reduce((t, i) => t + i.amount, 0);
 
+    const rows: DataRow[] = shown.map((i) => {
+      const a = authById.get(i.auth_id);
+      const days = i.status === "Sent" ? daysBetween(i.date, today()) : null;
+      const client = a ? (clientName.get(a.client_id) ?? "—") : "—";
+      const service = i.service_type || a?.service_type || "—";
+      return {
+        key: i.id,
+        cells: {
+          invoice: (
+            <>
+              <b>{i.number}</b>
+              {i.warrant && (
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                  {pageByInvoice.has(i.id) ? (
+                    <a
+                      href={`/billing/warrants/image/${pageByInvoice.get(i.id)}`}
+                      target="_blank"
+                      rel="noopener"
+                      style={{ color: "var(--teal)" }}
+                    >
+                      {i.warrant} · page image
+                    </a>
+                  ) : (
+                    i.warrant
+                  )}
+                </div>
+              )}
+            </>
+          ),
+          service,
+          client: a ? (
+            <Link href={`/clients/${a.client_id}`} style={{ color: "var(--teal)" }}>
+              {client}
+            </Link>
+          ) : (
+            "—"
+          ),
+          date: i.date,
+          amount: money(i.amount),
+          status: (
+            <>
+              <span className={"chip " + (i.status === "Paid" ? "ok" : i.status === "Sent" ? "warn" : "")}>
+                {i.status}
+              </span>
+              {i.status === "Paid" && i.paid_date && <div className="lock">paid {i.paid_date}</div>}
+            </>
+          ),
+          days:
+            days !== null ? (
+              <span className={"chip " + (days >= 90 ? "bad" : days >= 30 ? "warn" : "")}>{days}</span>
+            ) : (
+              "—"
+            ),
+          action: canBill ? <InvoiceAction invoiceId={i.id} status={i.status} /> : null,
+        },
+        sort: { invoice: i.number, client, amount: i.amount, status: i.status, days },
+        text: [i.number, i.warrant, service, client, i.date, i.status].filter(Boolean).join(" "),
+      };
+    });
+
     return (
       <>
         {header}
@@ -217,110 +291,47 @@ export default async function BillingPage({
 
         {canBill && <NewInvoiceForm auths={auths.map(toOption)} />}
 
-        <div className="row2" style={{ marginBottom: 8 }}>
-          {[
-            { key: "open", label: "Open" },
-            { key: "paid", label: `Paid (${paidCount.length} · ${money(paidTotal)})` },
-            { key: "all", label: "All" },
-          ].map((f) => (
-            <Link
-              key={f.key}
-              href={`/billing?tab=invoices&filter=${f.key}`}
-              className={"btn " + (view === f.key ? "" : "ghost")}
-              style={{ textDecoration: "none" }}
-            >
-              {f.label}
-            </Link>
-          ))}
+        {/* Which invoices to show is a filter on this list, not a tab. */}
+        <div style={{ marginBottom: 8 }}>
+          <div className="segmented">
+            {[
+              { key: "open", label: "Open" },
+              { key: "paid", label: `Paid (${paidCount.length} · ${money(paidTotal)})` },
+              { key: "all", label: "All" },
+            ].map((f) => (
+              <Link
+                key={f.key}
+                href={`/billing?tab=invoices&filter=${f.key}`}
+                className={view === f.key ? "on" : undefined}
+              >
+                {f.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Service</th>
-                <th>Client</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Days</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="empty">
-                    {view === "open"
-                      ? "Nothing outstanding. Complete a service or log hours, then raise an invoice."
-                      : "None."}
-                  </td>
-                </tr>
-              )}
-              {shown.map((i) => {
-                const a = authById.get(i.auth_id);
-                const days = i.status === "Sent" ? daysBetween(i.date, today()) : null;
-                return (
-                  <tr key={i.id}>
-                    <td>
-                      <b>{i.number}</b>
-                      {i.warrant && (
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                          {pageByInvoice.has(i.id) ? (
-                            <a
-                              href={`/billing/warrants/image/${pageByInvoice.get(i.id)}`}
-                              target="_blank"
-                              rel="noopener"
-                              style={{ color: "var(--teal)" }}
-                            >
-                              {i.warrant} · page image
-                            </a>
-                          ) : (
-                            i.warrant
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td>{i.service_type || a?.service_type}</td>
-                    <td>
-                      {a ? (
-                        <Link href={`/clients/${a.client_id}`} style={{ color: "var(--teal)" }}>
-                          {clientName.get(a.client_id) ?? "—"}
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>{i.date}</td>
-                    <td>{money(i.amount)}</td>
-                    <td>
-                      <span
-                        className={
-                          "chip " + (i.status === "Paid" ? "ok" : i.status === "Sent" ? "warn" : "")
-                        }
-                      >
-                        {i.status}
-                      </span>
-                      {i.status === "Paid" && i.paid_date && (
-                        <div className="lock">paid {i.paid_date}</div>
-                      )}
-                    </td>
-                    <td>
-                      {days !== null ? (
-                        <span className={"chip " + (days >= 90 ? "bad" : days >= 30 ? "warn" : "")}>
-                          {days}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>{canBill && <InvoiceAction invoiceId={i.id} status={i.status} />}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <DataTable
+            label="invoices"
+            columns={[
+              { key: "invoice", label: "Invoice" },
+              { key: "service", label: "Service" },
+              { key: "client", label: "Client" },
+              { key: "date", label: "Date" },
+              { key: "amount", label: "Amount", align: "right" },
+              { key: "status", label: "Status" },
+              { key: "days", label: "Days", align: "right" },
+              { key: "action", label: "", sortable: false },
+            ]}
+            rows={rows}
+            empty={
+              view === "open"
+                ? "Nothing outstanding. Complete a service or log hours, then raise an invoice."
+                : view === "paid"
+                  ? "No invoice has been paid yet."
+                  : "No invoices have been raised yet."
+            }
+          />
         </div>
 
         <p className="lock" style={{ marginTop: 10 }}>
@@ -352,6 +363,87 @@ export default async function BillingPage({
   ]);
   const authById = new Map(auths.map((a) => [a.id, a]));
 
+  const authRows: DataRow[] = shownAuths.map((a) => {
+    const total = a.total_hours == null ? null : Number(a.total_hours);
+    const used = usedByAuth.get(a.id) ?? 0;
+    const rem = total === null ? null : total - used;
+    const client = clientName.get(a.client_id) ?? "—";
+    return {
+      key: a.id,
+      cells: {
+        number: <b>{a.number || "—"}</b>,
+        client: (
+          <Link href={`/clients/${a.client_id}`} style={{ color: "var(--teal)" }}>
+            {client}
+          </Link>
+        ),
+        service: a.service_type,
+        rate: `${money(a.rate)}${a.rate_type === "Hourly" ? "/hr" : " flat"}`,
+        hours:
+          total !== null && rem !== null ? (
+            <>
+              {used} / {total}{" "}
+              <span className={"chip " + (rem <= 0 ? "bad" : rem <= total * 0.1 ? "warn" : "ok")}>
+                {rem <= 0 ? "Exhausted" : rem <= total * 0.1 ? "Low" : "OK"}
+              </span>
+            </>
+          ) : (
+            <span className="chip">completion-based</span>
+          ),
+        dates: (
+          <span style={{ whiteSpace: "nowrap" }}>
+            {a.start_date || a.end_date ? (
+              `${a.start_date ?? "—"} → ${a.end_date ?? "—"}`
+            ) : (
+              <span className="lock">{a.note || "—"}</span>
+            )}
+          </span>
+        ),
+        status: <span className={"chip " + (a.status === "Paid" ? "ok" : "")}>{a.status}</span>,
+      },
+      sort: {
+        number: a.number,
+        client,
+        rate: Number(a.rate),
+        // The share used, so an exhausted authorization sorts beside the other exhausted ones.
+        hours: total ? used / total : null,
+        dates: a.start_date ?? a.end_date,
+        status: a.status,
+      },
+      text: [a.number, client, a.service_type, a.status, a.start_date, a.end_date, a.note].filter(Boolean).join(" "),
+    };
+  });
+
+  const completionRows: DataRow[] = (completions ?? []).map((c) => {
+    const a = authById.get(c.auth_id);
+    const client = a ? (clientName.get(a.client_id) ?? "—") : "—";
+    const billed = c.billed ? "Yes" : c.completion ? "ready to invoice" : "needs completion date";
+    return {
+      key: c.id,
+      cells: {
+        auth: <b>{a?.number ?? "—"}</b>,
+        client,
+        service: a?.service_type ?? "—",
+        dates: <CompletionDates completionId={c.id} startDate={c.start_date} completion={c.completion} />,
+        amount: money(Number(a?.rate ?? 0)),
+        billed: c.billed ? (
+          <span className="chip ok">Yes</span>
+        ) : c.completion ? (
+          <span className="chip warn">ready to invoice</span>
+        ) : (
+          <span className="lock">needs completion date</span>
+        ),
+      },
+      sort: {
+        auth: a?.number ?? "",
+        dates: c.completion ?? c.start_date,
+        amount: Number(a?.rate ?? 0),
+        billed,
+      },
+      text: [a?.number, client, a?.service_type, billed].filter(Boolean).join(" "),
+    };
+  });
+
   return (
     <>
       {header}
@@ -368,149 +460,63 @@ export default async function BillingPage({
         </div>
       )}
 
-      <div className="row2" style={{ marginBottom: 8 }}>
-        <Link
-          href={`/billing?tab=authorizations${showAll ? "" : "&show=all"}`}
-          style={{ fontSize: 12, color: "var(--teal)" }}
-        >
-          {showAll ? "Show open only" : `Show paid and closed (${closedCount})`}
-        </Link>
+      {/* Open or everything is a filter on this list, not a tab. */}
+      <div style={{ marginBottom: 8 }}>
+        <div className="segmented">
+          <Link href="/billing?tab=authorizations" className={showAll ? undefined : "on"}>
+            Open
+          </Link>
+          <Link href="/billing?tab=authorizations&show=all" className={showAll ? "on" : undefined}>
+            All, with paid and closed ({closedCount})
+          </Link>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, marginBottom: 14 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>Auth #</th>
-              <th>Client</th>
-              <th>Service</th>
-              <th>Rate</th>
-              <th>Hours used / total</th>
-              <th>Dates</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shownAuths.length === 0 && (
-              <tr>
-                <td colSpan={7} className="empty">
-                  No authorizations.
-                </td>
-              </tr>
-            )}
-            {shownAuths.map((a) => {
-              const total = a.total_hours == null ? null : Number(a.total_hours);
-              const used = usedByAuth.get(a.id) ?? 0;
-              const rem = total === null ? null : total - used;
-              return (
-                <tr key={a.id}>
-                  <td>
-                    <b>{a.number || "—"}</b>
-                  </td>
-                  <td>
-                    <Link href={`/clients/${a.client_id}`} style={{ color: "var(--teal)" }}>
-                      {clientName.get(a.client_id) ?? "—"}
-                    </Link>
-                  </td>
-                  <td>{a.service_type}</td>
-                  <td>
-                    {money(a.rate)}
-                    {a.rate_type === "Hourly" ? "/hr" : " flat"}
-                  </td>
-                  <td>
-                    {total !== null && rem !== null ? (
-                      <>
-                        {used} / {total}{" "}
-                        <span
-                          className={
-                            "chip " + (rem <= 0 ? "bad" : rem <= total * 0.1 ? "warn" : "ok")
-                          }
-                        >
-                          {rem <= 0 ? "Exhausted" : rem <= total * 0.1 ? "Low" : "OK"}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="chip">completion-based</span>
-                    )}
-                  </td>
-                  <td style={{ whiteSpace: "nowrap" }}>
-                    {a.start_date || a.end_date ? (
-                      `${a.start_date ?? "—"} → ${a.end_date ?? "—"}`
-                    ) : (
-                      <span className="lock">{a.note || "—"}</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={"chip " + (a.status === "Paid" ? "ok" : "")}>{a.status}</span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <DataTable
+          label="authorizations"
+          columns={[
+            { key: "number", label: "Auth #" },
+            { key: "client", label: "Client" },
+            { key: "service", label: "Service" },
+            { key: "rate", label: "Rate", align: "right" },
+            { key: "hours", label: "Hours used / total" },
+            { key: "dates", label: "Dates" },
+            { key: "status", label: "Status" },
+          ]}
+          rows={authRows}
+          empty={showAll ? "No authorizations are on file." : "No authorization is open."}
+        />
       </div>
 
-      <section id="completions" style={{ marginBottom: 14 }}>
-        <h3 style={{ margin: "6px 0 8px" }}>Flat-fee completions</h3>
-        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Authorization</th>
-                <th>Client</th>
-                <th>Service</th>
-                <th colSpan={2}>Start / completed</th>
-                <th>Amount</th>
-                <th>Billed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(completions ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={7} className="empty">
-                    No completion-based services.
-                  </td>
-                </tr>
-              )}
-              {(completions ?? []).map((c) => {
-                const a = authById.get(c.auth_id);
-                return (
-                  <CompletionRow
-                    key={c.id}
-                    completion={{
-                      id: c.id,
-                      auth_number: a?.number ?? "—",
-                      client_name: a ? (clientName.get(a.client_id) ?? "—") : "—",
-                      service_type: a?.service_type ?? "—",
-                      start_date: c.start_date,
-                      completion: c.completion,
-                      billed: c.billed,
-                      rate: Number(a?.rate ?? 0),
-                    }}
-                  />
-                );
-              })}
-            </tbody>
-          </table>
+      {canBill && (
+        <p className="lock" style={{ margin: "0 0 14px" }}>
+          Have the PDF USOR sent? <Link href="/billing/import">Read the authorization off it</Link>{" "}
+          instead of typing it — a rate keyed as 4.50 instead of 45.00 is not noticed until an
+          invoice is short.
+        </p>
+      )}
+
+      <section id="completions" style={{ margin: "24px 0 14px" }}>
+        <h2 className="h2" style={{ marginBottom: 8 }}>
+          Flat-fee completions
+        </h2>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="completions"
+            columns={[
+              { key: "auth", label: "Authorization" },
+              { key: "client", label: "Client" },
+              { key: "service", label: "Service" },
+              { key: "dates", label: "Start / completed" },
+              { key: "amount", label: "Amount", align: "right" },
+              { key: "billed", label: "Billed" },
+            ]}
+            rows={completionRows}
+            empty="No completion-based services."
+          />
         </div>
       </section>
-
-      {canBill && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row2" style={{ justifyContent: "space-between" }}>
-            <div>
-              <h3 style={{ margin: 0 }}>Have the PDF USOR sent?</h3>
-              <p className="sub" style={{ margin: "4px 0 0" }}>
-                Read the authorization off it instead of typing it — a rate keyed as 4.50 instead
-                of 45.00 is not noticed until an invoice is short.
-              </p>
-            </div>
-            <Link href="/billing/import" className="btn" style={{ textDecoration: "none" }}>
-              Read an authorization
-            </Link>
-          </div>
-        </div>
-      )}
 
       {canBill && <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} />}
     </>

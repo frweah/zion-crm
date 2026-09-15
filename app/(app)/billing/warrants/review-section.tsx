@@ -63,20 +63,24 @@ export async function WarrantsToReview({ showAllLink = true }: { showAllLink?: b
       </div>
 
       {review.length === 0 && (
-        <div className="card" style={{ marginTop: 8 }}>
-          <p className="sub" style={{ margin: 0 }}>
-            Nothing waiting. Every line read from the warrants so far was proved and recorded, or has
-            been dealt with.
-          </p>
-        </div>
+        <p className="sub" style={{ margin: "8px 0 0" }}>
+          Nothing waiting. Every line read from the warrants so far was proved and recorded, or has
+          been dealt with.
+        </p>
       )}
 
+      {/*
+        One list, a page to an item. These are records that each carry their own
+        forms and a picture, not summaries, so they are not a stack of cards.
+      */}
+      {review.length > 0 && (
+      <div className="list" style={{ margin: "10px 0 14px" }}>
       {review.map((p) => {
         const waiting = (p.warrant_lines ?? []).filter((l) => l.status === "Needs review").sort((a, b) => a.line_no - b.line_no);
         const url = urlFor.get(p.image_path);
         const adds = p.total !== null && p.lines_total !== null && Number(p.total) === Number(p.lines_total);
         return (
-          <div key={p.id} className="card" style={{ margin: "10px 0 14px" }}>
+          <div key={p.id} className="list-item">
             <div className="row2" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
               <div>
                 <b>Warrant {p.warrant_no || "(number not read)"}</b>
@@ -122,6 +126,8 @@ export async function WarrantsToReview({ showAllLink = true }: { showAllLink?: b
           </div>
         );
       })}
+      </div>
+      )}
     </>
   );
 }

@@ -11,7 +11,8 @@ import {
   reopenStatement,
   type HoursState,
 } from "./actions";
-import { today, fmtStamp } from "@/lib/constants";
+import { today } from "@/lib/constants";
+import { DataTable } from "../data-table";
 
 const initial: HoursState = { error: null, ok: null };
 
@@ -227,40 +228,40 @@ export function SessionList({
     sessions.filter((s) => s.corrects_id).map((s) => [s.corrects_id!, s]),
   );
 
-  if (sessions.length === 0) {
-    return <div className="empty">Nothing logged for this period yet.</div>;
-  }
+  // A superseded entry stays in the list, greyed, because the billing record
+  // keeps both versions; the table has no row styles, so each cell carries it.
+  const muted = (s: SessionRow) => (s.voided ? { color: "var(--muted)" } : undefined);
 
   return (
     <div className="card" style={{ padding: 0 }}>
-      <table className="t">
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Hours</th>
-            <th>Work</th>
-            <th>Client</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {sessions
-            .slice()
-            .sort((a, b) => b.worked_on.localeCompare(a.worked_on))
-            .map((s) => {
-              const replacedBy = corrections.get(s.id);
-              return (
-                <tr key={s.id} style={s.voided ? { color: "var(--muted)" } : undefined}>
-                  <td style={{ whiteSpace: "nowrap" }}>{s.worked_on}</td>
-                  <td style={s.voided ? { textDecoration: "line-through" } : undefined}>
+      <DataTable
+        label="sessions"
+        columns={[
+          { key: "day", label: "Day" },
+          { key: "hours", label: "Hours", align: "right" },
+          { key: "work", label: "Work" },
+          { key: "client", label: "Client" },
+          { key: "actions", label: "", sortable: false },
+        ]}
+        rows={sessions
+          .slice()
+          .sort((a, b) => b.worked_on.localeCompare(a.worked_on))
+          .map((s) => {
+            const replacedBy = corrections.get(s.id);
+            return {
+              key: s.id,
+              cells: {
+                day: <span style={{ whiteSpace: "nowrap", ...muted(s) }}>{s.worked_on}</span>,
+                hours: (
+                  <span style={s.voided ? { color: "var(--muted)", textDecoration: "line-through" } : undefined}>
                     {s.hours}
-                  </td>
-                  <td>
+                  </span>
+                ),
+                work: (
+                  <div style={muted(s)}>
                     {s.description}
                     <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {s.category_label || (
-                        <span className="lock">no kind of time recorded</span>
-                      )}
+                      {s.category_label || <span className="lock">no kind of time recorded</span>}
                     </div>
                     {s.corrects_id && (
                       <div style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -272,30 +273,36 @@ export function SessionList({
                         superseded — now {replacedBy.hours} hrs
                       </div>
                     )}
-                  </td>
-                  <td>
-                    {s.client_id ? (
-                      <Link href={`/clients/${s.client_id}`} style={{ color: "var(--teal)" }}>
-                        {s.client_name}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
+                  </div>
+                ),
+                client: s.client_id ? (
+                  <Link href={`/clients/${s.client_id}`} style={{ color: "var(--teal)" }}>
+                    {s.client_name}
+                  </Link>
+                ) : (
+                  "—"
+                ),
+                actions: (
+                  <div style={{ textAlign: "right" }}>
                     {!s.voided && !locked && !s.category && (
                       <CategoriseForm session={s} categories={categories} />
                     )}
-                    {!s.voided && !locked && (
-                      <CorrectForm session={s} categories={categories} />
-                    )}
+                    {!s.voided && !locked && <CorrectForm session={s} categories={categories} />}
                     {locked && !s.voided && <span className="lock">settled</span>}
-                  </td>
-                </tr>
-              );
-            })}
-        </tbody>
-      </table>
+                  </div>
+                ),
+              },
+              sort: {
+                day: s.worked_on,
+                hours: s.hours,
+                work: s.description,
+                client: s.client_name || null,
+              },
+              text: `${s.worked_on} ${s.hours} ${s.description} ${s.category_label} ${s.client_name} ${s.correction_reason}`,
+            };
+          })}
+        empty="Nothing logged for this period yet."
+      />
     </div>
   );
 }
@@ -378,123 +385,80 @@ export function SubmitStatement({
   );
 }
 
-export function ApprovalRow({
-  statement,
-}: {
-  statement: {
-    id: string;
-    staff_name: string;
-    period_start: string;
-    period_end: string;
-    status: string;
-    total_hours: number;
-    total_amount: number;
-    unpriced_hours: number;
-    rate_unit: string | null;
-    adjustment: number;
-    adjustment_note: string;
-    submitted_at: string | null;
-  };
-}) {
+export type ApprovalStatement = {
+  id: string;
+  staff_name: string;
+  period_start: string;
+  period_end: string;
+  status: string;
+  total_hours: number;
+  total_amount: number;
+  unpriced_hours: number;
+  rate_unit: string | null;
+  adjustment: number;
+  adjustment_note: string;
+  submitted_at: string | null;
+};
+
+/**
+ * The decision on one statement: approve, return with a note, or reopen.
+ *
+ * The statement used to draw its whole table row, which kept approvals out of
+ * the one table. The figures need no state, so the screen lays them out as
+ * plain cells; only this is a component, and a failure is said beside the
+ * button that caused it.
+ */
+export function ApprovalActions({ statement }: { statement: Pick<ApprovalStatement, "id" | "status"> }) {
   const [state, action, pending] = useActionState(decideStatement, initial);
   const [reopenState, reopenAction, reopening] = useActionState(reopenStatement, initial);
   const [returning, setReturning] = useState(false);
 
   return (
-    <tr>
-      <td>
-        <b>{statement.staff_name}</b>
-        <div style={{ fontSize: 12, color: "var(--muted)" }}>
-          {statement.period_start} to {statement.period_end}
+    <div style={{ textAlign: "right" }}>
+      {(state.error ?? reopenState.error) && (
+        <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error ?? reopenState.error}</div>
+      )}
+
+      {statement.status === "Submitted" && !returning && (
+        <div className="row2" style={{ justifyContent: "flex-end", gap: 6 }}>
+          <form action={action} style={{ display: "inline" }}>
+            <input type="hidden" name="statement_id" value={statement.id} />
+            <input type="hidden" name="decision" value="Approved" />
+            <button className="btn gold" type="submit" disabled={pending}>
+              {pending ? "…" : "Approve"}
+            </button>
+          </form>
+          <button className="btn ghost" onClick={() => setReturning(true)}>
+            Return…
+          </button>
         </div>
-        {(state.error ?? reopenState.error) && (
-          <div style={{ color: "var(--bad)", fontSize: 12 }}>
-            {state.error ?? reopenState.error}
-          </div>
-        )}
-      </td>
-      <td>
-        {statement.total_hours} hrs
-        {statement.unpriced_hours > 0 && (
-          <div className="lock">{statement.unpriced_hours} on days with no rate</div>
-        )}
-      </td>
-      <td>
-        {statement.rate_unit === null && statement.total_amount === 0 ? (
-          <span className="lock">no rate on file</span>
-        ) : (
-          <b>
-            {statement.total_amount.toLocaleString("en-US", {
-              style: "currency",
-              currency: "USD",
-            })}
-          </b>
-        )}
-        {statement.rate_unit === "Flat" && <div className="lock">flat for the period</div>}
-        {statement.adjustment !== 0 && (
-          <div className="lock">
-            includes {statement.adjustment > 0 ? "+" : ""}
-            {statement.adjustment.toFixed(2)} — {statement.adjustment_note}
-          </div>
-        )}
-      </td>
-      <td>
-        <span
-          className={
-            "chip " +
-            (statement.status === "Approved" ? "ok" : statement.status === "Submitted" ? "warn" : "")
-          }
-        >
-          {statement.status}
-        </span>
-        {statement.submitted_at && (
-          <div style={{ fontSize: 11, color: "var(--muted)" }}>
-            {fmtStamp(statement.submitted_at)}
-          </div>
-        )}
-      </td>
-      <td style={{ textAlign: "right" }}>
-        {statement.status === "Submitted" && !returning && (
-          <div className="row2" style={{ justifyContent: "flex-end", gap: 6 }}>
-            <form action={action} style={{ display: "inline" }}>
-              <input type="hidden" name="statement_id" value={statement.id} />
-              <input type="hidden" name="decision" value="Approved" />
-              <button className="btn gold" type="submit" disabled={pending}>
-                {pending ? "…" : "Approve"}
-              </button>
-            </form>
-            <button className="btn ghost" onClick={() => setReturning(true)}>
-              Return…
+      )}
+
+      {statement.status === "Submitted" && returning && (
+        <form action={action}>
+          <input type="hidden" name="statement_id" value={statement.id} />
+          <input type="hidden" name="decision" value="Returned" />
+          <div className="row2" style={{ gap: 6, justifyContent: "flex-end" }}>
+            <input name="return_note" placeholder="What needs changing" required style={{ maxWidth: 260 }} />
+            <button className="btn" type="submit" disabled={pending}>
+              Return
+            </button>
+            <button className="btn ghost" type="button" onClick={() => setReturning(false)}>
+              Cancel
             </button>
           </div>
-        )}
+        </form>
+      )}
 
-        {statement.status === "Submitted" && returning && (
-          <form action={action}>
-            <input type="hidden" name="statement_id" value={statement.id} />
-            <input type="hidden" name="decision" value="Returned" />
-            <div className="row2" style={{ gap: 6, justifyContent: "flex-end" }}>
-              <input name="return_note" placeholder="What needs changing" required style={{ maxWidth: 260 }} />
-              <button className="btn" type="submit" disabled={pending}>
-                Return
-              </button>
-              <button className="btn ghost" type="button" onClick={() => setReturning(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        {statement.status === "Approved" && (
-          <form action={reopenAction} style={{ display: "inline" }}>
-            <input type="hidden" name="statement_id" value={statement.id} />
-            <button className="btn ghost" type="submit" disabled={reopening}>
-              {reopening ? "…" : "Reopen"}
-            </button>
-          </form>
-        )}
-      </td>
-    </tr>
+      {statement.status === "Approved" && (
+        <form action={reopenAction} style={{ display: "inline" }}>
+          <input type="hidden" name="statement_id" value={statement.id} />
+          <button className="btn ghost" type="submit" disabled={reopening}>
+            {reopening ? "…" : "Reopen"}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -555,7 +519,7 @@ export function CategoryBreakdown({
           </>
         )}
       </p>
-      <table className="t">
+      <table className="t" data-layout="bar chart of hours by kind">
         <tbody>
           {rows.map((r) => (
             <tr key={r.key || "none"}>

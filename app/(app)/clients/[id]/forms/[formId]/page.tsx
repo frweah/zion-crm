@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RecordHeader } from "../../../../record-header";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { templateById } from "@/lib/form-templates";
@@ -69,27 +69,25 @@ export default async function FormPage({
 
   return (
     <>
-      <p className="sub" style={{ marginBottom: 8 }}>
-        <Link href={`/clients/${id}?tab=documents`} style={{ color: "var(--teal)" }}>
-          ← {client?.name ?? "Client"} · Forms
-        </Link>
-      </p>
-
-      <div className="row2" style={{ justifyContent: "space-between", marginBottom: 4 }}>
-        <div>
-          <h1 className="h1">{template.usor}</h1>
-          <p className="sub" style={{ margin: 0 }}>
-            {template.name}
-          </p>
-        </div>
-        <span
-          className={
-            "chip " + (form.status === "Sent" ? "ok" : form.status === "Completed" ? "gold" : "")
-          }
-        >
-          {form.status}
-        </span>
-      </div>
+      {/*
+        A form's state is always worth saying and carries its colour, so it
+        goes on the standing line as a toned chip rather than as the header's
+        plain status chip.
+      */}
+      <RecordHeader
+        back={{ href: `/clients/${id}?tab=documents`, label: `${client?.name ?? "Client"} · Documents` }}
+        title={template.usor}
+        identity={[template.name, client?.name]}
+        standing={
+          <span
+            className={
+              "chip " + (form.status === "Sent" ? "ok" : form.status === "Completed" ? "gold" : "")
+            }
+          >
+            {form.status}
+          </span>
+        }
+      />
 
       <div className="alert" style={{ marginTop: 14 }}>
         <b>When this is due:</b> {template.due}

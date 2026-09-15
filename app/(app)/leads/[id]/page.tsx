@@ -2,9 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { AddMatchForm, MatchRow, LeadStatusControl } from "../leads-forms";
+import { RecordHeader } from "../../record-header";
+import { DataTable } from "../../data-table";
+import {
+  AddMatchForm,
+  LeadStatusControl,
+  MatchPlacementControl,
+  MatchStatusControl,
+} from "../leads-forms";
 
 const CAN_EDIT = ["Admin", "Job Search"];
+
+/** An opening's status is worth a chip beside its name once it has stopped being worked. */
+const QUIET_STATUSES = ["Filled", "Closed"];
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,39 +56,37 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const taken = new Set(matches.map((m) => m.client_id));
   const available = clients.filter((c) => !taken.has(c.id));
 
+  const sortedMatches = matches
+    .slice()
+    .sort((a, b) =>
+      (clientName.get(a.client_id) ?? "").localeCompare(clientName.get(b.client_id) ?? ""),
+    );
+
   return (
     <>
-      <p className="sub" style={{ marginBottom: 8 }}>
-        <Link href="/leads" style={{ color: "var(--teal)" }}>
-          ← Jobs
-        </Link>
-      </p>
-
-      <div className="row2" style={{ justifyContent: "space-between", marginBottom: 4 }}>
-        <div>
-          <h1 className="h1">{lead.title}</h1>
-          <p className="sub" style={{ margin: 0 }}>
-            {employer ? (
-              <>
-                {employer.name}
-                {employer.industry ? ` · ${employer.industry}` : ""}
-                {employer.relationship_status === "Do not use" && (
-                  <span className="chip bad" style={{ marginLeft: 8 }}>
-                    do not use
-                  </span>
-                )}
-              </>
-            ) : (
-              "—"
-            )}
-          </p>
-        </div>
-        {canEdit ? (
-          <LeadStatusControl leadId={lead.id} status={lead.status} />
-        ) : (
-          <span className="chip gold">{lead.status}</span>
-        )}
-      </div>
+      <RecordHeader
+        back={{ href: "/leads", label: "Jobs" }}
+        title={lead.title}
+        status={QUIET_STATUSES.includes(lead.status) ? lead.status : null}
+        identity={
+          employer
+            ? [
+                employer.name,
+                employer.industry,
+                employer.relationship_status === "Do not use" ? (
+                  <span className="chip bad">do not use</span>
+                ) : null,
+              ]
+            : ["—"]
+        }
+        actions={
+          canEdit ? (
+            <LeadStatusControl leadId={lead.id} status={lead.status} />
+          ) : (
+            <span className="chip gold">{lead.status}</span>
+          )
+        }
+      />
 
       <div
         className="grid"
@@ -93,66 +101,71 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           )}
 
           <div className="card" style={{ padding: 0 }}>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Where things stand</th>
-                  <th>Dates</th>
-                  <th>Placement</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matches.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="empty">
-                      Nobody put forward yet.
-                    </td>
-                  </tr>
-                )}
-                {matches
-                  .slice()
-                  .sort((a, b) =>
-                    (clientName.get(a.client_id) ?? "").localeCompare(
-                      clientName.get(b.client_id) ?? "",
+            <DataTable
+              label="clients"
+              columns={[
+                { key: "client", label: "Client" },
+                { key: "status", label: "Where things stand" },
+                { key: "dates", label: "Dates" },
+                { key: "placement", label: "Placement", sortable: canEdit ? false : undefined },
+              ]}
+              rows={sortedMatches.map((m) => {
+                const name = clientName.get(m.client_id) ?? "—";
+                const match = { ...m, client_name: name };
+                return {
+                  key: m.id,
+                  sort: {
+                    client: name,
+                    status: m.status,
+                    dates: m.interview_on ?? m.applied_on ?? m.decided_on,
+                    placement: m.placement_id ? 1 : 0,
+                  },
+                  text: [name, m.status, m.notes].filter(Boolean).join(" "),
+                  cells: {
+                    client: (
+                      <>
+                        <Link
+                          href={`/clients/${m.client_id}`}
+                          style={{ color: "inherit", fontWeight: canEdit ? 600 : undefined }}
+                        >
+                          {name}
+                        </Link>
+                        {canEdit && m.notes && (
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>{m.notes}</div>
+                        )}
+                      </>
                     ),
-                  )
-                  .map((m) =>
-                    canEdit ? (
-                      <MatchRow
-                        key={m.id}
-                        leadId={lead.id}
-                        match={{ ...m, client_name: clientName.get(m.client_id) ?? "—" }}
-                      />
+                    status: canEdit ? (
+                      <MatchStatusControl matchId={m.id} leadId={lead.id} status={m.status} />
                     ) : (
-                      <tr key={m.id}>
-                        <td>
-                          <Link href={`/clients/${m.client_id}`} style={{ color: "inherit" }}>
-                            {clientName.get(m.client_id) ?? "—"}
-                          </Link>
-                        </td>
-                        <td>
-                          <span className="chip">{m.status}</span>
-                        </td>
-                        <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                          {m.applied_on && <div>applied {m.applied_on}</div>}
-                          {m.interview_on && <div>interview {m.interview_on}</div>}
-                        </td>
-                        <td>
-                          {m.placement_id ? <span className="chip ok">recorded</span> : "—"}
-                        </td>
-                      </tr>
+                      <span className="chip">{m.status}</span>
                     ),
-                  )}
-              </tbody>
-            </table>
+                    dates: (
+                      <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                        {m.applied_on && <div>applied {m.applied_on}</div>}
+                        {m.interview_on && <div>interview {m.interview_on}</div>}
+                        {canEdit && m.decided_on && <div>decided {m.decided_on}</div>}
+                      </span>
+                    ),
+                    placement: canEdit ? (
+                      <MatchPlacementControl match={match} leadId={lead.id} />
+                    ) : m.placement_id ? (
+                      <span className="chip ok">recorded</span>
+                    ) : (
+                      "—"
+                    ),
+                  },
+                };
+              })}
+              empty="Nobody has been put forward for this opening yet."
+            />
           </div>
         </div>
 
         <div className="grid" style={{ alignContent: "start" }}>
           <div className="card">
             <h3>The opening</h3>
-            <table className="t">
+            <table className="t" data-layout="key and value details of the opening">
               <tbody>
                 <tr><td>Wage</td><td>{lead.wage_range || "—"}</td></tr>
                 <tr><td>Hours/week</td><td>{lead.hours_week || "—"}</td></tr>

@@ -227,51 +227,47 @@ export type HoursRequestRow = {
   counselor_name: string;
 };
 
-export function HoursRequestRowForm({ request }: { request: HoursRequestRow }) {
+/**
+ * The response to one hours request - the only part of the row that changes.
+ *
+ * It used to draw the whole table row, which kept the requests out of the one
+ * table. Now the screen lays out the row and this fills its last cell.
+ */
+export function HoursRequestResponse({ request }: { request: HoursRequestRow }) {
   const [state, action, pending] = useActionState(updateHoursRequest, initial);
   const settled = request.response !== "Pending" && request.response !== "Denied";
 
   return (
-    <tr>
-      <td>{request.date}</td>
-      <td>{request.auth_number}</td>
-      <td>{request.client_name}</td>
-      <td>{request.hours}</td>
-      <td>{request.reason}</td>
-      <td>{request.counselor_name}</td>
-      <td colSpan={2}>
-        <form action={action} className="row2" style={{ gap: 6 }}>
-          <input type="hidden" name="request_id" value={request.id} />
-          <select name="response" defaultValue={request.response} style={{ maxWidth: 150 }}>
-            {RESPONSES.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-          <input
-            name="approved"
-            type="number"
-            step="0.25"
-            placeholder="hrs"
-            defaultValue={request.approved ?? ""}
-            style={{ maxWidth: 80 }}
-          />
-          <input
-            name="approved_date"
-            type="date"
-            defaultValue={request.approved_date ?? ""}
-            style={{ maxWidth: 150 }}
-          />
-          <button className="btn ghost" type="submit" disabled={pending}>
-            {pending ? "…" : "Save"}
-          </button>
-        </form>
-        {state.error && (
-          <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>
-        )}
-        {!settled && request.response !== "Pending" && (
-          <div className="lock">Denied requests keep no approved hours.</div>
-        )}
-      </td>
-    </tr>
+    <>
+      <form action={action} className="row2" style={{ gap: 6 }}>
+        <input type="hidden" name="request_id" value={request.id} />
+        <select name="response" defaultValue={request.response} style={{ maxWidth: 150 }}>
+          {RESPONSES.map((r) => (
+            <option key={r}>{r}</option>
+          ))}
+        </select>
+        <input
+          name="approved"
+          type="number"
+          step="0.25"
+          placeholder="hrs"
+          defaultValue={request.approved ?? ""}
+          style={{ maxWidth: 80 }}
+        />
+        <input
+          name="approved_date"
+          type="date"
+          defaultValue={request.approved_date ?? ""}
+          style={{ maxWidth: 150 }}
+        />
+        <button className="btn ghost" type="submit" disabled={pending}>
+          {pending ? "…" : "Save"}
+        </button>
+      </form>
+      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {!settled && request.response !== "Pending" && (
+        <div className="lock">Denied requests keep no approved hours.</div>
+      )}
+    </>
   );
 }

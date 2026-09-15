@@ -99,35 +99,22 @@ export function ActivityTab({
 
   return (
     <>
+      {/* The window and the kind are filters, so they are segmented choices rather than tabs. */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        <div className="segmented" aria-label="How far back">
           {WINDOWS.map((w) => (
-            <Link
-              key={w.days}
-              href={keep(kind, w.days)}
-              className={"chip" + (w.days === days ? " gold" : "")}
-              style={{ textDecoration: "none" }}
-            >
+            <Link key={w.days} href={keep(kind, w.days)} className={w.days === days ? "on" : ""}>
               {w.label}
             </Link>
           ))}
         </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-          <Link
-            href={keep(null, days)}
-            className={"chip" + (kind === null ? " gold" : "")}
-            style={{ textDecoration: "none" }}
-          >
+        <div className="segmented" aria-label="What kind" style={{ display: "flex", marginTop: 10 }}>
+          <Link href={keep(null, days)} className={kind === null ? "on" : ""}>
             Everything
           </Link>
           {ACTIVITY_KINDS.filter((k) => (counts.get(k) ?? 0) > 0).map((k) => (
-            <Link
-              key={k}
-              href={keep(k, days)}
-              className={"chip" + (kind === k ? " gold" : "")}
-              style={{ textDecoration: "none" }}
-            >
+            <Link key={k} href={keep(k, days)} className={kind === k ? "on" : ""}>
               {k} {counts.get(k)}
             </Link>
           ))}
@@ -154,12 +141,18 @@ export function ActivityTab({
           </p>
         </div>
       ) : (
-        [...byDay.entries()].map(([day, items]) => (
-          <div key={day} className="card" style={{ marginBottom: 10, padding: 0 }}>
-            <h3 style={{ padding: "14px 16px 0", margin: 0, fontSize: 13 }}>
+        /*
+          One container for the feed, a day to each item. The rows under a day
+          are a feed read top to bottom in time order, not a list to sort or
+          filter, so they stay a plain layout table.
+        */
+        <div className="list">
+        {[...byDay.entries()].map(([day, items]) => (
+          <div key={day} className="list-item">
+            <h3 style={{ margin: 0, fontSize: 13 }}>
               {dayOf(items[0].at)}
             </h3>
-            <table className="t">
+            <table className="t" data-layout="one day of the activity feed">
               <tbody>
                 {items.map((row) => {
                   const mail = row.kind === "Mail" ? extras.mail[row.ref_id] : undefined;
@@ -195,7 +188,8 @@ export function ActivityTab({
               </tbody>
             </table>
           </div>
-        ))
+        ))}
+        </div>
       )}
     </>
   );

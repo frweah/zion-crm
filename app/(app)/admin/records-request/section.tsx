@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 import { RequestForm } from "./request-form";
 
 /**
@@ -57,78 +58,71 @@ export default async function RecordsRequestPage() {
       <RequestForm clients={clients ?? []} today={today()} />
 
       <h3 style={{ marginTop: 22 }}>Waiting</h3>
-      {open.length === 0 ? (
-        <div className="empty">Nothing is waiting.</div>
-      ) : (
-        <div className="card" style={{ marginTop: 12 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Asked</th>
-                <th>Whose record</th>
-                <th>Who asked</th>
-                <th>Note</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {open.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.requested_on}</td>
-                  <td>{r.client_name}</td>
-                  <td>{r.requested_by}</td>
-                  <td>{r.note}</td>
-                  <td>
-                    <Link className="btn gold" href={`/admin/documents/records-request/${r.id}`}>
-                      Gather it
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="card" style={{ marginTop: 12, padding: 0 }}>
+        <DataTable
+          label="waiting requests"
+          columns={[
+            { key: "asked", label: "Asked" },
+            { key: "whose", label: "Whose record" },
+            { key: "who", label: "Who asked" },
+            { key: "note", label: "Note" },
+            { key: "open", label: "", sortable: false },
+          ]}
+          rows={open.map((r) => ({
+            key: r.id,
+            cells: {
+              asked: r.requested_on,
+              whose: r.client_name,
+              who: r.requested_by,
+              note: r.note,
+              open: (
+                <Link className="btn gold" href={`/admin/documents/records-request/${r.id}`}>
+                  Gather it
+                </Link>
+              ),
+            },
+          }))}
+          empty="Nothing is waiting."
+        />
+      </div>
 
       <h3 style={{ marginTop: 22 }}>Already gathered</h3>
-      {answered.length === 0 ? (
-        <div className="empty">Nothing has been gathered yet.</div>
-      ) : (
-        <div className="card" style={{ marginTop: 12 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Asked</th>
-                <th>Whose record</th>
-                <th>Who asked</th>
-                <th>Gathered</th>
-                <th>By</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {answered.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.requested_on}</td>
-                  <td>{r.client_name}</td>
-                  <td>{r.requested_by}</td>
-                  <td>{new Date(r.produced_at!).toLocaleDateString()}</td>
-                  <td>{r.produced_by_name}</td>
-                  <td>
-                    <Link className="btn" href={`/admin/documents/records-request/${r.id}`}>
-                      Open again
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="lock" style={{ marginBottom: 0 }}>
+      <div className="card" style={{ marginTop: 12, padding: 0 }}>
+        <DataTable
+          label="gathered requests"
+          columns={[
+            { key: "asked", label: "Asked" },
+            { key: "whose", label: "Whose record" },
+            { key: "who", label: "Who asked" },
+            { key: "gathered", label: "Gathered" },
+            { key: "by", label: "By" },
+            { key: "open", label: "", sortable: false },
+          ]}
+          rows={answered.map((r) => ({
+            key: r.id,
+            sort: { gathered: r.produced_at },
+            cells: {
+              asked: r.requested_on,
+              whose: r.client_name,
+              who: r.requested_by,
+              gathered: new Date(r.produced_at!).toLocaleDateString(),
+              by: r.produced_by_name,
+              open: (
+                <Link className="btn" href={`/admin/documents/records-request/${r.id}`}>
+                  Open again
+                </Link>
+              ),
+            },
+          }))}
+          empty="Nothing has been gathered yet."
+        />
+        {answered.length > 0 && (
+          <p className="lock" style={{ margin: 0, padding: "10px 14px 14px" }}>
             Opening one again gathers the record as it stands today, not as it stood then, and is
             logged as a fresh read.
           </p>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

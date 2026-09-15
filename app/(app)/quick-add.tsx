@@ -108,19 +108,18 @@ export function QuickAdd({
             </button>
           </div>
 
-          <div className="tabs" style={{ margin: "10px 0 0", flexWrap: "wrap" }}>
+          {/* What to add is a choice inside the box, not a move to another screen, so it is segmented rather than tabs. */}
+          <div className="segmented" role="group" aria-label="What to add" style={{ marginTop: 10 }}>
             {allowed.map((k) => (
-              <a
+              <button
                 key={k.key}
-                href="#"
-                className={k.key === kind ? "on" : ""}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setKind(k.key);
-                }}
+                type="button"
+                className={k.key === kind ? "on" : undefined}
+                aria-pressed={k.key === kind}
+                onClick={() => setKind(k.key)}
               >
                 {k.label}
-              </a>
+              </button>
             ))}
           </div>
           <p className="lock" style={{ margin: "6px 0 12px" }}>

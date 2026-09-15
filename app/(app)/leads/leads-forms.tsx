@@ -293,62 +293,62 @@ export function AddMatchForm({ leadId, clients }: { leadId: string; clients: Opt
   );
 }
 
-export function MatchRow({
+/*
+ * A client put forward for an opening is a row in the opening's table. The two
+ * parts of that row that act - its status and its placement - are cells of
+ * their own, each holding its own form and saying its own errors.
+ */
+
+export function MatchStatusControl({
+  matchId,
+  leadId,
+  status,
+}: {
+  matchId: string;
+  leadId: string;
+  status: string;
+}) {
+  const [state, action, saving] = useActionState(setMatchStatus, initial);
+
+  return (
+    <>
+      <form action={action} style={{ display: "inline-flex", gap: 6 }}>
+        <input type="hidden" name="match_id" value={matchId} />
+        <input type="hidden" name="lead_id" value={leadId} />
+        <select name="status" defaultValue={status} style={{ maxWidth: 145 }}>
+          {MATCH_STATUSES.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+        <button className="btn ghost" type="submit" disabled={saving}>
+          {saving ? "…" : "Save"}
+        </button>
+      </form>
+      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+    </>
+  );
+}
+
+export function MatchPlacementControl({
   match,
   leadId,
 }: {
   match: {
     id: string;
     client_id: string;
-    client_name: string;
     status: string;
-    applied_on: string | null;
-    interview_on: string | null;
-    decided_on: string | null;
-    notes: string;
     placement_id: string | null;
   };
   leadId: string;
 }) {
-  const [statusState, statusAction, saving] = useActionState(setMatchStatus, initial);
   const [placeState, placeAction, placing] = useActionState(createPlacementFromMatch, initial);
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <tr>
-      <td>
-        <Link href={`/clients/${match.client_id}`} style={{ color: "inherit", fontWeight: 600 }}>
-          {match.client_name}
-        </Link>
-        {match.notes && (
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>{match.notes}</div>
-        )}
-        {(statusState.error ?? placeState.error) && (
-          <div style={{ color: "var(--bad)", fontSize: 12 }}>
-            {statusState.error ?? placeState.error}
-          </div>
-        )}
-      </td>
-      <td>
-        <form action={statusAction} style={{ display: "inline-flex", gap: 6 }}>
-          <input type="hidden" name="match_id" value={match.id} />
-          <input type="hidden" name="lead_id" value={leadId} />
-          <select name="status" defaultValue={match.status} style={{ maxWidth: 145 }}>
-            {MATCH_STATUSES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-          <button className="btn ghost" type="submit" disabled={saving}>
-            {saving ? "…" : "Save"}
-          </button>
-        </form>
-      </td>
-      <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-        {match.applied_on && <div>applied {match.applied_on}</div>}
-        {match.interview_on && <div>interview {match.interview_on}</div>}
-        {match.decided_on && <div>decided {match.decided_on}</div>}
-      </td>
-      <td>
+    <>
+      {placeState.error && (
+        <div style={{ color: "var(--bad)", fontSize: 12 }}>{placeState.error}</div>
+      )}
         {match.placement_id ? (
           <Link
             href={`/clients/${match.client_id}?tab=jobs`}
@@ -387,7 +387,6 @@ export function MatchRow({
         ) : (
           <span className="lock">—</span>
         )}
-      </td>
-    </tr>
+    </>
   );
 }

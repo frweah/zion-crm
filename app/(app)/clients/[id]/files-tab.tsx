@@ -10,6 +10,7 @@ import {
   type FileState,
 } from "./files/actions";
 import { fmtStamp } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 const initial: FileState = { error: null, ok: null };
 
@@ -44,15 +45,11 @@ function fileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function FileRow({
-  clientId,
-  file,
-  canSeeRestricted,
-}: {
-  clientId: string;
-  file: AttachmentRow;
-  canSeeRestricted: boolean;
-}) {
+/**
+ * Open and Remove for one file: the only part of a file's row that acts, so it
+ * is its own cell rather than the whole row being a component.
+ */
+function FileActions({ clientId, file }: { clientId: string; file: AttachmentRow }) {
   const [openState, openAction, opening] = useActionState(getDownloadUrl, initial);
   const [delState, delAction, deleting] = useActionState(deleteAttachment, initial);
 
@@ -64,29 +61,7 @@ function FileRow({
   }
 
   return (
-    <tr>
-      <td>
-        <b>{file.filename}</b>
-        {file.restricted && (
-          <span className="chip warn" style={{ marginLeft: 6 }}>
-            restricted
-          </span>
-        )}
-        {file.note && (
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>{file.note}</div>
-        )}
-      </td>
-      <td>
-        <span className="chip">{file.category}</span>
-      </td>
-      <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-        {fileSize(file.size_bytes)}
-      </td>
-      <td style={{ fontSize: 12, color: "var(--muted)" }}>
-        {file.uploaded_by_name}
-        <div>{fmtStamp(file.created_at)}</div>
-      </td>
-      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+    <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
         <form action={openAction} style={{ display: "inline" }}>
           <input type="hidden" name="storage_path" value={file.storage_path} />
           <button className="btn ghost" type="submit" disabled={opening}>
@@ -101,12 +76,11 @@ function FileRow({
           </button>
         </form>
         {(openState.error || delState.error) && (
-          <div style={{ color: "var(--bad)", fontSize: 12 }}>
+          <div style={{ color: "var(--bad)", fontSize: 12, whiteSpace: "normal" }}>
             {openState.error ?? delState.error}
           </div>
         )}
-      </td>
-    </tr>
+    </div>
   );
 }
 
@@ -244,36 +218,55 @@ export function FilesTab({
         </form>
       </div>
 
-      {files.length === 0 ? (
-        <div className="empty">
-          No documents yet. Signed USOR forms, work schedules, authorizations and employer
-          verifications belong here rather than in a Downloads folder.
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Type</th>
-                <th>Size</th>
-                <th>Added</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {files.map((f) => (
-                <FileRow
-                  key={f.id}
-                  clientId={clientId}
-                  file={f}
-                  canSeeRestricted={canSeeRestricted}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="files"
+          columns={[
+            { key: "file", label: "File" },
+            { key: "category", label: "Type" },
+            { key: "size", label: "Size", align: "right" },
+            { key: "added", label: "Added" },
+            { key: "actions", label: "", sortable: false },
+          ]}
+          rows={files.map((f) => ({
+            key: f.id,
+            sort: {
+              file: f.filename,
+              category: f.category,
+              size: f.size_bytes,
+              added: f.created_at,
+            },
+            text: [f.filename, f.category, f.note, f.uploaded_by_name, f.restricted ? "restricted" : ""].join(" "),
+            cells: {
+              file: (
+                <>
+                  <b>{f.filename}</b>
+                  {f.restricted && (
+                    <span className="chip warn" style={{ marginLeft: 6 }}>
+                      restricted
+                    </span>
+                  )}
+                  {f.note && <div style={{ fontSize: 12, color: "var(--muted)" }}>{f.note}</div>}
+                </>
+              ),
+              category: <span className="chip">{f.category}</span>,
+              size: (
+                <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {fileSize(f.size_bytes)}
+                </span>
+              ),
+              added: (
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {f.uploaded_by_name}
+                  <div>{fmtStamp(f.created_at)}</div>
+                </span>
+              ),
+              actions: <FileActions clientId={clientId} file={f} />,
+            },
+          }))}
+          empty="No documents yet. Signed USOR forms, work schedules, authorizations and employer verifications belong here rather than in a Downloads folder."
+        />
+      </div>
     </>
   );
 }
