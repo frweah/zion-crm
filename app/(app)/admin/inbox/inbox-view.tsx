@@ -75,6 +75,7 @@ const CATEGORIES = [
   "Employer verification",
   "Work schedule",
   "Invoice",
+  "Guardianship document",
   "Other",
 ];
 

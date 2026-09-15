@@ -1,0 +1,248 @@
+{
+  "version": "v1",
+  "title": "Client Portal — Terms of Use and Privacy Notice",
+  "source_file": "Zion-Client-Portal-Terms-DRAFT.docx",
+  "text_sha256": "58157e6b9a6e1d5e33d2038f9def4d0af44489299f59a2c6d2426693a398198d",
+  "body": [
+    {
+      "type": "strong",
+      "text": "DRAFT FOR ATTORNEY REVIEW — not yet in effect"
+    },
+    {
+      "type": "p",
+      "text": "Zion Vocational Rehabilitation Center"
+    },
+    {
+      "type": "strong",
+      "text": "Client Portal — Terms of Use and Privacy Notice"
+    },
+    {
+      "type": "p",
+      "text": "Zion Vocational Rehabilitation Center is a dba of Zion Healing Academy LLC, 2880 S Main Street Ste 105, Salt Lake City, Utah 84115. Client line 385-406-3432 · service@zionvocrehab.com"
+    },
+    {
+      "type": "em",
+      "text": "Written in plain language on purpose. Reading level target: 6th grade. Each numbered section is short so it can be read on a phone. An attorney should confirm it satisfies Utah and federal VR confidentiality requirements (34 CFR 361.38) and Utah's electronic-transactions rules before it goes live."
+    },
+    {
+      "type": "h2",
+      "text": "Part 1 — Terms of Use"
+    },
+    {
+      "type": "h3",
+      "text": "1. What the portal is"
+    },
+    {
+      "type": "p",
+      "text": "The client portal is a private website where you can see your own information from Zion, send messages to your staff member, upload documents we ask for, and receive updates about your services. It is a tool to make working with us easier. It does not replace talking with us."
+    },
+    {
+      "type": "h3",
+      "text": "2. Who can use it"
+    },
+    {
+      "type": "li",
+      "text": "You, if you are a Zion client and we have invited you."
+    },
+    {
+      "type": "li",
+      "text": "A parent or legal guardian, if we have a guardianship document on file. When a guardian signs in, the portal shows that the guardian is acting for you."
+    },
+    {
+      "type": "li",
+      "text": "No one else. Please do not share your sign-in code with anyone."
+    },
+    {
+      "type": "h3",
+      "text": "3. Signing in"
+    },
+    {
+      "type": "p",
+      "text": "We do not use passwords. Each time you sign in, we send a one-time code to your phone or email. The code works once and expires. If you stop using the portal for 30 minutes, you are signed out."
+    },
+    {
+      "type": "h3",
+      "text": "4. What you agree to"
+    },
+    {
+      "type": "li",
+      "text": "To use the portal only for your own services with Zion."
+    },
+    {
+      "type": "li",
+      "text": "To keep your phone and email secure, since that is how we send your sign-in code."
+    },
+    {
+      "type": "li",
+      "text": "To tell us if you think someone else has used your account."
+    },
+    {
+      "type": "li",
+      "text": "That messages in the portal are not for emergencies. If you are in danger or need help right away, call 911. If you are thinking about harming yourself, call or text 988."
+    },
+    {
+      "type": "h3",
+      "text": "5. Messages"
+    },
+    {
+      "type": "p",
+      "text": "Messages go to your assigned Zion staff member. Zion's owner can also read messages when needed to supervise services. We usually reply within one business day. Messages become part of your service record."
+    },
+    {
+      "type": "h3",
+      "text": "6. Documents you upload"
+    },
+    {
+      "type": "p",
+      "text": "When we ask for a document (for example, a photo ID, resume, or work schedule), you can upload it in the portal. Uploaded documents are stored securely and become part of your record. Only your assigned staff member and Zion's owner can open documents that contain identification."
+    },
+    {
+      "type": "h3",
+      "text": "7. Text messages"
+    },
+    {
+      "type": "p",
+      "text": "If you agree, we will send you text reminders about appointments and short updates. Message and data rates may apply. You can stop at any time by replying STOP, or by turning texts off in the portal. We do not send texts between 8 p.m. and 8 a.m."
+    },
+    {
+      "type": "h3",
+      "text": "8. Changes and ending your access"
+    },
+    {
+      "type": "p",
+      "text": "We may update the portal and these terms. If the terms change in an important way, we will tell you in the portal. Your access ends when your services with Zion end, or if you ask us to close it. Your records are kept as described in Part 2 even after access ends."
+    },
+    {
+      "type": "h2",
+      "text": "Part 2 — Privacy Notice"
+    },
+    {
+      "type": "h3",
+      "text": "9. What information we keep"
+    },
+    {
+      "type": "li",
+      "text": "Contact details: name, address, phone, email, and your counselor's name."
+    },
+    {
+      "type": "li",
+      "text": "Service information: your goals, appointments, job applications, placements, and notes written by Zion staff."
+    },
+    {
+      "type": "li",
+      "text": "Documents you or your counselor give us, including forms from the Utah State Office of Rehabilitation (USOR)."
+    },
+    {
+      "type": "li",
+      "text": "Information needed to serve you well, which may include disability, accommodations, and health information you or your counselor share."
+    },
+    {
+      "type": "li",
+      "text": "Messages you send through the portal, and your consent choices."
+    },
+    {
+      "type": "h3",
+      "text": "10. Why we keep it"
+    },
+    {
+      "type": "p",
+      "text": "To provide your vocational rehabilitation services, to report to and bill USOR for the services it authorizes, to keep accurate records as the law and our USOR vendor agreement require, and to communicate with you."
+    },
+    {
+      "type": "h3",
+      "text": "11. Who can see it"
+    },
+    {
+      "type": "li",
+      "text": "Zion staff who work with you, only as much as their job requires. Sensitive details (such as disability and health information) are limited to your assigned staff member and Zion's owner."
+    },
+    {
+      "type": "li",
+      "text": "The Utah State Office of Rehabilitation, which authorizes and pays for your services, as required for those services."
+    },
+    {
+      "type": "li",
+      "text": "Companies that store or send our data on our behalf (secure hosting and email/text delivery). They may not use your information for their own purposes."
+    },
+    {
+      "type": "li",
+      "text": "Others only with your written permission, or when the law requires it."
+    },
+    {
+      "type": "p",
+      "text": "We do not sell your information. We do not use it for advertising."
+    },
+    {
+      "type": "h3",
+      "text": "12. How we protect it"
+    },
+    {
+      "type": "p",
+      "text": "Your information is encrypted in storage and in transit. Every time a staff member opens a sensitive part of your record, the system records who looked and when. Staff sign a data-handling agreement. When someone leaves Zion, their access ends the same day."
+    },
+    {
+      "type": "h3",
+      "text": "13. How long we keep it"
+    },
+    {
+      "type": "p",
+      "text": "We keep service records for as long as USOR and Utah law require after your case closes. Identification documents you upload (such as a photo ID) are deleted [90] days after your case closes unless USOR requires us to keep them. [Attorney to confirm periods.]"
+    },
+    {
+      "type": "h3",
+      "text": "14. Your rights"
+    },
+    {
+      "type": "li",
+      "text": "To see the information we hold about you, and to ask for a copy."
+    },
+    {
+      "type": "li",
+      "text": "To ask us to correct a mistake."
+    },
+    {
+      "type": "li",
+      "text": "To withdraw your consent to electronic communication or texts at any time."
+    },
+    {
+      "type": "li",
+      "text": "To ask questions or make a complaint. Contact us at service@zionvocrehab.com or 385-406-3432. You may also contact USOR about your services."
+    },
+    {
+      "type": "h3",
+      "text": "15. Accessibility"
+    },
+    {
+      "type": "p",
+      "text": "The portal is built to work with screen readers, keyboard-only use, and large text. If any part of it does not work for you, tell us and we will provide the same information or service another way, at no cost."
+    },
+    {
+      "type": "h2",
+      "text": "Part 3 — Your consent"
+    },
+    {
+      "type": "p",
+      "text": "By tapping \"I agree\" in the portal, you confirm that:"
+    },
+    {
+      "type": "li",
+      "text": "You have read these Terms and this Privacy Notice, or had them explained to you."
+    },
+    {
+      "type": "li",
+      "text": "You agree to receive information from Zion electronically through the portal and by email."
+    },
+    {
+      "type": "li",
+      "text": "(Optional) You agree to receive text messages from Zion at the number on your record. You can withdraw this at any time."
+    },
+    {
+      "type": "p",
+      "text": "Your agreement, the date and time, and the choices you made are recorded in your record. You can ask for a paper copy of these terms at any time."
+    },
+    {
+      "type": "em",
+      "text": "Version 0.1 — draft prepared September 2026 for attorney review."
+    }
+  ]
+}

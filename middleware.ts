@@ -29,7 +29,12 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/sms",
   "/api/agent",
+  "/portal",
 ];
+// /portal is the client portal. Its sign-in, code and terms pages are for
+// people with no session, and every page past them checks its own session
+// (lib/portal/session.ts requirePortal) - a CRM login page is the wrong place
+// to send a client.
 // /api/cron already covers the sync sweep — it arrives with a shared secret
 // and no session, because there is nobody signed in at three in the morning.
 //

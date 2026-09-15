@@ -2004,6 +2004,261 @@ export type Database = {
         };
         Relationships: [];
       };
+      portal_accounts: {
+        Row: {
+          id: string;
+          client_id: string;
+          kind: string;
+          name: string;
+          relationship: string;
+          phone: string | null;
+          email: string | null;
+          guardianship_attachment_id: string | null;
+          auth_user_id: string | null;
+          invited_by: string | null;
+          invited_by_name: string;
+          invited_at: string;
+          first_signed_in_at: string | null;
+          last_signed_in_at: string | null;
+          disabled_at: string | null;
+          disabled_by: string | null;
+          disabled_reason: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          kind: string;
+          name: string;
+          relationship?: string;
+          phone?: string | null;
+          email?: string | null;
+          guardianship_attachment_id?: string | null;
+          auth_user_id?: string | null;
+          invited_by?: string | null;
+          invited_by_name?: string;
+          invited_at?: string;
+          first_signed_in_at?: string | null;
+          last_signed_in_at?: string | null;
+          disabled_at?: string | null;
+          disabled_by?: string | null;
+          disabled_reason?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          kind?: string;
+          name?: string;
+          relationship?: string;
+          phone?: string | null;
+          email?: string | null;
+          guardianship_attachment_id?: string | null;
+          auth_user_id?: string | null;
+          invited_by?: string | null;
+          invited_by_name?: string;
+          invited_at?: string;
+          first_signed_in_at?: string | null;
+          last_signed_in_at?: string | null;
+          disabled_at?: string | null;
+          disabled_by?: string | null;
+          disabled_reason?: string;
+        };
+        Relationships: [];
+      };
+      portal_activity: {
+        Row: {
+          id: string;
+          seq: number;
+          account_id: string | null;
+          client_id: string;
+          at: string;
+          action: string;
+          detail: string;
+          ip: string;
+          acting_as: string;
+          actor_name: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          account_id?: string | null;
+          client_id: string;
+          at?: string;
+          action: string;
+          detail?: string;
+          ip?: string;
+          acting_as: string;
+          actor_name?: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          account_id?: string | null;
+          client_id?: string;
+          at?: string;
+          action?: string;
+          detail?: string;
+          ip?: string;
+          acting_as?: string;
+          actor_name?: string;
+        };
+        Relationships: [];
+      };
+      portal_consents: {
+        Row: {
+          id: string;
+          seq: number;
+          account_id: string;
+          client_id: string;
+          terms_version: string;
+          kind: string;
+          given: boolean;
+          at: string;
+          ip: string;
+          user_agent: string;
+          acting_as: string;
+          actor_name: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          account_id: string;
+          client_id: string;
+          terms_version: string;
+          kind: string;
+          given: boolean;
+          at?: string;
+          ip: string;
+          user_agent?: string;
+          acting_as: string;
+          actor_name: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          account_id?: string;
+          client_id?: string;
+          terms_version?: string;
+          kind?: string;
+          given?: boolean;
+          at?: string;
+          ip?: string;
+          user_agent?: string;
+          acting_as?: string;
+          actor_name?: string;
+        };
+        Relationships: [];
+      };
+      portal_login_codes: {
+        Row: {
+          id: string;
+          account_id: string | null;
+          code_hash: string | null;
+          channel: string;
+          created_at: string;
+          expires_at: string;
+          attempts: number;
+          used_at: string | null;
+          ip: string;
+          sent: boolean;
+          send_error: string;
+        };
+        Insert: {
+          id?: string;
+          account_id?: string | null;
+          code_hash?: string | null;
+          channel: string;
+          created_at?: string;
+          expires_at: string;
+          attempts?: number;
+          used_at?: string | null;
+          ip?: string;
+          sent?: boolean;
+          send_error?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string | null;
+          code_hash?: string | null;
+          channel?: string;
+          created_at?: string;
+          expires_at?: string;
+          attempts?: number;
+          used_at?: string | null;
+          ip?: string;
+          sent?: boolean;
+          send_error?: string;
+        };
+        Relationships: [];
+      };
+      portal_sessions: {
+        Row: {
+          id: string;
+          account_id: string;
+          auth_user_id: string;
+          created_at: string;
+          last_seen_at: string;
+          ip: string;
+          user_agent: string;
+          ended_at: string | null;
+          ended_reason: string | null;
+        };
+        Insert: {
+          id: string;
+          account_id: string;
+          auth_user_id: string;
+          created_at?: string;
+          last_seen_at?: string;
+          ip?: string;
+          user_agent?: string;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          auth_user_id?: string;
+          created_at?: string;
+          last_seen_at?: string;
+          ip?: string;
+          user_agent?: string;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      portal_terms: {
+        Row: {
+          version: string;
+          title: string;
+          source_file: string;
+          body: Json;
+          text_sha256: string;
+          published_at: string | null;
+          is_current: boolean;
+          created_at: string;
+        };
+        Insert: {
+          version: string;
+          title: string;
+          source_file: string;
+          body: Json;
+          text_sha256: string;
+          published_at?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          version?: string;
+          title?: string;
+          source_file?: string;
+          body?: Json;
+          text_sha256?: string;
+          published_at?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       rate_schedule: {
         Row: {
           id: string;
@@ -3586,6 +3841,10 @@ export type Database = {
         Args: { p_task_id: string | null; p_status: string | null; p_outcome: string | null };
         Returns: undefined;
       };
+      can_manage_portal: {
+        Args: { p_client: string | null };
+        Returns: boolean;
+      };
       can_see_restricted: {
         Args: { p_client_id: string | null };
         Returns: boolean;
@@ -3728,6 +3987,50 @@ export type Database = {
       };
       period_start: {
         Args: { d: string | null };
+        Returns: string;
+      };
+      portal_begin_session: {
+        Args: { p_ip: string | null; p_user_agent: string | null };
+        Returns: string;
+      };
+      portal_check_code: {
+        Args: { p_attempt: string | null; p_code: string | null; p_ip: string | null };
+        Returns: { result: string | null; account_id: string | null; sign_in_email: string | null }[];
+      };
+      portal_client_id: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      portal_disable_account: {
+        Args: { p_account: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
+      portal_end_my_session: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      portal_invite: {
+        Args: { p_client: string | null; p_kind: string | null; p_name: string | null; p_relationship: string | null; p_phone: string | null; p_email: string | null; p_attachment: string | null };
+        Returns: string;
+      };
+      portal_issue_code: {
+        Args: { p_identifier: string | null; p_ip: string | null };
+        Returns: { attempt_id: string | null; account_id: string | null; channel: string | null; destination: string | null; account_name: string | null; code: string | null }[];
+      };
+      portal_me: {
+        Args: Record<string, never>;
+        Returns: { account_id: string | null; kind: string | null; name: string | null; relationship: string | null; client_first_name: string | null; staff_first_name: string | null; terms_version: string | null; electronic: boolean | null; texts: boolean | null; phone_last4: string | null }[];
+      };
+      portal_record_consent: {
+        Args: { p_kind: string | null; p_given: boolean | null; p_ip: string | null; p_user_agent: string | null };
+        Returns: undefined;
+      };
+      portal_sign_out_everywhere: {
+        Args: { p_client: string | null };
+        Returns: number;
+      };
+      portal_touch_session: {
+        Args: Record<string, never>;
         Returns: string;
       };
       practice_today: {

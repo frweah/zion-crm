@@ -132,6 +132,19 @@ const RPC_FUNCTIONS = [
   "reconcile_warrant_line",
   "reconcile_warrant_page",
   "dismiss_warrant_line",
+  // The client portal. The two code functions are the server's alone.
+  "portal_issue_code",
+  "portal_check_code",
+  "portal_begin_session",
+  "portal_end_my_session",
+  "portal_touch_session",
+  "portal_record_consent",
+  "portal_me",
+  "portal_client_id",
+  "portal_invite",
+  "portal_disable_account",
+  "portal_sign_out_everywhere",
+  "can_manage_portal",
 ];
 
 const { rows: fns } = await client.query(

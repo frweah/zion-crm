@@ -18,6 +18,13 @@ import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
+import {
+  PortalPanel,
+  type PortalAccountRow,
+  type PortalConsentRow,
+  type PortalActivityRow,
+  type GuardianshipDoc,
+} from "./portal-panel";
 import { RecordActions } from "./record-actions";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
@@ -680,6 +687,11 @@ export default async function ClientPage({
     consentResult,
     textsResult,
     intakeResult,
+    portalAccountsResult,
+    portalConsentsResult,
+    portalActivityResult,
+    guardianshipResult,
+    termsResult,
   ] = await Promise.all([
     // Restricted details come through the function that writes the access
     // log. It returns an "allowed" flag rather than a null, so the panel can
@@ -703,7 +715,37 @@ export default async function ClientPage({
     openIntake
       ? supabase.rpc("read_client_intake", { p_client_id: id, p_purpose: "opened the intake record" })
       : Promise.resolve({ data: null }),
+    // The client portal: who can sign in for this client, and how that stands.
+    supabase
+      .from("portal_accounts")
+      .select(
+        "id, kind, name, relationship, phone, email, invited_at, invited_by_name, first_signed_in_at, last_signed_in_at, disabled_at, disabled_reason",
+      )
+      .eq("client_id", id)
+      .order("invited_at", { ascending: false }),
+    supabase
+      .from("portal_consents")
+      .select("account_id, kind, given, at, terms_version")
+      .eq("client_id", id)
+      .order("seq", { ascending: false }),
+    supabase
+      .from("portal_activity")
+      .select("id, at, action, detail, actor_name")
+      .eq("client_id", id)
+      .order("seq", { ascending: false })
+      .limit(8),
+    supabase
+      .from("attachments")
+      .select("id, filename, created_at")
+      .eq("client_id", id)
+      .eq("category", "Guardianship document")
+      .order("created_at", { ascending: false }),
+    supabase.from("portal_terms").select("version").eq("is_current", true).maybeSingle(),
   ]);
+
+  // The same people who may see restricted details: Admin, Intake & Client
+  // Reports, and the assigned staff member. The database checks it again.
+  const canManagePortal = canSeeRestricted;
 
   const restricted = (privateResult.data ?? [])[0] ?? null;
   const paperwork = paperworkResult.data ?? [];
@@ -807,6 +849,22 @@ export default async function ClientPage({
             texts={(textsResult.data ?? []) as TextRow[]}
             canEdit={canEdit}
           />
+
+          {(canEdit || canManagePortal) && (
+            <PortalPanel
+              clientId={id}
+              clientName={detail.name}
+              clientPhone={detail.phone ?? ""}
+              clientEmail={detail.email ?? ""}
+              accounts={(portalAccountsResult.data ?? []) as PortalAccountRow[]}
+              consents={(portalConsentsResult.data ?? []) as PortalConsentRow[]}
+              activity={(portalActivityResult.data ?? []) as PortalActivityRow[]}
+              guardianshipDocs={(guardianshipResult.data ?? []) as GuardianshipDoc[]}
+              termsVersion={termsResult.data?.version ?? null}
+              canManage={canManagePortal}
+              portalUrl={`${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`}
+            />
+          )}
         </div>
       </div>
       {overlay}

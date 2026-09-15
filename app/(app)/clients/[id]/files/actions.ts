@@ -14,6 +14,7 @@ const CATEGORIES = [
   "Signed intake",
   "Employer verification",
   "Invoice",
+  "Guardianship document",
   "Other",
 ];
 

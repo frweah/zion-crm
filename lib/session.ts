@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Role } from "@/lib/roles";
+import { isPortalLogin } from "@/lib/portal/session";
 
 export type CurrentStaff = {
   id: string;
@@ -39,7 +40,16 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
 /** Use in any page that requires a live account. */
 export async function requireStaff(): Promise<CurrentStaff> {
   const staff = await getCurrentStaff();
-  if (!staff) redirect("/no-access");
+  if (!staff) {
+    // A portal client who types a CRM address goes back to the portal, not to
+    // a page about staff accounts.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (isPortalLogin(user?.email)) redirect("/portal");
+    redirect("/no-access");
+  }
   return staff;
 }
 
