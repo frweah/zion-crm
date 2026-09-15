@@ -1,72 +1,73 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { CAN_EDIT_CLIENTS } from "@/lib/constants";
-import {
-  StageControl,
-  DetailsForm,
-  RestrictedPanel,
-  type ClientDetail,
-} from "./client-detail";
+import { CAN_EDIT_CLIENTS, CAN_EDIT_BILLING, money, periodRange, today } from "@/lib/constants";
+import { StageControl, DetailsForm, RestrictedPanel, type ClientDetail } from "./client-detail";
 import { NotesTab, type NoteRow } from "./notes-tab";
 import { AuthorizationFiles } from "./authorization-files";
-import { TasksTab, type TaskRow } from "./tasks-tab";
+import { type TaskRow } from "./tasks-tab";
 import { IntakeTab, type IntakeRow } from "./intake-tab";
 import { FormsTab, type FormRow, type AuthChoice } from "./forms-tab";
 import { FilesTab, type AttachmentRow } from "./files-tab";
 import { templatesForService } from "@/lib/form-templates";
 import { PlacementsTab, type PlacementRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
-import { CalendarTab, type EventRow, type MailRow } from "./calendar-tab";
+import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
-import { AuthorizationPayments } from "./authorization-payments";
-import { WarrantLink, recordedHow } from "../../billing/warrants/warrant-link";
-import { readPayments } from "@/lib/payments";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
+import { RecordActions } from "./record-actions";
+import { AuthorizationPayments } from "./authorization-payments";
+import { WarrantLink } from "../../billing/warrants/warrant-link";
+import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
-import { money, periodRange, today, CAN_EDIT_BILLING, jobStatusTone } from "@/lib/constants";
+import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
 
-/** Tab order follows the prototype's drawer. */
-const TABS = [
-  { key: "activity", label: "Activity", built: true },
-  { key: "overview", label: "Overview", built: true },
-  { key: "intake", label: "Intake", built: true, needsEdit: true },
-  { key: "notes", label: "Notes", built: true },
-  { key: "forms", label: "Forms", built: true },
-  { key: "files", label: "Files", built: true },
-  { key: "report", label: "Report", built: true },
-  { key: "placements", label: "Placements", built: true },
-  { key: "tasks", label: "Tasks", built: true },
-  { key: "calendar", label: "Calendar & mail", built: true },
-  { key: "authorizations", label: "Authorizations", built: true, billing: true },
-  { key: "payments", label: "Payments", built: true, billing: true },
-];
+type Params = {
+  tab?: string;
+  kind?: string;
+  anchor?: string;
+  days?: string;
+  preset?: string;
+  report?: string;
+  intake?: string;
+};
 
+/**
+ * A client's record: six tabs, and the record's actions in its header.
+ *
+ * Activity (what is coming up, then everything that happened) · Profile ·
+ * Notes · Jobs · Billing · Documents. The twelve tabs before the consolidation
+ * each live inside one of these (lib/client-tabs.ts), and an old ?tab= is
+ * redirected rather than dropped.
+ */
 export default async function ClientPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{
-    tab?: string;
-    kind?: string;
-    anchor?: string;
-    days?: string;
-    preset?: string;
-  }>;
+  searchParams: Promise<Params>;
 }) {
   const { id } = await params;
-  const {
-    tab: rawTab,
-    kind: rawKind,
-    anchor: rawAnchor,
-    days: rawDays,
-    preset: rawPreset,
-  } = await searchParams;
+  const sp = await searchParams;
+
+  // ── an old tab goes where it went ──────────────────────────
+  if (sp.tab && !isClientTab(sp.tab) && MOVED_CLIENT_TABS[sp.tab]) {
+    const moved = MOVED_CLIENT_TABS[sp.tab];
+    const qs = new URLSearchParams();
+    qs.set("tab", moved.tab);
+    for (const [k, v] of Object.entries(sp)) {
+      if (k !== "tab" && k !== "kind" && typeof v === "string" && v) qs.set(k, v);
+    }
+    // The report tab took its period as ?kind=; the dialog takes it as ?report=.
+    if (moved.report) qs.set("report", sp.kind === "Monthly" ? "Monthly" : "Weekly");
+    else if (sp.kind) qs.set("kind", sp.kind);
+    redirect(`/clients/${id}?${qs.toString()}${moved.hash ? `#${moved.hash}` : ""}`);
+  }
+
   const me = await requireStaff();
   const supabase = await createClient();
 
@@ -80,19 +81,23 @@ export default async function ClientPage({
 
   if (!client) notFound();
 
-  const canEdit = CAN_EDIT_CLIENTS.includes(me.role);
-  const isAdmin = me.role === "Admin";
-  const canSeeBilling = me.role === "Admin" || me.role === "Billing";
   const detail = client as ClientDetail;
-
-  const tabs = TABS.filter((t) => (t.billing ? canSeeBilling : true)).filter((t) =>
-    t.needsEdit ? canEdit : true,
-  );
-  const tab = tabs.some((t) => t.key === rawTab) ? rawTab! : "overview";
-  const active = tabs.find((t) => t.key === tab)!;
-
+  const canEdit = CAN_EDIT_CLIENTS.includes(me.role);
+  const canBill = CAN_EDIT_BILLING.includes(me.role);
+  const isAdmin = me.role === "Admin";
   const canSeeRestricted =
     me.role === "Admin" || me.role === "Reports" || client.assigned_staff_id === me.id;
+  const tab: ClientTab = isClientTab(sp.tab) ? sp.tab : "activity";
+
+  const [{ data: counselor }, { data: staffRows }] = await Promise.all([
+    client.counselor_id
+      ? supabase.from("counselors").select("name, email").eq("id", client.counselor_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("staff").select("id, name").eq("active", true).order("name"),
+  ]);
+  const staff = staffRows ?? [];
+  const staffName = new Map(staff.map((s) => [s.id, s.name]));
+  const assignedName = client.assigned_staff_id ? staffName.get(client.assigned_staff_id) : undefined;
 
   const header = (
     <>
@@ -102,7 +107,7 @@ export default async function ClientPage({
         </Link>
       </p>
 
-      <div className="row2" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+      <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 4 }}>
         <div>
           <h1 className="h1">
             {detail.name}
@@ -117,30 +122,77 @@ export default async function ClientPage({
             {detail.agency_id ? `USOR ID ${detail.agency_id} · ` : ""}
             {detail.funding_source}
           </p>
+          <p className="sub" style={{ margin: "4px 0 0" }}>
+            Counselor {counselor?.name || "not set"} · Assigned to {assignedName ?? "nobody"} ·{" "}
+            <span className="chip gold">{detail.stage}</span>
+          </p>
         </div>
-        <span className="chip gold">{detail.stage}</span>
+        <RecordActions clientId={id} tab={tab} staff={staff} myId={me.id} />
       </div>
 
       <nav className="tabs">
-        {tabs.map((t) => (
-          <Link
-            key={t.key}
-            href={`/clients/${id}?tab=${t.key}`}
-            className={t.key === tab ? "on" : ""}
-          >
+        {CLIENT_TABS.map((t) => (
+          <Link key={t.key} href={`/clients/${id}?tab=${t.key}`} className={t.key === tab ? "on" : ""}>
             {t.label}
-            {!t.built && " ·"}
           </Link>
         ))}
       </nav>
     </>
   );
 
+  // ── Send report, as a dialog over whichever tab is open ────
+  let overlay: React.ReactNode = null;
+  if (sp.report === "Weekly" || sp.report === "Monthly") {
+    const kind: ReportPeriod = sp.report;
+    const anchor = /^\d{4}-\d{2}-\d{2}$/.test(sp.anchor ?? "") ? sp.anchor! : today();
+    const preset = presetByKey(sp.preset);
+    const [start, end] = periodRange(kind, anchor);
+    const { text } = await buildReportText(id, kind, start, end, preset.key);
+    overlay = (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "var(--scrim)",
+          zIndex: 40,
+          overflowY: "auto",
+          padding: "5vh 16px",
+        }}
+      >
+        <div role="dialog" aria-label={`Send a progress report for ${detail.name}`} style={{ maxWidth: 880, margin: "0 auto" }}>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="row2" style={{ justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0 }}>Send report · {detail.name}</h3>
+              <Link className="btn ghost" href={`/clients/${id}?tab=${tab}`} style={{ textDecoration: "none" }}>
+                Close
+              </Link>
+            </div>
+          </div>
+          <ReportTab
+            clientId={id}
+            returnTab={tab}
+            clientName={detail.name}
+            kind={kind}
+            preset={preset.key}
+            anchor={anchor}
+            start={start}
+            end={end}
+            text={text}
+            counselorName={counselor?.name ?? ""}
+            counselorEmail={(counselor?.email ?? "").trim()}
+            canSend={canEdit}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Activity ───────────────────────────────────────────────
   if (tab === "activity") {
     // Thirty days by default, because a timeline that opens on two years of
     // history answers a question nobody asked.
-    const days = /^[0-9]+$/.test(rawDays ?? "") ? Number(rawDays) : 30;
-    const kind = ACTIVITY_KINDS.includes((rawKind ?? "") as never) ? rawKind! : null;
+    const days = /^[0-9]+$/.test(sp.days ?? "") ? Number(sp.days) : 30;
+    const kind = ACTIVITY_KINDS.includes((sp.kind ?? "") as never) ? sp.kind! : null;
 
     let query = supabase
       .from("client_activity")
@@ -148,56 +200,73 @@ export default async function ClientPage({
       .eq("client_id", id)
       .order("at", { ascending: false })
       .limit(500);
-
     if (days > 0) {
       query = query.gte("at", new Date(Date.now() - days * 86400000).toISOString());
     }
 
-    const { data: activity } = await query;
-    const all = (activity ?? []) as ActivityRow[];
+    const [{ data: activity }, { data: taskRows }, { data: eventRows }, { data: mailRows }] = await Promise.all([
+      query,
+      supabase
+        .from("tasks")
+        .select("id, title, due, status, done_at, assigned_staff_id, system_generated")
+        .eq("client_id", id)
+        .eq("status", "Open")
+        .order("due", { nullsFirst: false }),
+      supabase
+        .from("calendar_events")
+        .select(
+          "id, kind, title, starts_at, ends_at, location, origin, outlook_web_link, push_state, push_error, hours_prompt_answered_at, staff_id",
+        )
+        .eq("client_id", id)
+        .order("starts_at", { ascending: false }),
+      supabase
+        .from("mail_log")
+        .select("id, web_link, conversation_id")
+        .eq("client_id", id)
+        .order("sent_at", { ascending: false })
+        .limit(500),
+    ]);
 
+    const all = (activity ?? []) as ActivityRow[];
     // Counted before the kind filter, so the chips say how much of each there
     // is rather than how much is currently showing.
     const counts = new Map<string, number>();
     for (const row of all) counts.set(row.kind, (counts.get(row.kind) ?? 0) + 1);
 
+    const tasks: TaskRow[] = (taskRows ?? []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      due: t.due,
+      status: t.status,
+      done_at: t.done_at,
+      system_generated: t.system_generated,
+      assigned_name: t.assigned_staff_id ? (staffName.get(t.assigned_staff_id) ?? "") : "",
+    }));
+    const events = (eventRows ?? []) as EventRow[];
+
     return (
       <>
         {header}
+        <ComingUp clientId={id} tasks={tasks} events={events} myId={me.id} now={new Date().toISOString()} />
         <ActivityTab
           clientId={id}
           rows={kind ? all.filter((r) => r.kind === kind) : all}
           days={days}
           kind={kind}
           counts={counts}
+          extras={{
+            mail: Object.fromEntries(
+              (mailRows ?? []).map((m) => [m.id, { web_link: m.web_link ?? "", conversation_id: m.conversation_id ?? "" }]),
+            ),
+            events: Object.fromEntries(events.map((e) => [e.id, { outlook_web_link: e.outlook_web_link }])),
+          }}
         />
+        {overlay}
       </>
     );
   }
 
-  if (tab === "intake") {
-    // A null row here can mean either "no intake yet" or "the policy declined",
-    // so the tab is told separately whether this staff member may see one.
-    const { data: intakeRows } = await supabase.rpc("read_client_intake", {
-      p_client_id: id,
-      p_purpose: "opened the intake tab",
-    });
-    const data = (intakeRows ?? [])[0] ?? null;
-
-    return (
-      <>
-        {header}
-        <IntakeTab
-          clientId={id}
-          clientName={detail.name}
-          intake={(data as IntakeRow | null) ?? null}
-          visible={canSeeRestricted}
-          canEdit={canEdit}
-        />
-      </>
-    );
-  }
-
+  // ── Notes ──────────────────────────────────────────────────
   if (tab === "notes") {
     const [{ data }, { data: templateRows }] = await Promise.all([
       supabase
@@ -206,15 +275,11 @@ export default async function ClientPage({
         .eq("client_id", id)
         .order("ts", { ascending: false }),
       // The headings each activity type starts with. Fetched with the notes
-      // rather than on each dropdown change, so choosing a type is instant —
-      // a skeleton that arrives a moment after the cursor does is worse than
-      // no skeleton at all.
+      // rather than on each dropdown change, so choosing a type is instant.
       supabase.from("note_templates").select("note_type, body").eq("active", true),
     ]);
 
-    const templates = Object.fromEntries(
-      (templateRows ?? []).map((t) => [t.note_type, t.body]),
-    );
+    const templates = Object.fromEntries((templateRows ?? []).map((t) => [t.note_type, t.body]));
 
     // The file a note was made from. Read through RLS, so a restricted file
     // somebody may not see simply is not offered.
@@ -231,221 +296,48 @@ export default async function ClientPage({
     return (
       <>
         {header}
-        <NotesTab
-          clientId={id}
-          notes={notes}
-          myName={me.name}
-          templates={templates}
-        />
+        <NotesTab clientId={id} notes={notes} myName={me.name} templates={templates} />
+        {overlay}
       </>
     );
   }
 
-  if (tab === "calendar") {
-    const [eventsResult, mailResult] = await Promise.all([
+  // ── Jobs ───────────────────────────────────────────────────
+  if (tab === "jobs") {
+    const [{ data: jobs }, { data: employers }, { data: placements }] = await Promise.all([
       supabase
-        .from("calendar_events")
-        .select(
-          "id, kind, title, starts_at, ends_at, location, origin, outlook_web_link, push_state, push_error, hours_prompt_answered_at, staff_id",
-        )
+        .from("client_job_history")
+        .select("*")
         .eq("client_id", id)
-        .order("starts_at", { ascending: false }),
+        .order("status_rank")
+        .order("updated_at", { ascending: false }),
+      supabase.from("employers").select("id, name").order("name"),
       supabase
-        .from("mail_log")
-        .select("id, subject, sent_at, direction, counterpart_email, web_link, conversation_id")
+        .from("placements")
+        .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid")
         .eq("client_id", id)
-        .order("sent_at", { ascending: false })
-        .limit(100),
+        .order("start_date", { ascending: false, nullsFirst: false }),
     ]);
 
     return (
       <>
         {header}
-        <CalendarTab
+        {/* What we have tried, then what came of it: one timeline of the job search. */}
+        <JobsPanel
           clientId={id}
-          events={(eventsResult.data ?? []) as EventRow[]}
-          mail={(mailResult.data ?? []) as MailRow[]}
-          myId={me.id}
-          now={new Date().toISOString()}
-        />
-      </>
-    );
-  }
-
-  if (tab === "tasks") {
-    const [tasksResult, staffResult] = await Promise.all([
-      supabase
-        .from("tasks")
-        .select("id, title, due, status, done_at, assigned_staff_id, system_generated")
-        .eq("client_id", id)
-        .order("due", { nullsFirst: false }),
-      supabase.from("staff").select("id, name").eq("active", true).order("name"),
-    ]);
-
-    const staff = staffResult.data ?? [];
-    const staffName = new Map(staff.map((s) => [s.id, s.name]));
-    const tasks: TaskRow[] = (tasksResult.data ?? []).map((t) => ({
-      id: t.id,
-      title: t.title,
-      due: t.due,
-      status: t.status,
-      done_at: t.done_at,
-      system_generated: t.system_generated,
-      assigned_name: t.assigned_staff_id ? (staffName.get(t.assigned_staff_id) ?? "") : "",
-    }));
-
-    return (
-      <>
-        {header}
-        <TasksTab clientId={id} tasks={tasks} staff={staff} myId={me.id} />
-      </>
-    );
-  }
-
-  if (tab === "forms") {
-    const [formsResult, authsResult] = await Promise.all([
-      supabase
-        .from("forms")
-        .select(
-          "id, template_id, status, month, auth_id, created_at, completed_at, completed_by_name, sent_to",
-        )
-        .eq("client_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("authorizations")
-        .select("id, number, service_type, status")
-        .eq("client_id", id)
-        .order("number"),
-    ]);
-
-    const forms = (formsResult.data ?? []) as FormRow[];
-    const auths = authsResult.data ?? [];
-
-    const authChoices: AuthChoice[] = auths.map((a) => ({
-      id: a.id,
-      label: `${a.number || "(no number)"} · ${a.service_type}`,
-      serviceType: a.service_type,
-    }));
-
-    // The same test the database applies before letting an invoice be sent,
-    // shown here where the work to clear it actually happens.
-    const missingForBilling = auths
-      .filter((a) => a.status === "Open")
-      .map((a) => ({
-        authLabel: `${a.number || a.service_type}`,
-        usor: templatesForService(a.service_type)
-          .filter(
-            (t) =>
-              t.requiredForBilling &&
-              !forms.some((f) => f.auth_id === a.id && f.template_id === t.id && f.status !== "Draft"),
-          )
-          .map((t) => t.usor),
-      }))
-      .filter((m) => m.usor.length > 0);
-
-    return (
-      <>
-        {header}
-        <FormsTab
-          clientId={id}
-          forms={forms}
-          auths={authChoices}
-          missingForBilling={missingForBilling}
-        />
-      </>
-    );
-  }
-
-  if (tab === "files") {
-    // Restricted documents are filtered out by RLS, not here — a staff member
-    // without access does not learn that they exist.
-    const { data } = await supabase
-      .from("attachments")
-      .select(
-        "id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by_name, created_at",
-      )
-      .eq("client_id", id)
-      .order("created_at", { ascending: false });
-
-    return (
-      <>
-        {header}
-        <FilesTab
-          clientId={id}
-          files={(data ?? []) as AttachmentRow[]}
-          canSeeRestricted={canSeeRestricted}
-        />
-      </>
-    );
-  }
-
-  if (tab === "placements") {
-    const { data: placementsData } = await supabase
-      .from("placements")
-      .select(
-        "id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid",
-      )
-      .eq("client_id", id)
-      .order("start_date", { ascending: false, nullsFirst: false });
-
-    // Jobs tried used to sit above placements here. It is on the Overview tab
-    // now, under stage history, where "where is this person up to" and "what
-    // have we tried" get asked together.
-    return (
-      <>
-        {header}
-
-        <PlacementsTab
-          clientId={id}
-          placements={(placementsData ?? []) as PlacementRow[]}
+          jobs={(jobs ?? []) as JobRow[]}
+          employers={(employers ?? []) as { id: string; name: string }[]}
           canEdit={canEdit}
-          canBill={CAN_EDIT_BILLING.includes(me.role)}
         />
+        <h3 style={{ margin: "22px 0 8px" }}>Placements</h3>
+        <PlacementsTab clientId={id} placements={(placements ?? []) as PlacementRow[]} canEdit={canEdit} canBill={canBill} />
+        {overlay}
       </>
     );
   }
 
-  if (tab === "report") {
-    const kind: ReportPeriod = rawKind === "Monthly" ? "Monthly" : "Weekly";
-    const anchor = /^\d{4}-\d{2}-\d{2}$/.test(rawAnchor ?? "") ? rawAnchor! : today();
-    const preset = presetByKey(rawPreset);
-    const [start, end] = periodRange(kind, anchor);
-
-    // The address is read here and sent as a hidden field, then checked again
-    // against the record when the send action runs. Whose counselor this is
-    // is not a thing a browser gets to decide.
-    const [{ text }, { data: counselor }] = await Promise.all([
-      buildReportText(id, kind, start, end, preset.key),
-      detail.counselor_id
-        ? supabase
-            .from("counselors")
-            .select("name, email")
-            .eq("id", detail.counselor_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
-
-    return (
-      <>
-        {header}
-        <ReportTab
-          clientId={id}
-          clientName={detail.name}
-          kind={kind}
-          preset={preset.key}
-          anchor={anchor}
-          start={start}
-          end={end}
-          text={text}
-          counselorName={counselor?.name ?? ""}
-          counselorEmail={(counselor?.email ?? "").trim()}
-          canSend={canEdit}
-        />
-      </>
-    );
-  }
-
-  if (tab === "authorizations") {
+  // ── Billing ────────────────────────────────────────────────
+  if (tab === "billing") {
     const { data: auths } = await supabase
       .from("authorizations")
       .select(
@@ -455,34 +347,50 @@ export default async function ClientPage({
       .order("start_date", { ascending: false, nullsFirst: false });
 
     const authIds = (auths ?? []).map((a) => a.id);
-    const { data: entries } = authIds.length
-      ? await supabase
-          .from("service_entries")
-          .select("auth_id, hours, non_billable")
-          .in("auth_id", authIds)
-      : { data: [] };
+    const idsOrNone = authIds.length ? authIds : ["00000000-0000-0000-0000-000000000000"];
 
-    // The PDFs: every file on this client's record, and what the inbox read
-    // off the ones that came through it, so a file carrying one of these
-    // authorizations' numbers can be offered first.
-    const [{ data: clientFiles }, { data: readings }] = await Promise.all([
+    const [
+      { data: entries },
+      { data: clientFiles },
+      { data: readings },
+      { data: correctionRows },
+      { data: invoiceRows },
+      { data: paperworkRows },
+      payments,
+    ] = await Promise.all([
+      supabase.from("service_entries").select("auth_id, hours, non_billable").in("auth_id", idsOrNone),
+      // The PDFs: every file on this client's record, and what the inbox read
+      // off the ones that came through it, so a file carrying one of these
+      // authorizations' numbers can be offered first.
       supabase
         .from("attachments")
         .select("id, storage_path, filename, category, auth_id, created_at, review_note")
         .eq("client_id", id)
         .order("created_at", { ascending: false }),
+      supabase.from("inbox_documents").select("storage_path, parsed, proposal").eq("client_id", id).eq("kind", "Authorization"),
       supabase
-        .from("inbox_documents")
-        .select("storage_path, parsed, proposal")
+        .from("authorization_corrections")
+        .select("auth_id, at, field, was_value, new_value, reason, staff_name")
+        .in("auth_id", idsOrNone)
+        .order("at"),
+      supabase
+        .from("invoices")
+        .select("id, auth_id, number, date, amount, status, paid_date, warrant, service_type")
+        .in("auth_id", idsOrNone)
+        .order("date", { ascending: false }),
+      supabase
+        .from("client_paperwork")
+        .select("auth_number, service_type, usor, form_name, month, state, form_id, hours_logged")
         .eq("client_id", id)
-        .eq("kind", "Authorization"),
+        .order("state")
+        .order("usor"),
+      readPayments(supabase, authIds),
     ]);
 
     const readingByPath = new Map(
       (readings ?? []).map((d) => {
         const proposal = (d.proposal ?? {}) as { candidates?: { id: string }[] };
-        const fields =
-          ((d.parsed ?? {}) as { fields?: Record<string, { value: string }> }).fields ?? {};
+        const fields = ((d.parsed ?? {}) as { fields?: Record<string, { value: string }> }).fields ?? {};
         return [
           d.storage_path,
           {
@@ -494,26 +402,23 @@ export default async function ClientPage({
       }),
     );
     const unlinkedFiles = (clientFiles ?? []).filter((f) => !f.auth_id);
-    const mayConfirm = CAN_EDIT_BILLING.includes(me.role);
 
-    // An invoice PDF on an authorization shows as billed: paid when a payment
-    // for that authorization is on file, outstanding until then. And any
-    // correction made to the authorization, with its reason.
-    const idsOrNone = authIds.length ? authIds : ["00000000-0000-0000-0000-000000000000"];
-    const [{ data: paidRows }, { data: correctionRows }, payments] = await Promise.all([
-      supabase.from("invoices").select("auth_id, paid_date").in("auth_id", idsOrNone).eq("status", "Paid"),
-      supabase
-        .from("authorization_corrections")
-        .select("auth_id, at, field, was_value, new_value, reason, staff_name")
-        .in("auth_id", idsOrNone)
-        .order("at"),
-      readPayments(supabase, authIds),
-    ]);
+    // Received is invoices marked Paid; outstanding is invoices submitted to
+    // USOR (Sent) and not yet paid. The owner's definitions, 14 Sept 2026.
+    const invoices = (invoiceRows ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
+    const received = invoices.filter((i) => i.status === "Paid").reduce((t, i) => t + i.amount, 0);
+    const outstanding = invoices.filter((i) => i.status === "Sent").reduce((t, i) => t + i.amount, 0);
     const paidOn = new Map<string, string>();
-    for (const p of paidRows ?? []) {
-      const seen = paidOn.get(p.auth_id);
-      if (p.paid_date && (!seen || p.paid_date > seen)) paidOn.set(p.auth_id, p.paid_date);
+    for (const i of invoices) {
+      if (i.status !== "Paid" || !i.paid_date) continue;
+      const seen = paidOn.get(i.auth_id);
+      if (!seen || i.paid_date > seen) paidOn.set(i.auth_id, i.paid_date);
     }
+    const pageByInvoice = new Map<string, string>();
+    for (const p of payments) {
+      if (p.invoice_id && p.page_id && !pageByInvoice.has(p.invoice_id)) pageByInvoice.set(p.invoice_id, p.page_id);
+    }
+    const authNumber = new Map((auths ?? []).map((a) => [a.id, a.number]));
 
     // Hours used = what was carried over at migration plus everything logged.
     const logged = new Map<string, number>();
@@ -525,9 +430,26 @@ export default async function ClientPage({
     return (
       <>
         {header}
-        {(auths ?? []).length === 0 && (
-          <div className="empty">No authorizations on file. Add them from Billing.</div>
-        )}
+
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="row2" style={{ gap: 24, flexWrap: "wrap", alignItems: "baseline" }}>
+            <div className="stat" style={{ fontSize: 20 }}>
+              {money(received)}
+              <small>received · invoices marked Paid</small>
+            </div>
+            <div className="stat" style={{ fontSize: 20, color: outstanding > 0 ? "var(--bad)" : undefined }}>
+              {money(outstanding)}
+              <small>outstanding · submitted, not yet paid</small>
+            </div>
+            {!canBill && (
+              <span className="lock" style={{ marginLeft: "auto" }}>
+                Read-only for your role. Admin and Billing act here.
+              </span>
+            )}
+          </div>
+        </div>
+
+        {(auths ?? []).length === 0 && <div className="empty">No authorizations on file. Add them from Billing.</div>}
         {(auths ?? []).map((a) => {
           const used = Number(a.carried_used ?? 0) + (logged.get(a.id) ?? 0);
           const total = a.total_hours ? Number(a.total_hours) : null;
@@ -570,7 +492,7 @@ export default async function ClientPage({
                     end: reading?.end ?? "",
                   };
                 })}
-                canConfirm={mayConfirm}
+                canConfirm={canBill}
                 paidOn={paidOn.get(a.id) ?? null}
                 corrections={(correctionRows ?? []).filter((c) => c.auth_id === a.id)}
               />
@@ -578,193 +500,205 @@ export default async function ClientPage({
             </div>
           );
         })}
-      </>
-    );
-  }
 
-  if (tab === "payments") {
-    const { data: auths } = await supabase
-      .from("authorizations")
-      .select("id, number, service_type")
-      .eq("client_id", id);
-
-    const authIds = (auths ?? []).map((a) => a.id);
-    const authById = new Map((auths ?? []).map((a) => [a.id, a]));
-
-    // What USOR paid is the payments on record - the workbook's, those read
-    // from warrant stubs, and invoices marked paid by hand - not invoice
-    // statuses. Invoices still waiting to be paid are listed under them.
-    const payments = await readPayments(supabase, authIds);
-    const { data: unpaidRows } = authIds.length
-      ? await supabase
-          .from("invoices")
-          .select("id, auth_id, number, date, amount, status, service_type")
-          .in("auth_id", authIds)
-          .in("status", ["Draft", "Sent"])
-          .order("date", { ascending: false })
-      : { data: [] };
-    const unpaid = unpaidRows ?? [];
-    const totalPaid = payments.reduce((t, p) => t + p.amount, 0);
-
-    return (
-      <>
-        {header}
-        {payments.length === 0 && unpaid.length === 0 ? (
-          <div className="empty">No payments on record.</div>
-        ) : (
-          <>
-            <div className="card" style={{ padding: 0, overflowX: "auto", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, padding: "12px 16px" }}>
-                Total paid: <b>{money(totalPaid)}</b> across {payments.length} payment
-                {payments.length === 1 ? "" : "s"}
-              </div>
-              <table className="t">
-                <thead>
-                  <tr>
-                    <th>Paid on</th>
-                    <th>Auth #</th>
-                    <th>Service</th>
-                    <th>Amount</th>
-                    <th>Warrant</th>
-                    <th>Voucher</th>
-                    <th>Recorded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="empty">
-                        Nothing paid yet.
-                      </td>
-                    </tr>
-                  )}
-                  {payments.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.warrant_date ?? "—"}</td>
-                      <td>{authById.get(p.auth_id)?.number}</td>
-                      <td>{authById.get(p.auth_id)?.service_type}</td>
-                      <td>{money(p.amount)}</td>
-                      <td>
-                        <WarrantLink payment={p} />
-                      </td>
-                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.voucher}</td>
-                      <td className="lock">{recordedHow(p)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {unpaid.length > 0 && (
-              <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-                <h3 style={{ padding: "14px 16px 0", margin: 0 }}>Invoiced, not yet paid</h3>
-                <table className="t">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Invoice</th>
-                      <th>Service</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {unpaid.map((i) => (
-                      <tr key={i.id}>
-                        <td>{i.date}</td>
-                        <td>{i.number}</td>
-                        <td>{i.service_type || authById.get(i.auth_id)?.service_type || ""}</td>
-                        <td>{money(i.amount)}</td>
-                        <td>
-                          <span className={"chip " + (i.status === "Sent" ? "warn" : "")}>{i.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
-      </>
-    );
-  }
-
-  if (!active.built) {
-    return (
-      <>
-        {header}
-        <div className="card">
-          <h3>{active.label}</h3>
-          <p className="sub" style={{ margin: 0 }}>
-            The DWS-USOR form engine is Phase 4, together with emailing completed forms to the
-            counselor. Until then, forms are filled in and sent as they are today.
-          </p>
+        <div className="card" style={{ padding: 0, overflowX: "auto", marginTop: 14 }}>
+          <h3 style={{ padding: "14px 16px 0", margin: 0 }}>Invoices</h3>
+          <table className="t">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Invoice</th>
+                <th>Service</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Warrant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="empty">
+                    No invoices for this client.
+                  </td>
+                </tr>
+              )}
+              {invoices.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.date}</td>
+                  <td>{i.number || authNumber.get(i.auth_id)}</td>
+                  <td>{i.service_type}</td>
+                  <td>{money(i.amount)}</td>
+                  <td>
+                    <span className={"chip " + (i.status === "Paid" ? "ok" : i.status === "Sent" ? "warn" : "")}>
+                      {i.status}
+                    </span>
+                    {i.status === "Paid" && i.paid_date && <div className="lock">paid {i.paid_date}</div>}
+                  </td>
+                  <td style={{ fontSize: 12 }}>
+                    {i.status === "Paid" ? (
+                      <WarrantLink payment={{ warrant_no: i.warrant ?? "", page_id: pageByInvoice.get(i.id) ?? null }} />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        <div id="paperwork">
+          <PaperworkStrip clientId={id} rows={(paperworkRows ?? []) as PaperworkRow[]} />
+        </div>
+        {overlay}
       </>
     );
   }
 
+  // ── Documents ──────────────────────────────────────────────
+  if (tab === "documents") {
+    // Restricted documents are filtered out by RLS, not here — a staff member
+    // without access does not learn that they exist.
+    const [{ data: files }, { data: formRows }, { data: authRows }, { data: reportRows }] = await Promise.all([
+      supabase
+        .from("attachments")
+        .select("id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by_name, created_at")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("forms")
+        .select("id, template_id, status, month, auth_id, created_at, completed_at, completed_by_name, sent_to")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false }),
+      supabase.from("authorizations").select("id, number, service_type, status").eq("client_id", id).order("number"),
+      supabase
+        .from("contact_log")
+        .select("id, date, topic, outcome, staff_id")
+        .eq("client_id", id)
+        .eq("method", "Report sent")
+        .order("date", { ascending: false })
+        .limit(50),
+    ]);
+
+    const forms = (formRows ?? []) as FormRow[];
+    const authsForForms = authRows ?? [];
+    const authChoices: AuthChoice[] = authsForForms.map((a) => ({
+      id: a.id,
+      label: `${a.number || "(no number)"} · ${a.service_type}`,
+      serviceType: a.service_type,
+    }));
+    // The same test the database applies before letting an invoice be sent,
+    // shown here where the work to clear it actually happens.
+    const missingForBilling = authsForForms
+      .filter((a) => a.status === "Open")
+      .map((a) => ({
+        authLabel: `${a.number || a.service_type}`,
+        usor: templatesForService(a.service_type)
+          .filter(
+            (t) =>
+              t.requiredForBilling &&
+              !forms.some((f) => f.auth_id === a.id && f.template_id === t.id && f.status !== "Draft"),
+          )
+          .map((t) => t.usor),
+      }))
+      .filter((m) => m.usor.length > 0);
+
+    const reports = reportRows ?? [];
+
+    return (
+      <>
+        {header}
+
+        <div className="card" style={{ marginBottom: 14, padding: 0 }}>
+          <div className="row2" style={{ justifyContent: "space-between", padding: "14px 16px 0", gap: 12 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Progress reports</h3>
+              <p className="sub" style={{ margin: "4px 0 0" }}>
+                Built from notes, hours, job search, placements and counselor contacts, and emailed to
+                the counselor on the record.
+              </p>
+            </div>
+            <Link className="btn" href={`/clients/${id}?tab=documents&report=Weekly`} style={{ textDecoration: "none" }}>
+              Send report
+            </Link>
+          </div>
+          <table className="t">
+            <tbody>
+              {reports.length === 0 && (
+                <tr>
+                  <td className="empty">No report has been emailed for this client yet.</td>
+                </tr>
+              )}
+              {reports.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ width: 110 }}>{r.date}</td>
+                  <td>
+                    {r.topic}
+                    <div className="lock">{r.outcome}</div>
+                  </td>
+                  <td className="lock" style={{ textAlign: "right" }}>
+                    {r.staff_id ? (staffName.get(r.staff_id) ?? "") : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style={{ margin: "0 0 8px" }}>USOR forms</h3>
+        <FormsTab clientId={id} forms={forms} auths={authChoices} missingForBilling={missingForBilling} />
+
+        <h3 style={{ margin: "22px 0 8px" }}>Files</h3>
+        <FilesTab clientId={id} files={(files ?? []) as AttachmentRow[]} canSeeRestricted={canSeeRestricted} />
+        {overlay}
+      </>
+    );
+  }
+
+  // ── Profile ────────────────────────────────────────────────
+  // Intake is opened on request rather than with the tab: reading it is written
+  // to the access log, and a profile opened to check a phone number should not
+  // record that somebody read the client's accommodations.
+  const openIntake = canEdit && sp.intake === "1";
   const [
     privateResult,
     counselorsResult,
-    staffResult,
     officesResult,
     historyResult,
-    jobsResult,
-    employersResult,
     paperworkResult,
     consentResult,
     textsResult,
+    intakeResult,
   ] = await Promise.all([
-      // Restricted details come through the function that writes the access
-      // log, because there is no longer any other way to them. It returns an
-      // "allowed" flag rather than a null, so the panel can still tell "we do
-      // not hold this" from "this is not for you".
-      supabase.rpc("read_client_private", {
-        p_client_id: id,
-        p_purpose: "shown on the client record",
-      }),
-      supabase.from("counselors").select("id, name").order("name"),
-      supabase.from("staff").select("id, name").eq("active", true).order("name"),
-      supabase.from("offices").select("name").order("name"),
-      supabase
-        .from("client_stage_history")
-        .select("stage, at")
-        .eq("client_id", id)
-        .order("at", { ascending: false })
-        .limit(8),
-      supabase
-        .from("client_job_history")
-        .select("*")
-        .eq("client_id", id)
-        .order("status_rank")
-        .order("updated_at", { ascending: false }),
-      supabase.from("employers").select("id, name").order("name"),
-      supabase
-        .from("client_paperwork")
-        .select(
-          "auth_number, service_type, usor, form_name, month, state, form_id, hours_logged",
-        )
-        .eq("client_id", id)
-        .order("state")
-        .order("usor"),
-      supabase
-        .from("client_sms_consent")
-        .select("state, consented_phone, client_phone, method, since, can_text")
-        .eq("client_id", id)
-        .maybeSingle(),
-      supabase
-        .from("sms_messages")
-        .select("id, direction, body, kind, status, error, sent_at, created_at")
-        .eq("client_id", id)
-        .order("created_at", { ascending: false })
-        .limit(8),
-    ]);
+    // Restricted details come through the function that writes the access
+    // log. It returns an "allowed" flag rather than a null, so the panel can
+    // still tell "we do not hold this" from "this is not for you".
+    supabase.rpc("read_client_private", { p_client_id: id, p_purpose: "shown on the client record" }),
+    supabase.from("counselors").select("id, name").order("name"),
+    supabase.from("offices").select("name").order("name"),
+    supabase.from("client_stage_history").select("stage, at").eq("client_id", id).order("at", { ascending: false }).limit(8),
+    supabase.from("client_paperwork").select("state").eq("client_id", id),
+    supabase
+      .from("client_sms_consent")
+      .select("state, consented_phone, client_phone, method, since, can_text")
+      .eq("client_id", id)
+      .maybeSingle(),
+    supabase
+      .from("sms_messages")
+      .select("id, direction, body, kind, status, error, sent_at, created_at")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    openIntake
+      ? supabase.rpc("read_client_intake", { p_client_id: id, p_purpose: "opened the intake record" })
+      : Promise.resolve({ data: null }),
+  ]);
 
-  // One row or none, and "allowed" says which kind of none: a client we hold
-  // nothing for, or a file this person may not open.
   const restricted = (privateResult.data ?? [])[0] ?? null;
+  const paperwork = paperworkResult.data ?? [];
+  const blocking = paperwork.filter((p) => p.state === "Missing").length;
+  const complete = paperwork.filter((p) => p.state === "Complete").length;
+  const intake = openIntake ? ((((intakeResult.data ?? []) as unknown[])[0] ?? null) as IntakeRow | null) : null;
 
   return (
     <>
@@ -781,7 +715,7 @@ export default async function ClientPage({
           <DetailsForm
             client={detail}
             counselors={counselorsResult.data ?? []}
-            staff={staffResult.data ?? []}
+            staff={staff}
             offices={(officesResult.data ?? []).map((o) => o.name)}
             canEdit={canEdit}
             isAdmin={isAdmin}
@@ -793,6 +727,30 @@ export default async function ClientPage({
             visible={canSeeRestricted}
             canEdit={canEdit}
           />
+          {canEdit && (
+            <div id="intake">
+              {openIntake ? (
+                <IntakeTab
+                  clientId={id}
+                  clientName={detail.name}
+                  intake={intake}
+                  visible={canSeeRestricted}
+                  canEdit={canEdit}
+                />
+              ) : (
+                <div className="card">
+                  <h3>Intake</h3>
+                  <p className="sub" style={{ marginTop: 0 }}>
+                    Restricted: accommodations, emergency contact and address. Opening it is recorded
+                    in the access log.
+                  </p>
+                  <Link className="btn ghost" href={`/clients/${id}?tab=profile&intake=1#intake`} style={{ textDecoration: "none" }}>
+                    Open the intake record
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid" style={{ alignContent: "start" }}>
@@ -816,20 +774,21 @@ export default async function ClientPage({
             )}
           </div>
 
-          {/* Directly under stage history: "where is this person up to" and
-              "what have we tried" are asked in the same breath and used to be
-              two screens apart. */}
-          <JobsPanel
-            clientId={id}
-            jobs={(jobsResult.data ?? []) as JobRow[]}
-            employers={(employersResult.data ?? []) as { id: string; name: string }[]}
-            canEdit={canEdit}
-          />
-
-          <PaperworkStrip
-            clientId={id}
-            rows={(paperworkResult.data ?? []) as PaperworkRow[]}
-          />
+          {/* The paperwork itself lives on Billing, beside the authorizations it gates. */}
+          <div className="card">
+            <h3>Paperwork</h3>
+            <p className="sub" style={{ margin: 0 }}>
+              {paperwork.length === 0 ? (
+                "No open authorization needs a USOR form yet."
+              ) : (
+                <>
+                  {blocking > 0 ? <b style={{ color: "var(--bad)" }}>{blocking} blocking billing</b> : "Nothing blocking billing"}
+                  {` · ${complete} of ${paperwork.length} complete · `}
+                  <Link href={`/clients/${id}?tab=billing#paperwork`}>See it on Billing</Link>
+                </>
+              )}
+            </p>
+          </div>
 
           <TextingPanel
             clientId={id}
@@ -840,6 +799,7 @@ export default async function ClientPage({
           />
         </div>
       </div>
+      {overlay}
     </>
   );
 }

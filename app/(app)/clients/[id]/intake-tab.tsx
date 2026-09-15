@@ -43,7 +43,7 @@ export function IntakeTab({
         <h3>Intake</h3>
         <p className="lock" style={{ margin: 0 }}>
           The intake record carries accommodations, emergency contacts and address, so it is
-          limited to Admin, Intake &amp; Reports, and this client&apos;s assigned staff member.
+          limited to Admin, Intake &amp; Client Reports, and this client&apos;s assigned staff member.
         </p>
       </div>
     );

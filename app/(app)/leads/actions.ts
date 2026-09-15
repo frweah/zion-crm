@@ -255,5 +255,5 @@ export async function createPlacementFromMatch(
 
   revalidatePath(`/leads/${leadId}`);
   revalidatePath(`/clients/${match.client_id}`);
-  redirect(`/clients/${match.client_id}?tab=placements`);
+  redirect(`/clients/${match.client_id}?tab=jobs`);
 }

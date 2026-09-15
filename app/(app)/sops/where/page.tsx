@@ -26,13 +26,14 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "Let a client have appointment reminders by text",
-        where: "Texting, on their Overview — record that they agreed first",
+        where: "Texting, on their Profile — record that they agreed first",
         href: "/clients",
       },
       {
         ask: "See who is waiting at the front and how long they have waited",
         where: "Counselors → Referrals — the pipeline, with days in stage",
         href: "/referrals",
+        roles: ["Admin"],
       },
       {
         ask: "See everything that has happened to a client",
@@ -46,27 +47,27 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Write a note about a visit or a call",
-        where: "The client's Notes tab — pick the activity type and the headings appear",
+        where: "Add note, at the top of their record — pick the activity type and the headings appear",
         href: "/clients",
       },
       {
         ask: "See a client's date of birth or address",
-        where: "Overview — shown to Admin, Intake & Reports, or whoever they are assigned to",
+        where: "Profile — shown to Admin, Intake & Client Reports, or whoever they are assigned to",
         href: "/clients",
       },
       {
         ask: "Upload a signed form or a document",
-        where: "The client's Files tab",
+        where: "The client's Documents tab",
         href: "/clients",
       },
       {
         ask: "Read or send the progress report",
-        where: "The client's Report tab — four reports, emailed to the counselor and logged",
+        where: "Send report, at the top of their record — four reports, emailed to the counselor and logged",
         href: "/clients",
       },
       {
         ask: "See which USOR forms a client still owes",
-        where: "Paperwork, under the jobs on their Overview",
+        where: "Their Billing tab — the paperwork, under their authorizations",
         href: "/clients",
       },
       {
@@ -81,7 +82,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "Record a job a client has applied for",
-        where: "Jobs we have tried, under stage history on Overview",
+        where: "The client's Jobs tab — jobs we have tried, then placements",
         href: "/clients",
       },
       {
@@ -113,7 +114,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         ask: "Give a counselor or a funder a page of outcomes",
         where: "Insights → Outcomes — pick a period and print it",
         href: "/insights/outcomes",
-        roles: ["Admin", "Reports"],
+        roles: ["Admin"],
       },
       {
         ask: "See one counselor's whole caseload",
@@ -132,7 +133,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Fill in a USOR form and email it to the counselor",
-        where: "The client's Forms tab",
+        where: "The client's Documents tab — start the form, then email it from the form",
         href: "/clients",
       },
       {
@@ -267,7 +268,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Attach an authorization's PDF, or fill in its dates from it",
-        where: "The client's Authorizations tab — attach a PDF on file; blank dates fill from it",
+        where: "The client's Billing tab — attach a PDF on file; blank dates fill from it",
         href: "/clients",
         roles: ["Admin", "Billing"],
       },
@@ -300,7 +301,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Check authorized hours remaining",
-        where: "Billing, or the client's Authorizations tab",
+        where: "Billing, or the client's Billing tab",
         href: "/billing",
         roles: ["Admin", "Billing"],
       },
@@ -338,7 +339,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
         ask: "See the numbers for the month",
         where: "Reports",
         href: "/insights/reports",
-        roles: ["Admin", "Reports", "Billing"],
+        roles: ["Admin"],
       },
     ],
   },

@@ -351,7 +351,7 @@ export function MatchRow({
       <td>
         {match.placement_id ? (
           <Link
-            href={`/clients/${match.client_id}?tab=placements`}
+            href={`/clients/${match.client_id}?tab=jobs`}
             className="chip ok"
             style={{ textDecoration: "none" }}
           >

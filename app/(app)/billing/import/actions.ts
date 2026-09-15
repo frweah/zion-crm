@@ -133,5 +133,5 @@ export async function createFromImport(
   revalidatePath("/billing");
   revalidatePath("/billing/revenue");
   revalidatePath(`/clients/${clientId}`);
-  redirect(`/clients/${clientId}?tab=authorizations&added=${data.id}`);
+  redirect(`/clients/${clientId}?tab=billing&added=${data.id}`);
 }

@@ -89,7 +89,7 @@ export function PaperworkStrip({
       </table>
 
       <p className="lock" style={{ padding: "0 16px 16px" }}>
-        Fill these in on the <Link href={`/clients/${clientId}?tab=forms`}>Forms tab</Link>. An
+        Fill these in on the <Link href={`/clients/${clientId}?tab=documents`}>Documents tab</Link>. An
         invoice will not send while a form USOR requires is unfinished — that rule is in the
         database, so this strip is a reminder rather than the thing enforcing it.
       </p>

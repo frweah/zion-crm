@@ -6,7 +6,7 @@ export type Role = (typeof ROLE_NAMES)[number];
 export const ROLE_LABEL: Record<Role, string> = {
   Admin: "Admin (owner)",
   "Job Search": "Job Search",
-  Reports: "Intake & Reports",
+  Reports: "Intake & Client Reports",
   Billing: "Billing",
 };
 
@@ -71,7 +71,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Directory", href: "/counselors?tab=directory", roles: ["Admin", "Job Search", "Billing"] },
       { label: "Contact log", href: "/counselors?tab=contact", roles: ["Admin", "Job Search", "Billing"] },
       { label: "Hours requests", href: "/counselors?tab=hours", roles: ["Admin", "Job Search", "Billing"] },
-      { label: "Referrals", href: "/referrals", roles: CASEWORK },
+      // The owner's call (14 Sept 2026): every analytic is Admin's alone.
+      { label: "Referrals", href: "/referrals", roles: ADMIN },
     ],
   },
   {
@@ -94,8 +95,10 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "insights",
     label: "Insights",
     items: [
-      { label: "Reports", href: "/insights/reports", roles: ["Admin", "Reports"] },
-      { label: "Outcomes", href: "/insights/outcomes", roles: ["Admin", "Reports"] },
+      // Insights is the owner's, in full. Client progress reports and USOR forms
+      // stay with Intake & Client Reports on the client record and Billing → Forms.
+      { label: "Reports", href: "/insights/reports", roles: ADMIN },
+      { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN },
       { label: "Capacity", href: "/insights/capacity", roles: ADMIN },
     ],
   },

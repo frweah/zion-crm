@@ -43,7 +43,7 @@ export async function sendReport(
   }
   if (!to) {
     return {
-      error: "This client has no counselor email address on file. Add one on the Overview tab.",
+      error: "This client has no counselor email address on file. Add one on the Profile tab.",
       ok: null,
     };
   }

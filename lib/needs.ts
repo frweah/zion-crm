@@ -65,7 +65,7 @@ export async function loadNeed(
       title: t.title,
       detail: t.due && t.due < now ? "overdue" : "due today",
       when: t.due,
-      href: t.client_id ? `/clients/${t.client_id}?tab=tasks` : "/tasks",
+      href: t.client_id ? `/clients/${t.client_id}?tab=activity` : "/tasks",
     }));
   }
 
@@ -100,7 +100,7 @@ export async function loadNeed(
         title: `${byId.get(r.client_id)?.name ?? "A client"} — ${r.employer_name}`,
         detail: r.title,
         when: r[column],
-        href: `/clients/${r.client_id}?tab=overview`,
+        href: `/clients/${r.client_id}?tab=jobs`,
       }));
   }
 
@@ -173,7 +173,7 @@ export async function loadNeed(
     title: byId.get(clientId)?.name ?? "A client",
     detail: `${forms.length} form${forms.length === 1 ? "" : "s"} blocking billing — ${forms.join(", ")}`,
     when: null,
-    href: `/clients/${clientId}?tab=forms`,
+    href: `/clients/${clientId}?tab=billing`,
   }));
 }
 

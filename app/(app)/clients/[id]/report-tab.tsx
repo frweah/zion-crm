@@ -20,6 +20,7 @@ import { REPORT_PRESETS, type ReportPresetKey } from "@/lib/report-presets";
  */
 export function ReportTab({
   clientId,
+  returnTab,
   clientName,
   kind,
   preset,
@@ -32,6 +33,8 @@ export function ReportTab({
   canSend,
 }: {
   clientId: string;
+  /** The tab the "Send report" dialog was opened over. */
+  returnTab: string;
   clientName: string;
   kind: "Weekly" | "Monthly";
   preset: ReportPresetKey;
@@ -76,7 +79,7 @@ export function ReportTab({
   };
 
   const link = (k: string, a: string, p: string) =>
-    `/clients/${clientId}?tab=report&kind=${k}&anchor=${a}&preset=${p}`;
+    `/clients/${clientId}?tab=${returnTab}&report=${k}&anchor=${a}&preset=${p}`;
 
   return (
     <>
@@ -102,8 +105,8 @@ export function ReportTab({
 
           <form className="field" style={{ maxWidth: 200, marginBottom: 0 }}>
             Date in period
-            <input type="hidden" name="tab" value="report" />
-            <input type="hidden" name="kind" value={kind} />
+            <input type="hidden" name="tab" value={returnTab} />
+            <input type="hidden" name="report" value={kind} />
             <input
               type="date"
               name="anchor"
@@ -190,7 +193,7 @@ export function ReportTab({
             <p className="sub" style={{ marginTop: 0 }}>
               No counselor email address on this client&apos;s record, so there is nowhere to send
               it. Add one on the{" "}
-              <Link href={`/clients/${clientId}?tab=overview`}>Overview tab</Link>.
+              <Link href={`/clients/${clientId}?tab=profile`}>Profile tab</Link>.
             </p>
           ) : !confirming || sendState.ok ? (
             // Back to one button once it has gone, so the send cannot be

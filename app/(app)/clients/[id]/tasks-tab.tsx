@@ -18,7 +18,7 @@ export type TaskRow = {
 
 type Option = { id: string; name: string };
 
-function TaskToggle({ clientId, task }: { clientId: string; task: TaskRow }) {
+export function TaskToggle({ clientId, task }: { clientId: string; task: TaskRow }) {
   const [state, action, pending] = useActionState(toggleTask, initial);
   const open = task.status === "Open";
   const overdue = open && task.due && task.due < today();

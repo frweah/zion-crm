@@ -21,11 +21,18 @@ type Job = Awaited<ReturnType<typeof jobsForClient>>[number];
  * than on every page — a button that costs two queries on every screen would
  * be a strange thing to add in the name of speed.
  */
-export function QuickAdd() {
+export function QuickAdd({
+  clientId: presetClientId,
+  label,
+}: {
+  /** Opened from a client's record: that client is already chosen. */
+  clientId?: string;
+  label?: string;
+} = {}) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<QuickKind>("note");
   const [options, setOptions] = useState<Options | null>(null);
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(presetClientId ?? "");
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [employerId, setEmployerId] = useState("");
 
@@ -66,12 +73,12 @@ export function QuickAdd() {
   return (
     <>
       <button
-        className="btn gold"
+        className={presetClientId ? "btn ghost" : "btn gold"}
         type="button"
         onClick={() => setOpen(true)}
         title="Add a note, task, job, interview, placement or work session"
       >
-        + Add
+        {label ?? "+ Add"}
       </button>
 
       {open && (

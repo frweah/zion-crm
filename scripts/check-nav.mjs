@@ -17,6 +17,7 @@
  */
 import { readdir, readFile } from "node:fs/promises";
 import { NAV_GROUPS, navFor, navPath, reachableFor } from "../lib/roles.ts";
+import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -80,14 +81,14 @@ const EXPECTED = {
     "/insights/capacity", "/insights/outcomes", "/insights/reports", "/leads",
     "/paperwork", "/referrals", "/sops", "/tasks",
   ],
+  // Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026).
   "Job Search": [
     "/admin/inbox", "/billing/forms", "/clients", "/counselors", "/dashboard", "/dashboard/needs",
-    "/hours", "/leads", "/paperwork", "/referrals", "/sops", "/tasks",
+    "/hours", "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
     "/admin/inbox", "/billing/forms", "/clients", "/dashboard", "/dashboard/needs", "/hours",
-    "/insights/outcomes", "/insights/reports", "/leads", "/paperwork",
-    "/referrals", "/sops", "/tasks",
+    "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
     "/admin/exports", "/admin/inbox", "/billing", "/billing/forms", "/billing/import",
@@ -146,6 +147,41 @@ if (shadowed.length) {
   fail(`${shadowed.join(", ")} still exists as a page, so the redirect never fires`);
 } else {
   ok("and none of them is still a page, so the redirects are the only answer");
+}
+
+// ── the client record: six tabs, and no old tab lost ─────────
+// The twelve tabs before the consolidation. Each is either still a tab or
+// mapped to the one that took it in, and no link in the code still names one
+// that moved - a redirect is for bookmarks, not for our own links.
+const OLD_CLIENT_TABS = [
+  "activity", "overview", "intake", "notes", "forms", "files",
+  "report", "placements", "tasks", "calendar", "authorizations", "payments",
+];
+if (CLIENT_TABS.length > 6) fail(`the client record has ${CLIENT_TABS.length} tabs; six is the most a screen may have`);
+const unmapped = OLD_CLIENT_TABS.filter((k) => !CLIENT_TABS.some((t) => t.key === k) && !MOVED_CLIENT_TABS[k]);
+if (unmapped.length) fail(`old client tabs with nowhere to go: ${unmapped.join(", ")}`);
+
+async function sources(dir) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const url = new URL(entry.name + (entry.isDirectory() ? "/" : ""), dir);
+    if (entry.isDirectory()) out.push(...(await sources(url)));
+    else if (/\.(ts|tsx)$/.test(entry.name)) out.push(url);
+  }
+  return out;
+}
+const movedKeys = Object.keys(MOVED_CLIENT_TABS).join("|");
+const oldLink = new RegExp(String.raw`/clients/\$\{[^}]+\}\?tab=(${movedKeys})\b`);
+const staleLinks = [];
+for (const file of [
+  ...(await sources(new URL("../app/", import.meta.url))),
+  ...(await sources(new URL("../lib/", import.meta.url))),
+]) {
+  if (oldLink.test(await readFile(file, "utf8"))) staleLinks.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
+}
+if (staleLinks.length) fail(`links to a client tab that moved: ${staleLinks.join(", ")}`);
+if (CLIENT_TABS.length <= 6 && !unmapped.length && !staleLinks.length) {
+  ok(`the client record has ${CLIENT_TABS.length} tabs, every old tab redirects to one, and no link names an old tab`);
 }
 
 console.log("");

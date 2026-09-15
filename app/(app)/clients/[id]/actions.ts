@@ -101,7 +101,7 @@ export async function updateRestricted(
   if (error) {
     return {
       error:
-        "Those fields are restricted to Admin, Intake & Reports, or this client's assigned staff member.",
+        "Those fields are restricted to Admin, Intake & Client Reports, or this client's assigned staff member.",
       ok: null,
     };
   }
@@ -271,7 +271,7 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
   if (error) {
     return {
       error:
-        "The intake was not saved. This record is limited to Admin, Intake & Reports, or this client's assigned staff member.",
+        "The intake was not saved. This record is limited to Admin, Intake & Client Reports, or this client's assigned staff member.",
       ok: null,
     };
   }

@@ -62,7 +62,7 @@ export async function recordAttachment(
     await supabase.storage.from("client-files").remove([storagePath]);
     return {
       error: restricted
-        ? "Restricted documents can only be added by Admin, Intake & Reports, or this client's assigned staff member. The file was not kept."
+        ? "Restricted documents can only be added by Admin, Intake & Client Reports, or this client's assigned staff member. The file was not kept."
         : error.message,
       ok: null,
     };

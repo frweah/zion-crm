@@ -128,7 +128,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
                         {c.rows.map((r) => (
                           <tr key={r.auth_id}>
                             <td className="lock">
-                              <Link href={`/clients/${id}?tab=authorizations`}>{r.auth_number || "(no number)"}</Link> · {r.service_type} · {r.status}
+                              <Link href={`/clients/${id}?tab=billing`}>{r.auth_number || "(no number)"}</Link> · {r.service_type} · {r.status}
                             </td>
                             <td className="lock" style={{ textAlign: "right" }}>{money(Number(r.authorized ?? 0))}</td>
                             <td className="lock" style={{ textAlign: "right" }}>{money(Number(r.invoiced ?? 0))}</td>

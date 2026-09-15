@@ -63,7 +63,7 @@ export async function addClient(
       .insert({ client_id: client.id, dob });
     if (dobError) {
       dobWarning =
-        " The date of birth was not saved — that field is limited to Admin, Intake & Reports, or the assigned staff member.";
+        " The date of birth was not saved — that field is limited to Admin, Intake & Client Reports, or the assigned staff member.";
     }
   }
 

@@ -70,7 +70,7 @@ export default async function FormPage({
   return (
     <>
       <p className="sub" style={{ marginBottom: 8 }}>
-        <Link href={`/clients/${id}?tab=forms`} style={{ color: "var(--teal)" }}>
+        <Link href={`/clients/${id}?tab=documents`} style={{ color: "var(--teal)" }}>
           ← {client?.name ?? "Client"} · Forms
         </Link>
       </p>

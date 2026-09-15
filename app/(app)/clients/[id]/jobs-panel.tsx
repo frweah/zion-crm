@@ -173,7 +173,7 @@ function JobRowEditor({ job, clientId }: { job: JobRow; clientId: string }) {
           <CreatePlacement matchId={job.match_id} />
         )}
         {job.placement_id && (
-          <Link className="chip ok" href={`/clients/${clientId}?tab=placements`}>
+          <Link className="chip ok" href={`/clients/${clientId}?tab=jobs`}>
             placed
           </Link>
         )}{" "}

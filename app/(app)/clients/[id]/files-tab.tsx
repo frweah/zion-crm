@@ -228,7 +228,7 @@ export function FilesTab({
                 style={{ width: "auto", marginRight: 8 }}
                 disabled={!canSeeRestricted}
               />
-              Restricted — limit to Admin, Intake &amp; Reports, and the assigned staff member
+              Restricted — limit to Admin, Intake &amp; Client Reports, and the assigned staff member
             </label>
             <button className="btn gold" type="submit" disabled={uploading}>
               {uploading ? "Uploading…" : "Attach"}

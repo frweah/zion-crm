@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { clientTabFor } from "@/lib/client-tabs";
+import { ExcludeThread } from "./calendar-tab";
 
 export type ActivityRow = {
   at: string;
@@ -10,11 +12,18 @@ export type ActivityRow = {
   ref_id: string;
 };
 
+/** What a feed row can act on, beyond opening where it lives. */
+export type FeedExtras = {
+  mail: Record<string, { web_link: string; conversation_id: string }>;
+  events: Record<string, { outlook_web_link: string | null }>;
+};
+
 /** The kinds, in the order the chips are shown. */
 export const ACTIVITY_KINDS = [
   "Note",
   "Job",
   "Interview",
+  "Follow-up",
   "Task",
   "Form",
   "Counselor",
@@ -23,6 +32,7 @@ export const ACTIVITY_KINDS = [
   "Retention",
   "Appointment",
   "Mail",
+  "Text",
   "Hours",
   "Payment",
 ] as const;
@@ -34,17 +44,20 @@ const WINDOWS = [
   { days: 0, label: "Everything" },
 ];
 
+const JOB_KINDS = new Set(["Job", "Interview", "Follow-up"]);
+
 /**
  * Where an item goes when you click it.
  *
- * Most things live on a tab of this client's record. Counselor contacts do
- * not — they are kept against the counselor, on their own screen — so that one
- * leaves the client record rather than pretending to a tab that does not
- * exist.
+ * Most things live on a tab of this client's record. The feed was written
+ * against the twelve tabs, so its tab names are mapped to the six that took
+ * them in; a job's dates live on Jobs, not Profile. Counselor contacts are
+ * kept against the counselor, on their own screen.
  */
 function hrefFor(clientId: string, row: ActivityRow): string {
   if (row.tab === "counselors") return "/counselors";
-  return `/clients/${clientId}?tab=${row.tab}`;
+  const tab = JOB_KINDS.has(row.kind) ? "jobs" : clientTabFor(row.tab);
+  return `/clients/${clientId}?tab=${tab}`;
 }
 
 const dayOf = (iso: string) =>
@@ -61,12 +74,14 @@ export function ActivityTab({
   days,
   kind,
   counts,
+  extras,
 }: {
   clientId: string;
   rows: ActivityRow[];
   days: number;
   kind: string | null;
   counts: Map<string, number>;
+  extras: FeedExtras;
 }) {
   const base = `/clients/${clientId}?tab=activity`;
   const keep = (k: string | null, d: number) =>
@@ -119,8 +134,7 @@ export function ActivityTab({
         </div>
 
         <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
-          Everything already recorded elsewhere, in one order. Nothing is entered here — each item
-          opens where it lives.
+          Everything already recorded elsewhere, in one order. Each item opens where it lives.
         </p>
       </div>
 
@@ -147,24 +161,37 @@ export function ActivityTab({
             </h3>
             <table className="t">
               <tbody>
-                {items.map((row) => (
-                  <tr key={`${row.kind}-${row.ref_id}-${row.at}`}>
-                    <td style={{ width: 110, verticalAlign: "top" }}>
-                      <span className="chip">{row.kind}</span>
-                    </td>
-                    <td>
-                      <Link href={hrefFor(clientId, row)} style={{ fontWeight: 600 }}>
-                        {row.title}
-                      </Link>
-                      {row.detail && (
-                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                          {row.detail.length > 240 ? row.detail.slice(0, 240) + "…" : row.detail}
-                        </div>
-                      )}
-                      {row.who && <div className="lock">{row.who}</div>}
-                    </td>
-                  </tr>
-                ))}
+                {items.map((row) => {
+                  const mail = row.kind === "Mail" ? extras.mail[row.ref_id] : undefined;
+                  const event = row.kind === "Appointment" ? extras.events[row.ref_id] : undefined;
+                  const outlook = mail?.web_link || event?.outlook_web_link || "";
+                  return (
+                    <tr key={`${row.kind}-${row.ref_id}-${row.at}`}>
+                      <td style={{ width: 110, verticalAlign: "top" }}>
+                        <span className="chip">{row.kind}</span>
+                      </td>
+                      <td>
+                        <Link href={hrefFor(clientId, row)} style={{ fontWeight: 600 }}>
+                          {row.title}
+                        </Link>
+                        {row.detail && (
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                            {row.detail.length > 240 ? row.detail.slice(0, 240) + "…" : row.detail}
+                          </div>
+                        )}
+                        {row.who && <div className="lock">{row.who}</div>}
+                      </td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>
+                        {outlook && (
+                          <a className="btn ghost" href={outlook} target="_blank" rel="noopener noreferrer">
+                            Open in Outlook
+                          </a>
+                        )}{" "}
+                        {mail && <ExcludeThread conversationId={mail.conversation_id} />}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -6,8 +6,9 @@
 --   warrant, saying what was paid on which authorization and warrant, and
 --   opening the client's Payments tab.
 --
---   Only Admin and Billing see it there. The timeline is open to every staff
---   member; what USOR paid is not.
+--   Every role sees it (owner's decision, 14 Sept 2026: the client's Billing
+--   tab is open read-only to Job Search and Intake & Client Reports, so what
+--   USOR paid is no longer kept from them on the timeline).
 --
 -- Runs inside a transaction that is rolled back. Nothing here is left behind.
 
@@ -53,15 +54,15 @@ begin
     raise notice 'ok  a payment is on the timeline, dated by its warrant, naming the amount, authorization and warrant';
   end if;
 
-  -- ── Job Search does not ────────────────────────────────────
+  -- ── and so does Job Search ─────────────────────────────────
   if v_js is null then
     raise notice 'skip  no active Job Search staff member to try the timeline as';
   else
     perform set_config('request.jwt.claims', json_build_object('sub', v_js_uid, 'role', 'authenticated')::text, true);
-    if exists (select 1 from public.client_activity where client_id = v_client and kind = 'Payment') then
-      failures := failures || 'FAILED: Job Search sees what USOR paid on the client timeline'::text;
+    if not exists (select 1 from public.client_activity where client_id = v_client and kind = 'Payment') then
+      failures := failures || 'FAILED: Job Search does not see the payment on the client timeline'::text;
     else
-      raise notice 'ok  only Admin and Billing see payments on the timeline';
+      raise notice 'ok  every role sees payments on the timeline, as on the client''s Billing tab';
     end if;
   end if;
 

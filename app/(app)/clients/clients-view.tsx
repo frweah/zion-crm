@@ -112,7 +112,7 @@ export function AddClientPanel({
             </div>
 
             <p className="lock" style={{ margin: "10px 0 0" }}>
-              Date of birth is a restricted field — visible only to Admin, Intake &amp; Reports,
+              Date of birth is a restricted field — visible only to Admin, Intake &amp; Client Reports,
               and the assigned staff member.
             </p>
 

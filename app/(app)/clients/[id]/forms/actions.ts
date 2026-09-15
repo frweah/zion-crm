@@ -47,7 +47,7 @@ export async function createForm(_prev: FormState, formData: FormData): Promise<
   if (error) {
     return {
       error: tpl.sensitive
-        ? "This form holds restricted content, so it is limited to Admin, Intake & Reports, or this client's assigned staff member."
+        ? "This form holds restricted content, so it is limited to Admin, Intake & Client Reports, or this client's assigned staff member."
         : error.message,
       ok: null,
     };
