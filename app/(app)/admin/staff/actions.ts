@@ -49,7 +49,7 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
     redirectTo: `${site}/auth/confirm`,
   });
 
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
 
   if (inviteError) {
     return {
@@ -75,7 +75,7 @@ export async function resendInvite(_prev: StaffState, formData: FormData): Promi
     redirectTo: `${site}/auth/confirm`,
   });
 
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
   return error ? { error: error.message, ok: null } : { error: null, ok: `Invite resent to ${email}.` };
 }
 
@@ -137,7 +137,7 @@ export async function setStaffActive(
     });
   }
 
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
   return {
     error: null,
     ok: `${row?.name ?? "Account"} ${active ? "reactivated" : "deactivated — access removed"}.`,
@@ -192,7 +192,7 @@ export async function offboardStaff(
     await admin.auth.admin.updateUserById(row.user_id, { ban_duration: "876000h" });
   }
 
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
   revalidatePath("/clients");
   revalidatePath("/insights/capacity");
 

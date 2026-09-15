@@ -131,7 +131,7 @@ export async function createFromImport(
   if (error) return { ...emptyImport, error: error.message };
 
   revalidatePath("/billing");
-  revalidatePath("/billing/revenue");
+  revalidatePath("/insights/money");
   revalidatePath(`/clients/${clientId}`);
   redirect(`/clients/${clientId}?tab=billing&added=${data.id}`);
 }

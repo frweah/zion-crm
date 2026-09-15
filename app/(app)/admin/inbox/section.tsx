@@ -61,7 +61,7 @@ export default async function InboxPage() {
       <p className="sub">
         Everything the agent has found in the client folders, waiting for somebody to say what it
         is. Warrant stubs in the _Warrants folder never come here: they are read line by line on{" "}
-        <Link href="/billing/warrants">Billing → Warrants</Link>
+        <Link href="/billing?tab=invoices#warrant-review">Billing → Invoices</Link>
       </p>
 
       <div className="card" style={{ margin: "14px 0" }}>

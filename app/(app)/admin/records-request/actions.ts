@@ -52,6 +52,6 @@ export async function logRequest(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/records-request");
+  revalidatePath("/admin/documents");
   return { error: null, ok: "Logged. Open it to gather the record." };
 }

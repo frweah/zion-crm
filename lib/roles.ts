@@ -28,14 +28,14 @@ export type NavGroup = {
  *
  * It was a flat list of nineteen links, which is the shape a system takes when
  * screens are added one at a time and nobody stops to say what belongs with
- * what. Nineteen is past the point where anybody reads it — people learn three
- * or four positions and use the rest by search.
+ * what. Grouping it was the first pass; the consolidation (September 2026) was
+ * the second: one home per fact, no more than six tabs to a screen, reports in
+ * Insights and settings in Admin → System. Every path that moved redirects
+ * (next.config.mjs), and scripts/check-nav.mjs holds each role to the screens
+ * it should reach.
  *
- * Roles are declared once, on the item. The old shape repeated every item name
- * across four per-role arrays, and the failure it invited is the one that
- * happened: three of the screens added in Phase 8 were listed for Admin and
- * quietly missing for everybody else until somebody noticed. A group shows if
- * any of its items do, so nothing has to be kept in step by hand.
+ * Roles are declared once, on the item. A group shows if any of its items do,
+ * so nothing has to be kept in step by hand.
  */
 const EVERYONE = undefined;
 const ADMIN: Role[] = ["Admin"];
@@ -46,17 +46,15 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: "dashboard",
     label: "Dashboard",
-    items: [
-      { label: "Today", href: "/dashboard", roles: EVERYONE },
-      { label: "Needs attention", href: "/dashboard/needs", roles: EVERYONE },
-    ],
+    // One page. The counters open their lists at /dashboard/needs.
+    items: [{ label: "Dashboard", href: "/dashboard", roles: EVERYONE }],
   },
   {
     key: "clients",
     label: "Clients",
     items: [
       { label: "Clients", href: "/clients", roles: EVERYONE },
-      { label: "Job leads", href: "/leads", roles: EVERYONE },
+      { label: "Jobs", href: "/leads", roles: EVERYONE },
     ],
   },
   {
@@ -71,8 +69,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Directory", href: "/counselors?tab=directory", roles: ["Admin", "Job Search", "Billing"] },
       { label: "Contact log", href: "/counselors?tab=contact", roles: ["Admin", "Job Search", "Billing"] },
       { label: "Hours requests", href: "/counselors?tab=hours", roles: ["Admin", "Job Search", "Billing"] },
-      // The owner's call (14 Sept 2026): every analytic is Admin's alone.
-      { label: "Referrals", href: "/referrals", roles: ADMIN },
     ],
   },
   {
@@ -81,25 +77,21 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Authorizations", href: "/billing?tab=authorizations", roles: BILLS },
       { label: "Service log", href: "/billing?tab=log", roles: BILLS },
-      { label: "Completions", href: "/billing?tab=completions", roles: BILLS },
       { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS },
-      { label: "Rate schedule", href: "/billing?tab=rates", roles: BILLS },
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
-      { label: "Read a PDF", href: "/billing/import", roles: BILLS },
-      { label: "Revenue", href: "/billing/revenue", roles: BILLS },
-      { label: "Paid & outstanding", href: "/billing/position", roles: BILLS },
-      { label: "Warrants", href: "/billing/warrants", roles: BILLS },
     ],
   },
   {
     key: "insights",
     label: "Insights",
+    // The owner's alone, in full (14 Sept 2026). Client progress reports and
+    // USOR forms stay with staff on the client record and Billing → Forms.
     items: [
-      // Insights is the owner's, in full. Client progress reports and USOR forms
-      // stay with Intake & Client Reports on the client record and Billing → Forms.
-      { label: "Reports", href: "/insights/reports", roles: ADMIN },
+      { label: "Money", href: "/insights/money", roles: ADMIN },
+      { label: "Referrals", href: "/insights/referrals", roles: ADMIN },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN },
       { label: "Capacity", href: "/insights/capacity", roles: ADMIN },
+      { label: "KPIs", href: "/insights/reports", roles: ADMIN },
     ],
   },
   {
@@ -115,15 +107,12 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "admin",
     label: "Admin",
     items: [
-      { label: "Staff", href: "/admin/staff", roles: ADMIN },
-      { label: "Contractors", href: "/admin/contractors", roles: ADMIN },
-      { label: "Monthly export", href: "/admin/exports", roles: BILLS },
-      { label: "Document inbox", href: "/admin/inbox", roles: ["Admin", "Billing", "Job Search", "Reports"] },
-      { label: "Note headings", href: "/admin/note-templates", roles: ADMIN },
-      { label: "Access log", href: "/admin/access", roles: ADMIN },
-      { label: "Retention", href: "/admin/retention", roles: ADMIN },
-      { label: "Records requests", href: "/admin/records-request", roles: ADMIN },
-      { label: "Settings", href: "/admin/settings", roles: ADMIN },
+      { label: "People", href: "/admin/people", roles: ADMIN },
+      // The document inbox is everybody's; retention and records requests on
+      // the same page are Admin's, and the page shows them to Admin only.
+      { label: "Documents", href: "/admin/documents", roles: EVERYONE },
+      // Billing reaches System for the monthly export; the rest is Admin's.
+      { label: "System", href: "/admin/system", roles: BILLS },
     ],
   },
 ];
@@ -139,7 +128,7 @@ export function navPath(href: string): string {
  *
  * Several screens are one path told apart by ?tab= (Billing's Authorizations,
  * Service log, Invoices...). Matching the path alone marked every one of them
- * current at once. So: the most specific path wins (/billing/revenue over
+ * current at once. So: the most specific path wins (/billing/forms over
  * /billing); among items on the same path, the one whose tab matches; with no
  * tab, or one nobody lists, the page's own default - its first tab.
  */

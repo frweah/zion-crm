@@ -104,7 +104,7 @@ export async function uploadStaffDocument(
   }
 
   revalidatePath("/paperwork");
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
   return { error: null, ok: `${cat.label} added.` };
 }
 
@@ -188,6 +188,6 @@ export async function deleteStaffDocument(
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/paperwork");
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
   return { error: null, ok: `${file.filename} removed.` };
 }

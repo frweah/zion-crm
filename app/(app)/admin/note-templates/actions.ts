@@ -45,7 +45,7 @@ export async function saveNoteTemplate(
       .eq("note_type", noteType);
     if (error) return { error: error.message, ok: null };
 
-    revalidatePath("/admin/note-templates");
+    revalidatePath("/admin/system");
     return { error: null, ok: `${noteType} notes now start with an empty box.` };
   }
 
@@ -55,7 +55,7 @@ export async function saveNoteTemplate(
   );
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/note-templates");
+  revalidatePath("/admin/system");
   revalidatePath("/clients", "layout");
   return { error: null, ok: `Saved. New ${noteType.toLowerCase()} notes start with this.` };
 }

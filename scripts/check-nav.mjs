@@ -68,33 +68,39 @@ if (orphans.length) {
 // Written out as paths rather than counted, because a count is satisfied by
 // losing one screen and gaining another. This is the list the regrouping was
 // not supposed to change, plus the two screens that did not exist before it.
+// The consolidation (Sept 2026) put these on fewer sidebar entries, so the
+// paths listed here are the entries; screens under them (/dashboard/needs,
+// /billing/import, /billing/warrants, a records request) are reached through
+// them. Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026).
 const EXPECTED = {
   Admin: [
-    "/admin/access", "/admin/contractors", "/admin/exports", "/admin/inbox",
-    "/admin/note-templates",
-    "/admin/retention",
-    "/admin/records-request",
-    "/admin/settings", "/admin/staff",
-    "/billing", "/billing/forms", "/billing/import", "/billing/position", "/billing/revenue",
-    "/billing/warrants",
-    "/clients", "/counselors", "/dashboard", "/dashboard/needs", "/hours",
-    "/insights/capacity", "/insights/outcomes", "/insights/reports", "/leads",
-    "/paperwork", "/referrals", "/sops", "/tasks",
+    "/admin/documents", "/admin/people", "/admin/system",
+    "/billing", "/billing/forms",
+    "/clients", "/counselors", "/dashboard", "/hours",
+    "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
+    "/leads", "/paperwork", "/sops", "/tasks",
   ],
-  // Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026).
   "Job Search": [
-    "/admin/inbox", "/billing/forms", "/clients", "/counselors", "/dashboard", "/dashboard/needs",
+    "/admin/documents", "/billing/forms", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
-    "/admin/inbox", "/billing/forms", "/clients", "/dashboard", "/dashboard/needs", "/hours",
+    "/admin/documents", "/billing/forms", "/clients", "/dashboard", "/hours",
     "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
-    "/admin/exports", "/admin/inbox", "/billing", "/billing/forms", "/billing/import",
-    "/billing/position", "/billing/revenue", "/billing/warrants", "/clients", "/counselors", "/dashboard",
-    "/dashboard/needs", "/hours", "/leads", "/paperwork", "/sops",
+    "/admin/documents", "/admin/system", "/billing", "/billing/forms", "/clients", "/counselors", "/dashboard",
+    "/hours", "/leads", "/paperwork", "/sops",
   ],
+};
+
+// Screens a role must still reach, now that they sit under a sidebar entry
+// rather than on one of their own.
+const STILL_REACHED = {
+  Admin: ["/dashboard/needs", "/billing/import", "/billing/warrants", "/admin/documents/records-request/x"],
+  Billing: ["/dashboard/needs", "/billing/import", "/billing/warrants"],
+  "Job Search": ["/dashboard/needs"],
+  Reports: ["/dashboard/needs"],
 };
 
 for (const [role, expected] of Object.entries(EXPECTED)) {
@@ -104,7 +110,13 @@ for (const [role, expected] of Object.entries(EXPECTED)) {
   if (gained.length) fail(`${role} has gained ${gained.join(", ")} — deliberate?`);
   if (lost.length) fail(`${role} can no longer reach ${lost.join(", ")}`);
 }
-if (!problems.length) ok("each role reaches exactly the screens it reached before");
+for (const [role, paths] of Object.entries(STILL_REACHED)) {
+  for (const p of paths) {
+    const inside = reachableFor(role).some((i) => p === navPath(i.href) || p.startsWith(navPath(i.href) + "/"));
+    if (!inside) fail(`${role} can no longer reach ${p}`);
+  }
+}
+if (!problems.length) ok("each role reaches exactly the screens it should, and the screens under them");
 
 // Nobody sees a group with nothing in it.
 for (const role of ["Admin", "Job Search", "Reports", "Billing"]) {
@@ -116,10 +128,18 @@ ok("no role sees a group with nothing in it");
 
 // Billing must not reach the screens that are not theirs.
 const billing = reachableFor("Billing").map((i) => navPath(i.href));
-for (const forbidden of ["/admin/staff", "/insights/capacity", "/tasks"]) {
+for (const forbidden of ["/admin/people", "/insights/capacity", "/insights/money", "/tasks"]) {
   if (billing.includes(forbidden)) fail(`Billing can reach ${forbidden}`);
 }
-ok("Billing still cannot reach staff, capacity or tasks");
+ok("Billing still cannot reach people, Insights or tasks");
+
+// Insights is Admin's alone.
+for (const role of ["Job Search", "Reports", "Billing"]) {
+  const theirs = reachableFor(role).map((i) => navPath(i.href));
+  const leak = theirs.filter((p) => p.startsWith("/insights"));
+  if (leak.length) fail(`${role} can reach ${leak.join(", ")}, which is Admin's alone`);
+}
+ok("Insights is reachable by Admin only");
 
 // ── everything that moved still answers ──────────────────────
 const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
@@ -133,6 +153,19 @@ const MOVED = [
   "/staff",
   "/contractors",
   "/exports",
+  // the consolidation, September 2026
+  "/referrals",
+  "/billing/revenue",
+  "/billing/position",
+  "/admin/staff",
+  "/admin/contractors",
+  "/admin/inbox",
+  "/admin/retention",
+  "/admin/records-request",
+  "/admin/settings",
+  "/admin/note-templates",
+  "/admin/access",
+  "/admin/exports",
 ];
 const missing = MOVED.filter((old) => !config.includes(`"${old}"`));
 if (missing.length) {

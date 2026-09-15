@@ -54,7 +54,7 @@ export async function mapFolder(_prev: InboxState, formData: FormData): Promise<
       .is("client_id", null);
   }
 
-  revalidatePath("/admin/inbox");
+  revalidatePath("/admin/documents");
   return {
     error: null,
     ok: notAClient
@@ -92,7 +92,7 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
   // Checked before anything is written, so a stub never lands on a client's
   // record as a filed copy while the database refuses to close it here.
   if (doc.kind === "Warrant") {
-    return { error: "A warrant stub is read on Billing → Warrants, not filed from the inbox.", ok: null };
+    return { error: "A warrant stub is read on Billing → Invoices, where every line is checked; it is not filed from the inbox.", ok: null };
   }
   if (!doc.client_id) return { error: "Say whose folder it is first.", ok: null };
 
@@ -122,7 +122,7 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
     })
     .eq("id", id);
 
-  revalidatePath("/admin/inbox");
+  revalidatePath("/admin/documents");
   revalidatePath(`/clients/${doc.client_id}`);
   return { error: null, ok: `Filed against the client as ${category}.` };
 }
@@ -152,7 +152,7 @@ export async function ignoreDocument(_prev: InboxState, formData: FormData): Pro
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/inbox");
+  revalidatePath("/admin/documents");
   return { error: null, ok: "Set aside. The file stays where it is on the machine." };
 }
 
@@ -194,7 +194,7 @@ export async function linkNamedDocument(_prev: InboxState, formData: FormData): 
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/inbox");
+  revalidatePath("/admin/documents");
   revalidatePath("/clients", "layout");
   return {
     error: null,
@@ -234,7 +234,7 @@ export async function replacePlaceholder(_prev: InboxState, formData: FormData):
   if (error) return { error: error.message, ok: null };
 
   const row = Array.isArray(data) ? data[0] : null;
-  revalidatePath("/admin/inbox");
+  revalidatePath("/admin/documents");
   revalidatePath("/billing");
   revalidatePath("/clients", "layout");
   return {
@@ -296,7 +296,7 @@ export async function confirmAuthorization(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/inbox");
+  revalidatePath("/admin/documents");
   revalidatePath("/billing");
   revalidatePath("/clients", "layout");
   return { error: null, ok: describeConfirmation(Array.isArray(data) ? data[0] : null) };

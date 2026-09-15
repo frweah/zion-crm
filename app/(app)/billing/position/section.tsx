@@ -94,10 +94,10 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
       </div>
 
       <div className="row2" style={{ gap: 8, marginBottom: 10 }}>
-        <Link className={"btn " + (owedOnly ? "ghost" : "")} href="/billing/position">
+        <Link className={"btn " + (owedOnly ? "ghost" : "")} href="/billing?tab=invoices#paid-and-outstanding">
           All clients
         </Link>
-        <Link className={"btn " + (owedOnly ? "" : "ghost")} href="/billing/position?show=outstanding">
+        <Link className={"btn " + (owedOnly ? "" : "ghost")} href="/billing?tab=invoices&show=outstanding#paid-and-outstanding">
           Only clients with money outstanding
         </Link>
       </div>

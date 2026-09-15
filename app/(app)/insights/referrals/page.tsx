@@ -305,10 +305,10 @@ export default async function ReferralsPage({
               </p>
             </div>
             <div className="tabs" style={{ margin: 0, borderBottom: 0 }}>
-              <Link href="/referrals?show=front" className={show === "front" ? "on" : ""}>
+              <Link href="/insights/referrals?show=front" className={show === "front" ? "on" : ""}>
                 Front of the pipeline
               </Link>
-              <Link href="/referrals?show=all" className={show === "all" ? "on" : ""}>
+              <Link href="/insights/referrals?show=all" className={show === "all" ? "on" : ""}>
                 Everyone active
               </Link>
             </div>

@@ -50,7 +50,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     <>
       <p className="sub" style={{ marginBottom: 8 }}>
         <Link href="/leads" style={{ color: "var(--teal)" }}>
-          ← Job leads
+          ← Jobs
         </Link>
       </p>
 

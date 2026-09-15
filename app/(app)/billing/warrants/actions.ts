@@ -39,7 +39,7 @@ export async function resolveWarrantLine(_prev: WarrantState, formData: FormData
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/billing/warrants");
-  revalidatePath("/billing/position");
+  revalidatePath("/billing");
   revalidatePath("/billing");
   return {
     error: null,

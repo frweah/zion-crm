@@ -80,7 +80,7 @@ export default async function AccessLogPage({
       if (v) params.set(k, v);
       else params.delete(k);
     }
-    return `/admin/access?${params.toString()}`;
+    return `/admin/system?${params.toString()}`;
   };
 
   return (

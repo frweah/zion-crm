@@ -57,7 +57,7 @@ export default async function LeadsPage({
 
   const header = (
     <>
-      <h1 className="h1">Job leads</h1>
+      <h1 className="h1">Jobs</h1>
       <p className="sub">
         Employers and the openings the team is working. Putting a client forward writes the note on
         their record, so the effort is logged once.

@@ -499,7 +499,7 @@ function DocumentRow({
           Read as a USOR warrant stub, so nothing is settled here. The agent reads it page by page on
           its next run, through the same checks as the _Warrants folder: both copies of each
           V-number agree, the page adds up, the authorization is on file. Lines that pass are paid,
-          and the rest wait for review, on <Link href="/billing/warrants">Billing → Warrants</Link>.
+          and the rest wait for review, on <Link href="/billing?tab=invoices#warrant-review">Billing → Invoices</Link>.
           This entry closes by itself once every page is in.
         </p>
       )}

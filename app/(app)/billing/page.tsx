@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -18,13 +19,15 @@ import {
   type AuthOption,
 } from "./billing-forms";
 import { readPayments } from "@/lib/payments";
+import { WarrantsToReview } from "./warrants/review-section";
+import PositionSection from "./position/section";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
  * This list is only what the page needs to know to pick a view — the labels
  * and the order live with the navigation, so the two cannot disagree.
  */
-const TABS = ["authorizations", "log", "completions", "invoices", "rates"];
+const TABS = ["authorizations", "log", "invoices"];
 
 export default async function BillingPage({
   searchParams,
@@ -33,6 +36,11 @@ export default async function BillingPage({
 }) {
   const me = await requireStaff();
   const { tab: rawTab, show, filter } = await searchParams;
+
+  // Completions and the rate schedule were tabs. Completions sit under
+  // Authorizations now; the rate schedule is a setting, in Admin → System.
+  if (rawTab === "rates") redirect("/admin/system#rates");
+  if (rawTab === "completions") redirect("/billing?tab=authorizations#completions");
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
 
   const supabase = await createClient();
@@ -82,49 +90,6 @@ export default async function BillingPage({
       <p className="sub">Authorizations, service log, invoices, and receivables</p>
     </>
   );
-
-  // ── Rate schedule ─────────────────────────────────────────
-  if (tab === "rates") {
-    const { data: rates } = await supabase
-      .from("rate_schedule")
-      .select("service, sub, fee, unit, funding_source")
-      .order("service");
-
-    return (
-      <>
-        {header}
-        <p className="sub">
-          The CRP rate schedule from the Voc Rehab Workbook. New authorizations are pre-filled
-          from it, and it is keyed by funding source so a second funder can be added without
-          code changes.
-        </p>
-        <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Subcategory</th>
-                <th>Approved fee</th>
-                <th>Unit</th>
-                <th>Funder</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(rates ?? []).map((r, i) => (
-                <tr key={i}>
-                  <td>{r.service}</td>
-                  <td>{r.sub}</td>
-                  <td>{money(r.fee)}</td>
-                  <td>{r.unit}</td>
-                  <td>{r.funding_source}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </>
-    );
-  }
 
   // ── Service log ───────────────────────────────────────────
   if (tab === "log") {
@@ -195,62 +160,6 @@ export default async function BillingPage({
                     </tr>
                   );
                 })}
-            </tbody>
-          </table>
-        </div>
-      </>
-    );
-  }
-
-  // ── Completion services ───────────────────────────────────
-  if (tab === "completions") {
-    const { data: completions } = await supabase
-      .from("completions")
-      .select("id, auth_id, start_date, completion, billed, notes");
-
-    const authById = new Map(auths.map((a) => [a.id, a]));
-
-    return (
-      <>
-        {header}
-        <div className="card" style={{ padding: 0 }}>
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Authorization</th>
-                <th>Client</th>
-                <th>Service</th>
-                <th colSpan={2}>Start / completed</th>
-                <th>Amount</th>
-                <th>Billed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(completions ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={7} className="empty">
-                    No completion-based services.
-                  </td>
-                </tr>
-              )}
-              {(completions ?? []).map((c) => {
-                const a = authById.get(c.auth_id);
-                return (
-                  <CompletionRow
-                    key={c.id}
-                    completion={{
-                      id: c.id,
-                      auth_number: a?.number ?? "—",
-                      client_name: a ? (clientName.get(a.client_id) ?? "—") : "—",
-                      service_type: a?.service_type ?? "—",
-                      start_date: c.start_date,
-                      completion: c.completion,
-                      billed: c.billed,
-                      rate: Number(a?.rate ?? 0),
-                    }}
-                  />
-                );
-              })}
             </tbody>
           </table>
         </div>
@@ -419,6 +328,15 @@ export default async function BillingPage({
           completed. Those forms arrive with the Phase 4 form engine — until then, that gate will
           refuse new sends.
         </p>
+
+        <section id="warrant-review" style={{ marginTop: 32 }}>
+          <WarrantsToReview />
+        </section>
+
+        {/* Paid & outstanding lives here, beside the invoices it counts (owner, 14 Sept 2026). */}
+        <section id="paid-and-outstanding" style={{ marginTop: 32 }}>
+          <PositionSection searchParams={Promise.resolve({ show })} />
+        </section>
       </>
     );
   }
@@ -428,9 +346,27 @@ export default async function BillingPage({
   const closedCount = auths.filter((a) => a.status !== "Open").length;
   const shownAuths = auths.filter((a) => showAll || a.status === "Open");
 
+  const [{ data: completions }, { count: waitingInInbox }] = await Promise.all([
+    supabase.from("completions").select("id, auth_id, start_date, completion, billed, notes"),
+    supabase.from("inbox_pending").select("id", { count: "exact", head: true }).eq("kind", "Authorization"),
+  ]);
+  const authById = new Map(auths.map((a) => [a.id, a]));
+
   return (
     <>
       {header}
+
+      {(waitingInInbox ?? 0) > 0 && (
+        <div className="alert" style={{ marginBottom: 12 }}>
+          <Link href="/admin/documents#inbox" style={{ color: "inherit" }}>
+            <b>
+              {waitingInInbox} authorization{waitingInInbox === 1 ? "" : "s"} from documents awaiting
+              confirmation
+            </b>{" "}
+            — confirm them in the document inbox.
+          </Link>
+        </div>
+      )}
 
       <div className="row2" style={{ marginBottom: 8 }}>
         <Link
@@ -513,6 +449,51 @@ export default async function BillingPage({
           </tbody>
         </table>
       </div>
+
+      <section id="completions" style={{ marginBottom: 14 }}>
+        <h3 style={{ margin: "6px 0 8px" }}>Flat-fee completions</h3>
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+          <table className="t">
+            <thead>
+              <tr>
+                <th>Authorization</th>
+                <th>Client</th>
+                <th>Service</th>
+                <th colSpan={2}>Start / completed</th>
+                <th>Amount</th>
+                <th>Billed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(completions ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={7} className="empty">
+                    No completion-based services.
+                  </td>
+                </tr>
+              )}
+              {(completions ?? []).map((c) => {
+                const a = authById.get(c.auth_id);
+                return (
+                  <CompletionRow
+                    key={c.id}
+                    completion={{
+                      id: c.id,
+                      auth_number: a?.number ?? "—",
+                      client_name: a ? (clientName.get(a.client_id) ?? "—") : "—",
+                      service_type: a?.service_type ?? "—",
+                      start_date: c.start_date,
+                      completion: c.completion,
+                      billed: c.billed,
+                      rate: Number(a?.rate ?? 0),
+                    }}
+                  />
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {canBill && (
         <div className="card" style={{ marginBottom: 14 }}>

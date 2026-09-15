@@ -83,14 +83,14 @@ export default async function SettingsPage() {
             <tr>
               <td style={{ width: 200 }}>Tax years and 1099 thresholds</td>
               <td>
-                <Link href="/admin/contractors">Contractors</Link> — they sit
+                <Link href="/admin/people#contractors">Contractors</Link> — they sit
                 with the run they govern, and no run can be built on an unconfirmed threshold.
               </td>
             </tr>
             <tr>
               <td>Pay rates</td>
               <td>
-                <Link href="/admin/staff">Staff</Link> — dated records against a person, so work
+                <Link href="/admin/people">Staff</Link> — dated records against a person, so work
                 keeps the rate it was done under.
               </td>
             </tr>
@@ -104,7 +104,7 @@ export default async function SettingsPage() {
             <tr>
               <td>Rate schedule</td>
               <td>
-                <Link href="/billing?tab=rates">Billing → Rate schedule</Link> — keyed by funding
+                <Link href="/admin/system#rates">Rate schedule</Link>, further down this page — keyed by funding
                 source, so a second funder needs no code change.
               </td>
             </tr>

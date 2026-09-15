@@ -57,7 +57,7 @@ export async function settleRoutedWarrant(supabase: Supabase, sha256: string): P
   const lines = lineRows ?? [];
   const count = (s: string) => lines.filter((l) => l.status === s).length;
   const outcome =
-    `Read as a warrant on Billing → Warrants: ${pages.length} page(s), ` +
+    `Read as a warrant on Billing → Invoices: ${pages.length} page(s), ` +
     `${count("Reconciled")} line(s) paid, ${count("Already recorded")} already recorded, ` +
     `${count("Needs review")} to review`;
 

@@ -18,7 +18,9 @@
 --   payments directly. An invoice marked Paid by hand records its payment, and
 --   un-paying it takes that payment back.
 --
---   The position view shows paid and outstanding from payments.
+--   The position view counts paid as invoices marked Paid and outstanding as
+--   invoices submitted (Sent) and not yet paid - the owner's definitions,
+--   14 Sept 2026 - so an invoice still in Draft is invoiced but not outstanding.
 --
 -- Runs inside a transaction that is rolled back. Nothing here is left behind.
 
@@ -306,12 +308,16 @@ begin
   end if;
 
   -- ── the position ───────────────────────────────────────────
+  -- ZQ9600002A: the 450 Draft paid from the warrant, the 30 recorded by hand
+  -- (both invoices marked Paid), and the 100 invoice put back to Draft. Paid is
+  -- 480; nothing has been submitted and left unpaid, so nothing is outstanding.
   select * into r from public.billing_position where auth_id = v_auth2a;
-  if r.paid <> 480 or r.invoiced <> 580 or r.outstanding <> 100 or r.authorized <> 900 or r.not_yet_invoiced <> 320 then
-    failures := failures || format('FAILED: the position for ZQ9600002A is wrong (authorized %s, invoiced %s, paid %s, outstanding %s, not yet invoiced %s)',
-                                   r.authorized, r.invoiced, r.paid, r.outstanding, r.not_yet_invoiced);
+  if r.paid <> 480 or r.invoiced <> 580 or r.outstanding <> 0 or r.authorized <> 900 or r.not_yet_invoiced <> 320
+     or r.payments <> 2 then
+    failures := failures || format('FAILED: the position for ZQ9600002A is wrong (authorized %s, invoiced %s, paid %s, outstanding %s, not yet invoiced %s, paid invoices %s)',
+                                   r.authorized, r.invoiced, r.paid, r.outstanding, r.not_yet_invoiced, r.payments);
   else
-    raise notice 'ok  authorized, invoiced, paid, outstanding and not yet invoiced add up per authorization';
+    raise notice 'ok  paid counts invoices marked Paid, and a Draft is invoiced but not outstanding';
   end if;
 
   perform set_config('role', 'postgres', true);

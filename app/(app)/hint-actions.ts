@@ -31,7 +31,7 @@ export async function dismissHint(_prev: HintState, formData: FormData): Promise
   if (error) return { error: error.message, ok: null };
 
   // The onboarding checklist counts these, so it is stale the moment one goes.
-  revalidatePath("/admin/staff");
+  revalidatePath("/admin/people");
   revalidatePath("/dashboard");
   return { error: null, ok: "dismissed" };
 }

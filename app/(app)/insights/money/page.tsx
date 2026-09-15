@@ -214,7 +214,7 @@ export default async function RevenuePage() {
 
   return (
     <>
-      <h1 className="h1">Revenue</h1>
+      <h1 className="h1">Money</h1>
       <p className="sub">
         What USOR has authorized, what we have earned against it, and what has been paid — live
         from the record
@@ -469,6 +469,8 @@ export default async function RevenuePage() {
         Hourly work earns by the hour; flat-fee work earns on completion, so a flat fee with no
         completion recorded has earned nothing however much time went into it. A closed
         authorization counts as settled.{" "}
+        What each client has been paid and still owes is on{" "}
+        <Link href="/billing?tab=invoices#paid-and-outstanding">Billing → Invoices</Link>.{" "}
         {canBill && <Link href="/billing?tab=invoices">Raise an invoice in Billing</Link>}
       </p>
     </>

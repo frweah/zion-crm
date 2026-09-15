@@ -83,7 +83,7 @@ export default async function RecordsBundlePage({
   return (
     <>
       <div className="no-print">
-        <Link href="/admin/records-request">← All records requests</Link>
+        <Link href="/admin/documents#records-requests">← All records requests</Link>
       </div>
 
       <h1 className="h1" style={{ marginTop: 8 }}>

@@ -79,7 +79,7 @@ export default async function RecordsRequestPage() {
                   <td>{r.requested_by}</td>
                   <td>{r.note}</td>
                   <td>
-                    <Link className="btn gold" href={`/admin/records-request/${r.id}`}>
+                    <Link className="btn gold" href={`/admin/documents/records-request/${r.id}`}>
                       Gather it
                     </Link>
                   </td>
@@ -115,7 +115,7 @@ export default async function RecordsRequestPage() {
                   <td>{new Date(r.produced_at!).toLocaleDateString()}</td>
                   <td>{r.produced_by_name}</td>
                   <td>
-                    <Link className="btn" href={`/admin/records-request/${r.id}`}>
+                    <Link className="btn" href={`/admin/documents/records-request/${r.id}`}>
                       Open again
                     </Link>
                   </td>

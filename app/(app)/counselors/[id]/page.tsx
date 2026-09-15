@@ -262,7 +262,7 @@ export default async function CounselorCaseloadPage({
 
       <p className="lock" style={{ marginTop: 10 }}>
         Quiet means nothing recorded for {QUIET_DAYS} days — no note, appointment, email, job
-        application, stage change or logged hour. Same measure as the Needs attention screen.
+        application, stage change or logged hour. Same measure as the dashboard's inactive-clients list.
       </p>
 
       <div className="card" style={{ marginTop: 14, padding: 0 }}>

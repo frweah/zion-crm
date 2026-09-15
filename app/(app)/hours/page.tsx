@@ -11,12 +11,7 @@ import {
   CategoryBreakdown,
   type CategoryOption,
 } from "./hours-forms";
-import {
-  Expenses,
-  MileageRateForm,
-  type ExpenseCategory,
-  type ExpenseRow,
-} from "./expenses";
+import { Expenses, type ExpenseCategory, type ExpenseRow } from "./expenses";
 import { WorkTimer, HoursSummary } from "./work-timer";
 
 export default async function HoursPage({
@@ -157,7 +152,6 @@ export default async function HoursPage({
     categoriesResult,
     expenseResult,
     expenseCategoryResult,
-    mileageRatesResult,
     currentRateResult,
   ] = await Promise.all([
     supabase
@@ -208,10 +202,7 @@ export default async function HoursPage({
       .select("key, label, detail, is_mileage, needs_receipt")
       .eq("active", true)
       .order("sort_order"),
-    supabase
-      .from("mileage_rates")
-      .select("effective_from, cents_per_mile, note")
-      .order("effective_from", { ascending: false }),
+    // The rate itself is set in Admin → System; this is only the one in force.
     supabase.rpc("mileage_rate_on", { p_date: today() }),
   ]);
 
@@ -313,13 +304,6 @@ export default async function HoursPage({
           currentRateResult.data === null ? null : Number(currentRateResult.data)
         }
       />
-
-      {me.role === "Admin" && (
-        <MileageRateForm
-          rates={(mileageRatesResult.data ?? []) as never}
-          today={today()}
-        />
-      )}
 
       <CategoryBreakdown sessions={sessions} categories={categories} />
 

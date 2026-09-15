@@ -10,8 +10,12 @@ import {
   type HoursRequestRow,
 } from "./counselors-view";
 
-/** The labels and order live with the navigation; this picks a view. */
-const TABS = ["contact", "hours", "directory"];
+/**
+ * The labels and order live with the navigation; this picks a view. The first
+ * is the default, and it is the first in the sidebar, so plain /counselors
+ * opens the tab the sidebar marks current.
+ */
+const TABS = ["directory", "contact", "hours"];
 
 export default async function CounselorsPage({
   searchParams,
@@ -20,7 +24,7 @@ export default async function CounselorsPage({
 }) {
   const me = await requireStaff();
   const { tab: rawTab } = await searchParams;
-  const tab = TABS.includes(rawTab ?? "") ? rawTab! : "contact";
+  const tab = TABS.includes(rawTab ?? "") ? rawTab! : TABS[0];
 
   const supabase = await createClient();
   const canEdit = me.role !== "Reports";

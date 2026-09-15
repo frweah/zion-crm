@@ -62,7 +62,7 @@ export async function savePolicy(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/retention");
+  revalidatePath("/admin/documents");
   return {
     error: null,
     ok:
@@ -103,7 +103,7 @@ export async function confirmPolicy(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/retention");
+  revalidatePath("/admin/documents");
   return {
     error: null,
     ok: confirming
@@ -156,7 +156,7 @@ export async function placeHold(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/retention");
+  revalidatePath("/admin/documents");
   revalidatePath(`/clients/${clientId}`);
   return { error: null, ok: "Held. Nothing on that record can be destroyed until it is lifted." };
 }
@@ -189,7 +189,7 @@ export async function liftHold(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/retention");
+  revalidatePath("/admin/documents");
   return { error: null, ok: "Lifted. The schedule applies to that record again." };
 }
 
@@ -227,6 +227,6 @@ export async function recordDisposition(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/retention");
+  revalidatePath("/admin/documents");
   return { error: null, ok: "Recorded." };
 }

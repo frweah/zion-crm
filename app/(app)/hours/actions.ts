@@ -487,6 +487,6 @@ export async function setMileageRate(_prev: HoursState, formData: FormData): Pro
   if (error) return { error: friendly(error), ok: null };
 
   revalidatePath("/hours");
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/system");
   return { error: null, ok: `${cents}c a mile from ${from}.` };
 }
