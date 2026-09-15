@@ -80,15 +80,50 @@ async function waitForServer(ms = 90_000) {
   throw new Error(`the app did not answer on ${BASE} within ${ms / 1000} s`);
 }
 
+/**
+ * A browser, wherever the build runs.
+ *
+ * On a developer's machine, Playwright's own Chromium. Vercel's build image
+ * lacks the system libraries that Chromium needs (the first preview build of
+ * the portal failed there), so on Linux the next try is @sparticuz/chromium,
+ * a Chromium built to run on Amazon Linux with its libraries inside it. Last,
+ * Playwright's download. If none starts, the build fails and says why for each:
+ * no browser means no check, and no check means no deployment.
+ */
 async function launchBrowser() {
+  const firstLine = (err) => String(err instanceof Error ? err.message : err).split("\n")[0];
+  const tries = [];
+
   try {
     return await chromium.launch();
   } catch (err) {
-    if (!/Executable doesn't exist|playwright install/i.test(String(err))) throw err;
-    console.log("  Chromium is not installed here; installing it for this check…");
-    execSync("npx playwright install chromium", { stdio: "inherit" });
-    return chromium.launch();
+    tries.push(`Playwright's Chromium: ${firstLine(err)}`);
   }
+
+  if (process.platform === "linux") {
+    try {
+      const { default: bundled } = await import("@sparticuz/chromium");
+      const browser = await chromium.launch({
+        executablePath: await bundled.executablePath(),
+        args: bundled.args,
+        headless: true,
+      });
+      console.log("  using @sparticuz/chromium");
+      return browser;
+    } catch (err) {
+      tries.push(`@sparticuz/chromium: ${firstLine(err)}`);
+    }
+  }
+
+  try {
+    console.log("  installing Playwright's Chromium for this check…");
+    execSync("npx playwright install chromium", { stdio: "inherit" });
+    return await chromium.launch();
+  } catch (err) {
+    tries.push(`after installing Chromium: ${firstLine(err)}`);
+  }
+
+  throw new Error(`no browser could be started:\n    ${tries.join("\n    ")}`);
 }
 
 // ── the checks ─────────────────────────────────────────────
