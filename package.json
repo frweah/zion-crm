@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/check-theme.mjs",
-    "build": "next build && node scripts/check-a11y.mjs",
+    "build": "next build",
     "check:a11y": "node scripts/check-a11y.mjs",
     "start": "next start",
     "lint": "next lint",
@@ -24,7 +24,6 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
-    "@sparticuz/chromium": "^153.0.0",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

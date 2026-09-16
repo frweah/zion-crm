@@ -145,6 +145,7 @@ const RPC_FUNCTIONS = [
   "portal_disable_account",
   "portal_sign_out_everywhere",
   "can_manage_portal",
+  "portal_note_invitation",
 ];
 
 const { rows: fns } = await client.query(

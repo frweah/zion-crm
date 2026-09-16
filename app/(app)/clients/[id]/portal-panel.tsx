@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { fmtStamp } from "@/lib/constants";
 import {
   givePortalAccess,
+  sendInvitation,
   turnOffPortalAccess,
   signOutOfPortal,
   type PortalAdminState,
@@ -46,8 +47,8 @@ const initial: PortalAdminState = { error: null, ok: null };
 
 /**
  * The client portal, from the client's record: who can sign in for this
- * client, whether they have agreed to the terms, and the three things staff do
- * - give access, turn it off, sign everybody out.
+ * client, whether they have agreed to the terms, and the four things staff do
+ * - give access, tell them about it, turn it off, sign everybody out.
  */
 export function PortalPanel({
   clientId,
@@ -60,6 +61,7 @@ export function PortalPanel({
   guardianshipDocs,
   termsVersion,
   canManage,
+  canText,
   portalUrl,
 }: {
   clientId: string;
@@ -72,9 +74,11 @@ export function PortalPanel({
   guardianshipDocs: GuardianshipDoc[];
   termsVersion: string | null;
   canManage: boolean;
+  canText: boolean;
   portalUrl: string;
 }) {
   const [giveState, giveAction, giving] = useActionState(givePortalAccess, initial);
+  const [sendState, sendAction, sending] = useActionState(sendInvitation, initial);
   const [offState, offAction, turningOff] = useActionState(turnOffPortalAccess, initial);
   const [outState, outAction, signingOut] = useActionState(signOutOfPortal, initial);
 
@@ -85,8 +89,8 @@ export function PortalPanel({
   const [closing, setClosing] = useState<string | null>(null);
 
   const first = clientName.trim().split(/\s+/)[0] || "this client";
-  const error = giveState.error ?? offState.error ?? outState.error;
-  const ok = giveState.ok ?? offState.ok ?? outState.ok;
+  const error = giveState.error ?? sendState.error ?? offState.error ?? outState.error;
+  const ok = giveState.ok ?? sendState.ok ?? offState.ok ?? outState.ok;
 
   // Newest first, so the first match is where consent stands now.
   const consentLine = (accountId: string): string => {
@@ -97,6 +101,16 @@ export function PortalPanel({
       return `agreed to terms ${latest.terms_version}; will be asked again for ${termsVersion}`;
     }
     return `agreed to terms ${latest.terms_version} ${fmtStamp(latest.at)}`;
+  };
+
+  // What giving access will do, in the words of the rule: email if there is an
+  // address, a text only where texting consent already exists, otherwise the
+  // staff member tells them.
+  const howTheyLearn = (): string => {
+    if (kind === "Guardian") return "An email invitation goes out if you give an email address; otherwise tell them yourself.";
+    if (clientEmail) return `An invitation will go by email to ${clientEmail}.`;
+    if (canText && clientPhone) return `An invitation will go by text to ${clientPhone}.`;
+    return "Nothing will be sent, because there is no email address and no texting consent. Tell them in person.";
   };
 
   return (
@@ -206,8 +220,9 @@ export function PortalPanel({
             {giving ? "Saving…" : "Give access"}
           </button>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            Nothing is sent. Tell them to go to {portalUrl} and sign in with this number or email - a code
-            arrives each time. They agree to the terms before they see anything else.
+            {howTheyLearn()} A text is only ever sent where texting consent already exists for that number.
+            They sign in at {portalUrl} with the number or email on the account, and a code arrives each
+            time. The terms come before anything else.
           </p>
         </form>
       )}
@@ -237,9 +252,20 @@ export function PortalPanel({
                   </div>
                 </div>
                 {canManage && !a.disabled_at && closing !== a.id && (
-                  <button className="btn ghost" type="button" onClick={() => setClosing(a.id)}>
-                    Turn off access
-                  </button>
+                  <div className="row2" style={{ gap: 6 }}>
+                    {!a.first_signed_in_at && (a.email || a.phone) && (
+                      <form action={sendAction}>
+                        <input type="hidden" name="client_id" value={clientId} />
+                        <input type="hidden" name="account_id" value={a.id} />
+                        <button className="btn ghost" type="submit" disabled={sending}>
+                          {sending ? "…" : "Send the invitation"}
+                        </button>
+                      </form>
+                    )}
+                    <button className="btn ghost" type="button" onClick={() => setClosing(a.id)}>
+                      Turn off access
+                    </button>
+                  </div>
                 )}
               </div>
               {closing === a.id && (

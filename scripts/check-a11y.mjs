@@ -81,49 +81,23 @@ async function waitForServer(ms = 90_000) {
 }
 
 /**
- * A browser, wherever the build runs.
+ * A browser. Playwright's own Chromium, installed with the system libraries it
+ * needs by the workflow that runs this check
+ * (.github/workflows/accessibility.yml); on a developer's machine, downloaded
+ * on first use.
  *
- * On a developer's machine, Playwright's own Chromium. Vercel's build image
- * lacks the system libraries that Chromium needs (the first preview build of
- * the portal failed there), so on Linux the next try is @sparticuz/chromium,
- * a Chromium built to run on Amazon Linux with its libraries inside it. Last,
- * Playwright's download. If none starts, the build fails and says why for each:
- * no browser means no check, and no check means no deployment.
+ * If no browser starts this throws and the check fails: no browser means no
+ * check, and an unchecked portal does not ship.
  */
 async function launchBrowser() {
   const firstLine = (err) => String(err instanceof Error ? err.message : err).split("\n")[0];
-  const tries = [];
-
   try {
     return await chromium.launch();
   } catch (err) {
-    tries.push(`Playwright's Chromium: ${firstLine(err)}`);
-  }
-
-  if (process.platform === "linux") {
-    try {
-      const { default: bundled } = await import("@sparticuz/chromium");
-      const browser = await chromium.launch({
-        executablePath: await bundled.executablePath(),
-        args: bundled.args,
-        headless: true,
-      });
-      console.log("  using @sparticuz/chromium");
-      return browser;
-    } catch (err) {
-      tries.push(`@sparticuz/chromium: ${firstLine(err)}`);
-    }
-  }
-
-  try {
-    console.log("  installing Playwright's Chromium for this check…");
+    console.log(`  Chromium did not start (${firstLine(err)}); installing it for this check…`);
     execSync("npx playwright install chromium", { stdio: "inherit" });
-    return await chromium.launch();
-  } catch (err) {
-    tries.push(`after installing Chromium: ${firstLine(err)}`);
+    return chromium.launch();
   }
-
-  throw new Error(`no browser could be started:\n    ${tries.join("\n    ")}`);
 }
 
 // ── the checks ─────────────────────────────────────────────

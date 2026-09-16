@@ -862,6 +862,7 @@ export default async function ClientPage({
               guardianshipDocs={(guardianshipResult.data ?? []) as GuardianshipDoc[]}
               termsVersion={termsResult.data?.version ?? null}
               canManage={canManagePortal}
+              canText={Boolean((consentResult.data as ConsentRow | null)?.can_text)}
               portalUrl={`${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`}
             />
           )}

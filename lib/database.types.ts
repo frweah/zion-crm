@@ -4021,6 +4021,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: { account_id: string | null; kind: string | null; name: string | null; relationship: string | null; client_first_name: string | null; staff_first_name: string | null; terms_version: string | null; electronic: boolean | null; texts: boolean | null; phone_last4: string | null }[];
       };
+      portal_note_invitation: {
+        Args: { p_account: string | null; p_sent: boolean | null; p_detail: string | null };
+        Returns: undefined;
+      };
       portal_record_consent: {
         Args: { p_kind: string | null; p_given: boolean | null; p_ip: string | null; p_user_agent: string | null };
         Returns: undefined;

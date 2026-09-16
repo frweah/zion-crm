@@ -1,0 +1,45 @@
+# The client portal must stay usable, or it does not merge.
+#
+# This ran inside `next build` at first, so Vercel would refuse to deploy an
+# inaccessible portal. Vercel's build could not run it - the build failed there
+# before it started, with an empty log - so the gate moved here, where a browser
+# and its libraries can be installed properly, and Vercel's build went back to
+# being a plain `next build`.
+#
+# Make this a required check on main in GitHub (Settings > Branches > branch
+# protection): without that, this reports a failure and merging is still
+# possible, which is not a gate.
+#
+# The Supabase values below are deliberately fake. Every screen checked here is
+# either a public page or a fixture drawn from made-up people, so the check
+# never needs a database - and a build gate that carries real keys is a place
+# real keys can leak from.
+name: Accessibility
+
+on:
+  pull_request:
+  push:
+    branches: [main, portal]
+
+jobs:
+  portal:
+    name: The client portal must stay usable
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      NEXT_PUBLIC_SITE_URL: https://zion-crm-red.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium and the libraries it needs
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: WCAG 2.2 AA, keyboard, reflow, zoom and text spacing
+        run: npm run check:a11y
