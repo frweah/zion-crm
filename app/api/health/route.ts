@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * What this deployment is actually configured with.
@@ -13,6 +14,12 @@ import { NextResponse, type NextRequest } from "next/server";
  * tell "missing" from "wrong" from "correct" without printing the value.
  *
  * Behind CRON_SECRET, same as the cron endpoint.
+ *
+ * With ?timing=1 it also says where it is running and how long a round trip
+ * to the database takes from there - six in a row, the first of which opens
+ * the connection. Every page waits on some number of these one after another,
+ * so this is the figure that says what the Vercel region costs. Milliseconds
+ * only; it reads one office name and returns none of it.
  */
 export const dynamic = "force-dynamic";
 
@@ -63,6 +70,23 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  let timing: unknown = undefined;
+  if (request.nextUrl.searchParams.get("timing") === "1") {
+    const admin = createAdminClient();
+    const roundTrips: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const started = performance.now();
+      await admin.from("offices").select("name").limit(1);
+      roundTrips.push(Math.round(performance.now() - started));
+    }
+    const warm = [...roundTrips.slice(1)].sort((a, b) => a - b);
+    timing = {
+      functionRegion: process.env.VERCEL_REGION ?? null,
+      databaseRoundTripsMs: roundTrips,
+      warmMedianMs: warm[Math.floor(warm.length / 2)],
+    };
+  }
+
   const missing = Object.entries(env)
     .filter(([, v]) => v === null || (typeof v === "object" && v !== null && "set" in v && !v.set))
     .map(([k]) => k);
@@ -72,6 +96,7 @@ export async function GET(request: NextRequest) {
     missing,
     env,
     supabaseReachable,
+    timing,
     deployment: {
       vercelUrl: process.env.VERCEL_URL ?? null,
       environment: process.env.VERCEL_ENV ?? null,
