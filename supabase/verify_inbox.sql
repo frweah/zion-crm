@@ -91,6 +91,14 @@ begin
   -- ── what somebody has decided outranks any matching ────────
   -- A name no real folder uses. This was once a plausible first name, and it
   -- collided with real data the day a real folder was mapped under it.
+  --
+  -- It must not match anybody before it is mapped, or the check below passes
+  -- because of something else - a leftover mapping, a client who happens to
+  -- carry the name - and proves nothing about mapping at all.
+  if public.match_inbox_folder('zz nicknamefolder') is not null then
+    failures := failures || 'FAILED: the fixture folder already matched before it was mapped, so the mapping check proves nothing'::text;
+  end if;
+
   insert into public.inbox_folder_map (folder_name, client_id, mapped_by)
   values ('ZZ Nicknamefolder', v_client, v_admin);
 
