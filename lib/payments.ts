@@ -28,21 +28,37 @@ const NONE = "00000000-0000-0000-0000-000000000000";
  * anyone else gets the payment without the page.
  */
 export async function readPayments(supabase: Supabase, authIds?: string[]): Promise<PaymentRow[]> {
+  // The warrant lines come with their payment, through the line's link to it:
+  // one wait on the database instead of two in a row. Somebody who may not see
+  // warrants gets none, exactly as when they were a query of their own.
   let payments = supabase
     .from("payments")
-    .select("id, auth_id, invoice_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name")
+    .select("id, auth_id, invoice_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name, warrant_lines!warrant_lines_payment_id_fkey(page_id)")
     .order("warrant_date", { ascending: false, nullsFirst: false });
   if (authIds) payments = payments.in("auth_id", authIds.length ? authIds : [NONE]);
-  const { data } = await payments;
+  const { data } = (await payments) as unknown as {
+    data:
+      | {
+          id: string;
+          auth_id: string;
+          invoice_id: string | null;
+          amount: number;
+          warrant_no: string | null;
+          warrant_date: string | null;
+          voucher: string | null;
+          source: string;
+          recorded_by_name: string | null;
+          warrant_lines: { page_id: string }[] | null;
+        }[]
+      | null;
+  };
   const rows = data ?? [];
   if (rows.length === 0) return [];
 
-  let lines = supabase.from("warrant_lines").select("payment_id, page_id").not("payment_id", "is", null);
-  if (authIds) lines = lines.in("payment_id", rows.map((p) => p.id));
-  const { data: lineRows } = await lines;
   const pageByPayment = new Map<string, string>();
-  for (const l of lineRows ?? []) {
-    if (l.payment_id && !pageByPayment.has(l.payment_id)) pageByPayment.set(l.payment_id, l.page_id);
+  for (const p of rows) {
+    const page = (p.warrant_lines ?? [])[0]?.page_id;
+    if (page) pageByPayment.set(p.id, page);
   }
 
   return rows.map((p) => ({

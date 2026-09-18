@@ -11,7 +11,17 @@ import { GroupTabs } from "./group-tabs";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const staff = await requireStaff();
+  // Who is signed in, and the screen hints, asked together. Each separate wait
+  // on Supabase's API costs about 75 ms however close the servers are
+  // (measured 18 Sept 2026), so the hints no longer wait for the person. The
+  // rules already limit both to the person asking; somebody who is not staff
+  // is redirected by requireStaff before either is used.
+  const supabase = await createClient();
+  const [staff, { data: hints }, { data: seen }] = await Promise.all([
+    requireStaff(),
+    supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
+    supabase.from("staff_prefs").select("key").like("key", "hint:%"),
+  ]);
   const nav = navFor(staff);
 
   // Typing a URL should get you no further than the navigation does. Every
@@ -24,11 +34,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The hint for this screen, if there is one this person has not put away.
   // Matched longest-first so /clients/<id> gets the record hint rather than
   // the list one.
-  const supabase = await createClient();
-  const [{ data: hints }, { data: seen }] = await Promise.all([
-    supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
-    supabase.from("staff_prefs").select("key").like("key", "hint:%"),
-  ]);
 
   const dismissed = new Set((seen ?? []).map((p) => p.key));
   const hint =
