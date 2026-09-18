@@ -62,7 +62,10 @@ declare
     'sms_consent_events=texting_consent',
     'mail_log=email',
     'attachments=files',
-    'access_log=who_read_this_record'
+    'access_log=who_read_this_record',
+    'portal_accounts=portal_access',
+    'portal_consents=portal_consent',
+    'portal_activity=portal_activity'
   ];
 
   -- Tables carrying a client_id that are deliberately not in a bundle, each

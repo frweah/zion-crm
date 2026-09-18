@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { exportsFor } from "@/lib/exports";
 import { money, today, CAN_EDIT_BILLING } from "@/lib/constants";
 import { DataTable } from "../../data-table";
+import { readBillingOffices } from "@/lib/billing-offices";
 
 /**
  * The monthly export.
@@ -47,17 +48,17 @@ export default async function ExportsPage({
     await Promise.all([
       supabase
         .from("service_entries")
-        .select("hours", { count: "exact" })
+        .select("hours, auth_id", { count: "exact" })
         .gte("date", start)
         .lte("date", end),
       supabase
         .from("invoices")
-        .select("amount", { count: "exact" })
+        .select("amount, auth_id", { count: "exact" })
         .gte("date", start)
         .lte("date", end),
       supabase
         .from("invoices")
-        .select("amount")
+        .select("amount, auth_id")
         .eq("status", "Paid")
         .gte("paid_date", start)
         .lte("paid_date", end),
@@ -77,6 +78,37 @@ export default async function ExportsPage({
   const invoiced = (invoicesResult.data ?? []).reduce((t, i) => t + Number(i.amount), 0);
   const received = (paidResult.data ?? []).reduce((t, i) => t + Number(i.amount), 0);
   const contractorHours = (sessionsResult.data ?? []).reduce((t, s) => t + Number(s.hours), 0);
+
+  // The month, office by office: the close is done one CRP billing office at a
+  // time, so the same figures are split by who pays them. Outstanding is every
+  // invoice sent and not yet paid, whenever it was raised - what each office
+  // owes at the close, not only what was raised this month.
+  const [billing, { data: authRows }, { data: sentRows }] = await Promise.all([
+    readBillingOffices(supabase),
+    supabase.from("authorizations").select("id, client_id"),
+    supabase.from("invoices").select("amount, auth_id").eq("status", "Sent"),
+  ]);
+  const clientOfAuth = new Map((authRows ?? []).map((a) => [a.id, a.client_id]));
+  type Tally = { hours: number; invoiced: number; received: number; outstanding: number; unpaid: number };
+  const tally = new Map<string, Tally>();
+  const bump = (authId: string | null, field: keyof Tally, value: number) => {
+    const key = billing.forClient(authId ? clientOfAuth.get(authId) : null)?.id ?? "none";
+    const t = tally.get(key) ?? { hours: 0, invoiced: 0, received: 0, outstanding: 0, unpaid: 0 };
+    t[field] += value;
+    tally.set(key, t);
+  };
+  for (const e of entriesResult.data ?? []) bump(e.auth_id, "hours", Number(e.hours));
+  for (const i of invoicesResult.data ?? []) bump(i.auth_id, "invoiced", Number(i.amount));
+  for (const i of paidResult.data ?? []) bump(i.auth_id, "received", Number(i.amount));
+  for (const i of sentRows ?? []) {
+    bump(i.auth_id, "outstanding", Number(i.amount));
+    bump(i.auth_id, "unpaid", 1);
+  }
+  const zero: Tally = { hours: 0, invoiced: 0, received: 0, outstanding: 0, unpaid: 0 };
+  const officeRows = [
+    ...billing.billingOffices.map((b) => ({ key: b.id, name: b.name, reconcile: true })),
+    ...(tally.has("none") ? [{ key: "none", name: "No billing office", reconcile: false }] : []),
+  ].map((o) => ({ ...o, t: tally.get(o.key) ?? zero }));
 
   const kinds = exportsFor(me.role);
   const link = (kind: string) => `/api/export/${kind}?month=${month}`;
@@ -149,6 +181,49 @@ export default async function ExportsPage({
           </div>
         )}
       </div>
+
+      <h3 style={{ margin: "0 0 8px" }}>By billing office</h3>
+      <div className="card" style={{ padding: 0, marginBottom: 8 }}>
+        <DataTable
+          label="billing offices"
+          columns={[
+            { key: "office", label: "Billing office" },
+            { key: "hours", label: "Hours logged", align: "right" },
+            { key: "invoiced", label: "Invoiced", align: "right" },
+            { key: "received", label: "Received", align: "right" },
+            { key: "outstanding", label: "Outstanding now", align: "right" },
+            { key: "reconcile", label: "", sortable: false },
+          ]}
+          rows={officeRows.map((o) => ({
+            key: o.key,
+            text: o.name,
+            sort: { office: o.name, hours: o.t.hours, invoiced: o.t.invoiced, received: o.t.received, outstanding: o.t.outstanding },
+            cells: {
+              office: <b>{o.name}</b>,
+              hours: o.t.hours ? o.t.hours.toFixed(2) : "—",
+              invoiced: money(o.t.invoiced),
+              received: money(o.t.received),
+              outstanding: (
+                <>
+                  {money(o.t.outstanding)}
+                  {o.t.unpaid > 0 && <div className="lock">{o.t.unpaid} unpaid</div>}
+                </>
+              ),
+              reconcile:
+                o.reconcile && o.t.unpaid > 0 ? (
+                  <Link className="btn ghost" href={`/billing?tab=invoices&reconcile=${o.key}`} style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
+                    Reconcile
+                  </Link>
+                ) : null,
+            },
+          }))}
+          empty="No billing offices are on file."
+        />
+      </div>
+      <p className="lock" style={{ margin: "0 0 18px" }}>
+        Hours, invoiced and received are this month&apos;s. Outstanding is every invoice sent and not yet paid,
+        whenever it was raised. The billing files below lead with the billing office and are grouped by it.
+      </p>
 
       <div className="card" style={{ padding: 0 }}>
         <DataTable

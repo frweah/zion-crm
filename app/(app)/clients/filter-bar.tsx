@@ -15,6 +15,7 @@ export function FilterBar({
   counselors,
   staff,
   offices,
+  billingOffices,
   fundingSources,
   resultCount,
   totalCount,
@@ -23,6 +24,7 @@ export function FilterBar({
   counselors: Option[];
   staff: Option[];
   offices: string[];
+  billingOffices: Option[];
   fundingSources: string[];
   resultCount: number;
   totalCount: number;
@@ -74,6 +76,19 @@ export function FilterBar({
             {offices.map((o) => (
               <option key={o}>{o}</option>
             ))}
+          </select>
+        </label>
+
+        <label className="field">
+          Billing office
+          <select name="billingOffice" defaultValue={filters.billingOffice[0] ?? ""}>
+            <option value="">Any</option>
+            {billingOffices.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+            <option value="none">None</option>
           </select>
         </label>
 

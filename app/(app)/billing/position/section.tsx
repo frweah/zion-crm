@@ -4,6 +4,8 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, CAN_EDIT_BILLING } from "@/lib/constants";
 import { DataTable, type DataRow } from "../../data-table";
+import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
+import { BillingOfficeFilter, withBo } from "../../billing-office-filter";
 
 /**
  * Paid & outstanding.
@@ -44,15 +46,21 @@ const add = (t: Totals, p: Position): Totals => ({
 });
 const ZERO: Totals = { authorized: 0, invoiced: 0, paid: 0, outstanding: 0, notYet: 0 };
 
-export default async function PositionPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
+export default async function PositionPage({ searchParams }: { searchParams: Promise<{ show?: string; bo?: string }> }) {
   const me = await requireStaff();
   if (!CAN_EDIT_BILLING.includes(me.role)) redirect("/dashboard");
-  const { show } = await searchParams;
+  const { show, bo: rawBo } = await searchParams;
   const owedOnly = show === "outstanding";
 
   const supabase = await createClient();
   const { data } = await supabase.from("billing_position").select("*").order("client_name").order("auth_number");
-  const rows = (data ?? []) as unknown as Position[];
+  // The billing office the Invoices tab is filtered to, if any - one filter
+  // for the invoices and the money they add up to.
+  const billing = await readBillingOffices(supabase);
+  const bo = readBoParam(rawBo, billing.billingOffices);
+  const officeName = (clientId: string) => billing.forClient(clientId)?.name ?? "";
+  const rows = ((data ?? []) as unknown as Position[]).filter((r) => matchesBo(bo, billing.forClient(r.client_id)));
+  const scope = !bo ? "All clients" : bo === "none" ? "Clients with no billing office" : `${billing.byId.get(bo)?.name ?? "This billing office"}`;
 
   const overall = rows.reduce(add, ZERO);
 
@@ -102,6 +110,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
           </ul>
         </details>
       ),
+      billingOffice: officeName(id) || <span className="lock">None</span>,
       authorized: money(c.totals.authorized),
       invoiced: money(c.totals.invoiced),
       paid: money(c.totals.paid),
@@ -115,6 +124,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
     },
     sort: {
       client: c.name,
+      billingOffice: officeName(id),
       authorized: c.totals.authorized,
       invoiced: c.totals.invoiced,
       paid: c.totals.paid,
@@ -122,7 +132,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
       notYet: c.totals.notYet,
       lastPaid: c.lastPaid,
     },
-    text: [c.name, ...c.rows.map((r) => r.auth_number ?? "")].join(" "),
+    text: [c.name, officeName(id), ...c.rows.map((r) => r.auth_number ?? "")].join(" "),
   }));
 
   return (
@@ -142,13 +152,19 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
         {tile(overall.notYet, "authorized, not yet invoiced")}
       </div>
 
+      <BillingOfficeFilter
+        billingOffices={billing.billingOffices}
+        selected={bo}
+        href={(b) => withBo(owedOnly ? "/billing?tab=invoices&show=outstanding" : "/billing?tab=invoices", b, "#paid-and-outstanding")}
+      />
+
       {/* Which clients to show is a filter on this list, not a tab. */}
       <div style={{ marginBottom: 10 }}>
         <div className="segmented">
-          <Link className={owedOnly ? undefined : "on"} href="/billing?tab=invoices#paid-and-outstanding">
+          <Link className={owedOnly ? undefined : "on"} href={withBo("/billing?tab=invoices", bo, "#paid-and-outstanding")}>
             All clients
           </Link>
-          <Link className={owedOnly ? "on" : undefined} href="/billing?tab=invoices&show=outstanding#paid-and-outstanding">
+          <Link className={owedOnly ? "on" : undefined} href={withBo("/billing?tab=invoices&show=outstanding", bo, "#paid-and-outstanding")}>
             Only clients with money outstanding
           </Link>
         </div>
@@ -159,6 +175,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
           label="clients"
           columns={[
             { key: "client", label: "Client" },
+            { key: "billingOffice", label: "Billing office" },
             { key: "authorized", label: "Authorized", align: "right" },
             { key: "invoiced", label: "Invoiced", align: "right" },
             { key: "paid", label: "Paid", align: "right" },
@@ -174,7 +191,7 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
       {/* The practice's totals, which were the table's footer. They count every client, whichever are showing. */}
       {rows.length > 0 && (
         <p className="lock" style={{ margin: "8px 0 0" }}>
-          <b>All clients:</b> {money(overall.authorized)} authorized · {money(overall.invoiced)} invoiced ·{" "}
+          <b>{scope}:</b> {money(overall.authorized)} authorized · {money(overall.invoiced)} invoiced ·{" "}
           {money(overall.paid)} paid · {money(overall.outstanding)} outstanding · {money(overall.notYet)} not yet
           invoiced.
         </p>

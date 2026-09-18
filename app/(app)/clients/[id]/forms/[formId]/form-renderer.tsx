@@ -10,6 +10,7 @@ import {
   type TableColumn,
 } from "@/lib/form-templates";
 import { COACHING_CODES } from "@/lib/constants";
+import type { Recipients } from "@/lib/billing-offices";
 
 const initial: FormState = { error: null, ok: null };
 
@@ -278,7 +279,7 @@ export function FormRenderer({
   signedBy,
   signedAt,
   sentTo,
-  counselorEmail,
+  recipients,
   counselorName,
   preview,
 }: {
@@ -291,7 +292,7 @@ export function FormRenderer({
   signedBy: string;
   signedAt: string | null;
   sentTo: string;
-  counselorEmail: string;
+  recipients: Recipients;
   counselorName: string;
   preview: string;
 }) {
@@ -376,39 +377,49 @@ export function FormRenderer({
           )}
 
           {status === "Completed" && (
-            <form action={sendAction}>
+            <form action={sendAction} style={{ flexBasis: "100%" }}>
               <input type="hidden" name="form_id" value={formId} />
               <input type="hidden" name="client_id" value={clientId} />
-              <input type="hidden" name="to" value={counselorEmail} />
-              <button className="btn" type="submit" disabled={sending || !counselorEmail}>
-                {sending ? "Sending…" : `Email to ${counselorName || "counselor"}`}
-              </button>
+              <div className="row2">
+                <label className="field" htmlFor="form-send-to">
+                  To
+                  <input id="form-send-to" name="to" type="email" defaultValue={recipients.to} required />
+                  <small>{recipients.toLabel || "Nobody yet"}</small>
+                </label>
+                <label className="field" htmlFor="form-send-cc">
+                  Copy
+                  <input id="form-send-cc" name="cc" defaultValue={recipients.cc} />
+                  <small>{recipients.ccLabel || "Nobody"}</small>
+                </label>
+                <button className="btn" type="submit" disabled={sending}>
+                  {sending ? "Sending…" : "Email the form"}
+                </button>
+              </div>
+              {recipients.note && (
+                <p className="lock" style={{ margin: "6px 0 0" }}>
+                  {recipients.note}
+                </p>
+              )}
             </form>
           )}
 
           <button className="btn ghost" type="button" onClick={() => setShowPreview(!showPreview)}>
-            {showPreview ? "Hide" : "Preview"} what the counselor receives
+            {showPreview ? "Hide" : "Preview"} the email
           </button>
         </div>
 
         {!locked && (
           <p className="lock" style={{ margin: "10px 0 0" }}>
-            Signing records your name and the time, and locks the content. Nothing is sent to the
-            counselor until you choose to email it.
+            Signing records your name and the time, and locks the content. Nothing is sent until
+            you choose to email it - to the client's billing office, copying the counselor ({counselorName || "none on file"}).
           </p>
         )}
 
-        {status === "Completed" && !counselorEmail && (
-          <p className="lock" style={{ margin: "10px 0 0", color: "var(--bad)" }}>
-            This client has no counselor email address on file — add one under Counselors before
-            sending.
-          </p>
-        )}
       </div>
 
       {showPreview && (
         <div className="card" style={{ marginTop: 14 }}>
-          <h3>What the counselor receives</h3>
+          <h3>What the email says</h3>
           <pre
             style={{
               margin: 0,

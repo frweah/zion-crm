@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
+import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
+import { BillingOfficeFilter, withBo } from "../billing-office-filter";
+import { BillingOfficesPanel } from "./billing-offices-panel";
 import {
   LogContactForm,
   AddCounselorForm,
@@ -22,10 +25,10 @@ const TABS = ["directory", "contact", "hours"];
 export default async function CounselorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; bo?: string }>;
 }) {
   const me = await requireStaff();
-  const { tab: rawTab } = await searchParams;
+  const { tab: rawTab, bo: rawBo } = await searchParams;
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : TABS[0];
 
   const supabase = await createClient();
@@ -49,11 +52,26 @@ export default async function CounselorsPage({
   );
 
   if (tab === "directory") {
+    const billing = await readBillingOffices(supabase);
+    const bo = readBoParam(rawBo, billing.billingOffices);
+    const billingOf = (office: string | null) => (office ? (billing.officeBilling.get(office) ?? null) : null);
+    const shown = counselors.filter((k) => matchesBo(bo, billingOf(k.office)));
+    const isAdmin = me.role === "Admin";
+
+    // Per billing office: the offices it covers and how many counselors work from them.
+    const officesOf = (id: string) => billing.offices.filter((o) => o.billing_office_id === id);
+    const counselorsOf = (id: string) => counselors.filter((k) => billingOf(k.office)?.id === id).length;
+
     // One row per counselor rather than one card each: the directory is looked
     // up, sorted and filtered, which is what a table is for. A card is a summary.
     return (
       <>
         {header}
+        <BillingOfficeFilter
+          billingOffices={billing.billingOffices}
+          selected={bo}
+          href={(b) => withBo("/counselors?tab=directory", b)}
+        />
         <div className="card" style={{ padding: 0, marginBottom: 14 }}>
           <DataTable
             label="counselors"
@@ -64,10 +82,11 @@ export default async function CounselorsPage({
               { key: "fax", label: "Fax" },
               { key: "email", label: "Email" },
               { key: "office", label: "Office" },
+              { key: "billingOffice", label: "Billing office" },
               { key: "notes", label: "Notes" },
               { key: "caseload", label: "Caseload", align: "right" },
             ]}
-            rows={counselors.map((k) => {
+            rows={shown.map((k) => {
               const theirs = clients.filter((c) => c.counselor_id === k.id);
               const active = theirs.filter((c) => c.status === "Active").length;
               return {
@@ -83,6 +102,7 @@ export default async function CounselorsPage({
                   fax: k.fax,
                   email: k.email,
                   office: k.office,
+                  billingOffice: billingOf(k.office)?.name ?? <span className="lock">None</span>,
                   notes: k.notes && <span className="lock">{k.notes}</span>,
                   caseload: (
                     <Link href={`/counselors/${k.id}`} style={{ whiteSpace: "nowrap" }}>
@@ -90,13 +110,91 @@ export default async function CounselorsPage({
                     </Link>
                   ),
                 },
-                sort: { name: k.name, notes: k.notes, caseload: active },
+                sort: { name: k.name, office: k.office, billingOffice: billingOf(k.office)?.name ?? "", notes: k.notes, caseload: active },
               };
             })}
             empty="No counselors in the directory yet."
           />
         </div>
-        {canEdit && <AddCounselorForm />}
+        {canEdit && (
+          <AddCounselorForm
+            offices={billing.offices.map((o) => ({
+              name: o.name,
+              label: `${o.name} · ${billing.byId.get(o.billing_office_id)?.name ?? "no billing office"}`,
+            }))}
+          />
+        )}
+
+        <section id="billing-offices" style={{ marginTop: 28 }}>
+          <h2 className="h2" style={{ marginBottom: 4 }}>
+            Billing offices
+          </h2>
+          <p className="sub" style={{ marginBottom: 10 }}>
+            Where USOR&apos;s payments come from, and who to chase for them. Every counselor office bills
+            through one; a client&apos;s is their counselor&apos;s office&apos;s.
+          </p>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="billing offices"
+              columns={[
+                { key: "name", label: "Billing office" },
+                { key: "to", label: "Billing email goes to" },
+                { key: "contact", label: "Billing contact" },
+                { key: "offices", label: "Counselor offices" },
+                { key: "counselors", label: "Counselors", align: "right" },
+              ]}
+              rows={billing.billingOffices.map((b) => ({
+                key: b.id,
+                text: [b.name, b.billing_email, b.contact_name, b.contact_email, ...officesOf(b.id).map((o) => o.name)].join(" "),
+                sort: { name: b.name, counselors: counselorsOf(b.id) },
+                cells: {
+                  name: (
+                    <>
+                      <b>{b.name}</b>
+                      {b.notes && <div className="lock">{b.notes}</div>}
+                    </>
+                  ),
+                  to: (
+                    <>
+                      <a href={`mailto:${b.billing_email}`}>{b.billing_email}</a>
+                      {!b.has_group_address && <div className="lock">the contact&apos;s own address - no group address yet</div>}
+                    </>
+                  ),
+                  contact: b.contact_name ? (
+                    <>
+                      {b.contact_name}
+                      {b.contact_title && <div className="lock">{b.contact_title}</div>}
+                      {b.contact_email && (
+                        <div>
+                          <a href={`mailto:${b.contact_email}`}>{b.contact_email}</a>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="lock">No named contact yet</span>
+                  ),
+                  offices: (
+                    <>
+                      {officesOf(b.id).map((o) => (
+                        <div key={o.name}>
+                          {o.name}
+                          {(o.address || o.note) && <span className="lock"> · {o.address || o.note}</span>}
+                        </div>
+                      ))}
+                    </>
+                  ),
+                  counselors: (
+                    <a href={withBo("/counselors?tab=directory", b.id)} style={{ whiteSpace: "nowrap" }}>
+                      {counselorsOf(b.id)}
+                    </a>
+                  ),
+                },
+              }))}
+              empty="No billing offices are on file."
+            />
+          </div>
+          {isAdmin && <BillingOfficesPanel billingOffices={billing.billingOffices} offices={billing.offices} />}
+        </section>
       </>
     );
   }

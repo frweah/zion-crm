@@ -17,13 +17,38 @@ export function emailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
 
+const ADDRESS = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/**
+ * Addresses typed into a CC box: split on commas, semicolons or spaces, the
+ * To address and repeats removed. Returns the ones that do not look like an
+ * address separately, so a typo is refused rather than silently dropped.
+ */
+export function parseCc(raw: string, to: string): { cc: string[]; bad: string[] } {
+  const seen = new Set([to.trim().toLowerCase()]);
+  const cc: string[] = [];
+  const bad: string[] = [];
+  for (const part of raw.split(/[,;\s]+/).map((p) => p.trim()).filter(Boolean)) {
+    if (!ADDRESS.test(part)) {
+      bad.push(part);
+      continue;
+    }
+    if (seen.has(part.toLowerCase())) continue;
+    seen.add(part.toLowerCase());
+    cc.push(part);
+  }
+  return { cc, bad };
+}
+
 export async function sendEmail({
   to,
+  cc,
   subject,
   text,
   replyTo,
 }: {
   to: string;
+  cc?: string[];
   subject: string;
   text: string;
   replyTo?: string;
@@ -49,6 +74,7 @@ export async function sendEmail({
       body: JSON.stringify({
         from,
         to: [to],
+        ...(cc && cc.length ? { cc } : {}),
         subject,
         text,
         ...(replyTo ? { reply_to: replyTo } : {}),

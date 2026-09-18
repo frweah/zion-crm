@@ -132,6 +132,8 @@ const RPC_FUNCTIONS = [
   "reconcile_warrant_line",
   "reconcile_warrant_page",
   "dismiss_warrant_line",
+  // What to reconcile with a CRP billing office (0091).
+  "billing_office_reconciliation",
 ];
 
 const { rows: fns } = await client.query(

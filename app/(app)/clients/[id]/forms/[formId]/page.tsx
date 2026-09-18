@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { templateById } from "@/lib/form-templates";
 import { formToText, type FormContext } from "@/lib/form-text";
 import { FormRenderer } from "./form-renderer";
+import { recipientsFor, type BillingOffice } from "@/lib/billing-offices";
 
 export default async function FormPage({
   params,
@@ -53,6 +54,21 @@ export default async function FormPage({
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  // Where it goes by default: the client's billing office, copying the counselor.
+  const { data: billingRow } = await supabase
+    .from("client_billing_office")
+    .select("billing_office_id")
+    .eq("client_id", id)
+    .maybeSingle();
+  const { data: billingOffice } = billingRow?.billing_office_id
+    ? await supabase
+        .from("billing_offices")
+        .select("id, name, billing_email, has_group_address, contact_name, contact_title, contact_email, notes")
+        .eq("id", billingRow.billing_office_id)
+        .maybeSingle()
+    : { data: null };
+  const recipients = recipientsFor((billingOffice as BillingOffice | null) ?? null, counselor ?? null);
 
   const ctx: FormContext = {
     clientName: client?.name ?? "",
@@ -105,7 +121,7 @@ export default async function FormPage({
         signedBy={form.completed_by_name}
         signedAt={form.completed_at}
         sentTo={form.sent_to}
-        counselorEmail={counselor?.email ?? ""}
+        recipients={recipients}
         counselorName={counselor?.name ?? ""}
         preview={preview}
       />

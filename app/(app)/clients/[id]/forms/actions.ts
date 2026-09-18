@@ -7,7 +7,7 @@ import { getCurrentStaff } from "@/lib/session";
 import { autofillForm } from "@/lib/form-autofill";
 import { formToText, type FormContext } from "@/lib/form-text";
 import { templateById, validateForm } from "@/lib/form-templates";
-import { sendEmail } from "@/lib/email";
+import { parseCc, sendEmail } from "@/lib/email";
 import { today } from "@/lib/constants";
 import type { Json } from "@/lib/database.types";
 
@@ -138,7 +138,9 @@ export async function completeForm(_prev: FormState, formData: FormData): Promis
 }
 
 /**
- * Email a completed form to the counselor and log the send.
+ * Email a completed form and log the send. By default it goes to the client's
+ * billing office, copying the counselor (owner, 18 Sept 2026); the page fills
+ * those in and the person sending can change either.
  *
  * The form is marked Sent only if the mail service actually accepted it —
  * "Sent" has to mean the counselor has it, or the billing gate that depends on
@@ -151,8 +153,13 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
   const formId = String(formData.get("form_id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
   const to = String(formData.get("to") ?? "").trim();
-
-  if (!to) return { error: "No counselor email address to send to.", ok: null };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+    return { error: "Enter the address to send the form to.", ok: null };
+  }
+  const { cc, bad } = parseCc(String(formData.get("cc") ?? ""), to);
+  if (bad.length) {
+    return { error: `These do not look like email addresses: ${bad.join(", ")}.`, ok: null };
+  }
 
   const supabase = await createClient();
 
@@ -203,12 +210,19 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
     auth?.number ? ` — ${auth.number}` : ""
   }`;
 
-  const result = await sendEmail({ to, subject, text });
+  const result = await sendEmail({ to, cc, subject, text });
   if (!result.ok) {
     return { error: `Not sent. ${result.error}`, ok: null };
   }
 
-  await supabase.from("forms").update({ status: "Sent", sent_to: to }).eq("id", formId);
+  const sentTo = cc.length ? `${to} (copy to ${cc.join(", ")})` : to;
+  await supabase.from("forms").update({ status: "Sent", sent_to: sentTo }).eq("id", formId);
+
+  const { data: billingRow } = await supabase
+    .from("client_billing_office")
+    .select("billing_office_id")
+    .eq("client_id", clientId)
+    .maybeSingle();
 
   // Every report sent to a counselor belongs in the contact log — the SOP says
   // so, and this is one send that should never depend on someone remembering.
@@ -218,7 +232,8 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
     date: today(),
     method: "Report sent",
     topic: tpl?.name ?? "USOR form",
-    outcome: `Emailed to ${to}`,
+    outcome: `Emailed to ${sentTo}`,
+    billing_office_id: billingRow?.billing_office_id ?? null,
     staff_id: me.id,
   });
 
@@ -228,5 +243,5 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
   revalidatePath("/counselors");
   revalidatePath("/billing");
 
-  return { error: null, ok: `Sent to ${to} and logged in the counselor contact log.` };
+  return { error: null, ok: `Sent to ${sentTo} and logged in the contact log.` };
 }

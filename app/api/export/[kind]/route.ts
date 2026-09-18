@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { EXPORTS, toCsv, monthRange } from "@/lib/exports";
+import { readBillingOffices } from "@/lib/billing-offices";
 
 /**
  * A month of the record, as a CSV.
@@ -15,6 +16,23 @@ import { EXPORTS, toCsv, monthRange } from "@/lib/exports";
 
 const NOT_FOUND = () =>
   NextResponse.json({ error: "No such export." }, { status: 404 });
+
+/**
+ * The month closes one CRP billing office at a time, so the billing files lead
+ * with the billing office and are grouped by it - each office's rows kept in
+ * the order they were, and rows with no billing office last.
+ */
+function byOffice(rows: unknown[][]): unknown[][] {
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => {
+      const x = String(a.r[0] ?? "");
+      const y = String(b.r[0] ?? "");
+      if (x !== y) return !x ? 1 : !y ? -1 : x.localeCompare(y);
+      return a.i - b.i;
+    })
+    .map((e) => e.r);
+}
 
 export async function GET(
   request: NextRequest,
@@ -32,6 +50,7 @@ export async function GET(
 
   const { month, start, end } = monthRange(request.nextUrl.searchParams.get("month"));
   const supabase = await createClient();
+  const billing = await readBillingOffices(supabase);
 
   const inMonth = (d: string | null | undefined) => Boolean(d && d >= start && d <= end);
 
@@ -57,7 +76,7 @@ export async function GET(
     const staffName = new Map((staff ?? []).map((s) => [s.id, s.name]));
 
     headers = [
-      "Date", "Client", "Client no", "USOR ID", "Authorization", "Service",
+      "Billing office", "Date", "Client", "Client no", "USOR ID", "Authorization", "Service",
       "Hours", "Billable", "Rate type", "Rate", "Primary code", "Secondary code",
       "Logged by", "Notes",
     ];
@@ -65,12 +84,14 @@ export async function GET(
       const a = authById.get(e.auth_id);
       const c = a ? clientById.get(a.client_id) : undefined;
       return [
+        billing.forClient(a?.client_id)?.name ?? "",
         e.date, c?.name ?? "", c?.client_no ?? "", c?.agency_id ?? "",
         a?.number ?? "", a?.service_type ?? "", e.hours, e.non_billable ? "No" : "Yes",
         a?.rate_type ?? "", a?.rate ?? "", e.primary_code, e.secondary_code,
         e.staff_id ? (staffName.get(e.staff_id) ?? "") : "", e.notes,
       ];
     });
+    rows = byOffice(rows);
   } else if (kind === "invoices") {
     const [{ data: invoices }, { data: auths }, { data: clients }] = await Promise.all([
       supabase
@@ -86,7 +107,7 @@ export async function GET(
     const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
 
     headers = [
-      "Invoice", "Date", "Client", "Client no", "USOR ID", "Authorization", "Service",
+      "Billing office", "Invoice", "Date", "Client", "Client no", "USOR ID", "Authorization", "Service",
       "Amount", "Status", "Sent", "Paid", "Warrant", "Voucher", "In this month",
     ];
     rows = (invoices ?? []).map((i) => {
@@ -100,11 +121,13 @@ export async function GET(
         inMonth(i.paid_date) ? "paid" : null,
       ].filter(Boolean).join(" and ");
       return [
+        billing.forClient(a?.client_id)?.name ?? "",
         i.number, i.date, c?.name ?? "", c?.client_no ?? "", c?.agency_id ?? "",
         a?.number ?? "", i.service_type, i.amount, i.status,
         i.sent_date ?? "", i.paid_date ?? "", i.warrant, i.voucher, belongs,
       ];
     });
+    rows = byOffice(rows);
   } else if (kind === "authorizations") {
     const [{ data: econ }, { data: clients }] = await Promise.all([
       supabase
@@ -118,7 +141,7 @@ export async function GET(
     const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
 
     headers = [
-      "Authorization", "Client", "Client no", "USOR ID", "Service", "Funding", "Status",
+      "Billing office", "Authorization", "Client", "Client no", "USOR ID", "Service", "Funding", "Status",
       "Rate type", "Rate", "Authorized hours", "Hours used", "Hours left",
       "Start", "End", "Authorized", "Earned", "Invoiced", "Received", "Outstanding",
       "Earned not invoiced", "Authorized not earned",
@@ -126,6 +149,7 @@ export async function GET(
     rows = (econ ?? []).map((e) => {
       const c = e.client_id ? clientById.get(e.client_id) : undefined;
       return [
+        billing.forClient(e.client_id)?.name ?? "",
         e.auth_number, c?.name ?? "", c?.client_no ?? "", c?.agency_id ?? "",
         e.service_type, e.funding_source, e.status, e.rate_type, e.rate,
         e.total_hours ?? "", e.hours_used, e.hours_left ?? "",
@@ -133,6 +157,7 @@ export async function GET(
         e.received, e.outstanding, e.unbilled, e.committed,
       ];
     });
+    rows = byOffice(rows);
   } else if (kind === "placements") {
     const [{ data: placements }, { data: clients }] = await Promise.all([
       supabase

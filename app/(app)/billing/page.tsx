@@ -23,6 +23,10 @@ import { WarrantsToReview } from "./warrants/review-section";
 import PositionSection from "./position/section";
 import { PageHead } from "../page-head";
 import { DataTable, type DataRow } from "../data-table";
+import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
+import { buildReconciliation, ENDING_WITHIN_DAYS } from "@/lib/reconcile";
+import { BillingOfficeFilter, withBo } from "../billing-office-filter";
+import { ReconcilePanel } from "./reconcile-panel";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
@@ -34,10 +38,10 @@ const TABS = ["authorizations", "log", "invoices"];
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; show?: string; filter?: string }>;
+  searchParams: Promise<{ tab?: string; show?: string; filter?: string; bo?: string; reconcile?: string }>;
 }) {
   const me = await requireStaff();
-  const { tab: rawTab, show, filter } = await searchParams;
+  const { tab: rawTab, show, filter, bo: rawBo, reconcile } = await searchParams;
 
   // Completions and the rate schedule were tabs. Completions sit under
   // Authorizations now; the rate schedule is a setting, in Admin → System.
@@ -64,6 +68,11 @@ export default async function BillingPage({
   const clients = clientsResult.data ?? [];
   const entries = entriesResult.data ?? [];
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
+
+  // Every authorization and invoice bills through its client's billing office.
+  const billing = await readBillingOffices(supabase);
+  const bo = readBoParam(rawBo, billing.billingOffices);
+  const boName = (clientId: string | null | undefined) => billing.forClient(clientId)?.name ?? "";
 
   // Hours used = carried over at migration, plus everything billable logged.
   const usedByAuth = new Map<string, number>();
@@ -189,7 +198,6 @@ export default async function BillingPage({
       .order("date", { ascending: false });
 
     const invoices = (invoiceRows ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
-    const ar = arBuckets(invoices);
 
     // The warrant page each paid invoice was read from, when one was kept.
     const pageByInvoice = new Map<string, string>();
@@ -199,10 +207,60 @@ export default async function BillingPage({
     const authById = new Map(auths.map((a) => [a.id, a]));
 
     const view = filter === "paid" ? "paid" : filter === "all" ? "all" : "open";
-    const shown = invoices.filter((i) =>
+    const clientOf = (authId: string) => authById.get(authId)?.client_id ?? null;
+    const inOffice = invoices.filter((i) => matchesBo(bo, billing.forClient(clientOf(i.auth_id))));
+    const ar = arBuckets(inOffice);
+    const shown = inOffice.filter((i) =>
       view === "all" ? true : view === "paid" ? i.status === "Paid" : i.status !== "Paid",
     );
-    const paidCount = invoices.filter((i) => i.status === "Paid");
+    const paidCount = inOffice.filter((i) => i.status === "Paid");
+
+    // Unpaid, per billing office: what the reconcile picker shows beside each name.
+    const unpaidByOffice = new Map<string, number>();
+    for (const i of invoices) {
+      const office = billing.forClient(clientOf(i.auth_id));
+      if (i.status === "Sent" && office) unpaidByOffice.set(office.id, (unpaidByOffice.get(office.id) ?? 0) + 1);
+    }
+
+    // The reconciliation, drafted, when one has been asked for.
+    const reconcileOffice = canBill && reconcile ? billing.byId.get(reconcile) : undefined;
+    const invoicesHref = withBo(`/billing?tab=invoices&filter=${view}`, bo);
+    let reconcileOverlay: React.ReactNode = null;
+    if (reconcileOffice) {
+      const built = await buildReconciliation(supabase, reconcileOffice, me.name);
+      reconcileOverlay = (
+        <div
+          style={{ position: "fixed", inset: 0, background: "var(--scrim)", zIndex: 40, overflowY: "auto", padding: "5vh 16px" }}
+        >
+          <div role="dialog" aria-label={`Reconcile with ${reconcileOffice.name}`} style={{ maxWidth: 880, margin: "0 auto" }}>
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="row2" style={{ justifyContent: "space-between" }}>
+                <h3 style={{ margin: 0 }}>Reconcile with {reconcileOffice.name}</h3>
+                <Link className="btn ghost" href={invoicesHref} style={{ textDecoration: "none" }}>
+                  Close
+                </Link>
+              </div>
+            </div>
+            {built.ok ? (
+              <ReconcilePanel
+                billingOfficeId={reconcileOffice.id}
+                billingOfficeName={reconcileOffice.name}
+                to={built.recon.to}
+                cc={built.recon.cc.join(", ")}
+                counselorsWithoutEmail={built.recon.counselorsWithoutEmail}
+                subject={built.recon.subject}
+                body={built.recon.body}
+                summary={`${built.recon.unpaid.length} unpaid ${built.recon.unpaid.length === 1 ? "invoice" : "invoices"}, ${money(built.recon.unpaidTotal)} · ${built.recon.ending.length} ${built.recon.ending.length === 1 ? "authorization" : "authorizations"} ending within ${ENDING_WITHIN_DAYS} days with value not yet invoiced`}
+                nothingToSend={built.recon.cases.length === 0}
+                closeHref={invoicesHref}
+              />
+            ) : (
+              <div className="alert bad">The reconciliation could not be read: {built.error}</div>
+            )}
+          </div>
+        </div>
+      );
+    }
     const paidTotal = paidCount.reduce((t, i) => t + i.amount, 0);
 
     const rows: DataRow[] = shown.map((i) => {
@@ -210,6 +268,7 @@ export default async function BillingPage({
       const days = i.status === "Sent" ? daysBetween(i.date, today()) : null;
       const client = a ? (clientName.get(a.client_id) ?? "—") : "—";
       const service = i.service_type || a?.service_type || "—";
+      const office = a ? boName(a.client_id) : "";
       return {
         key: i.id,
         cells: {
@@ -242,6 +301,7 @@ export default async function BillingPage({
           ) : (
             "—"
           ),
+          billingOffice: office || <span className="lock">None</span>,
           date: i.date,
           amount: money(i.amount),
           status: (
@@ -260,8 +320,8 @@ export default async function BillingPage({
             ),
           action: canBill ? <InvoiceAction invoiceId={i.id} status={i.status} /> : null,
         },
-        sort: { invoice: i.number, client, amount: i.amount, status: i.status, days },
-        text: [i.number, i.warrant, service, client, i.date, i.status].filter(Boolean).join(" "),
+        sort: { invoice: i.number, client, billingOffice: office, amount: i.amount, status: i.status, days },
+        text: [i.number, i.warrant, service, client, office, i.date, i.status].filter(Boolean).join(" "),
       };
     });
 
@@ -291,6 +351,36 @@ export default async function BillingPage({
 
         {canBill && <NewInvoiceForm auths={auths.map(toOption)} />}
 
+        {canBill && (
+          <form method="get" action="/billing" className="row2 no-print" style={{ alignItems: "flex-end", marginBottom: 12 }}>
+            <input type="hidden" name="tab" value="invoices" />
+            <input type="hidden" name="filter" value={view} />
+            {bo && <input type="hidden" name="bo" value={bo} />}
+            <label className="field" style={{ maxWidth: 340 }}>
+              Reconcile with a billing office
+              <select name="reconcile" defaultValue={bo && billing.byId.has(bo) ? bo : ""} required>
+                <option value="" disabled>
+                  Choose a billing office
+                </option>
+                {billing.billingOffices.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} · {unpaidByOffice.get(b.id) ?? 0} unpaid
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="btn" type="submit">
+              Draft the email
+            </button>
+          </form>
+        )}
+
+        <BillingOfficeFilter
+          billingOffices={billing.billingOffices}
+          selected={bo}
+          href={(b) => withBo(`/billing?tab=invoices&filter=${view}`, b)}
+        />
+
         {/* Which invoices to show is a filter on this list, not a tab. */}
         <div style={{ marginBottom: 8 }}>
           <div className="segmented">
@@ -301,7 +391,7 @@ export default async function BillingPage({
             ].map((f) => (
               <Link
                 key={f.key}
-                href={`/billing?tab=invoices&filter=${f.key}`}
+                href={withBo(`/billing?tab=invoices&filter=${f.key}`, bo)}
                 className={view === f.key ? "on" : undefined}
               >
                 {f.label}
@@ -317,6 +407,7 @@ export default async function BillingPage({
               { key: "invoice", label: "Invoice" },
               { key: "service", label: "Service" },
               { key: "client", label: "Client" },
+              { key: "billingOffice", label: "Billing office" },
               { key: "date", label: "Date" },
               { key: "amount", label: "Amount", align: "right" },
               { key: "status", label: "Status" },
@@ -346,16 +437,19 @@ export default async function BillingPage({
 
         {/* Paid & outstanding lives here, beside the invoices it counts (owner, 14 Sept 2026). */}
         <section id="paid-and-outstanding" style={{ marginTop: 32 }}>
-          <PositionSection searchParams={Promise.resolve({ show })} />
+          <PositionSection searchParams={Promise.resolve({ show, bo: bo ?? undefined })} />
         </section>
+
+        {reconcileOverlay}
       </>
     );
   }
 
   // ── Authorizations ────────────────────────────────────────
   const showAll = show === "all";
-  const closedCount = auths.filter((a) => a.status !== "Open").length;
-  const shownAuths = auths.filter((a) => showAll || a.status === "Open");
+  const inOfficeAuths = auths.filter((a) => matchesBo(bo, billing.forClient(a.client_id)));
+  const closedCount = inOfficeAuths.filter((a) => a.status !== "Open").length;
+  const shownAuths = inOfficeAuths.filter((a) => showAll || a.status === "Open");
 
   const [{ data: completions }, { count: waitingInInbox }] = await Promise.all([
     supabase.from("completions").select("id, auth_id, start_date, completion, billed, notes"),
@@ -378,6 +472,7 @@ export default async function BillingPage({
           </Link>
         ),
         service: a.service_type,
+        billingOffice: boName(a.client_id) || <span className="lock">None</span>,
         rate: `${money(a.rate)}${a.rate_type === "Hourly" ? "/hr" : " flat"}`,
         hours:
           total !== null && rem !== null ? (
@@ -404,13 +499,14 @@ export default async function BillingPage({
       sort: {
         number: a.number,
         client,
+        billingOffice: boName(a.client_id),
         rate: Number(a.rate),
         // The share used, so an exhausted authorization sorts beside the other exhausted ones.
         hours: total ? used / total : null,
         dates: a.start_date ?? a.end_date,
         status: a.status,
       },
-      text: [a.number, client, a.service_type, a.status, a.start_date, a.end_date, a.note].filter(Boolean).join(" "),
+      text: [a.number, client, boName(a.client_id), a.service_type, a.status, a.start_date, a.end_date, a.note].filter(Boolean).join(" "),
     };
   });
 
@@ -460,13 +556,19 @@ export default async function BillingPage({
         </div>
       )}
 
+      <BillingOfficeFilter
+        billingOffices={billing.billingOffices}
+        selected={bo}
+        href={(b) => withBo(showAll ? "/billing?tab=authorizations&show=all" : "/billing?tab=authorizations", b)}
+      />
+
       {/* Open or everything is a filter on this list, not a tab. */}
       <div style={{ marginBottom: 8 }}>
         <div className="segmented">
-          <Link href="/billing?tab=authorizations" className={showAll ? undefined : "on"}>
+          <Link href={withBo("/billing?tab=authorizations", bo)} className={showAll ? undefined : "on"}>
             Open
           </Link>
-          <Link href="/billing?tab=authorizations&show=all" className={showAll ? "on" : undefined}>
+          <Link href={withBo("/billing?tab=authorizations&show=all", bo)} className={showAll ? "on" : undefined}>
             All, with paid and closed ({closedCount})
           </Link>
         </div>
@@ -478,6 +580,7 @@ export default async function BillingPage({
           columns={[
             { key: "number", label: "Auth #" },
             { key: "client", label: "Client" },
+            { key: "billingOffice", label: "Billing office" },
             { key: "service", label: "Service" },
             { key: "rate", label: "Rate", align: "right" },
             { key: "hours", label: "Hours used / total" },

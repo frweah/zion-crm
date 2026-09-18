@@ -198,6 +198,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      billing_offices: {
+        Row: {
+          id: string;
+          name: string;
+          billing_email: string;
+          has_group_address: boolean;
+          contact_name: string;
+          contact_title: string;
+          contact_email: string;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          billing_email: string;
+          has_group_address?: boolean;
+          contact_name?: string;
+          contact_title?: string;
+          contact_email?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          billing_email?: string;
+          has_group_address?: boolean;
+          contact_name?: string;
+          contact_title?: string;
+          contact_email?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       calendar_events: {
         Row: {
           id: string;
@@ -534,6 +573,7 @@ export type Database = {
           staff_id: string | null;
           created_at: string;
           updated_at: string;
+          billing_office_id: string | null;
         };
         Insert: {
           id?: string;
@@ -549,6 +589,7 @@ export type Database = {
           staff_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          billing_office_id?: string | null;
         };
         Update: {
           id?: string;
@@ -564,6 +605,7 @@ export type Database = {
           staff_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          billing_office_id?: string | null;
         };
         Relationships: [];
       };
@@ -1863,12 +1905,21 @@ export type Database = {
       offices: {
         Row: {
           name: string;
+          billing_office_id: string;
+          address: string;
+          note: string;
         };
         Insert: {
           name: string;
+          billing_office_id: string;
+          address?: string;
+          note?: string;
         };
         Update: {
           name?: string;
+          billing_office_id?: string;
+          address?: string;
+          note?: string;
         };
         Relationships: [];
       };
@@ -2001,6 +2052,261 @@ export type Database = {
           notes?: string;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      portal_accounts: {
+        Row: {
+          id: string;
+          client_id: string;
+          kind: string;
+          name: string;
+          relationship: string;
+          phone: string | null;
+          email: string | null;
+          guardianship_attachment_id: string | null;
+          auth_user_id: string | null;
+          invited_by: string | null;
+          invited_by_name: string;
+          invited_at: string;
+          first_signed_in_at: string | null;
+          last_signed_in_at: string | null;
+          disabled_at: string | null;
+          disabled_by: string | null;
+          disabled_reason: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          kind: string;
+          name: string;
+          relationship?: string;
+          phone?: string | null;
+          email?: string | null;
+          guardianship_attachment_id?: string | null;
+          auth_user_id?: string | null;
+          invited_by?: string | null;
+          invited_by_name?: string;
+          invited_at?: string;
+          first_signed_in_at?: string | null;
+          last_signed_in_at?: string | null;
+          disabled_at?: string | null;
+          disabled_by?: string | null;
+          disabled_reason?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          kind?: string;
+          name?: string;
+          relationship?: string;
+          phone?: string | null;
+          email?: string | null;
+          guardianship_attachment_id?: string | null;
+          auth_user_id?: string | null;
+          invited_by?: string | null;
+          invited_by_name?: string;
+          invited_at?: string;
+          first_signed_in_at?: string | null;
+          last_signed_in_at?: string | null;
+          disabled_at?: string | null;
+          disabled_by?: string | null;
+          disabled_reason?: string;
+        };
+        Relationships: [];
+      };
+      portal_activity: {
+        Row: {
+          id: string;
+          seq: number;
+          account_id: string | null;
+          client_id: string;
+          at: string;
+          action: string;
+          detail: string;
+          ip: string;
+          acting_as: string;
+          actor_name: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          account_id?: string | null;
+          client_id: string;
+          at?: string;
+          action: string;
+          detail?: string;
+          ip?: string;
+          acting_as: string;
+          actor_name?: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          account_id?: string | null;
+          client_id?: string;
+          at?: string;
+          action?: string;
+          detail?: string;
+          ip?: string;
+          acting_as?: string;
+          actor_name?: string;
+        };
+        Relationships: [];
+      };
+      portal_consents: {
+        Row: {
+          id: string;
+          seq: number;
+          account_id: string;
+          client_id: string;
+          terms_version: string;
+          kind: string;
+          given: boolean;
+          at: string;
+          ip: string;
+          user_agent: string;
+          acting_as: string;
+          actor_name: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          account_id: string;
+          client_id: string;
+          terms_version: string;
+          kind: string;
+          given: boolean;
+          at?: string;
+          ip: string;
+          user_agent?: string;
+          acting_as: string;
+          actor_name: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          account_id?: string;
+          client_id?: string;
+          terms_version?: string;
+          kind?: string;
+          given?: boolean;
+          at?: string;
+          ip?: string;
+          user_agent?: string;
+          acting_as?: string;
+          actor_name?: string;
+        };
+        Relationships: [];
+      };
+      portal_login_codes: {
+        Row: {
+          id: string;
+          account_id: string | null;
+          code_hash: string | null;
+          channel: string;
+          created_at: string;
+          expires_at: string;
+          attempts: number;
+          used_at: string | null;
+          ip: string;
+          sent: boolean;
+          send_error: string;
+        };
+        Insert: {
+          id?: string;
+          account_id?: string | null;
+          code_hash?: string | null;
+          channel: string;
+          created_at?: string;
+          expires_at: string;
+          attempts?: number;
+          used_at?: string | null;
+          ip?: string;
+          sent?: boolean;
+          send_error?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string | null;
+          code_hash?: string | null;
+          channel?: string;
+          created_at?: string;
+          expires_at?: string;
+          attempts?: number;
+          used_at?: string | null;
+          ip?: string;
+          sent?: boolean;
+          send_error?: string;
+        };
+        Relationships: [];
+      };
+      portal_sessions: {
+        Row: {
+          id: string;
+          account_id: string;
+          auth_user_id: string;
+          created_at: string;
+          last_seen_at: string;
+          ip: string;
+          user_agent: string;
+          ended_at: string | null;
+          ended_reason: string | null;
+        };
+        Insert: {
+          id: string;
+          account_id: string;
+          auth_user_id: string;
+          created_at?: string;
+          last_seen_at?: string;
+          ip?: string;
+          user_agent?: string;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          auth_user_id?: string;
+          created_at?: string;
+          last_seen_at?: string;
+          ip?: string;
+          user_agent?: string;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      portal_terms: {
+        Row: {
+          version: string;
+          title: string;
+          source_file: string;
+          body: Json;
+          text_sha256: string;
+          published_at: string | null;
+          is_current: boolean;
+          created_at: string;
+        };
+        Insert: {
+          version: string;
+          title: string;
+          source_file: string;
+          body: Json;
+          text_sha256: string;
+          published_at?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          version?: string;
+          title?: string;
+          source_file?: string;
+          body?: Json;
+          text_sha256?: string;
+          published_at?: string | null;
+          is_current?: boolean;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -3195,6 +3501,16 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_billing_office: {
+        Row: {
+          client_id: string | null;
+          office: string | null;
+          billing_office_id: string | null;
+          billing_office: string | null;
+          basis: string | null;
+        };
+        Relationships: [];
+      };
       client_job_history: {
         Row: {
           match_id: string | null;
@@ -3585,6 +3901,10 @@ export type Database = {
       answer_reminder: {
         Args: { p_task_id: string | null; p_status: string | null; p_outcome: string | null };
         Returns: undefined;
+      };
+      billing_office_reconciliation: {
+        Args: { p_billing_office: string | null; p_within_days: number | null };
+        Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; invoice_number: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
       };
       can_see_restricted: {
         Args: { p_client_id: string | null };

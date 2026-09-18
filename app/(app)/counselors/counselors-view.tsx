@@ -107,7 +107,8 @@ export function LogContactForm({
   );
 }
 
-export function AddCounselorForm() {
+/** Offices come from the list on file: a counselor's office decides where their clients bill. */
+export function AddCounselorForm({ offices }: { offices: { name: string; label: string }[] }) {
   const [state, action, pending] = useActionState(addCounselor, initial);
 
   return (
@@ -140,7 +141,14 @@ export function AddCounselorForm() {
         <div className="row2" style={{ marginTop: 10 }}>
           <label className="field" style={{ flex: 2 }}>
             Office
-            <input name="office" />
+            <select name="office" defaultValue="">
+              <option value="">Not known yet</option>
+              {offices.map((o) => (
+                <option key={o.name} value={o.name}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="field">
             Notes

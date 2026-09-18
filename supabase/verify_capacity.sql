@@ -25,12 +25,28 @@ declare
   v_id      uuid;
   r         record;
   v_before  numeric;
+  -- What this staff member's capacity already says, before any fixture. The
+  -- first version of this script asserted the totals themselves - one active
+  -- client, two open authorizations - which is only true while the person it
+  -- picks has an empty caseload. It picked a different Admin one day (their
+  -- created_at ties, so "the first" was a coin toss), landed on one with three
+  -- real clients, and reported six failures in a view that was working.
+  v_b_active numeric;
+  v_b_quiet  numeric;
+  v_b_hours  numeric;
+  v_b_value  numeric;
+  v_b_open   numeric;
   failures  text[] := '{}';
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff
-   where role = 'Admin' and active order by created_at limit 1;
+   where role = 'Admin' and active order by created_at, id limit 1;
   select id, user_id into v_other, v_oth_uid from public.staff
-   where active and id <> v_admin order by created_at limit 1;
+   where active and id <> v_admin order by created_at, id limit 1;
+
+  select coalesce(max(active_clients), 0), coalesce(max(quiet_clients), 0), coalesce(max(committed_hours), 0),
+         coalesce(max(committed_value), 0), coalesce(max(open_authorizations), 0)
+    into v_b_active, v_b_quiet, v_b_hours, v_b_value, v_b_open
+    from public.staff_capacity where staff_id = v_admin;
 
   -- ── a caseload is active clients, not every client ─────────
   insert into public.clients (name, stage, status, assigned_staff_id)
@@ -41,18 +57,18 @@ begin
   values ('ZZ Capacity Closed', 'Closed', 'Closed', v_admin);
 
   select * into r from public.staff_capacity where staff_id = v_admin;
-  if r.active_clients <> 1 then
-    failures := failures || format('FAILED: one active and one closed client reads as %s',
-                                   r.active_clients);
+  if r.active_clients <> v_b_active + 1 then
+    failures := failures || format('FAILED: one active and one closed client added %s to the caseload',
+                                   r.active_clients - v_b_active);
   else
     raise notice 'ok  a caseload counts active clients, and a closed one is not a caseload';
   end if;
 
   -- Adding a client sets their stage, and setting a stage is activity, so a
   -- client created a second ago is correctly not quiet.
-  if r.quiet_clients <> 0 then
-    failures := failures || format('FAILED: a client created seconds ago reads as %s quiet',
-                                   r.quiet_clients);
+  if r.quiet_clients <> v_b_quiet then
+    failures := failures || format('FAILED: a client created seconds ago added %s to quiet',
+                                   r.quiet_clients - v_b_quiet);
   else
     raise notice 'ok  a client added today is not quiet — setting their stage was activity';
   end if;
@@ -63,9 +79,9 @@ begin
   delete from public.client_stage_history where client_id = v_client;
 
   select * into r from public.staff_capacity where staff_id = v_admin;
-  if r.quiet_clients <> 1 then
-    failures := failures || format('FAILED: a client nothing has ever happened to reads as %s quiet',
-                                   r.quiet_clients);
+  if r.quiet_clients <> v_b_quiet + 1 then
+    failures := failures || format('FAILED: a client nothing has ever happened to added %s to quiet',
+                                   r.quiet_clients - v_b_quiet);
   else
     raise notice 'ok  a client nothing has ever happened to counts as quiet';
   end if;
@@ -80,22 +96,22 @@ begin
   values (v_client, 'ZZ-CAP-F', 'Job Placement', 1000, 'Flat Fee', 'Open');
 
   select * into r from public.staff_capacity where staff_id = v_admin;
-  if r.committed_hours <> 20 then
-    failures := failures || format('FAILED: 20 hourly hours plus a flat fee reads as %s hours owed',
-                                   r.committed_hours);
+  if r.committed_hours <> v_b_hours + 20 then
+    failures := failures || format('FAILED: 20 hourly hours plus a flat fee added %s hours owed',
+                                   r.committed_hours - v_b_hours);
   else
     raise notice 'ok  a flat fee adds no hours to deliver — it has none';
   end if;
 
-  if r.committed_value <> 1900 then
+  if r.committed_value <> v_b_value + 1900 then
     failures := failures || format('FAILED: $900 of hours plus a $1000 fee reads as %s owed',
-                                   r.committed_value);
+                                   r.committed_value - v_b_value);
   else
     raise notice 'ok  but it does add its money, so the value counts both kinds';
   end if;
 
-  if r.open_authorizations <> 2 then
-    failures := failures || format('FAILED: two open authorizations read as %s', r.open_authorizations);
+  if r.open_authorizations <> v_b_open + 2 then
+    failures := failures || format('FAILED: two open authorizations added %s', r.open_authorizations - v_b_open);
   else
     raise notice 'ok  both authorizations are counted as open work';
   end if;
@@ -103,9 +119,9 @@ begin
   -- A closed authorization is not owed to anybody.
   update public.authorizations set status = 'Paid' where id = v_auth;
   select * into r from public.staff_capacity where staff_id = v_admin;
-  if r.committed_hours <> 0 then
+  if r.committed_hours <> v_b_hours then
     failures := failures || format('FAILED: a closed authorization still owes %s hours',
-                                   r.committed_hours);
+                                   r.committed_hours - v_b_hours);
   else
     raise notice 'ok  closing an authorization stops it being owed';
   end if;

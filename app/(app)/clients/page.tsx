@@ -15,6 +15,7 @@ import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
 import { AddClientPanel } from "./clients-view";
 import { FilterBar } from "./filter-bar";
+import { readBillingOffices, matchesBo } from "@/lib/billing-offices";
 import { SavedViews, type SavedView } from "./saved-views";
 
 type Row = {
@@ -25,6 +26,7 @@ type Row = {
   status: string;
   agency_id: string;
   referring_office: string;
+  billing_office: string;
   import_review: string;
   funding_source: string;
   created_at: string;
@@ -86,6 +88,7 @@ export default async function ClientsPage({
         .maybeSingle(),
     ]);
 
+  const billing = await readBillingOffices(supabase);
   const counselors = counselorsResult.data ?? [];
   const staff = staffResult.data ?? [];
   const counselorName = new Map(counselors.map((c) => [c.id, c.name]));
@@ -102,6 +105,7 @@ export default async function ClientsPage({
     status: c.status,
     agency_id: c.agency_id,
     referring_office: c.referring_office,
+    billing_office: billing.forClient(c.id)?.name ?? "",
     import_review: c.import_review,
     funding_source: c.funding_source,
     created_at: c.created_at,
@@ -130,12 +134,18 @@ export default async function ClientsPage({
     });
   }
 
+  // Through the counselor's office, else the referring office (0091).
+  if (filters.billingOffice.length) {
+    rows = rows.filter((r) => filters.billingOffice.some((b) => matchesBo(b, billing.forClient(r.id))));
+  }
+
   const dir = filters.dir === "desc" ? -1 : 1;
   const key = (r: Row): string | number => {
     switch (filters.sort) {
       case "clientNo": return r.client_no ?? Number.MAX_SAFE_INTEGER;
       case "counselor": return r.counselor_name.toLowerCase();
       case "office": return r.referring_office.toLowerCase();
+      case "billingOffice": return r.billing_office.toLowerCase();
       case "stage": return r.stage.toLowerCase();
       case "assigned": return r.assigned_name.toLowerCase();
       case "createdAt": return r.created_at;
@@ -191,7 +201,7 @@ export default async function ClientsPage({
     const d = lastActivityDays(c);
     return {
       key: c.id,
-      text: [c.name, c.client_no, c.agency_id, c.counselor_name, c.referring_office, c.stage, c.assigned_name]
+      text: [c.name, c.client_no, c.agency_id, c.counselor_name, c.referring_office, c.billing_office, c.stage, c.assigned_name]
         .filter(Boolean)
         .join(" "),
       sort: {
@@ -199,6 +209,7 @@ export default async function ClientsPage({
         clientNo: c.client_no,
         counselor: c.counselor_name,
         office: c.referring_office,
+        billingOffice: c.billing_office,
         stage: c.stage,
         assigned: c.assigned_name,
         createdAt: c.created_at,
@@ -225,6 +236,7 @@ export default async function ClientsPage({
         clientNo: c.client_no ?? "",
         counselor: c.counselor_name,
         office: c.referring_office,
+        billingOffice: c.billing_office || <span className="lock">None</span>,
         stage: <span className="chip gold">{c.stage}</span>,
         assigned: c.assigned_name || "—",
         createdAt: <span style={{ whiteSpace: "nowrap" }}>{c.created_at}</span>,
@@ -268,6 +280,7 @@ export default async function ClientsPage({
         counselors={counselors}
         staff={staff}
         offices={(officesResult.data ?? []).map((o) => o.name)}
+        billingOffices={billing.billingOffices.map((b) => ({ id: b.id, name: b.name }))}
         fundingSources={[...new Set(rows.map((r) => r.funding_source).filter(Boolean))]}
         resultCount={rows.length}
         totalCount={totalResult.count ?? 0}

@@ -11,6 +11,7 @@ export const CLIENT_SORTS = [
   "clientNo",
   "counselor",
   "office",
+  "billingOffice",
   "stage",
   "assigned",
   "createdAt",
@@ -23,6 +24,7 @@ export const CLIENT_SORT_LABELS: Record<ClientSort, string> = {
   clientNo: "#",
   counselor: "Counselor",
   office: "Office",
+  billingOffice: "Billing office",
   stage: "Stage",
   assigned: "Assigned",
   createdAt: "Referred",
@@ -39,6 +41,8 @@ export type ClientFilters = {
   assignedStaffId: string[];
   fundingSource: string[];
   office: string[];
+  /** A billing office's id, or "none". */
+  billingOffice: string[];
   hasImportReview: boolean;
   inactiveDays: number | null;
   sort: ClientSort;
@@ -53,6 +57,7 @@ export const EMPTY_FILTERS: ClientFilters = {
   assignedStaffId: [],
   fundingSource: [],
   office: [],
+  billingOffice: [],
   hasImportReview: false,
   inactiveDays: null,
   sort: "name",
@@ -90,6 +95,7 @@ export function parseFilters(raw: Record<string, unknown>): ClientFilters {
     assignedStaffId: asArray(r.assignedStaffId),
     fundingSource: asArray(r.fundingSource),
     office: asArray(r.office),
+    billingOffice: asArray(r.billingOffice),
     hasImportReview: review === true || review === "true" || review === "on",
     inactiveDays: Number.isFinite(days) && days > 0 ? days : null,
     sort: (CLIENT_SORTS as readonly string[]).includes(sort) ? (sort as ClientSort) : "name",
@@ -101,7 +107,7 @@ export function parseFilters(raw: Record<string, unknown>): ClientFilters {
 export function toQuery(f: ClientFilters): string {
   const p = new URLSearchParams();
   if (f.q) p.set("q", f.q);
-  for (const k of ["status", "stage", "counselorId", "assignedStaffId", "fundingSource", "office"] as const) {
+  for (const k of ["status", "stage", "counselorId", "assignedStaffId", "fundingSource", "office", "billingOffice"] as const) {
     for (const v of f[k]) p.append(k, v);
   }
   if (f.hasImportReview) p.set("hasImportReview", "true");
@@ -115,7 +121,7 @@ export function toQuery(f: ClientFilters): string {
 export function toParams(f: ClientFilters): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (f.q) out.q = f.q;
-  for (const k of ["status", "stage", "counselorId", "assignedStaffId", "fundingSource", "office"] as const) {
+  for (const k of ["status", "stage", "counselorId", "assignedStaffId", "fundingSource", "office", "billingOffice"] as const) {
     if (f[k].length) out[k] = f[k];
   }
   if (f.hasImportReview) out.hasImportReview = true;
@@ -134,6 +140,7 @@ export function isFiltered(f: ClientFilters): boolean {
       f.assignedStaffId.length ||
       f.fundingSource.length ||
       f.office.length ||
+      f.billingOffice.length ||
       f.hasImportReview ||
       f.inactiveDays,
   );
