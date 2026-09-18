@@ -2,7 +2,7 @@ import { can } from "@/lib/roles";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { refreshNotifications, getAlerts } from "@/lib/alerts";
+import { refreshAlertsIfStale, getAlerts } from "@/lib/alerts";
 import { ROLE_LABEL } from "@/lib/roles";
 import { today, CAN_LOG_HOURS } from "@/lib/constants";
 import { DashboardTask } from "./dashboard-task";
@@ -29,13 +29,13 @@ export default async function DashboardPage({
   const me = await requireStaff();
   const supabase = await createClient();
 
-  // Recalculate before reading, so what is shown is true now rather than as of
-  // last night's cron run.
-  await refreshNotifications();
-
-  const [alerts, clientsResult, categoriesResult, checklistResult, msConnectionResult, msStateResult, timerResult, summaryResult] =
+  // The alerts as they are - worked out nightly, and again in the background
+  // when a dashboard finds them more than an hour old (below). Nothing is
+  // recalculated on the way to this page.
+  const [alerts, runResult, clientsResult, categoriesResult, checklistResult, msConnectionResult, msStateResult, timerResult, summaryResult] =
     await Promise.all([
       getAlerts(),
+      supabase.from("job_runs").select("last_run_at").eq("job", "notifications").maybeSingle(),
       supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
       supabase.from("work_categories").select("key, label").eq("active", true).order("sort_order"),
       // Their own outstanding onboarding. The view shows Admin everybody's (the
@@ -71,6 +71,8 @@ export default async function DashboardPage({
     ? await supabase.from("tasks").select("id, title, due, client_id").in("id", taskIds.slice(0, 8))
     : { data: [] as { id: string; title: string; due: string | null; client_id: string | null }[] };
   const taskById = new Map((taskRows ?? []).map((t) => [t.id, t]));
+
+  refreshAlertsIfStale(runResult.data?.last_run_at);
 
   const msParams = await searchParams;
   const outstanding = (checklistResult.data ?? []).filter(

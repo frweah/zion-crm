@@ -1,5 +1,7 @@
 import "server-only";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * What needs attention.
@@ -22,9 +24,8 @@ export type Alert = {
 };
 
 /**
- * Recalculates before reading, so the dashboard reflects this moment rather
- * than last night. Cheap — a handful of aggregates over small tables — and it
- * means a task finished this morning stops nagging immediately.
+ * Works the alerts out now. No screen calls this on the way to a page any more
+ * (owner, 18 Sept 2026): see refreshAlertsIfStale.
  */
 export async function refreshNotifications(): Promise<void> {
   const supabase = await createClient();
@@ -56,4 +57,30 @@ export async function getAlerts(): Promise<Alert[]> {
     href: n.href,
     createdAt: n.created_at,
   }));
+}
+
+/** How old the alerts may be before a dashboard asks for them to be worked out again. */
+export const ALERTS_STALE_AFTER_MS = 60 * 60 * 1000;
+
+/**
+ * The owner's rule (18 Sept 2026): the dashboard reads the alerts as they are,
+ * worked out nightly. If they were last worked out more than an hour ago, they
+ * are worked out again after the page has been sent - never on the way to it.
+ * The next page load shows the result.
+ *
+ * The run happens as the service role because the request that asked for it
+ * has finished by then; generate_notifications() works out everybody's alerts
+ * and nobody's in particular, exactly as the nightly job does, and records the
+ * run in job_runs (0093). Two dashboards opening at once can both start one;
+ * the alerts are keyed, so the second changes nothing.
+ *
+ * Returns whether a refresh was started.
+ */
+export function refreshAlertsIfStale(lastRunAt: string | null | undefined): boolean {
+  if (lastRunAt && Date.now() - Date.parse(lastRunAt) < ALERTS_STALE_AFTER_MS) return false;
+  after(async () => {
+    const { error } = await createAdminClient().rpc("generate_notifications");
+    if (error) console.error(`[alerts] background refresh failed: ${error.message}`);
+  });
+  return true;
 }

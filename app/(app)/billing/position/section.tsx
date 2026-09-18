@@ -54,10 +54,12 @@ export default async function PositionPage({ searchParams }: { searchParams: Pro
   const owedOnly = show === "outstanding";
 
   const supabase = await createClient();
-  const { data } = await supabase.from("billing_position").select("*").order("client_name").order("auth_number");
+  const [{ data }, billing] = await Promise.all([
+    supabase.from("billing_position").select("*").order("client_name").order("auth_number"),
+    readBillingOffices(supabase),
+  ]);
   // The billing office the Invoices tab is filtered to, if any - one filter
   // for the invoices and the money they add up to.
-  const billing = await readBillingOffices(supabase);
   const bo = readBoParam(rawBo, billing.billingOffices);
   const officeName = (clientId: string) => billing.forClient(clientId)?.name ?? "";
   const rows = ((data ?? []) as unknown as Position[]).filter((r) => matchesBo(bo, billing.forClient(r.client_id)));

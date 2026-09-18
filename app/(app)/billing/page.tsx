@@ -47,7 +47,22 @@ export default async function BillingPage({
   const canBill = can(me, "billing", "edit");
   const canLog = (CAN_LOG_HOURS.includes(me.role) || can(me, "billing", "edit"));
 
-  const [authsResult, clientsResult, entriesResult] = await Promise.all([
+  // What only Invoices needs is asked for alongside the rest rather than after
+  // it: every separate wait here is a round trip to the database. (A query
+  // builder does not run until something waits on it, so Promise.resolve is
+  // what starts these now.)
+  const invoicesPromise =
+    tab === "invoices"
+      ? Promise.resolve(
+          supabase
+            .from("invoices")
+            .select("id, auth_id, number, date, amount, status, warrant, service_type, paid_date")
+            .order("date", { ascending: false }),
+        )
+      : null;
+  const paymentsPromise = tab === "invoices" ? readPayments(supabase) : null;
+
+  const [authsResult, clientsResult, entriesResult, billing] = await Promise.all([
     supabase
       .from("authorizations")
       .select(
@@ -56,6 +71,8 @@ export default async function BillingPage({
       .order("number"),
     supabase.from("clients").select("id, name, status").order("name"),
     supabase.from("service_entries").select("id, auth_id, date, hours, non_billable, notes, primary_code, secondary_code, staff_id"),
+    // Every authorization and invoice bills through its client's billing office.
+    readBillingOffices(supabase),
   ]);
 
   const auths = authsResult.data ?? [];
@@ -63,8 +80,6 @@ export default async function BillingPage({
   const entries = entriesResult.data ?? [];
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
 
-  // Every authorization and invoice bills through its client's billing office.
-  const billing = await readBillingOffices(supabase);
   const bo = readBoParam(rawBo, billing.billingOffices);
   const boName = (clientId: string | null | undefined) => billing.forClient(clientId)?.name ?? "";
 
@@ -186,16 +201,13 @@ export default async function BillingPage({
 
   // ── Invoices ──────────────────────────────────────────────
   if (tab === "invoices") {
-    const { data: invoiceRows } = await supabase
-      .from("invoices")
-      .select("id, auth_id, number, date, amount, status, warrant, service_type, paid_date")
-      .order("date", { ascending: false });
+    const { data: invoiceRows } = (await invoicesPromise)!;
 
     const invoices = (invoiceRows ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
 
     // The warrant page each paid invoice was read from, when one was kept.
     const pageByInvoice = new Map<string, string>();
-    for (const p of await readPayments(supabase)) {
+    for (const p of (await paymentsPromise) ?? []) {
       if (p.invoice_id && p.page_id && !pageByInvoice.has(p.invoice_id)) pageByInvoice.set(p.invoice_id, p.page_id);
     }
     const authById = new Map(auths.map((a) => [a.id, a]));

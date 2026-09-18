@@ -1515,6 +1515,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      job_runs: {
+        Row: {
+          job: string;
+          last_run_at: string;
+          last_ms: number;
+        };
+        Insert: {
+          job: string;
+          last_run_at: string;
+          last_ms?: number;
+        };
+        Update: {
+          job?: string;
+          last_run_at?: string;
+          last_ms?: number;
+        };
+        Relationships: [];
+      };
       lead_matches: {
         Row: {
           id: string;

@@ -66,8 +66,9 @@ export default async function ClientsPage({
   if (filters.office.length) query = query.in("referring_office", filters.office);
   if (filters.hasImportReview) query = query.neq("import_review", "");
 
-  const [clientsResult, counselorsResult, staffResult, officesResult, activityResult, viewsResult, totalResult, prefResult] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, activityResult, viewsResult, totalResult, prefResult] =
     await Promise.all([
+      readBillingOffices(supabase),
       query,
       supabase.from("counselors").select("id, name").order("name"),
       supabase.from("staff").select("id, name").eq("active", true).order("name"),
@@ -88,7 +89,6 @@ export default async function ClientsPage({
         .maybeSingle(),
     ]);
 
-  const billing = await readBillingOffices(supabase);
   const counselors = counselorsResult.data ?? [];
   const staff = staffResult.data ?? [];
   const counselorName = new Map(counselors.map((c) => [c.id, c.name]));

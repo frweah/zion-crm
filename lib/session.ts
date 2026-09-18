@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Grant, Role } from "@/lib/roles";
@@ -20,7 +21,7 @@ export type CurrentStaff = {
  * deactivated account, or someone who signed up outside the invite flow.
  * RLS enforces the same thing at the database; this is what the UI reads.
  */
-export async function getCurrentStaff(): Promise<CurrentStaff | null> {
+export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
   const supabase = await createClient();
 
   const {
@@ -28,25 +29,25 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data } = await supabase
+  // The person and their live grants together. It was two round trips, and
+  // the layout, the page and every section that checks access each made them:
+  // cache() above makes it once a request, this makes it one query.
+  const { data } = (await supabase
     .from("staff")
-    .select("id, name, email, role, active")
+    .select(
+      "id, name, email, role, active, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at)",
+    )
     .eq("user_id", user.id)
     .eq("active", true)
-    .maybeSingle();
-
+    .maybeSingle()) as unknown as {
+    data: (Omit<CurrentStaff, "grants"> & { grants: (Grant & { revoked_at: string | null })[] | null }) | null;
+  };
   if (!data) return null;
 
-  // Their own live grants. Everybody may read their own; the database ends
-  // them when somebody is made inactive, so none survive leaving.
-  const { data: grants } = await supabase
-    .from("staff_access_grants")
-    .select("area, level")
-    .eq("staff_id", data.id)
-    .is("revoked_at", null);
-
-  return { ...(data as Omit<CurrentStaff, "grants">), grants: (grants ?? []) as Grant[] };
-}
+  // Only live ones; the database ends them when somebody is made inactive.
+  const grants = (data.grants ?? []).filter((g) => !g.revoked_at).map(({ area, level }) => ({ area, level }));
+  return { id: data.id, name: data.name, email: data.email, role: data.role, active: data.active, grants };
+});
 
 /** Use in any page that requires a live account. */
 export async function requireStaff(): Promise<CurrentStaff> {

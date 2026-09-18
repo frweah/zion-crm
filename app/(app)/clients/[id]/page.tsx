@@ -74,13 +74,25 @@ export default async function ClientPage({
   const me = await requireStaff();
   const supabase = await createClient();
 
-  const { data: client } = await supabase
+  // The client, their counselor and the staff list at once. The counselor was
+  // looked up after the client came back, which put a whole round trip in
+  // front of every tab; asking through the client's own link to the counselor
+  // lets all three go together.
+  const [{ data: client }, { data: counselorLink }, { data: staffRows }] = await Promise.all([
+    supabase
     .from("clients")
     .select(
       "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, counselor_contact, referring_office, caseload, unit, schedule, target_jobs, assigned_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
     )
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle(),
+    supabase
+      .from("clients")
+      .select("counselor:counselors!clients_counselor_id_fkey(name, email)")
+      .eq("id", id)
+      .maybeSingle() as unknown as Promise<{ data: { counselor: { name: string; email: string | null } | null } | null }>,
+    supabase.from("staff").select("id, name").eq("active", true).order("name"),
+  ]);
 
   if (!client) notFound();
 
@@ -92,12 +104,7 @@ export default async function ClientPage({
     me.role === "Admin" || me.role === "Reports" || client.assigned_staff_id === me.id;
   const tab: ClientTab = isClientTab(sp.tab) ? sp.tab : "activity";
 
-  const [{ data: counselor }, { data: staffRows }] = await Promise.all([
-    client.counselor_id
-      ? supabase.from("counselors").select("name, email").eq("id", client.counselor_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase.from("staff").select("id, name").eq("active", true).order("name"),
-  ]);
+  const counselor = counselorLink?.counselor ?? null;
   const staff = staffRows ?? [];
   const staffName = new Map(staff.map((s) => [s.id, s.name]));
   const assignedName = client.assigned_staff_id ? staffName.get(client.assigned_staff_id) : undefined;
