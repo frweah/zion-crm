@@ -165,10 +165,35 @@ export default async function ContractorsPage({
       {rows.length === 0 ? (
         <p className="empty">There is nobody active on the staff list to pay.</p>
       ) : (
-        <div className="list" style={{ marginBottom: 16 }}>
-          {rows.map((r) => (
-            <ProfileEditor key={r.staff_id} row={r} />
-          ))}
+        // Sortable by name, tax status or when the W-9 or W-8BEN came in; each
+        // row opens to its own editor.
+        <div className="card" style={{ padding: 0, marginBottom: 16 }}>
+          <DataTable
+            label="contractors"
+            columns={[
+              { key: "who", label: "Contractor", sortLabel: "Name" },
+              { key: "status", label: "Tax status" },
+              { key: "w9", label: "W-9 received" },
+              { key: "w8", label: "W-8BEN good to" },
+            ]}
+            rows={rows.map((r) => ({
+              key: r.staff_id,
+              sort: {
+                who: r.name,
+                status: r.tax_status || "US person",
+                w9: r.w9_received_on,
+                w8: r.w8ben_expires_on,
+              },
+              text: [r.name, r.tax_status].filter(Boolean).join(" "),
+              cells: {
+                who: <ProfileEditor row={r} />,
+                status: r.tax_status || "US person",
+                w9: <span style={{ whiteSpace: "nowrap" }}>{r.w9_received_on ?? "—"}</span>,
+                w8: <span style={{ whiteSpace: "nowrap" }}>{r.w8ben_expires_on ?? "—"}</span>,
+              },
+            }))}
+            empty="There is nobody active on the staff list to pay."
+          />
         </div>
       )}
 

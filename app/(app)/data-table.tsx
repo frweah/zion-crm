@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
 
 export type DataColumn = {
   key: string;
@@ -9,6 +9,8 @@ export type DataColumn = {
   align?: "right";
   /** On by default. Off for a column of buttons or forms. */
   sortable?: boolean;
+  /** The column's name in the Sort by choice, when its label is not plain text. */
+  sortLabel?: string;
   width?: number | string;
 };
 
@@ -41,6 +43,11 @@ function plain(node: ReactNode): string | number | null {
  *
  * Rows arrive in the order the screen chose, and stay in it until somebody
  * clicks a heading.
+ *
+ * On a phone the headings are off to the side of a table that scrolls, so the
+ * main lists also offer the same sort as one "Sort by" choice above the rows
+ * (sortBy). It is the same state as the headings - choose there or click here,
+ * it is one sort.
  */
 export function DataTable({
   columns,
@@ -49,6 +56,7 @@ export function DataTable({
   filter,
   label,
   initialSort = null,
+  sortBy = false,
 }: {
   columns: DataColumn[];
   rows: DataRow[];
@@ -59,7 +67,10 @@ export function DataTable({
   /** What the rows are, for the filter's placeholder and screen readers ("clients", "invoices"). */
   label?: string;
   initialSort?: Sort;
+  /** Offer a "Sort by" choice above the table, for screens too narrow to reach the headings. */
+  sortBy?: boolean;
 }) {
+  const sortId = useId();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>(initialSort);
   const showFilter = filter ?? rows.length > 8;
@@ -99,8 +110,32 @@ export function DataTable({
     setSort((s) => (!s || s.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
   }
 
+  const sortableColumns = columns.filter((c) => c.sortable !== false);
+  const nameOf = (c: DataColumn) => c.sortLabel ?? (typeof c.label === "string" ? c.label : c.key);
+
   return (
     <div className="data-table">
+      {sortBy && sortableColumns.length > 0 && rows.length > 1 && (
+        <div className="sort-by no-print">
+          <label htmlFor={sortId}>Sort by</label>
+          <select
+            id={sortId}
+            value={sort ? `${sort.key}:${sort.dir}` : ""}
+            onChange={(e) => {
+              const [key, dir] = e.target.value.split(":");
+              setSort(key ? { key, dir: dir === "desc" ? "desc" : "asc" } : null);
+            }}
+          >
+            <option value="">As listed</option>
+            {sortableColumns.map((c) => (
+              <Fragment key={c.key}>
+                <option value={`${c.key}:asc`}>{nameOf(c)}, ascending</option>
+                <option value={`${c.key}:desc`}>{nameOf(c)}, descending</option>
+              </Fragment>
+            ))}
+          </select>
+        </div>
+      )}
       {showFilter && (
         <div className="filter-bar no-print">
           <input

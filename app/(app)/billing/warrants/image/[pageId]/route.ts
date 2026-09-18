@@ -1,7 +1,8 @@
+import { can } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getCurrentStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { CAN_EDIT_BILLING } from "@/lib/constants";
+
 
 /**
  * A warrant page, as the agent kept it: a short-lived link to the image in the
@@ -14,7 +15,7 @@ import { CAN_EDIT_BILLING } from "@/lib/constants";
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ pageId: string }> }) {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "view")) {
     return new NextResponse("Not found.", { status: 404 });
   }
 

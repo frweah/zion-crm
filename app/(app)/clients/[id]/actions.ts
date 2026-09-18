@@ -1,10 +1,12 @@
 "use server";
 
+import { can } from "@/lib/roles";
+
 import { revalidatePath } from "next/cache";
 import { isOnlyTemplate } from "@/lib/note-template";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, CAN_EDIT_BILLING, today } from "@/lib/constants";
+import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, today } from "@/lib/constants";
 import type { Update } from "@/lib/database.types";
 
 export type DetailState = { error: string | null; ok: string | null };
@@ -360,7 +362,7 @@ export async function updatePlacement(
   if (!me) return { error: "You are not signed in.", ok: null };
 
   const canEdit = CAN_EDIT.includes(me.role);
-  const canBill = CAN_EDIT_BILLING.includes(me.role);
+  const canBill = can(me, "billing", "edit");
   if (!canEdit && !canBill) return { error: "Your role cannot edit placements.", ok: null };
 
   const clientId = String(formData.get("id") ?? "");

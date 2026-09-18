@@ -10,11 +10,76 @@ export const ROLE_LABEL: Record<Role, string> = {
   Billing: "Billing",
 };
 
+/**
+ * Areas Admin can give one person beyond their role (0092).
+ *
+ * Roles stay the default and a grant only adds. People and Admin → System are
+ * deliberately not here: a grant must not be a way into staff pay or into
+ * granting. Insights is given to view, and never includes Capacity, which
+ * shows everybody's hours.
+ */
+export const AREAS = ["tasks", "counselors", "billing", "insights"] as const;
+export type Area = (typeof AREAS)[number];
+export type Level = "view" | "edit";
+export type Grant = { area: Area; level: Level };
+
+/** A person as the navigation and the screens see them: their role, and anything given to them. */
+export type Access = { role: Role; grants?: Grant[] };
+
+export const AREA_LABEL: Record<Area, string> = {
+  tasks: "Tasks",
+  counselors: "Counselors",
+  billing: "Billing",
+  insights: "Insights",
+};
+
+export const LEVEL_LABEL: Record<Level, string> = { view: "view only", edit: "view and edit" };
+
+/**
+ * The levels each area can be given at. Tasks is each person's own list, which
+ * everybody can already change, so "view only" would promise nothing; Insights
+ * is read-only by nature.
+ */
+export const AREA_LEVELS: Record<Area, Level[]> = {
+  tasks: ["edit"],
+  counselors: ["view", "edit"],
+  billing: ["view", "edit"],
+  insights: ["view"],
+};
+
+/**
+ * What each role has with no grant at all. The database says the same in
+ * public.role_has_area (0092): verify_access_grants.sql holds the database to
+ * this table, and scripts/check-nav.mjs holds the navigation to it.
+ */
+export const ROLE_AREAS: Record<Role, Partial<Record<Area, Level>>> = {
+  Admin: { tasks: "edit", counselors: "edit", billing: "edit", insights: "view" },
+  "Job Search": { tasks: "edit", counselors: "edit" },
+  Reports: { tasks: "edit" },
+  Billing: { counselors: "edit", billing: "edit" },
+};
+
+const asAccess = (who: Role | Access): Access => (typeof who === "string" ? { role: who, grants: [] } : who);
+
+/**
+ * May this person do this here - by their role, or by a live grant. The
+ * screens ask this to decide what to offer; the database asks the same
+ * question (public.staff_has_area) before it does anything.
+ */
+export function can(who: Role | Access, area: Area, level: Level = "view"): boolean {
+  const a = asAccess(who);
+  const byRole = ROLE_AREAS[a.role]?.[area];
+  if (byRole && (level === "view" || byRole === "edit")) return true;
+  return (a.grants ?? []).some((g) => g.area === area && (level === "view" || g.level === "edit"));
+}
+
 export type NavItem = {
   label: string;
   href: string;
   /** Who sees it. Omitted means everybody. */
   roles?: Role[];
+  /** The area a grant opens it in, for somebody whose role does not include it. */
+  area?: Area;
 };
 
 export type NavGroup = {
@@ -60,24 +125,24 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: "tasks",
     label: "Tasks",
-    items: [{ label: "Tasks", href: "/tasks", roles: CASEWORK }],
+    items: [{ label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks" }],
   },
   {
     key: "counselors",
     label: "Counselors",
     items: [
-      { label: "Directory", href: "/counselors?tab=directory", roles: ["Admin", "Job Search", "Billing"] },
-      { label: "Contact log", href: "/counselors?tab=contact", roles: ["Admin", "Job Search", "Billing"] },
-      { label: "Hours requests", href: "/counselors?tab=hours", roles: ["Admin", "Job Search", "Billing"] },
+      { label: "Directory", href: "/counselors?tab=directory", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
+      { label: "Contact log", href: "/counselors?tab=contact", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
+      { label: "Hours requests", href: "/counselors?tab=hours", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
     ],
   },
   {
     key: "billing",
     label: "Billing",
     items: [
-      { label: "Authorizations", href: "/billing?tab=authorizations", roles: BILLS },
-      { label: "Service log", href: "/billing?tab=log", roles: BILLS },
-      { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS },
+      { label: "Authorizations", href: "/billing?tab=authorizations", roles: BILLS, area: "billing" },
+      { label: "Service log", href: "/billing?tab=log", roles: BILLS, area: "billing" },
+      { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS, area: "billing" },
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
     ],
   },
@@ -87,11 +152,13 @@ export const NAV_GROUPS: NavGroup[] = [
     // The owner's alone, in full (14 Sept 2026). Client progress reports and
     // USOR forms stay with staff on the client record and Billing → Forms.
     items: [
-      { label: "Money", href: "/insights/money", roles: ADMIN },
-      { label: "Referrals", href: "/insights/referrals", roles: ADMIN },
-      { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN },
+      { label: "Money", href: "/insights/money", roles: ADMIN, area: "insights" },
+      { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
+      { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },
+      // No area: Capacity shows everybody's hours, so it stays Admin's even
+      // for somebody given Insights.
       { label: "Capacity", href: "/insights/capacity", roles: ADMIN },
-      { label: "KPIs", href: "/insights/reports", roles: ADMIN },
+      { label: "KPIs", href: "/insights/reports", roles: ADMIN, area: "insights" },
     ],
   },
   {
@@ -157,20 +224,24 @@ export function currentItemHref(
   return (tabbed[0] ?? best[0]).href;
 }
 
-export function visibleItems(group: NavGroup, role: Role): NavItem[] {
-  return group.items.filter((i) => !i.roles || i.roles.includes(role));
+/** What a person sees: what their role sees, and what a grant opens. Never less. */
+export function visibleItems(group: NavGroup, who: Role | Access): NavItem[] {
+  const a = asAccess(who);
+  return group.items.filter(
+    (i) => !i.roles || i.roles.includes(a.role) || (i.area !== undefined && can(a, i.area)),
+  );
 }
 
-/** The groups this role sees, each carrying only the items they see. */
-export function navFor(role: Role): { group: NavGroup; items: NavItem[] }[] {
-  return NAV_GROUPS.map((group) => ({ group, items: visibleItems(group, role) })).filter(
+/** The groups this person sees, each carrying only the items they see. */
+export function navFor(who: Role | Access): { group: NavGroup; items: NavItem[] }[] {
+  return NAV_GROUPS.map((group) => ({ group, items: visibleItems(group, who) })).filter(
     (g) => g.items.length > 0,
   );
 }
 
-/** Every item a role may open, flattened — what canReach reads. */
-export function reachableFor(role: Role): NavItem[] {
-  return navFor(role).flatMap((g) => g.items);
+/** Every item a person may open, flattened — what canReach reads. */
+export function reachableFor(who: Role | Access): NavItem[] {
+  return navFor(who).flatMap((g) => g.items);
 }
 
 /**
@@ -198,8 +269,8 @@ export const ORG = {
  * Matched on the path alone: a tab is a query string, and refusing somebody a
  * tab they can reach by clicking would be a gate that only annoys.
  */
-export function canReach(role: Role, pathname: string): boolean {
-  return reachableFor(role).some((item) => {
+export function canReach(who: Role | Access, pathname: string): boolean {
+  return reachableFor(who).some((item) => {
     const path = navPath(item.href);
     return pathname === path || pathname.startsWith(path + "/");
   });

@@ -1,9 +1,11 @@
 "use server";
 
+import { can } from "@/lib/roles";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING } from "@/lib/constants";
+
 
 export type WarrantState = { error: string | null; ok: string | null };
 
@@ -18,7 +20,7 @@ export type WarrantState = { error: string | null; ok: string | null };
  */
 export async function resolveWarrantLine(_prev: WarrantState, formData: FormData): Promise<WarrantState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing record a warrant line.", ok: null };
   }
 
@@ -50,7 +52,7 @@ export async function resolveWarrantLine(_prev: WarrantState, formData: FormData
 /** Set a line aside: not a payment to this practice, a duplicate, a misread. */
 export async function dismissWarrantLine(_prev: WarrantState, formData: FormData): Promise<WarrantState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing set a warrant line aside.", ok: null };
   }
 

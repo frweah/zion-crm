@@ -1,8 +1,9 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { CAN_EDIT_BILLING } from "@/lib/constants";
+
 import { ImportForm } from "./import-form";
 import { PageHead } from "../../page-head";
 
@@ -15,7 +16,7 @@ import { PageHead } from "../../page-head";
  */
 export default async function ImportAuthorizationPage() {
   const me = await requireStaff();
-  if (!CAN_EDIT_BILLING.includes(me.role)) redirect("/billing");
+  if (!can(me, "billing", "edit")) redirect("/billing");
 
   const supabase = await createClient();
   const { data: clients } = await supabase

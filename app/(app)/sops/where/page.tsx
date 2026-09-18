@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import type { Role } from "@/lib/roles";
+import { canReach, AREA_LABEL, LEVEL_LABEL } from "@/lib/roles";
 import { PageHead } from "../../page-head";
 import { DataTable } from "../../data-table";
 
@@ -353,7 +354,12 @@ export default async function WhereDoIPage() {
 
   const groups = ENTRIES.map((g) => ({
     ...g,
-    items: g.items.filter((i) => !i.roles || i.roles.includes(me.role)),
+    // Their role's entries, and any a grant has opened: the same test the
+    // sidebar and the address bar use, so this never lists a screen they
+    // cannot open.
+    items: g.items.filter(
+      (i) => !i.roles || i.roles.includes(me.role) || canReach(me, i.href.split(/[?#]/)[0]),
+    ),
   })).filter((g) => g.items.length > 0);
 
   const count = groups.reduce((n, g) => n + g.items.length, 0);
@@ -386,6 +392,10 @@ export default async function WhereDoIPage() {
           <>
             The {count} things people ask for most, and where each one lives. Everything here exists
             today — <Link href="/sops">the written procedures</Link> say how to do them properly.
+            {me.grants.length > 0 &&
+              ` Includes what you have been given beyond your role: ${me.grants
+                .map((g) => `${AREA_LABEL[g.area]} (${LEVEL_LABEL[g.level]})`)
+                .join(", ")}.`}
           </>
         }
       />

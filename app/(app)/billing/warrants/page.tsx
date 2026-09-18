@@ -1,8 +1,9 @@
+import { can } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, fmtStamp, CAN_EDIT_BILLING } from "@/lib/constants";
+import { money, fmtStamp } from "@/lib/constants";
 import { WarrantsToReview } from "./review-section";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
@@ -31,7 +32,7 @@ type PageRow = {
 
 export default async function WarrantsPage() {
   const me = await requireStaff();
-  if (!CAN_EDIT_BILLING.includes(me.role)) redirect("/dashboard");
+  if (!can(me, "billing", "view")) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data: pageData } = await supabase

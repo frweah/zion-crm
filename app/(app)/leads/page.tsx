@@ -86,73 +86,76 @@ export default async function LeadsPage({
           </div>
         )}
 
-        {leads.length === 0 ? (
-          <div className="empty">
-            No openings yet. Add one from an employer in the directory and start putting clients
-            forward.
-          </div>
-        ) : (
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: `repeat(${LEAD_STATUSES.length}, minmax(190px, 1fr))`, alignItems: "start", overflowX: "auto" }}
-          >
-            {LEAD_STATUSES.map((status) => {
-              const column = leads.filter((l) => l.status === status);
-              return (
-                <div key={status}>
-                  <h3 style={{ fontSize: 13, margin: "0 0 8px" }}>
-                    {status}{" "}
-                    <span className="chip" style={{ marginLeft: 4 }}>
-                      {column.length}
-                    </span>
-                  </h3>
-
-                  {column.length === 0 && <div className="empty" style={{ fontSize: 12 }}>—</div>}
-
-                  {/* One container per column, an opening to each item. */}
-                  {column.length > 0 && (
-                    <div className="list">
-                      {column.map((l) => (
-                        <Link
-                          key={l.id}
-                          href={`/leads/${l.id}`}
-                          className="list-item"
-                          style={{ display: "block", padding: 12, textDecoration: "none", color: "inherit" }}
-                        >
-                          <b style={{ fontSize: 13 }}>{l.title}</b>
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            {employerName.get(l.employer_id) ?? "—"}
+        {/*
+          One table, not a board of status columns: a board cannot be sorted,
+          and on a phone its columns were a sideways scroll of narrow cards.
+          Status is a column, and the rows start in the board's order - by
+          status, newest first within each.
+        */}
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="openings"
+            sortBy
+            columns={[
+              { key: "title", label: "Opening" },
+              { key: "employer", label: "Employer" },
+              { key: "status", label: "Status" },
+              { key: "pay", label: "Pay and hours" },
+              { key: "clients", label: "Clients put forward", align: "right" },
+              { key: "owner", label: "Owner" },
+              { key: "posted", label: "Posted" },
+            ]}
+            rows={[...leads]
+              .sort(
+                (a, b) =>
+                  (LEAD_STATUSES as readonly string[]).indexOf(a.status) -
+                  (LEAD_STATUSES as readonly string[]).indexOf(b.status),
+              )
+              .map((l) => {
+                const put = matchCount.get(l.id) ?? 0;
+                const hired = hiredCount.get(l.id) ?? 0;
+                const employer = employerName.get(l.employer_id) ?? "—";
+                const owner = l.owner_staff_id ? (staffName.get(l.owner_staff_id) ?? "") : "";
+                const pay = [l.wage_range, l.hours_week && `${l.hours_week} hrs`].filter(Boolean).join(" · ");
+                return {
+                  key: l.id,
+                  sort: {
+                    title: l.title,
+                    employer,
+                    status: (LEAD_STATUSES as readonly string[]).indexOf(l.status),
+                    pay: l.wage_range,
+                    clients: put,
+                    owner,
+                    posted: l.posted_date,
+                  },
+                  text: [l.title, employer, l.status, pay, owner].filter(Boolean).join(" "),
+                  cells: {
+                    title: (
+                      <Link href={`/leads/${l.id}`} style={{ fontWeight: 600 }}>
+                        {l.title}
+                      </Link>
+                    ),
+                    employer,
+                    status: <span className={"chip " + (l.status === "Filled" ? "ok" : "")}>{l.status}</span>,
+                    pay: pay || <span className="lock">—</span>,
+                    clients: (
+                      <>
+                        {put}
+                        {hired > 0 && (
+                          <div>
+                            <span className="chip ok">{hired} hired</span>
                           </div>
-                          {(l.wage_range || l.hours_week) && (
-                            <div style={{ fontSize: 12, marginTop: 4 }}>
-                              {[l.wage_range, l.hours_week && `${l.hours_week} hrs`]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </div>
-                          )}
-                          <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                            <span className="chip">
-                              {matchCount.get(l.id) ?? 0} client
-                              {(matchCount.get(l.id) ?? 0) === 1 ? "" : "s"}
-                            </span>
-                            {(hiredCount.get(l.id) ?? 0) > 0 && (
-                              <span className="chip ok">{hiredCount.get(l.id)} hired</span>
-                            )}
-                          </div>
-                          {l.owner_staff_id && (
-                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
-                              {staffName.get(l.owner_staff_id) ?? ""}
-                            </div>
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                        )}
+                      </>
+                    ),
+                    owner: owner || <span className="lock">—</span>,
+                    posted: <span style={{ whiteSpace: "nowrap" }}>{l.posted_date ?? "—"}</span>,
+                  },
+                };
+              })}
+            empty="No openings yet. Add one from an employer in the directory and start putting clients forward."
+          />
+        </div>
       </section>
 
       {/* ── Employers ────────────────────────────────────────── */}

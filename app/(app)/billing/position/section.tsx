@@ -1,8 +1,9 @@
+import { can } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, CAN_EDIT_BILLING } from "@/lib/constants";
+import { money } from "@/lib/constants";
 import { DataTable, type DataRow } from "../../data-table";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
 import { BillingOfficeFilter, withBo } from "../../billing-office-filter";
@@ -48,7 +49,7 @@ const ZERO: Totals = { authorized: 0, invoiced: 0, paid: 0, outstanding: 0, notY
 
 export default async function PositionPage({ searchParams }: { searchParams: Promise<{ show?: string; bo?: string }> }) {
   const me = await requireStaff();
-  if (!CAN_EDIT_BILLING.includes(me.role)) redirect("/dashboard");
+  if (!can(me, "billing", "view")) redirect("/dashboard");
   const { show, bo: rawBo } = await searchParams;
   const owedOnly = show === "outstanding";
 

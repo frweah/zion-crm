@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
-import { ROLE_LABEL, navFor, ORG, canReach } from "@/lib/roles";
+import { ROLE_LABEL, AREA_LABEL, LEVEL_LABEL, navFor, ORG, canReach } from "@/lib/roles";
 import { NavLinks } from "./nav-links";
 import { HintBar } from "./hint-bar";
 import { QuickAdd } from "./quick-add";
@@ -12,12 +12,12 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const staff = await requireStaff();
-  const nav = navFor(staff.role);
+  const nav = navFor(staff);
 
   // Typing a URL should get you no further than the navigation does. Every
   // role has Dashboard, so this cannot loop.
   const pathname = (await headers()).get("x-pathname") ?? "";
-  if (pathname && !canReach(staff.role, pathname)) {
+  if (pathname && !canReach(staff, pathname)) {
     redirect("/dashboard");
   }
 
@@ -57,6 +57,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="roleblock">
           <div className="who">{staff.name}</div>
           <div>{ROLE_LABEL[staff.role]}</div>
+          {staff.grants.length > 0 && (
+            <div style={{ fontSize: 11 }}>
+              Also {staff.grants.map((g) => `${AREA_LABEL[g.area]} (${LEVEL_LABEL[g.level]})`).join(", ")}
+            </div>
+          )}
           <div style={{ marginTop: 6, fontSize: 11 }}>
             Counselors {ORG.phone} · Clients {ORG.clientPhone}
           </div>

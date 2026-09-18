@@ -47,7 +47,7 @@ export function ProfileEditor({ row }: { row: ProfileRow }) {
   const foreign = taxStatus === "Foreign person";
 
   return (
-    <details className="list-item">
+    <details>
       <summary style={{ cursor: "pointer" }}>
         <b>{row.name}</b>
         <span className="chip" style={{ marginLeft: 8 }}>

@@ -16,7 +16,7 @@
  *   email, every note somebody wrote down.
  */
 import { readdir, readFile } from "node:fs/promises";
-import { NAV_GROUPS, navFor, navPath, reachableFor } from "../lib/roles.ts";
+import { NAV_GROUPS, navFor, navPath, reachableFor, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
 import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const problems = [];
@@ -140,6 +140,55 @@ for (const role of ["Job Search", "Reports", "Billing"]) {
   if (leak.length) fail(`${role} can reach ${leak.join(", ")}, which is Admin's alone`);
 }
 ok("Insights is reachable by Admin only");
+
+// ── access given to one person (0092) ────────────────────────
+// A grant only adds. For every role, every area and every level it can be
+// given at: nothing the role reached is lost, and everything gained belongs to
+// that area. Then the things no grant may ever open.
+const ROLES = ["Admin", "Job Search", "Reports", "Billing"];
+const areaOf = new Map(NAV_GROUPS.flatMap((g) => g.items).map((i) => [navPath(i.href), i.area]));
+let grantProblems = 0;
+for (const role of ROLES) {
+  const before = new Set(reachableFor(role).map((i) => navPath(i.href)));
+  for (const area of AREAS) {
+    for (const level of AREA_LEVELS[area]) {
+      const after = new Set(reachableFor({ role, grants: [{ area, level }] }).map((i) => navPath(i.href)));
+      const lost = [...before].filter((p) => !after.has(p));
+      const strays = [...after].filter((p) => !before.has(p) && areaOf.get(p) !== area);
+      if (lost.length) { grantProblems++; fail(`${role} given ${area} (${level}) loses ${lost.join(", ")} - a grant must only add`); }
+      if (strays.length) { grantProblems++; fail(`${role} given ${area} (${level}) also reaches ${strays.join(", ")}, outside that area`); }
+    }
+  }
+}
+if (!grantProblems) ok("a grant only adds: no role loses a screen, and a grant opens only its own area");
+
+// The navigation and the role defaults say the same thing: a role sees an
+// area's screens exactly when ROLE_AREAS (and public.role_has_area) give it
+// the area. Otherwise the menu and the database would disagree.
+const mismatch = [];
+for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.area)) {
+  for (const role of ROLES) {
+    const byNav = !item.roles || item.roles.includes(role);
+    const byArea = Boolean(ROLE_AREAS[role][item.area]);
+    if (byNav !== byArea) mismatch.push(`${role} / ${item.label}`);
+  }
+}
+if (mismatch.length) fail(`the navigation and the role defaults disagree for: ${mismatch.join(", ")}`);
+else ok("the sidebar and the role defaults agree on every area");
+
+// No grant, of anything, opens People, System, Capacity or Statement approvals
+// to somebody whose role does not include them.
+const everything = AREAS.flatMap((area) => AREA_LEVELS[area].map((level) => ({ area, level })));
+for (const role of ["Job Search", "Reports", "Billing"]) {
+  const reach = reachableFor({ role, grants: everything }).map((i) => navPath(i.href));
+  const never = ["/admin/people", "/insights/capacity"].concat(role === "Billing" ? [] : ["/admin/system"]);
+  const leak = never.filter((p) => reach.includes(p));
+  if (leak.length) fail(`${role} given every area reaches ${leak.join(", ")}, which no grant may open`);
+  if (reach.includes("/hours") && reachableFor({ role, grants: everything }).some((i) => i.label === "Statement approvals")) {
+    fail(`${role} given every area reaches Statement approvals`);
+  }
+}
+ok("no grant opens People, Admin → System, Capacity or Statement approvals");
 
 // ── everything that moved still answers ──────────────────────
 const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
+import { can } from "@/lib/roles";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { BillingOfficesPanel } from "./billing-offices-panel";
@@ -32,7 +33,8 @@ export default async function CounselorsPage({
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : TABS[0];
 
   const supabase = await createClient();
-  const canEdit = me.role !== "Reports";
+  // Their role's, or a Counselors edit grant's. View-only grants see, not change.
+  const canEdit = can(me, "counselors", "edit");
 
   const [counselorsResult, clientsResult] = await Promise.all([
     supabase.from("counselors").select("id, name, agency, office, phone, fax, email, notes").order("name"),
@@ -75,6 +77,7 @@ export default async function CounselorsPage({
         <div className="card" style={{ padding: 0, marginBottom: 14 }}>
           <DataTable
             label="counselors"
+            sortBy
             columns={[
               { key: "name", label: "Name" },
               { key: "agency", label: "Agency" },

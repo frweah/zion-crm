@@ -1,9 +1,11 @@
 "use server";
 
+import { can } from "@/lib/roles";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING, CAN_LOG_HOURS, today } from "@/lib/constants";
+import { CAN_LOG_HOURS, today } from "@/lib/constants";
 
 export type BillingState = { error: string | null; ok: string | null };
 
@@ -22,7 +24,7 @@ export async function addAuthorization(
   formData: FormData,
 ): Promise<BillingState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing can add authorizations.", ok: null };
   }
 
@@ -69,7 +71,7 @@ export async function logServiceEntry(
   formData: FormData,
 ): Promise<BillingState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_LOG_HOURS.includes(me.role)) {
+  if (!me || !(CAN_LOG_HOURS.includes(me.role) || can(me, "billing", "edit"))) {
     return { error: "Your role cannot log service hours.", ok: null };
   }
 
@@ -103,7 +105,7 @@ export async function updateCompletion(
   formData: FormData,
 ): Promise<BillingState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing can change completion dates.", ok: null };
   }
 
@@ -128,7 +130,7 @@ export async function createInvoice(
   formData: FormData,
 ): Promise<BillingState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing can raise invoices.", ok: null };
   }
 
@@ -164,7 +166,7 @@ export async function setInvoiceStatus(
   formData: FormData,
 ): Promise<BillingState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing can change an invoice.", ok: null };
   }
 

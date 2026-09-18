@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { offboardStaff, type StaffState } from "./actions";
+import { DataTable } from "../../data-table";
 
 const initial: StaffState = { error: null, ok: null };
 
@@ -38,8 +39,8 @@ export type OffboardedRow = {
  * while they are still answering their phone. None of it blocks — an account
  * left open until the paperwork is settled is the worse of the two risks.
  *
- * One list, a person to an item: each carries its own form, so it is a .list
- * rather than a card per person.
+ * One table, a person to a row, so it sorts by name, status or last day. Each
+ * row carries its own form and what is still attached.
  */
 export function Offboarding({
   people,
@@ -73,8 +74,16 @@ export function Offboarding({
       {people.length === 0 ? (
         <p className="empty">There is nobody on the staff list to offboard.</p>
       ) : (
-        <div className="list">
-          {people.map((p) => {
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="staff"
+            columns={[
+              { key: "person", label: "Person, and what is still attached", sortLabel: "Name" },
+              { key: "status", label: "Status" },
+              { key: "attached", label: "Still attached", align: "right" },
+              { key: "last", label: "Last day" },
+            ]}
+            rows={people.map((p) => {
             const record = done.get(p.staff_id);
             const attached =
               Number(p.active_clients) +
@@ -82,8 +91,8 @@ export function Offboarding({
               Number(p.open_statements) +
               Number(p.running_timers);
 
-            return (
-              <div className="list-item" key={p.staff_id}>
+            const body = (
+              <div>
                 <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <b>{p.name}</b>
@@ -222,7 +231,25 @@ export function Offboarding({
                 )}
               </div>
             );
+            return {
+              key: p.staff_id,
+              sort: {
+                person: p.name,
+                status: p.active ? "Active" : "Left",
+                attached: record ? null : attached,
+                last: record?.last_day ?? null,
+              },
+              text: [p.name, p.role, p.active ? "active" : "left", record?.reason].filter(Boolean).join(" "),
+              cells: {
+                person: body,
+                status: p.active ? <span className="chip ok">Active</span> : <span className="chip">Left</span>,
+                attached: record ? "—" : attached,
+                last: <span style={{ whiteSpace: "nowrap" }}>{record?.last_day ?? "—"}</span>,
+              },
+            };
           })}
+            empty="There is nobody on the staff list to offboard."
+          />
         </div>
       )}
     </>

@@ -10,6 +10,7 @@ import {
 } from "./job-actions";
 import { createPlacementFromMatch } from "../../leads/actions";
 import { JOB_STATUSES, jobStatusTone } from "@/lib/constants";
+import { DataTable } from "../../data-table";
 
 const initial: JobState = { error: null, ok: null };
 
@@ -87,7 +88,7 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
   const [status, setStatus] = useState(job.status);
 
   return (
-    <div className="list-item">
+    <div>
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <b>{job.employer_name}</b>
@@ -355,10 +356,39 @@ export function JobsPanel({
       {jobs.length === 0 ? (
         <div className="empty">Nothing yet. Add the first job this client has applied for.</div>
       ) : (
-        <div className="list">
-          {[...open, ...closed].map((job) => (
-            <JobItem key={job.match_id} job={job} clientId={clientId} />
-          ))}
+        // A table so the jobs sort by status, employer or date; each keeps its
+        // own editor in its row. Still going first, then finished, until sorted.
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="jobs"
+            columns={[
+              { key: "job", label: "Job", sortLabel: "Employer" },
+              { key: "status", label: "Status" },
+              { key: "applied", label: "Applied" },
+              { key: "next", label: "Next date" },
+            ]}
+            rows={[...open, ...closed].map((job) => ({
+              key: job.match_id,
+              sort: {
+                job: job.employer_name,
+                status: job.status_rank,
+                applied: job.applied_on,
+                next: job.interview_on ?? job.follow_up_on,
+              },
+              text: [job.employer_name, job.title, job.location, job.status, job.outcome].filter(Boolean).join(" "),
+              cells: {
+                job: <JobItem job={job} clientId={clientId} />,
+                status: <span className="chip">{job.status}</span>,
+                applied: <span style={{ whiteSpace: "nowrap" }}>{job.applied_on ?? "—"}</span>,
+                next: (
+                  <span style={{ whiteSpace: "nowrap" }}>
+                    {job.interview_on ? `interview ${job.interview_on}` : job.follow_up_on ? `follow up ${job.follow_up_on}` : "—"}
+                  </span>
+                ),
+              },
+            }))}
+            empty="Nothing yet. Add the first job this client has applied for."
+          />
         </div>
       )}
 

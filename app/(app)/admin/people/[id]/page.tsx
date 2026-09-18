@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { today } from "@/lib/constants";
 import { RecordHeader } from "../../../record-header";
+import { AccessPanel, type GrantRow } from "./access-panel";
 import { StaffRowActions } from "../../staff/staff-forms";
 import { Checklist, type ChecklistRow } from "../../staff/checklist-forms";
 import { PayRates, type PayRow } from "../../staff/pay-forms";
@@ -37,7 +38,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
 
   if (!person) notFound();
 
-  const [payResult, checklistResult, credentialResult, typesResult, employmentResult, documentResult, docCategoryResult, offboardingResult] =
+  const [payResult, checklistResult, credentialResult, typesResult, employmentResult, documentResult, docCategoryResult, offboardingResult, grantsResult] =
     await Promise.all([
       supabase
         .from("staff_pay")
@@ -63,6 +64,11 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .eq("active", true)
         .order("sort_order"),
       supabase.from("staff_offboarding").select("last_day").eq("staff_id", id).maybeSingle(),
+      supabase
+        .from("staff_access_grants")
+        .select("id, area, level, reason, granted_by_name, granted_at, revoked_at, revoked_by_name, revoke_reason")
+        .eq("staff_id", id)
+        .order("granted_at", { ascending: false }),
     ]);
 
   // Somebody who has left keeps a whole, readable record for retention and
@@ -113,6 +119,17 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           still be completed; to change anything else, reactivate them.
         </div>
       )}
+
+      <section id="access" className="page-section">
+        <h2 className="h2">Extra access</h2>
+        <AccessPanel
+          staffId={person.id}
+          staffName={person.name}
+          role={person.role as Role}
+          grants={(grantsResult.data ?? []) as GrantRow[]}
+          readOnly={readOnly}
+        />
+      </section>
 
       <section id="pay" className="page-section">
         <h2 className="h2">Pay rates</h2>

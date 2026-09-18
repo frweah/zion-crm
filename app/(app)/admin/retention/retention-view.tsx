@@ -165,57 +165,66 @@ function Holds({ holds, closed }: { holds: Hold[]; closed: Row[] }) {
       {liftState.error && <div className="alert bad">{liftState.error}</div>}
       {liftState.ok && <div className="alert ok">{liftState.ok}</div>}
 
-      {holds.length === 0 && <p className="empty">No record is under hold.</p>}
-
-      {/* The holds, then placing a new one as the last item of the same list. */}
-      <div className="list">
-        {holds.map((h) => (
-          <div key={h.id} className="list-item">
-            <div className="lock" style={{ marginBottom: 4 }}>
-              <b style={{ color: "var(--ink)" }}>
-                {closed.find((c) => c.client_id === h.client_id)?.name ?? "A client"}
-              </b>{" "}
-              · held by {h.placed_by_name || "—"} on {stamp(h.placed_at)}
-            </div>
-            {h.reason}
-            <form action={lift} style={{ marginTop: 8 }}>
-              <input type="hidden" name="hold_id" value={h.id} />
-              <div className="row2" style={{ alignItems: "flex-end" }}>
-                <label className="field" style={{ flex: 1 }}>
-                  Why it is being lifted
-                  <input name="lifted_reason" placeholder="The audit closed on…" />
-                </label>
-                <button className="btn" disabled={lifting}>Lift</button>
-              </div>
-            </form>
-          </div>
-        ))}
-
-        <div className="list-item">
-          <form action={place}>
-            <div className="row2" style={{ alignItems: "flex-end" }}>
-              <label className="field" style={{ flex: 1 }}>
-                Hold a client&apos;s record
-                <select name="client_id" defaultValue="">
-                  <option value="">Choose a closed record…</option>
-                  {closed
-                    .filter((c) => !c.on_hold)
-                    .map((c) => (
-                      <option key={c.client_id} value={c.client_id}>
-                        {c.name} — closed {date(c.closed_on)}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label className="field" style={{ flex: 2 }}>
-                Why
-                <input name="reason" placeholder="Records request from the client's attorney, 12 Sep" />
-              </label>
-              <button className="btn gold" disabled={placing}>Place hold</button>
-            </div>
-          </form>
-        </div>
+      <div className="card" style={{ padding: 0, marginBottom: 12 }}>
+        <DataTable
+          label="holds"
+          columns={[
+            { key: "client", label: "Client" },
+            { key: "by", label: "Held by" },
+            { key: "on", label: "Placed" },
+            { key: "why", label: "Why" },
+            { key: "lift", label: "", sortable: false },
+          ]}
+          rows={holds.map((h) => {
+            const name = closed.find((c) => c.client_id === h.client_id)?.name ?? "A client";
+            return {
+              key: h.id,
+              sort: { client: name, by: h.placed_by_name, on: h.placed_at, why: h.reason },
+              text: [name, h.placed_by_name, h.reason].filter(Boolean).join(" "),
+              cells: {
+                client: <b>{name}</b>,
+                by: h.placed_by_name || "—",
+                on: <span style={{ whiteSpace: "nowrap" }}>{stamp(h.placed_at)}</span>,
+                why: h.reason,
+                lift: (
+                  <form action={lift} className="row2" style={{ alignItems: "flex-end" }}>
+                    <input type="hidden" name="hold_id" value={h.id} />
+                    <label className="field" style={{ flex: 1, minWidth: 180 }}>
+                      Why it is being lifted
+                      <input name="lifted_reason" placeholder="The audit closed on…" />
+                    </label>
+                    <button className="btn" disabled={lifting}>Lift</button>
+                  </form>
+                ),
+              },
+            };
+          })}
+          empty="No record is under hold."
+        />
       </div>
+
+      <form action={place} className="card">
+        <div className="row2" style={{ alignItems: "flex-end" }}>
+          <label className="field" style={{ flex: 1 }}>
+            Hold a client&apos;s record
+            <select name="client_id" defaultValue="">
+              <option value="">Choose a closed record…</option>
+              {closed
+                .filter((c) => !c.on_hold)
+                .map((c) => (
+                  <option key={c.client_id} value={c.client_id}>
+                    {c.name} — closed {date(c.closed_on)}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="field" style={{ flex: 2 }}>
+            Why
+            <input name="reason" placeholder="Records request from the client's attorney, 12 Sep" />
+          </label>
+          <button className="btn gold" disabled={placing}>Place hold</button>
+        </div>
+      </form>
     </>
   );
 }
@@ -242,33 +251,45 @@ function DueList({ rows }: { rows: Row[] }) {
             " The client record period has not been confirmed, so nothing can."}
         </p>
       ) : (
-        <div className="list">
-          {due.map((r) => (
-            <div key={r.client_id} className="list-item">
-              <div className="lock">
-                <b style={{ color: "var(--ink)" }}>{r.name}</b> · closed {date(r.closed_on)} · period
-                ended {date(r.keep_until)}
-              </div>
-              <form action={act} style={{ marginTop: 8 }}>
-                <input type="hidden" name="client_id" value={r.client_id} />
-                <div className="row2" style={{ alignItems: "flex-end" }}>
-                  <label className="field" style={{ maxWidth: 220 }}>
-                    What was decided
-                    <select name="action" defaultValue="Reviewed — no change">
-                      <option>Reviewed — no change</option>
-                      <option>Kept longer</option>
-                      <option>Destroyed</option>
-                    </select>
-                  </label>
-                  <label className="field" style={{ flex: 1 }}>
-                    And why
-                    <input name="reason" placeholder="Paper file shredded 12 Sep; CRM record kept" />
-                  </label>
-                  <button className="btn" disabled={pending}>Record it</button>
-                </div>
-              </form>
-            </div>
-          ))}
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="records past their period"
+            columns={[
+              { key: "client", label: "Client" },
+              { key: "closed", label: "Closed" },
+              { key: "ended", label: "Period ended" },
+              { key: "decide", label: "What was decided", sortable: false },
+            ]}
+            rows={due.map((r) => ({
+              key: r.client_id,
+              sort: { client: r.name, closed: r.closed_on, ended: r.keep_until },
+              text: r.name,
+              cells: {
+                client: <b>{r.name}</b>,
+                closed: <span style={{ whiteSpace: "nowrap" }}>{date(r.closed_on)}</span>,
+                ended: <span style={{ whiteSpace: "nowrap" }}>{date(r.keep_until)}</span>,
+                decide: (
+                  <form action={act} className="row2" style={{ alignItems: "flex-end" }}>
+                    <input type="hidden" name="client_id" value={r.client_id} />
+                    <label className="field" style={{ maxWidth: 220 }}>
+                      What was decided
+                      <select name="action" defaultValue="Reviewed — no change">
+                        <option>Reviewed — no change</option>
+                        <option>Kept longer</option>
+                        <option>Destroyed</option>
+                      </select>
+                    </label>
+                    <label className="field" style={{ flex: 1, minWidth: 180 }}>
+                      And why
+                      <input name="reason" placeholder="Paper file shredded 12 Sep; CRM record kept" />
+                    </label>
+                    <button className="btn" disabled={pending}>Record it</button>
+                  </form>
+                ),
+              },
+            }))}
+            empty="Nothing has passed its retention period."
+          />
         </div>
       )}
 

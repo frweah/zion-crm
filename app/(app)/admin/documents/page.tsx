@@ -1,6 +1,7 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING } from "@/lib/constants";
+
 import { PageHead } from "../../page-head";
 import InboxSection from "../inbox/section";
 import RetentionSection from "../retention/section";
@@ -21,7 +22,7 @@ import RecordsRequestSection from "../records-request/section";
 export default async function DocumentsPage() {
   const me = await requireStaff();
   const isAdmin = me.role === "Admin";
-  const canReadPdf = CAN_EDIT_BILLING.includes(me.role);
+  const canReadPdf = can(me, "billing", "edit");
 
   const toc: [string, string][] = [["inbox", "Document inbox"]];
   if (isAdmin) toc.push(["retention", "Retention"], ["records-requests", "Records requests"]);

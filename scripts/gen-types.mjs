@@ -134,6 +134,11 @@ const RPC_FUNCTIONS = [
   "dismiss_warrant_line",
   // What to reconcile with a CRP billing office (0091).
   "billing_office_reconciliation",
+  // Access given to one person beyond their role (0092).
+  "staff_has_area",
+  "role_has_area",
+  "grant_staff_access",
+  "revoke_staff_access",
 ];
 
 const { rows: fns } = await client.query(

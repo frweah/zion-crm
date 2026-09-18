@@ -1,7 +1,8 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, today, daysBetween, CAN_EDIT_BILLING } from "@/lib/constants";
+import { money, today, daysBetween } from "@/lib/constants";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 
@@ -92,7 +93,7 @@ function lastTwelve(month: string): string[] {
 export default async function RevenuePage() {
   const me = await requireStaff();
   const supabase = await createClient();
-  const canBill = CAN_EDIT_BILLING.includes(me.role);
+  const canBill = can(me, "billing", "edit");
 
   const [econResult, clientsResult, invoicesResult, paperworkResult] = await Promise.all([
     supabase

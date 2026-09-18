@@ -814,3 +814,28 @@ table.t th .sort:focus-visible {
   color: var(--ink);
   font-weight: 500;
 }
+
+/* ── Sort by: the table's sort as one choice, for phones ──────
+   On a narrow screen the table scrolls sideways and its headings - which are
+   the sort buttons - go with it. This is the same sort, in reach. */
+.sort-by {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sort-by select {
+  width: auto;
+  max-width: 100%;
+  min-height: 36px;
+}
+
+@media (max-width: 760px) {
+  .sort-by {
+    display: flex;
+  }
+}

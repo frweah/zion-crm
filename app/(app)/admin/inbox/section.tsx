@@ -1,8 +1,9 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { CAN_EDIT_BILLING } from "@/lib/constants";
+
 import { InboxView, type PendingRow, type Placeholder } from "./inbox-view";
 
 /**
@@ -18,7 +19,7 @@ const CAN_REVIEW = ["Admin", "Billing", "Job Search", "Reports"];
 export default async function InboxSection() {
   const me = await requireStaff();
   if (!CAN_REVIEW.includes(me.role)) redirect("/dashboard");
-  const canBill = CAN_EDIT_BILLING.includes(me.role);
+  const canBill = can(me, "billing", "edit");
 
   const supabase = await createClient();
 

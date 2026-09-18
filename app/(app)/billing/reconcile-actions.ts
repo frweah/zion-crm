@@ -1,9 +1,11 @@
 "use server";
 
+import { can } from "@/lib/roles";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING, today } from "@/lib/constants";
+import { today } from "@/lib/constants";
 import { parseCc, sendEmail } from "@/lib/email";
 import { readBillingOffices } from "@/lib/billing-offices";
 import { buildReconciliation } from "@/lib/reconcile";
@@ -21,7 +23,7 @@ export type ReconcileState = { error: string | null; ok: string | null };
 export async function sendReconciliation(_prev: ReconcileState, formData: FormData): Promise<ReconcileState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
-  if (!CAN_EDIT_BILLING.includes(me.role)) {
+  if (!can(me, "billing", "edit")) {
     return { error: "Only billing staff reconcile with a billing office.", ok: null };
   }
   if (formData.get("confirmed") !== "yes") {

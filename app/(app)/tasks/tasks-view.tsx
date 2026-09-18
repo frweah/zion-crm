@@ -200,6 +200,7 @@ export function TasksView({
       <div className="card" style={{ padding: 0, marginTop: 8 }}>
         <DataTable
           label="tasks"
+          sortBy
           columns={[
             { key: "done", label: "", sortable: false, width: 40 },
             { key: "title", label: "Task" },

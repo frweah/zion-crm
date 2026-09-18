@@ -1,8 +1,9 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { CAN_EDIT_CLIENTS, CAN_EDIT_BILLING, money, periodRange, today } from "@/lib/constants";
+import { CAN_EDIT_CLIENTS, money, periodRange, today } from "@/lib/constants";
 import { StageControl, DetailsForm, RestrictedPanel, type ClientDetail } from "./client-detail";
 import { NotesTab, type NoteRow } from "./notes-tab";
 import { AuthorizationFiles } from "./authorization-files";
@@ -85,7 +86,7 @@ export default async function ClientPage({
 
   const detail = client as ClientDetail;
   const canEdit = CAN_EDIT_CLIENTS.includes(me.role);
-  const canBill = CAN_EDIT_BILLING.includes(me.role);
+  const canBill = can(me, "billing", "edit");
   const isAdmin = me.role === "Admin";
   const canSeeRestricted =
     me.role === "Admin" || me.role === "Reports" || client.assigned_staff_id === me.id;
@@ -443,23 +444,32 @@ export default async function ClientPage({
         </div>
 
         {/*
-          One container for the authorizations, each divided from the next by a
-          hairline: every one carries its own files and payments, so they are a
-          list of items rather than a table, and not a stack of separate cards.
+          The authorizations as the one table, so they sort by number, service,
+          status or dates. Each still carries its own files and payments, in
+          its row.
         */}
         <h2 className="h2" style={{ margin: "0 0 8px" }}>Authorizations</h2>
         {(auths ?? []).length === 0 && <div className="empty">No authorizations on file. Add them from Billing.</div>}
         {(auths ?? []).length > 0 && (
-        <div className="list">
-        {(auths ?? []).map((a) => {
+        <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="authorizations"
+          columns={[
+            { key: "auth", label: "Authorization, its files and payments", sortLabel: "Number" },
+            { key: "service", label: "Service" },
+            { key: "status", label: "Status" },
+            { key: "ends", label: "Ends" },
+            { key: "left", label: "Hours left", align: "right" },
+          ]}
+          rows={(auths ?? []).map((a) => {
           const used = Number(a.carried_used ?? 0) + (logged.get(a.id) ?? 0);
           const total = a.total_hours ? Number(a.total_hours) : null;
           const remaining = total === null ? null : total - used;
           const pct = total ? Math.min(100, (used / total) * 100) : 0;
           const tone = remaining === null ? "" : remaining <= 0 ? "bad" : pct >= 90 ? "warn" : "";
 
-          return (
-            <div key={a.id} className="list-item">
+          const body = (
+            <div>
               <div className="row2" style={{ justifyContent: "space-between" }}>
                 <b>{a.number || "(no authorization number)"}</b>
                 <span className="chip gold">{a.service_type}</span>
@@ -500,7 +510,27 @@ export default async function ClientPage({
               <AuthorizationPayments payments={payments.filter((p) => p.auth_id === a.id)} status={a.status} />
             </div>
           );
+          return {
+            key: a.id,
+            sort: {
+              auth: a.number,
+              service: a.service_type,
+              status: a.status,
+              ends: a.end_date,
+              left: remaining,
+            },
+            text: [a.number, a.service_type, a.status, a.start_date, a.end_date].filter(Boolean).join(" "),
+            cells: {
+              auth: body,
+              service: a.service_type,
+              status: <span className={"chip " + (a.status === "Paid" ? "ok" : "")}>{a.status}</span>,
+              ends: <span style={{ whiteSpace: "nowrap" }}>{a.end_date ?? "—"}</span>,
+              left: remaining === null ? "—" : remaining,
+            },
+          };
         })}
+          empty="No authorizations on file. Add them from Billing."
+        />
         </div>
         )}
 

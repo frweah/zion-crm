@@ -2760,6 +2760,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_access_grants: {
+        Row: {
+          id: string;
+          staff_id: string;
+          area: string;
+          level: string;
+          reason: string;
+          granted_by: string | null;
+          granted_by_name: string;
+          granted_at: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          revoked_by_name: string;
+          revoke_reason: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          area: string;
+          level: string;
+          reason: string;
+          granted_by?: string | null;
+          granted_by_name?: string;
+          granted_at?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          revoked_by_name?: string;
+          revoke_reason?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          area?: string;
+          level?: string;
+          reason?: string;
+          granted_by?: string | null;
+          granted_by_name?: string;
+          granted_at?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          revoked_by_name?: string;
+          revoke_reason?: string;
+        };
+        Relationships: [];
+      };
       staff_checklist_items: {
         Row: {
           staff_id: string;
@@ -3978,6 +4023,10 @@ export type Database = {
         Args: { p_form_id: string | null };
         Returns: Json;
       };
+      grant_staff_access: {
+        Args: { p_staff: string | null; p_area: string | null; p_level: string | null; p_reason: string | null };
+        Returns: string;
+      };
       inbox_seen: {
         Args: { p_hashes: string | null };
         Returns: { sha256: string | null; known: boolean | null }[];
@@ -4094,6 +4143,14 @@ export type Database = {
         Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start: string | null; p_end: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
+      revoke_staff_access: {
+        Args: { p_grant: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
+      role_has_area: {
+        Args: { p_role: string | null; p_area: string | null; p_level: string | null };
+        Returns: boolean;
+      };
       save_intake: {
         Args: { p_client_id: string | null; p_data: Json | null };
         Returns: boolean;
@@ -4145,6 +4202,10 @@ export type Database = {
       staff_activity: {
         Args: { p_from: string | null; p_to: string | null };
         Returns: { staff_id: string | null; staff_name: string | null; role: string | null; employment_type: string | null; active: boolean | null; hours: number | null; sessions: number | null; days_worked: number | null; statements_submitted: number | null; statements_approved: number | null; amount_paid: number | null; clients_assigned: number | null; tasks_open: number | null; tasks_done: number | null; notes_written: number | null; leads_added: number | null }[];
+      };
+      staff_has_area: {
+        Args: { p_area: string | null; p_level: string | null };
+        Returns: boolean;
       };
       timer_elapsed_hours: {
         Args: { p_started: string | null };

@@ -68,6 +68,10 @@ type NamedReading = {
 const namedOf = (doc: PendingRow): NamedReading =>
   ((doc.proposal ?? {}) as { filename?: NamedReading }).filename ?? {};
 
+/** The order the queue starts in, and what each kind is called there. */
+const KIND_ORDER = ["Authorization", "Invoice", "Warrant", "USOR form", "Other", "Unreadable"] as const;
+const KIND_LABEL: Record<string, string> = { Other: "Everything else" };
+
 const CATEGORIES = [
   "Signed USOR form",
   "Authorization",
@@ -444,7 +448,7 @@ function DocumentRow({
   const named = namedOf(doc);
 
   return (
-    <div className="list-item">
+    <div>
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <b>{doc.filename}</b>
@@ -555,7 +559,14 @@ export function InboxView({
   const ready = pending.filter((d) => !d.needs_a_client);
   // Grouped by what the document is: its name, where the name settled that,
   // otherwise what its text was read as.
-  const byKind = (kind: string) => ready.filter((d) => (namedOf(d).named ?? d.kind) === kind);
+  const kindOf = (d: PendingRow) => namedOf(d).named ?? d.kind;
+  const listed = ready
+    .filter((d) => (KIND_ORDER as readonly string[]).includes(kindOf(d)))
+    .sort(
+      (a, b) =>
+        KIND_ORDER.indexOf(kindOf(a) as (typeof KIND_ORDER)[number]) -
+          KIND_ORDER.indexOf(kindOf(b) as (typeof KIND_ORDER)[number]) || a.first_seen.localeCompare(b.first_seen),
+    );
 
   return (
     <>
@@ -591,36 +602,51 @@ export function InboxView({
         </div>
       )}
 
-      {(["Authorization", "Invoice", "Warrant", "USOR form", "Other", "Unreadable"] as const).map((kind) => {
-        const rows = byKind(kind);
-        if (rows.length === 0) return null;
-        return (
-          <div key={kind} style={{ marginBottom: 18 }}>
-            <h3 style={{ marginBottom: 6 }}>
-              {kind === "USOR form"
-                ? "USOR forms"
-                : kind === "Other"
-                  ? "Everything else"
-                  : kind === "Invoice"
-                    ? "Invoices"
-                    : kind}
-              <span className="lock" style={{ fontWeight: 400 }}> · {rows.length}</span>
-            </h3>
-            {kind === "Unreadable" && (
-              <p className="sub" style={{ marginTop: 0 }}>
-                No text in these — scans or photographs. They can still be filed against the
-                client; what they say has to be read by a person.
-              </p>
-            )}
-            {/* One list per kind: each document carries its own forms, so not a card apiece. */}
-            <div className="list">
-              {rows.map((d) => (
-                <DocumentRow canBill={canBill} key={d.id} doc={d} placeholders={placeholders} />
-              ))}
-            </div>
+      {listed.length > 0 && (
+        <>
+          {listed.some((d) => kindOf(d) === "Unreadable") && (
+            <p className="sub" style={{ margin: "0 0 8px" }}>
+              Documents marked Unreadable have no text in them - scans or photographs. They can still be
+              filed against the client; what they say has to be read by a person.
+            </p>
+          )}
+          {/*
+            One table rather than a list per kind, so the queue can be sorted by
+            when a document arrived or whose it is. It starts in the order the
+            lists had: by kind, oldest first within each. Each document keeps its
+            own filing forms in its row.
+          */}
+          <div className="card" style={{ padding: 0, marginBottom: 18 }}>
+            <DataTable
+              label="documents"
+              sortBy
+              columns={[
+                { key: "kind", label: "Kind" },
+                { key: "client", label: "Client" },
+                { key: "seen", label: "Seen" },
+                { key: "document", label: "Document and what to do with it", sortLabel: "File name" },
+              ]}
+              rows={listed.map((d) => ({
+                key: d.id,
+                sort: {
+                  kind: KIND_ORDER.indexOf(kindOf(d) as (typeof KIND_ORDER)[number]),
+                  client: d.client_name ?? "",
+                  seen: d.first_seen,
+                  document: d.filename,
+                },
+                text: [d.filename, d.folder_name, d.client_name, kindOf(d)].filter(Boolean).join(" "),
+                cells: {
+                  kind: <span className="chip">{KIND_LABEL[kindOf(d)] ?? kindOf(d)}</span>,
+                  client: d.client_name ?? <span style={{ color: "var(--bad)" }}>no client yet</span>,
+                  seen: <span style={{ whiteSpace: "nowrap" }}>{fmtStamp(d.first_seen)}</span>,
+                  document: <DocumentRow canBill={canBill} doc={d} placeholders={placeholders} />,
+                },
+              }))}
+              empty="Nothing is waiting."
+            />
           </div>
-        );
-      })}
+        </>
+      )}
 
       {pending.length === 0 && (
         <p className="empty">Nothing is waiting. Everything the agent has sent has been filed or set aside.</p>

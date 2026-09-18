@@ -1,15 +1,9 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import {
-  money,
-  today,
-  daysBetween,
-  arBuckets,
-  CAN_EDIT_BILLING,
-  CAN_LOG_HOURS,
-} from "@/lib/constants";
+import { money, today, daysBetween, arBuckets, CAN_LOG_HOURS } from "@/lib/constants";
 import {
   AddAuthorizationForm,
   ServiceEntryForm,
@@ -50,8 +44,8 @@ export default async function BillingPage({
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
 
   const supabase = await createClient();
-  const canBill = CAN_EDIT_BILLING.includes(me.role);
-  const canLog = CAN_LOG_HOURS.includes(me.role);
+  const canBill = can(me, "billing", "edit");
+  const canLog = (CAN_LOG_HOURS.includes(me.role) || can(me, "billing", "edit"));
 
   const [authsResult, clientsResult, entriesResult] = await Promise.all([
     supabase
@@ -403,6 +397,7 @@ export default async function BillingPage({
         <div className="card" style={{ padding: 0 }}>
           <DataTable
             label="invoices"
+            sortBy
             columns={[
               { key: "invoice", label: "Invoice" },
               { key: "service", label: "Service" },
@@ -577,6 +572,7 @@ export default async function BillingPage({
       <div className="card" style={{ padding: 0, marginBottom: 14 }}>
         <DataTable
           label="authorizations"
+          sortBy
           columns={[
             { key: "number", label: "Auth #" },
             { key: "client", label: "Client" },

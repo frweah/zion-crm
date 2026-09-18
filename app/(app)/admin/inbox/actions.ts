@@ -1,9 +1,11 @@
 "use server";
 
+import { can } from "@/lib/roles";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING, CAN_EDIT_CLIENTS, SERVICE_TYPES } from "@/lib/constants";
+import { CAN_EDIT_CLIENTS, SERVICE_TYPES } from "@/lib/constants";
 import { describeConfirmation } from "@/lib/authorization-confirmation";
 
 export type InboxState = { error: string | null; ok: string | null };
@@ -171,7 +173,7 @@ export async function ignoreDocument(_prev: InboxState, formData: FormData): Pro
  */
 export async function linkNamedDocument(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing put a document on an authorization.", ok: null };
   }
 
@@ -215,7 +217,7 @@ export async function linkNamedDocument(_prev: InboxState, formData: FormData): 
  */
 export async function replacePlaceholder(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing replace a placeholder.", ok: null };
   }
 
@@ -258,7 +260,7 @@ export async function confirmAuthorization(
   formData: FormData,
 ): Promise<InboxState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { error: "Only Admin and Billing confirm an authorization.", ok: null };
   }
 

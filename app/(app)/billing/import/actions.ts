@@ -1,10 +1,12 @@
 "use server";
 
+import { can } from "@/lib/roles";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_BILLING, SERVICE_TYPES } from "@/lib/constants";
+import { SERVICE_TYPES } from "@/lib/constants";
 import { extractPdfText } from "@/lib/pdf-text";
 import { parseAuthorizationText, type ParsedAuthorization } from "@/lib/authorization-parse";
 
@@ -37,7 +39,7 @@ export async function readAuthorization(
   formData: FormData,
 ): Promise<ImportState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { ...emptyImport, error: "Only Admin and Billing add authorizations." };
   }
 
@@ -86,7 +88,7 @@ export async function createFromImport(
   formData: FormData,
 ): Promise<ImportState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_BILLING.includes(me.role)) {
+  if (!me || !can(me, "billing", "edit")) {
     return { ...emptyImport, error: "Only Admin and Billing add authorizations." };
   }
 

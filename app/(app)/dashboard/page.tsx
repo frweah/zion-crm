@@ -1,3 +1,4 @@
+import { can } from "@/lib/roles";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -82,7 +83,7 @@ export default async function DashboardPage({
     <>
       <PageHead title="Dashboard" context={`${ROLE_LABEL[me.role]} view · ${me.name}`} />
 
-      {CAN_LOG_HOURS.includes(me.role) && (
+      {(CAN_LOG_HOURS.includes(me.role) || can(me, "billing", "edit")) && (
         <HoursSummary
           todayHours={Number(hoursSummary?.today_hours ?? 0)}
           periodHours={Number(hoursSummary?.period_hours ?? 0)}
@@ -91,7 +92,7 @@ export default async function DashboardPage({
         />
       )}
 
-      {CAN_LOG_HOURS.includes(me.role) && (
+      {(CAN_LOG_HOURS.includes(me.role) || can(me, "billing", "edit")) && (
         <WorkTimer
           running={timerResult.data ?? null}
           clients={clientsResult.data ?? []}
