@@ -206,3 +206,23 @@ export async function deleteStaffDocument(
   revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   return { error: null, ok: `${file.filename} removed.` };
 }
+
+/**
+ * Record that the originals behind an I-9 document were examined in person
+ * (0100). Admin only, in the database; until then the document reads
+ * "in-person inspection still required" everywhere it is shown.
+ */
+export async function recordInspection(_prev: DocumentState, formData: FormData): Promise<DocumentState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin records an in-person inspection.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_identity_inspection", {
+    p_file_id: String(formData.get("file_id") ?? ""),
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/admin/people", "layout");
+  revalidatePath("/paperwork", "layout");
+  return { error: null, ok: "Inspection recorded." };
+}

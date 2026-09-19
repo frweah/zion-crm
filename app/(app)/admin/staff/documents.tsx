@@ -5,6 +5,7 @@ import {
   uploadStaffDocument,
   openStaffDocument,
   deleteStaffDocument,
+  recordInspection,
   type DocumentState,
 } from "./document-actions";
 import { DataTable } from "../../data-table";
@@ -30,13 +31,30 @@ export type DocRow = {
   created_at: string;
   uploaded_by_name: string | null;
   backs_a_credential: boolean;
+  inspection_required?: boolean;
+  inspected_at?: string | null;
+  inspected_by_name?: string | null;
 };
+
+/** Admin, originals in hand: the one thing that clears an I-9 document. */
+function InspectButton({ id }: { id: string }) {
+  const [state, action, pending] = useActionState(recordInspection, initial);
+  return (
+    <form action={action} style={{ display: "inline" }}>
+      <input type="hidden" name="file_id" value={id} />
+      <button className="btn gold" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
+        {pending ? "…" : "Inspected in person"}
+      </button>
+      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+    </form>
+  );
+}
 
 const size = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
 
 /** Opens in a new tab as soon as the short-lived link arrives. */
-function OpenButton({ id }: { id: string }) {
+export function OpenButton({ id }: { id: string }) {
   const [state, action, pending] = useActionState(openStaffDocument, initial);
 
   useEffect(() => {
@@ -201,6 +219,17 @@ export function StaffDocuments({
                 <>
                   {d.category_label}
                   {d.backs_a_credential && <div className="lock">evidence for a credential</div>}
+                  {d.inspection_required && (
+                    <div>
+                      <span className="chip warn">In-person inspection still required</span>
+                    </div>
+                  )}
+                  {d.category === "I-9" && d.inspected_at && (
+                    <div className="lock">
+                      inspected in person {d.inspected_at.slice(0, 10)}
+                      {d.inspected_by_name ? ` by ${d.inspected_by_name}` : ""}
+                    </div>
+                  )}
                 </>
               ),
               file: (
@@ -218,6 +247,11 @@ export function StaffDocuments({
               actions: (
                 <span style={{ whiteSpace: "nowrap" }}>
                   <OpenButton id={d.id} />
+                  {canDelete && !readOnly && d.inspection_required && (
+                    <span style={{ marginLeft: 4 }}>
+                      <InspectButton id={d.id} />
+                    </span>
+                  )}
                   {canDelete && !readOnly && !d.system_generated && (
                     <span style={{ marginLeft: 4 }}>
                       <DeleteButton doc={d} />

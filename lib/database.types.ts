@@ -1992,6 +1992,7 @@ export type Database = {
           employer_legal_name: string;
           employer_address: string;
           employer_ein: string;
+          payroll_service: string;
         };
         Insert: {
           id?: boolean;
@@ -2001,6 +2002,7 @@ export type Database = {
           employer_legal_name?: string;
           employer_address?: string;
           employer_ein?: string;
+          payroll_service?: string;
         };
         Update: {
           id?: boolean;
@@ -2010,6 +2012,7 @@ export type Database = {
           employer_legal_name?: string;
           employer_address?: string;
           employer_ein?: string;
+          payroll_service?: string;
         };
         Relationships: [];
       };
@@ -3003,6 +3006,8 @@ export type Database = {
           note: string;
           uploaded_by: string | null;
           created_at: string;
+          inspected_at: string | null;
+          inspected_by: string | null;
         };
         Insert: {
           id?: string;
@@ -3015,6 +3020,8 @@ export type Database = {
           note?: string;
           uploaded_by?: string | null;
           created_at?: string;
+          inspected_at?: string | null;
+          inspected_by?: string | null;
         };
         Update: {
           id?: string;
@@ -3027,6 +3034,8 @@ export type Database = {
           note?: string;
           uploaded_by?: string | null;
           created_at?: string;
+          inspected_at?: string | null;
+          inspected_by?: string | null;
         };
         Relationships: [];
       };
@@ -3066,6 +3075,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_onboarding: {
+        Row: {
+          staff_id: string;
+          started_at: string;
+          certifications_confirmed_at: string | null;
+          completed_at: string | null;
+          last_reminded_on: string | null;
+        };
+        Insert: {
+          staff_id: string;
+          started_at?: string;
+          certifications_confirmed_at?: string | null;
+          completed_at?: string | null;
+          last_reminded_on?: string | null;
+        };
+        Update: {
+          staff_id?: string;
+          started_at?: string;
+          certifications_confirmed_at?: string | null;
+          completed_at?: string | null;
+          last_reminded_on?: string | null;
+        };
+        Relationships: [];
+      };
       staff_pay: {
         Row: {
           id: string;
@@ -3096,6 +3129,156 @@ export type Database = {
           note?: string;
           created_by?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_payment_setup: {
+        Row: {
+          staff_id: string;
+          method: string;
+          payer_of_record: string;
+          payroll_service: string;
+          bank_details_with_payroll: boolean;
+          confirmed_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          method: string;
+          payer_of_record: string;
+          payroll_service?: string;
+          bank_details_with_payroll?: boolean;
+          confirmed_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          method?: string;
+          payer_of_record?: string;
+          payroll_service?: string;
+          bank_details_with_payroll?: boolean;
+          confirmed_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_personal: {
+        Row: {
+          staff_id: string;
+          legal_name: string;
+          address_line1: string;
+          address_line2: string;
+          city: string;
+          state: string;
+          postal_code: string;
+          phone: string;
+          date_of_birth: string | null;
+          emergency_name: string;
+          emergency_relationship: string;
+          emergency_phone: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          staff_id: string;
+          legal_name?: string;
+          address_line1?: string;
+          address_line2?: string;
+          city?: string;
+          state?: string;
+          postal_code?: string;
+          phone?: string;
+          date_of_birth?: string | null;
+          emergency_name?: string;
+          emergency_relationship?: string;
+          emergency_phone?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          staff_id?: string;
+          legal_name?: string;
+          address_line1?: string;
+          address_line2?: string;
+          city?: string;
+          state?: string;
+          postal_code?: string;
+          phone?: string;
+          date_of_birth?: string | null;
+          emergency_name?: string;
+          emergency_relationship?: string;
+          emergency_phone?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      staff_policies: {
+        Row: {
+          key: string;
+          version: number;
+          title: string;
+          body: Json;
+          text_sha256: string;
+          is_current: boolean;
+          published_at: string;
+        };
+        Insert: {
+          key: string;
+          version: number;
+          title: string;
+          body: Json;
+          text_sha256: string;
+          is_current?: boolean;
+          published_at?: string;
+        };
+        Update: {
+          key?: string;
+          version?: number;
+          title?: string;
+          body?: Json;
+          text_sha256?: string;
+          is_current?: boolean;
+          published_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_policy_signatures: {
+        Row: {
+          id: string;
+          staff_id: string;
+          policy_key: string;
+          policy_version: number;
+          text_sha256: string;
+          signer_name: string;
+          signer_ip: string;
+          signed_at: string;
+          staff_file_id: string | null;
+          pdf_sha256: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          policy_key: string;
+          policy_version: number;
+          text_sha256: string;
+          signer_name: string;
+          signer_ip?: string;
+          signed_at?: string;
+          staff_file_id?: string | null;
+          pdf_sha256?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          policy_key?: string;
+          policy_version?: number;
+          text_sha256?: string;
+          signer_name?: string;
+          signer_ip?: string;
+          signed_at?: string;
+          staff_file_id?: string | null;
+          pdf_sha256?: string;
         };
         Relationships: [];
       };
@@ -3957,6 +4140,9 @@ export type Database = {
           uploaded_by: string | null;
           uploaded_by_name: string | null;
           backs_a_credential: boolean | null;
+          inspection_required: boolean | null;
+          inspected_at: string | null;
+          inspected_by_name: string | null;
         };
         Relationships: [];
       };
@@ -4018,6 +4204,10 @@ export type Database = {
       confirm_authorization_document: {
         Args: { p_attachment: string | null; p_doc: string | null; p_auth: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours: number | null; p_start: string | null; p_end: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; created: boolean | null; attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
+      confirm_onboarding_certifications: {
+        Args: Record<string, never>;
+        Returns: undefined;
       };
       correct_authorization: {
         Args: { p_auth: string | null; p_reason: string | null; p_service_type: string | null; p_client: string | null };
@@ -4139,6 +4329,10 @@ export type Database = {
         Args: { p_file_id: string | null };
         Returns: boolean;
       };
+      note_staff_personal_access: {
+        Args: { p_staff: string | null };
+        Returns: boolean;
+      };
       note_tax_form_access: {
         Args: { p_submission_id: string | null };
         Returns: boolean;
@@ -4150,6 +4344,14 @@ export type Database = {
       offboard_staff: {
         Args: { p_staff_id: string | null; p_last_day: string | null; p_reason: string | null; p_successor: string | null; p_note: string | null };
         Returns: { clients_moved: number | null; tasks_moved: number | null; timer_discarded: boolean | null }[];
+      };
+      onboarding_open_steps: {
+        Args: { p_staff: string | null };
+        Returns: string;
+      };
+      onboarding_step_done: {
+        Args: { p_staff: string | null; p_key: string | null };
+        Returns: boolean;
       };
       pay_rate_on: {
         Args: { p_staff_id: string | null; p_date: string | null };
@@ -4191,6 +4393,10 @@ export type Database = {
         Args: { p_client: string | null; p_action: string | null; p_reason: string | null };
         Returns: number;
       };
+      record_identity_inspection: {
+        Args: { p_file_id: string | null };
+        Returns: undefined;
+      };
       record_incoming_sms: {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null; p_payload: string | null };
         Returns: { client_id: string | null; action: string | null }[];
@@ -4202,6 +4408,10 @@ export type Database = {
       refresh_microsoft_tokens: {
         Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: undefined;
+      };
+      refresh_onboarding: {
+        Args: { p_staff: string | null };
+        Returns: boolean;
       };
       replace_placeholder_authorization: {
         Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start: string | null; p_end: string | null };
@@ -4259,6 +4469,10 @@ export type Database = {
         Args: { p_statement_id: string | null; p_amount: number | null; p_note: string | null };
         Returns: undefined;
       };
+      sign_staff_policy: {
+        Args: { p_key: string | null; p_version: number | null; p_signer: string | null; p_ip: string | null; p_file_id: string | null; p_pdf_sha256: string | null };
+        Returns: undefined;
+      };
       sign_tax_form: {
         Args: { p_form_id: string | null; p_sensitive: Json | null; p_tin_last4: string | null; p_signer: string | null; p_ip: string | null };
         Returns: undefined;
@@ -4271,9 +4485,17 @@ export type Database = {
         Args: { p_area: string | null; p_level: string | null };
         Returns: boolean;
       };
+      submit_own_credential: {
+        Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };
+        Returns: string;
+      };
       timer_elapsed_hours: {
         Args: { p_started: string | null };
         Returns: number;
+      };
+      verify_credential: {
+        Args: { p_credential_id: string | null };
+        Returns: undefined;
       };
     };
     Enums: { [_ in never]: never };

@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { EmployerDetails } from "./employer-details";
+import { PayrollService } from "./payroll-service";
 
 /**
  * Settings.
@@ -21,7 +22,10 @@ export default async function SettingsPage() {
   if (me.role !== "Admin") redirect("/dashboard");
 
   const supabase = await createClient();
-  const { data } = await supabase.rpc("get_employer_details");
+  const [{ data }, { data: org }] = await Promise.all([
+    supabase.rpc("get_employer_details"),
+    supabase.from("org_settings").select("payroll_service").maybeSingle(),
+  ]);
 
   // One row, and the EIN is reduced to a yes/no here so the number itself
   // never reaches the browser.
@@ -75,6 +79,8 @@ export default async function SettingsPage() {
           hasEin={Boolean(employer.ein)}
         />
       )}
+
+      <PayrollService current={org?.payroll_service ?? ""} />
 
       <div className="card" style={{ marginTop: 14 }}>
         <h3 style={{ marginTop: 0 }}>Kept elsewhere, on purpose</h3>

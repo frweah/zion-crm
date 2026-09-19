@@ -140,6 +140,15 @@ const RPC_FUNCTIONS = [
   "grant_staff_access",
   "revoke_staff_access",
   "move_counselor_office",
+  "onboarding_step_done",
+  "onboarding_open_steps",
+  "record_identity_inspection",
+  "submit_own_credential",
+  "verify_credential",
+  "confirm_onboarding_certifications",
+  "sign_staff_policy",
+  "refresh_onboarding",
+  "note_staff_personal_access",
 ];
 
 const { rows: fns } = await client.query(

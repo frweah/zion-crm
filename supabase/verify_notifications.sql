@@ -227,8 +227,8 @@ begin
   raise notice 'ok  and addressed to them and to Admin, rather than to everybody in their role';
 
   -- A card recorded clears it.
-  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on)
-  values (v_staff, 'cpr', public.practice_today(), public.practice_today() + 400);
+  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, verified_at)
+  values (v_staff, 'cpr', public.practice_today(), public.practice_today() + 400, now());
   perform public.generate_notifications();
 
   if exists (

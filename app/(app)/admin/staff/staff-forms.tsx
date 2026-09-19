@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { inviteStaff, resendInvite, setStaffActive, type StaffState } from "./actions";
 import { ROLE_NAMES, ROLE_LABEL } from "@/lib/roles";
 
@@ -14,6 +14,7 @@ function Message({ state }: { state: StaffState }) {
 
 export function InviteForm() {
   const [state, action, pending] = useActionState(inviteStaff, initial);
+  const [engagement, setEngagement] = useState("Employee");
 
   return (
     <>
@@ -37,13 +38,28 @@ export function InviteForm() {
             ))}
           </select>
         </label>
+        <label className="field">
+          Engaged as
+          <select id="invite-engagement" name="employment_type" value={engagement} onChange={(e) => setEngagement(e.target.value)}>
+            <option value="Employee">Employee - W-4 and I-9</option>
+            <option value="Contractor">Contractor - W-9 or W-8BEN</option>
+          </select>
+        </label>
+        {engagement === "Employee" && (
+          <label className="field">
+            Start date
+            <input id="invite-start" name="started_on" type="date" />
+          </label>
+        )}
         <button className="btn" type="submit" disabled={pending} style={{ width: "100%" }}>
           {pending ? "Sending…" : "Add and send invite"}
         </button>
       </form>
       <p className="sub" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
-        They receive an email, choose their own password, and land on the screens their role
-        allows. Have the data-handling policy signed before their first login.
+        They receive an email asking them to complete onboarding, choose their own password, and
+        are taken through it on first sign-in: personal details, identity documents,
+        certifications, tax form, the data-handling policy, and payment. The rest of the CRM
+        opens when they finish.
       </p>
     </>
   );

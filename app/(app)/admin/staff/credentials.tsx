@@ -3,11 +3,13 @@
 import { useActionState, useState } from "react";
 import {
   recordCredential,
+  verifyCredential,
   setTransportsClients,
   logCeHours,
   type CredentialState,
 } from "./credential-actions";
 import { DataTable } from "../../data-table";
+import { OpenButton } from "./documents";
 
 const initial: CredentialState = { error: null, ok: null };
 
@@ -29,6 +31,8 @@ export type StatusRow = {
   kind: string;
   required: boolean;
   state: string;
+  credential_id?: string | null;
+  file_id?: string | null;
   reference: string | null;
   issued_on: string | null;
   expires_on: string | null;
@@ -41,6 +45,7 @@ const TONE: Record<string, string> = {
   Expired: "bad",
   Missing: "bad",
   Expiring: "warn",
+  "Awaiting check": "warn",
   Outstanding: "warn",
   Valid: "ok",
   Met: "ok",
@@ -77,8 +82,9 @@ export function StaffCredentials({
   );
   const [adding, setAdding] = useState<string | null>(null);
 
+  const [verifyState, verifyAction, verifying] = useActionState(verifyCredential, initial);
   const problems = rows.filter((r) =>
-    ["Expired", "Missing", "Expiring", "Outstanding"].includes(r.state),
+    ["Expired", "Missing", "Awaiting check", "Expiring", "Outstanding"].includes(r.state),
   ).length;
 
   return (
@@ -114,6 +120,8 @@ export function StaffCredentials({
         </p>
       )}
 
+      {verifyState.error && <div className="alert bad" style={{ marginTop: 10 }}>{verifyState.error}</div>}
+      {verifyState.ok && <div className="alert ok" style={{ marginTop: 10 }}>{verifyState.ok}</div>}
       {state.error && <div className="alert bad" style={{ marginTop: 10 }}>{state.error}</div>}
       {state.ok && <div className="alert ok" style={{ marginTop: 10 }}>{state.ok}</div>}
       {transportState.error && (
@@ -170,7 +178,17 @@ export function StaffCredentials({
                   <span className="lock">nothing on file</span>
                 ),
               action:
-                r.kind !== "hours" && !readOnly ? (
+                r.state === "Awaiting check" && r.credential_id && !readOnly ? (
+                  <span style={{ whiteSpace: "nowrap" }}>
+                    {r.file_id && <OpenButton id={r.file_id} />}
+                    <form action={verifyAction} style={{ display: "inline", marginLeft: 4 }}>
+                      <input type="hidden" name="credential_id" value={r.credential_id} />
+                      <button className="btn gold" type="submit" disabled={verifying} style={{ padding: "2px 10px" }}>
+                        {verifying ? "…" : "Verify"}
+                      </button>
+                    </form>
+                  </span>
+                ) : r.kind !== "hours" && !readOnly ? (
                   <button
                     className="btn ghost"
                     type="button"

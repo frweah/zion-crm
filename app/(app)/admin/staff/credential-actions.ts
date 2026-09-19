@@ -153,3 +153,22 @@ export async function logCeHours(
   revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
   return { error: null, ok: `${hours} hours logged.` };
 }
+
+/**
+ * Verify a card somebody put forward themselves during onboarding (0100): it
+ * reads "Awaiting check" until Admin has looked at the scan behind it.
+ */
+export async function verifyCredential(_prev: CredentialState, formData: FormData): Promise<CredentialState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Only Admin checks a credential.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("verify_credential", {
+    p_credential_id: String(formData.get("credential_id") ?? ""),
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/admin/people", "layout");
+  revalidatePath("/paperwork", "layout");
+  return { error: null, ok: "Checked and verified." };
+}

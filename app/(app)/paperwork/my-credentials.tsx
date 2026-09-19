@@ -40,7 +40,7 @@ export function MyCredentials({
   if (rows.length === 0) return null;
 
   const problems = rows.filter((r) =>
-    ["Expired", "Missing", "Expiring", "Outstanding"].includes(r.state),
+    ["Expired", "Missing", "Awaiting check", "Expiring", "Outstanding"].includes(r.state),
   );
   const hoursRow = rows.find((r) => r.kind === "hours");
 

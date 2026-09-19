@@ -41,8 +41,8 @@ begin
 
   -- ── the boundary, on both sides of it ──────────────────────
   -- A card that runs out today is still good today.
-  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, created_by)
-  values (v_admin, 'cpr', public.practice_today() - 700, public.practice_today(), v_admin);
+  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, created_by, verified_by, verified_at)
+  values (v_admin, 'cpr', public.practice_today() - 700, public.practice_today(), v_admin, v_admin, now());
 
   select state, days_left into v_state, v_days from public.staff_credential_status
    where staff_id = v_admin and type_key = 'cpr';
@@ -89,8 +89,8 @@ begin
   end if;
 
   -- ── a renewal is a new row, and the newer one wins ─────────
-  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, created_by)
-  values (v_admin, 'cpr', public.practice_today(), public.practice_today() + 730, v_admin);
+  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, created_by, verified_by, verified_at)
+  values (v_admin, 'cpr', public.practice_today(), public.practice_today() + 730, v_admin, v_admin, now());
 
   select state, count(*) over () into v_state, v_count
     from public.staff_credential_status
@@ -117,8 +117,8 @@ begin
   end if;
 
   -- ── a credential that does not expire ──────────────────────
-  insert into public.staff_credentials (staff_id, type_key, issued_on, created_by)
-  values (v_admin, 'acre', public.practice_today() - 3000, v_admin);
+  insert into public.staff_credentials (staff_id, type_key, issued_on, created_by, verified_by, verified_at)
+  values (v_admin, 'acre', public.practice_today() - 3000, v_admin, v_admin, now());
 
   select state into v_state from public.staff_credential_status
    where staff_id = v_admin and type_key = 'acre';
@@ -152,8 +152,8 @@ begin
 
   -- ── something held but not required still shows ────────────
   update public.staff_employment set transports_clients = false where staff_id = v_admin;
-  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, created_by)
-  values (v_admin, 'insurance', public.practice_today(), public.practice_today() + 365, v_admin);
+  insert into public.staff_credentials (staff_id, type_key, issued_on, expires_on, created_by, verified_by, verified_at)
+  values (v_admin, 'insurance', public.practice_today(), public.practice_today() + 365, v_admin, v_admin, now());
 
   select state, required into v_state, v_count from (
     select state, case when required then 1 else 0 end as required

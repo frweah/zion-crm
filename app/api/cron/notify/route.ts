@@ -49,6 +49,10 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: genError.message }, { status: 500 });
   }
 
+  // Onboarding reminders go every night a step is open, unlike the digest's
+  // once-per-item: the person asked to finish is the one who has to act.
+  const onboardingReminders = emailConfigured() ? await remindOnboarding(supabase) : 0;
+
   const [{ data: pending }, { data: staff }] = await Promise.all([
     supabase
       .from("notifications")
@@ -72,7 +76,7 @@ async function handle(request: NextRequest) {
   );
 
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, notifications: 0, emails: 0, note: "nothing new" });
+    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, note: "nothing new" });
   }
   if (!emailConfigured()) {
     return NextResponse.json(
@@ -136,6 +140,63 @@ async function handle(request: NextRequest) {
     ok: failed.length === 0,
     notifications: rows.length,
     emails: sent.length,
+    onboardingReminders,
     ...(failed.length ? { failed } : {}),
   });
+}
+
+const STEP_LABEL: Record<string, string> = {
+  personal_details: "your personal details and an emergency contact",
+  identity_documents: "your identity documents",
+  certifications_submitted: "your certifications, or confirming you hold none yet",
+  tax_form_signed: "your tax form",
+  policy_signed: "the data-handling policy",
+  payment_setup: "how you would like to be paid",
+};
+
+/**
+ * One email to each person with onboarding steps still open (0100), at most
+ * once a day however often this runs. Only once they have signed in: before
+ * that it is the invite that is outstanding, and Admin resends it.
+ */
+async function remindOnboarding(supabase: ReturnType<typeof createAdminClient>): Promise<number> {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" });
+  const { data: open } = await supabase
+    .from("staff_onboarding")
+    .select("staff_id, last_reminded_on, staff:staff!staff_onboarding_staff_id_fkey(name, email, active, accepted_at)")
+    .is("completed_at", null);
+
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  let sent = 0;
+  for (const o of open ?? []) {
+    const person = Array.isArray(o.staff) ? o.staff[0] : o.staff;
+    if (!person?.active || !person.accepted_at || !person.email) continue;
+    if (o.last_reminded_on === today) continue;
+
+    const { data: steps } = await supabase.rpc("onboarding_open_steps", { p_staff: o.staff_id });
+    const list = (steps as string[] | null) ?? [];
+    if (list.length === 0) continue;
+
+    const result = await sendEmail({
+      to: person.email,
+      subject: `Zion CRM - ${list.length} onboarding step${list.length === 1 ? "" : "s"} left`,
+      text: [
+        `${person.name.split(" ")[0]},`,
+        "",
+        `Your onboarding is nearly there. Still to do:`,
+        ...list.map((k) => `- ${STEP_LABEL[k] ?? k}`),
+        "",
+        `Pick up where you left off: ${site}/paperwork/onboarding`,
+        "",
+        "You will get this each evening until it is done.",
+        "",
+        ORG.name,
+      ].join("\n"),
+    });
+    if (result.ok) {
+      sent += 1;
+      await supabase.from("staff_onboarding").update({ last_reminded_on: today }).eq("staff_id", o.staff_id);
+    }
+  }
+  return sent;
 }

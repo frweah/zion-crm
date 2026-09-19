@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/session";
+import { PersonalDetailsPanel } from "./personal-panel";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
-import { today } from "@/lib/constants";
+import { today, fmtStamp } from "@/lib/constants";
 import { RecordHeader } from "../../../record-header";
 import { AccessPanel, type GrantRow } from "./access-panel";
 import { StaffRowActions } from "../../staff/staff-forms";
@@ -38,8 +39,21 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
 
   if (!person) notFound();
 
-  const [payResult, checklistResult, credentialResult, typesResult, employmentResult, documentResult, docCategoryResult, offboardingResult, grantsResult] =
-    await Promise.all([
+  const [
+    payResult,
+    checklistResult,
+    credentialResult,
+    typesResult,
+    employmentResult,
+    documentResult,
+    docCategoryResult,
+    offboardingResult,
+    grantsResult,
+    walkthroughResult,
+    paymentResult,
+    personalResult,
+    signatureResult,
+  ] = await Promise.all([
       supabase
         .from("staff_pay")
         .select("id, staff_id, pay_rate, rate_unit, effective_from, note")
@@ -69,6 +83,19 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .select("id, area, level, reason, granted_by_name, granted_at, revoked_at, revoked_by_name, revoke_reason")
         .eq("staff_id", id)
         .order("granted_at", { ascending: false }),
+      supabase.from("staff_onboarding").select("started_at, completed_at").eq("staff_id", id).maybeSingle(),
+      supabase
+        .from("staff_payment_setup")
+        .select("method, payer_of_record, payroll_service, bank_details_with_payroll, confirmed_at")
+        .eq("staff_id", id)
+        .maybeSingle(),
+      // Whether there is anything, not what it says: reading it is logged, and happens on request.
+      supabase.from("staff_personal").select("staff_id", { count: "exact", head: true }).eq("staff_id", id),
+      supabase
+        .from("staff_policy_signatures")
+        .select("policy_key, policy_version, signer_name, signed_at")
+        .eq("staff_id", id)
+        .order("signed_at", { ascending: false }),
     ]);
 
   // Somebody who has left keeps a whole, readable record for retention and
@@ -163,6 +190,50 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           ) : (
             <Checklist name={person.name} rows={checklist} phase="Offboarding" />
           ))}
+      </section>
+
+      <section id="personal" className="page-section">
+        <h2 className="h2">Personal details and payment</h2>
+        <p className="sub">
+          {walkthroughResult.data
+            ? walkthroughResult.data.completed_at
+              ? `Onboarded through the walkthrough, finished ${fmtStamp(walkthroughResult.data.completed_at)}.`
+              : `In the onboarding walkthrough since ${fmtStamp(walkthroughResult.data.started_at)} - the checklist above shows which steps are open.`
+            : "Joined before the onboarding walkthrough; they can complete these on their Paperwork screen."}
+        </p>
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3>Personal details</h3>
+          <PersonalDetailsPanel staffId={person.id} onFile={(personalResult.count ?? 0) > 0} />
+        </div>
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3>Payment</h3>
+          {paymentResult.data ? (
+            <p style={{ margin: 0 }}>
+              {paymentResult.data.method}, paid by <b>{paymentResult.data.payer_of_record}</b>
+              {paymentResult.data.payroll_service && ` through ${paymentResult.data.payroll_service}`}.
+              <span className="lock">
+                {" "}
+                Confirmed {fmtStamp(paymentResult.data.confirmed_at)}
+                {paymentResult.data.bank_details_with_payroll && "; bank details given to the payroll service directly"}.
+              </span>
+            </p>
+          ) : (
+            <p className="empty">Not confirmed yet.</p>
+          )}
+        </div>
+        <div className="card">
+          <h3>Policies signed</h3>
+          {(signatureResult.data ?? []).length === 0 ? (
+            <p className="empty">None signed in the app. A policy signed on paper is ticked on the checklist.</p>
+          ) : (
+            (signatureResult.data ?? []).map((g) => (
+              <p key={`${g.policy_key}-${g.policy_version}`} style={{ margin: "0 0 4px" }}>
+                {g.policy_key === "data-handling" ? "Data-handling policy" : g.policy_key} v{g.policy_version}, signed by{" "}
+                {g.signer_name} {fmtStamp(g.signed_at)}. <span className="lock">The signed copy is in Documents.</span>
+              </p>
+            ))
+          )}
+        </div>
       </section>
 
       <section id="certifications" className="page-section">

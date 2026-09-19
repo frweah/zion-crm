@@ -31,6 +31,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/dashboard");
   }
 
+  // Somebody brought on through the walkthrough (0100) works through it before
+  // anything else: the data-handling policy is signed before first use of the
+  // system, and the rest comes with it. Paperwork stays open - the walkthrough
+  // lives under it, and so do their own forms and documents. It can be left
+  // and resumed; signing in again lands them back on it.
+  if (staff.onboardingOpen && pathname && !pathname.startsWith("/paperwork")) {
+    redirect("/paperwork/onboarding");
+  }
+
   // The hint for this screen, if there is one this person has not put away.
   // Matched longest-first so /clients/<id> gets the record hint rather than
   // the list one.

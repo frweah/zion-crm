@@ -211,7 +211,7 @@ export async function signW8BEN(
     return { error: `Not signed: ${signError.message}`, ok: null };
   }
 
-  revalidatePath("/paperwork");
+  revalidatePath("/paperwork", "layout"); // Paperwork, and the onboarding walkthrough under it
   revalidatePath("/admin/people");
   return {
     error: null,
@@ -396,7 +396,7 @@ export async function signW9(
     return { error: `Not signed: ${signError.message}`, ok: null };
   }
 
-  revalidatePath("/paperwork");
+  revalidatePath("/paperwork", "layout"); // Paperwork, and the onboarding walkthrough under it
   revalidatePath("/admin/people");
   return {
     error: null,
@@ -604,7 +604,7 @@ export async function signW4(
     return { error: `Not signed: ${signError.message}`, ok: null };
   }
 
-  revalidatePath("/paperwork");
+  revalidatePath("/paperwork", "layout"); // Paperwork, and the onboarding walkthrough under it
   revalidatePath("/admin/people");
   return {
     error: null,
