@@ -306,6 +306,8 @@ export default async function ClientPage({
         <ComingUp clientId={id} tasks={tasks} events={events} myId={me.id} now={new Date().toISOString()} />
         <ActivityTab
           clientId={id}
+          clientName={detail.name}
+          colleagues={staff.filter((s) => s.id !== me.id)}
           rows={kind ? all.filter((r) => r.kind === kind) : all}
           days={days}
           kind={kind}

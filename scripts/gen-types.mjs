@@ -151,6 +151,15 @@ const RPC_FUNCTIONS = [
   "presence_heartbeat",
   "staff_presence_status",
   "is_conversation_participant",
+  // Staff chat (0106).
+  "start_group_conversation",
+  "add_conversation_participant",
+  "leave_conversation",
+  "archive_conversation",
+  "edit_message",
+  "remove_message",
+  "search_messages",
+  "can_staff_see_restricted",
   "messages_digest_due",
   "messages_digest_sent",
   "next_text_window",
@@ -205,18 +214,27 @@ function argsType(args) {
   const fields = trimmed.split(",").map((a) => {
     const parts = a.trim().split(/\s+/);
     const name = parts[0];
-    const sqlType = parts.slice(1).join(" ").toLowerCase();
-    const ts = /^jsonb?$/.test(sqlType)
+    const declared = parts.slice(1).join(" ").toLowerCase();
+    // An argument the function gives a default to is one the caller may leave
+    // out, and the type says so - otherwise every call restates the default.
+    // The default itself is not part of the type: "jsonb default '[]'::jsonb"
+    // is a jsonb, and reading the whole phrase would make it a list.
+    const optional = / default /.test(declared) ? "?" : "";
+    const sqlType = declared.split(" default ")[0].trim();
+    const base = /^jsonb?(\[\])?$/.test(sqlType)
       ? "Json"
       : /int|numeric|real|double|serial/.test(sqlType)
         ? "number"
         : /bool/.test(sqlType)
           ? "boolean"
           : "string";
+    // uuid[] is a list of uuids, not a uuid. Without this an array argument
+    // types as a single string and every call to it needs a cast.
+    const ts = /\[\]$/.test(sqlType) && base !== "Json" ? `${base}[]` : base;
     // Every SQL parameter accepts null, so the argument types say so. Without
     // it a caller passing a genuinely optional value has to cast, and a cast
     // would also hide the one case where the mismatch was real.
-    return `${name}: ${ts} | null`;
+    return `${name}${optional}: ${ts} | null`;
   });
   return `{ ${fields.join("; ")} }`;
 }
