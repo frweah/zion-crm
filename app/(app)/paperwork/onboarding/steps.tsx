@@ -113,16 +113,7 @@ export function IdentityUpload({ employee }: { employee: boolean }) {
       <Message state={state} />
       <div className="row2" style={{ alignItems: "flex-end" }}>
         <label className="field">
-          Which document
-          <input
-            id="ob-id-what"
-            name="what"
-            required
-            placeholder={employee ? "US passport, or driver's licence + Social Security card" : "Driver's licence or passport"}
-          />
-        </label>
-        <label className="field">
-          Scan or photo
+          {employee ? "Scan or photo of one document" : "Scan or photo"}
           <input id="ob-id-file" name="file" type="file" required accept="application/pdf,image/*" />
         </label>
         <button className="btn gold" type="submit" disabled={pending}>
@@ -241,6 +232,18 @@ export function PolicySignForm({ version, legalName }: { version: number; legalN
 }
 
 // ── 6 ───────────────────────────────────────────────────────
+const PAY_METHODS = ["Payroll service", "Direct deposit via payroll", "Wise", "PayPal", "Other"];
+
+/** Mirrors the server: eight digits in a row anywhere on this step is refused. */
+function noAccountNumbers(e: React.FormEvent<HTMLInputElement>) {
+  const input = e.currentTarget;
+  input.setCustomValidity(
+    /\d{8,}/.test(input.value.replace(/[\s-]/g, ""))
+      ? "That looks like an account number. Only the last four digits are kept."
+      : "",
+  );
+}
+
 export function PaymentForm({
   payer,
   payroll,
@@ -248,11 +251,10 @@ export function PaymentForm({
 }: {
   payer: string;
   payroll: string;
-  current: { method: string } | null;
+  current: { method: string; method_other: string; last_four: string } | null;
 }) {
   const [state, action, pending] = useActionState(savePayment, initial);
-  const [method, setMethod] = useState(current?.method ?? "Direct deposit through the payroll service");
-  const service = payroll || "the payroll service";
+  const [method, setMethod] = useState(current?.method ?? "");
   return (
     <form action={action}>
       <Message state={state} />
@@ -266,36 +268,44 @@ export function PaymentForm({
           <b>{payroll || <span className="lock">Not named yet</span>}</b>
         </div>
       </div>
-      <fieldset style={{ border: 0, padding: 0, margin: "0 0 10px" }}>
-        <legend style={{ marginBottom: 6 }}>How would you like to be paid?</legend>
-        {["Direct deposit through the payroll service", "Paper check"].map((m) => (
-          <label key={m} style={{ display: "block" }}>
-            <input
-              id={`ob-pay-${m.startsWith("Direct") ? "deposit" : "check"}`}
-              type="radio"
-              name="method"
-              value={m}
-              checked={method === m}
-              onChange={() => setMethod(m)}
-            />{" "}
-            {m.startsWith("Direct") ? `Direct deposit, through ${service}` : "Paper check"}
-          </label>
-        ))}
-      </fieldset>
-      {method.startsWith("Direct") && (
-        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "0 0 10px" }}>
-          <input id="ob-pay-bank" type="checkbox" name="bank_details_with_payroll" />
-          <span>
-            I have given, or will give, my bank details to {service} myself. I will not type them here, email them, or
-            hand them to a colleague.
-          </span>
+      <div className="row2" style={{ alignItems: "flex-end" }}>
+        <label className="field">
+          Where you are paid
+          <select id="ob-pay-method" name="method" required value={method} onChange={(e) => setMethod(e.target.value)}>
+            <option value="">Choose…</option>
+            {PAY_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
         </label>
-      )}
-      <button className="btn gold" type="submit" disabled={pending || !payer}>
-        {pending ? "Saving…" : "Confirm"}
-      </button>
+        {method === "Other" && (
+          <label className="field">
+            Which
+            <input id="ob-pay-other" name="method_other" required maxLength={60} defaultValue={current?.method_other ?? ""} onInput={noAccountNumbers} />
+          </label>
+        )}
+        <label className="field" style={{ maxWidth: 170 }}>
+          Last four digits (optional)
+          <input
+            id="ob-pay-last4"
+            name="last_four"
+            inputMode="numeric"
+            pattern="[0-9]{4}"
+            maxLength={4}
+            autoComplete="off"
+            defaultValue={current?.last_four ?? ""}
+            onInput={noAccountNumbers}
+          />
+        </label>
+        <button className="btn gold" type="submit" disabled={pending || !payer}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+      </div>
       <p className="lock" style={{ margin: "8px 0 0" }}>
-        No account or routing number is ever stored in the CRM. {service.charAt(0).toUpperCase() + service.slice(1)} holds those.
+        Never type a full account or routing number here - {payroll || "the payroll service"} holds those. The last four
+        digits are only so the administrator can tell accounts apart.
       </p>
     </form>
   );

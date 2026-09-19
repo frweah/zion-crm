@@ -34,7 +34,7 @@ const STEPS = [
   { key: "certifications_submitted", label: "Certifications" },
   { key: "tax_form_signed", label: "Tax form" },
   { key: "policy_signed", label: "Data-handling policy" },
-  { key: "payment_setup", label: "Payment" },
+  { key: "payment_setup", label: "Where you are paid" },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
@@ -97,7 +97,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     supabase.from("credential_types").select("key, expires, detail").eq("active", true).eq("kind", "certificate"),
     supabase.from("staff_policies").select("key, version, title, body").eq("key", "data-handling").eq("is_current", true).maybeSingle(),
     supabase.from("staff_policy_signatures").select("policy_version, signer_name, signed_at").eq("staff_id", me.id),
-    supabase.from("staff_payment_setup").select("method, payer_of_record, payroll_service, confirmed_at").eq("staff_id", me.id).maybeSingle(),
+    supabase
+      .from("staff_payment_setup")
+      .select("method, method_other, last_four, payer_of_record, confirmed_at")
+      .eq("staff_id", me.id)
+      .maybeSingle(),
     supabase.from("org_settings").select("employer_legal_name, payroll_service").maybeSingle(),
     me.role === "Admin"
       ? supabase.from("staff_onboarding").select("staff_id, started_at, completed_at, staff:staff!staff_onboarding_staff_id_fkey(name, active)")
@@ -176,15 +180,19 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
       {current === "identity_documents" && (
         <section className="card" style={{ marginBottom: 14 }}>
           <h3>2. Identity documents</h3>
-          {employee ? (
+          {!employment ? (
             <p className="sub" style={{ marginTop: 0 }}>
-              For your Form I-9: either one document from List A (a US passport, a permanent resident card) or one from
-              List B and one from List C (a driver&apos;s licence and a Social Security card, say). A scan here is not
-              the check - the law requires the originals to be examined in person, so each one reads{" "}
-              <b>in-person inspection still required</b> until the administrator has seen it.
+              Waiting on the administrator, who has not yet recorded whether you are an employee or a contractor. The
+              other steps can be done meanwhile.
             </p>
+          ) : employee ? (
+            <div className="alert" style={{ marginTop: 0 }}>
+              Upload a scan or photo of each document you will bring for your Form I-9 - nothing else is asked for here.
+              The administrator completes your I-9 in person, from the originals, and marks each document inspected then;
+              until that, each one reads <b>in-person inspection still required</b>.
+            </div>
           ) : (
-            <p className="sub" style={{ marginTop: 0 }}>A photo ID - a driver&apos;s licence or a passport.</p>
+            <p className="sub" style={{ marginTop: 0 }}>A scan or photo of a photo ID.</p>
           )}
           {(docs ?? []).length > 0 && (
             <div className="card" style={{ padding: 0 }}>
@@ -225,7 +233,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
               />
             </div>
           )}
-          <IdentityUpload employee={employee} />
+          {employment && <IdentityUpload employee={employee} />}
         </section>
       )}
 
@@ -291,6 +299,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
               Your {taxForm ?? "tax form"} is signed and on file. If anything on it changes, complete a new one on{" "}
               <Link href="/paperwork">Paperwork</Link>.
             </p>
+          ) : !employment ? (
+            <p className="sub" style={{ margin: 0 }}>
+              Waiting on the administrator, who has not yet recorded whether you are an employee or a contractor - that
+              decides which form is yours.
+            </p>
           ) : taxForm === "W-4" ? (
             <W4Form defaultName={legalName} />
           ) : taxForm === "W-9" ? (
@@ -341,16 +354,17 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
 
       {current === "payment_setup" && (
         <section className="card" style={{ marginBottom: 14 }}>
-          <h3>6. Payment</h3>
+          <h3>6. Where you are paid</h3>
           {payment && (
             <div className="alert ok">
-              Confirmed {fmtStamp(payment.confirmed_at)}: {payment.method.toLowerCase()}, paid by {payment.payer_of_record}.
+              Saved {fmtStamp(payment.confirmed_at)}: {payment.method === "Other" ? payment.method_other : payment.method}
+              {payment.last_four ? `, account ending ${payment.last_four}` : ""}. Paid by {payment.payer_of_record}.
             </div>
           )}
           <PaymentForm
             payer={org?.employer_legal_name ?? ""}
             payroll={org?.payroll_service ?? ""}
-            current={payment ? { method: payment.method } : null}
+            current={payment ? { method: payment.method, method_other: payment.method_other, last_four: payment.last_four } : null}
           />
         </section>
       )}

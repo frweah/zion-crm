@@ -3138,27 +3138,30 @@ export type Database = {
           method: string;
           payer_of_record: string;
           payroll_service: string;
-          bank_details_with_payroll: boolean;
           confirmed_at: string;
           updated_at: string;
+          method_other: string;
+          last_four: string;
         };
         Insert: {
           staff_id: string;
           method: string;
           payer_of_record: string;
           payroll_service?: string;
-          bank_details_with_payroll?: boolean;
           confirmed_at?: string;
           updated_at?: string;
+          method_other?: string;
+          last_four?: string;
         };
         Update: {
           staff_id?: string;
           method?: string;
           payer_of_record?: string;
           payroll_service?: string;
-          bank_details_with_payroll?: boolean;
           confirmed_at?: string;
           updated_at?: string;
+          method_other?: string;
+          last_four?: string;
         };
         Relationships: [];
       };

@@ -11,7 +11,8 @@
 --   An I-9 document reads "inspection required" until Admin records it, and
 --   only Admin can. A card the person puts forward reads "Awaiting check"
 --   until Admin verifies it, and only Admin can.
---   No bank account number can be stored. A policy signature records the hash
+--   Where they are paid is a listed method and at most the last four digits;
+--   eight digits in a row are refused anywhere on it. A policy signature records the hash
 --   of the text signed, must be in the legal name, and is never changed.
 --   Finishing tells Admin once; open steps are on the nightly list.
 --
@@ -124,25 +125,37 @@ begin
     raise notice 'ok  a card put forward needs an expiry and its own scan, reads Awaiting check, and only Admin verifies it';
   end if;
 
-  -- ── 6. payment ─────────────────────────────────────────────
+  -- ── 6. where they are paid ─────────────────────────────────
   begin
-    insert into public.staff_payment_setup (staff_id, method, payer_of_record, payroll_service, bank_details_with_payroll)
-    values (v_new, 'Direct deposit through the payroll service', 'ZZ Payer', 'Account 123456789', true);
-    failures := failures || 'FAILED: an account number was stored'::text;
+    insert into public.staff_payment_setup (staff_id, method, method_other, payer_of_record)
+    values (v_new, 'Other', 'bank 12345678', 'ZZ Payer');
+    failures := failures || 'FAILED: eight digits in a row were stored'::text;
   exception when check_violation then null;
   end;
   begin
-    insert into public.staff_payment_setup (staff_id, method, payer_of_record, payroll_service, bank_details_with_payroll)
-    values (v_new, 'Direct deposit through the payroll service', 'ZZ Payer', 'ZZ Payroll', false);
-    failures := failures || 'FAILED: direct deposit was recorded without the bank details going to the payroll service'::text;
+    insert into public.staff_payment_setup (staff_id, method, last_four, payer_of_record)
+    values (v_new, 'Wise', '123456', 'ZZ Payer');
+    failures := failures || 'FAILED: more than the last four digits were stored'::text;
   exception when check_violation then null;
   end;
-  insert into public.staff_payment_setup (staff_id, method, payer_of_record, payroll_service, bank_details_with_payroll)
-  values (v_new, 'Direct deposit through the payroll service', 'ZZ Payer', 'ZZ Payroll', true);
+  begin
+    insert into public.staff_payment_setup (staff_id, method, payer_of_record)
+    values (v_new, 'Venmo', 'ZZ Payer');
+    failures := failures || 'FAILED: a method off the list was stored'::text;
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.staff_payment_setup (staff_id, method, method_other, payer_of_record)
+    values (v_new, 'PayPal', 'ZZ words', 'ZZ Payer');
+    failures := failures || 'FAILED: free text was stored against a listed method'::text;
+  exception when check_violation then null;
+  end;
+  insert into public.staff_payment_setup (staff_id, method, last_four, payer_of_record, payroll_service)
+  values (v_new, 'Direct deposit via payroll', '4321', 'ZZ Payer', 'ZZ Payroll');
   if not public.onboarding_step_done(v_new, 'payment_setup') then
-    failures := failures || 'FAILED: confirming payment did not finish the step'::text;
+    failures := failures || 'FAILED: saving where they are paid did not finish the step'::text;
   else
-    raise notice 'ok  no account number can be stored, and direct deposit needs the details given to the payroll service';
+    raise notice 'ok  where they are paid is a listed method and at most four digits; eight in a row are refused anywhere';
   end if;
 
   -- ── 5. the policy ──────────────────────────────────────────

@@ -116,26 +116,25 @@ export async function uploadIdentityDocument(_prev: OnboardingState, formData: F
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
 
+  // The upload only: no document names, numbers or expiry dates. The owner
+  // completes the I-9 in person from the originals (19 Sept 2026).
   const supabase = await createClient();
   const { data: emp } = await supabase.from("staff_employment").select("employment_type").eq("staff_id", me.id).maybeSingle();
-  const employee = emp?.employment_type === "Employee";
-  const what = String(formData.get("what") ?? "").trim();
-  if (!what) return { error: "Say which document it is - a passport, a driver's licence, a Social Security card.", ok: null };
+  if (!emp) return { error: "The administrator has not yet recorded whether you are an employee or a contractor.", ok: null };
+  const employee = emp.employment_type === "Employee";
 
   const result = await uploadOwn(
     me.id,
     formData.get("file"),
     employee ? "I-9" : "Identity document",
-    employee ? `${what} - in-person inspection still required` : what,
+    employee ? "I-9 document - in-person inspection still required" : "Photo ID",
   );
   if ("error" in result) return { error: result.error, ok: null };
 
   revalidatePath(PATH);
   return {
     error: null,
-    ok: employee
-      ? `${what} added. Bring the original in on your first day: it has to be inspected in person.`
-      : `${what} added.`,
+    ok: employee ? "Uploaded. Bring the original on your first day." : "Uploaded.",
   };
 }
 
@@ -276,36 +275,45 @@ export async function signPolicy(_prev: OnboardingState, formData: FormData): Pr
   return { error: null, ok: "Signed. The signed copy is on your file." };
 }
 
-// ── 6. payment ──────────────────────────────────────────────
+// ── 6. where they are paid ──────────────────────────────────
+const PAY_METHODS = ["Payroll service", "Direct deposit via payroll", "Wise", "PayPal", "Other"] as const;
+
+/** Eight digits in a row is an account number, typed by mistake. Refused anywhere on the step. */
+const ACCOUNT_NUMBER = /\d{8,}/;
+
 export async function savePayment(_prev: OnboardingState, formData: FormData): Promise<OnboardingState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
 
-  const method = String(formData.get("method") ?? "");
-  const bank = formData.get("bank_details_with_payroll") === "on";
-  if (method !== "Direct deposit through the payroll service" && method !== "Paper check") {
-    return { error: "Choose how you would like to be paid.", ok: null };
+  for (const [, value] of formData.entries()) {
+    if (typeof value === "string" && ACCOUNT_NUMBER.test(value.replace(/[\s-]/g, ""))) {
+      return { error: "That looks like an account number. Only the last four digits are kept - nothing longer.", ok: null };
+    }
   }
+
+  const method = String(formData.get("method") ?? "");
+  const other = String(formData.get("method_other") ?? "").trim();
+  const lastFour = String(formData.get("last_four") ?? "").trim();
+  if (!(PAY_METHODS as readonly string[]).includes(method)) return { error: "Choose how you are paid.", ok: null };
+  if (method === "Other" && !other) return { error: "Say what the other method is.", ok: null };
+  if (lastFour && !/^\d{4}$/.test(lastFour)) return { error: "The last four digits are four digits, or leave it blank.", ok: null };
 
   const supabase = await createClient();
   const { data: org } = await supabase.from("org_settings").select("employer_legal_name, payroll_service").maybeSingle();
   const payer = org?.employer_legal_name?.trim() ?? "";
-  const payroll = org?.payroll_service?.trim() ?? "";
   if (!payer) return { error: "The administrator has not set who pays staff yet. Tell them, and come back to this step.", ok: null };
-  if (method.startsWith("Direct deposit") && !bank) {
-    return { error: `Confirm you have given your bank details to ${payroll || "the payroll service"} yourself.`, ok: null };
-  }
 
   const { error } = await supabase.from("staff_payment_setup").upsert({
     staff_id: me.id,
     method,
+    method_other: method === "Other" ? other : "",
+    last_four: lastFour,
     payer_of_record: payer,
-    payroll_service: payroll,
-    bank_details_with_payroll: bank,
+    payroll_service: org?.payroll_service?.trim() ?? "",
     confirmed_at: new Date().toISOString(),
   });
   if (error) return { error: error.message, ok: null };
 
   revalidatePath(PATH);
-  return { error: null, ok: "Payment confirmed." };
+  return { error: null, ok: "Saved." };
 }

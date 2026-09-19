@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/session";
 import { PersonalDetailsPanel } from "./personal-panel";
+import { EngagementForm } from "./engagement-form";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { today, fmtStamp } from "@/lib/constants";
@@ -66,7 +67,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .select("key, label, detail, kind, expires, months_valid, applies_to, hours_target")
         .eq("active", true)
         .order("sort_order"),
-      supabase.from("staff_employment").select("staff_id, transports_clients").eq("staff_id", id),
+      supabase.from("staff_employment").select("staff_id, transports_clients, employment_type, started_on").eq("staff_id", id),
       supabase
         .from("staff_documents")
         .select("*")
@@ -86,7 +87,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
       supabase.from("staff_onboarding").select("started_at, completed_at").eq("staff_id", id).maybeSingle(),
       supabase
         .from("staff_payment_setup")
-        .select("method, payer_of_record, payroll_service, bank_details_with_payroll, confirmed_at")
+        .select("method, method_other, last_four, payer_of_record, payroll_service, confirmed_at")
         .eq("staff_id", id)
         .maybeSingle(),
       // Whether there is anything, not what it says: reading it is logged, and happens on request.
@@ -202,6 +203,15 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
             : "Joined before the onboarding walkthrough; they can complete these on their Paperwork screen."}
         </p>
         <div className="card" style={{ marginBottom: 12 }}>
+          <h3>Engaged as</h3>
+          <EngagementForm
+            staffId={person.id}
+            current={(employmentResult.data ?? [])[0]?.employment_type ?? null}
+            startedOn={(employmentResult.data ?? [])[0]?.started_on ?? null}
+            readOnly={readOnly}
+          />
+        </div>
+        <div className="card" style={{ marginBottom: 12 }}>
           <h3>Personal details</h3>
           <PersonalDetailsPanel staffId={person.id} onFile={(personalResult.count ?? 0) > 0} />
         </div>
@@ -209,13 +219,11 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           <h3>Payment</h3>
           {paymentResult.data ? (
             <p style={{ margin: 0 }}>
-              {paymentResult.data.method}, paid by <b>{paymentResult.data.payer_of_record}</b>
+              {paymentResult.data.method === "Other" ? `Other: ${paymentResult.data.method_other}` : paymentResult.data.method}
+              {paymentResult.data.last_four && `, account ending ${paymentResult.data.last_four}`}. Paid by{" "}
+              <b>{paymentResult.data.payer_of_record}</b>
               {paymentResult.data.payroll_service && ` through ${paymentResult.data.payroll_service}`}.
-              <span className="lock">
-                {" "}
-                Confirmed {fmtStamp(paymentResult.data.confirmed_at)}
-                {paymentResult.data.bank_details_with_payroll && "; bank details given to the payroll service directly"}.
-              </span>
+              <span className="lock"> Saved {fmtStamp(paymentResult.data.confirmed_at)}.</span>
             </p>
           ) : (
             <p className="empty">Not confirmed yet.</p>
