@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { teamsChatHref } from "@/lib/teams";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
@@ -88,6 +89,22 @@ export default async function StaffPage({
                           <b>{s.name}</b>
                         </Link>
                         <div className="lock">{s.email}</div>
+                        {/*
+                          The bridge to Teams (Messaging brief, B): the CRM's own
+                          chat is for what belongs on a client's record, and Teams
+                          is for the rest of the day. Wherever a colleague is
+                          offered as somebody to contact, both are.
+                        */}
+                        {teamsChatHref([s.email]) && (
+                          <a
+                            className="lock"
+                            href={teamsChatHref([s.email])!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Message on Teams
+                          </a>
+                        )}
                       </>
                     ),
                     role: ROLE_LABEL[s.role],

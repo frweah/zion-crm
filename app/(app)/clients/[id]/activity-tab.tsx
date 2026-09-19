@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { clientTabFor } from "@/lib/client-tabs";
 import { ExcludeThread } from "./calendar-tab";
+import { startClientThread } from "../../messages/actions";
 
 export type ActivityRow = {
   at: string;
@@ -33,6 +34,7 @@ export const ACTIVITY_KINDS = [
   "Appointment",
   "Mail",
   "Text",
+  "Chat",
   "Hours",
   "Payment",
 ] as const;
@@ -52,9 +54,11 @@ const JOB_KINDS = new Set(["Job", "Interview", "Follow-up"]);
  * Most things live on a tab of this client's record. The feed was written
  * against the twelve tabs, so its tab names are mapped to the six that took
  * them in; a job's dates live on Jobs, not Profile. Counselor contacts are
- * kept against the counselor, on their own screen.
+ * kept against the counselor, on their own screen. A staff thread about this
+ * client opens on Messages, where it is read and answered.
  */
 function hrefFor(clientId: string, row: ActivityRow): string {
+  if (row.tab === "chat") return `/messages?c=${row.ref_id}`;
   if (row.tab === "counselors") return "/counselors";
   const tab = JOB_KINDS.has(row.kind) ? "jobs" : clientTabFor(row.tab);
   return `/clients/${clientId}?tab=${tab}`;
@@ -70,18 +74,22 @@ const dayOf = (iso: string) =>
 
 export function ActivityTab({
   clientId,
+  clientName,
   rows,
   days,
   kind,
   counts,
   extras,
+  colleagues,
 }: {
   clientId: string;
+  clientName: string;
   rows: ActivityRow[];
   days: number;
   kind: string | null;
   counts: Map<string, number>;
   extras: FeedExtras;
+  colleagues: { id: string; name: string }[];
 }) {
   const base = `/clients/${clientId}?tab=activity`;
   const keep = (k: string | null, d: number) =>
@@ -124,6 +132,42 @@ export function ActivityTab({
           Everything already recorded elsewhere, in one order. Each item opens where it lives.
         </p>
       </div>
+
+      {/*
+        A conversation about a client belongs on the client's record, which is
+        why it is started here rather than on Messages: it lands in this feed,
+        it is exported with the record, and only the people in it - and Admin -
+        can read it (Messaging brief, B).
+      */}
+      <details className="card" style={{ marginBottom: 14 }}>
+        <summary>Talk to a colleague about {clientName}</summary>
+        <form action={startClientThread} style={{ marginTop: 10 }}>
+          <input type="hidden" name="client_id" value={clientId} />
+          <div className="row2">
+            <label className="field" style={{ flex: 2 }}>
+              What it is about (optional)
+              <input name="title" maxLength={80} placeholder={`e.g. ${clientName}'s work schedule`} />
+            </label>
+            <label className="field">
+              Who to bring in
+              <select name="staff_id" multiple size={Math.min(5, Math.max(3, colleagues.length))}>
+                {colleagues.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button className="btn gold" type="submit" style={{ marginTop: 8 }}>
+            Start the thread
+          </button>
+          <p className="lock" style={{ margin: "8px 0 0" }}>
+            It shows here as a Chat item, and a document of theirs can be attached to it by reference - never copied,
+            and never to somebody who could not open it anyway.
+          </p>
+        </form>
+      </details>
 
       {rows.length === 0 ? (
         <div className="card">

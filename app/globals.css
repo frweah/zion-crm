@@ -1576,3 +1576,115 @@ table.t tbody tr[aria-selected="true"] td {
     max-width: 95%;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Staff chat (Messaging brief, B). Mentions, documents attached by reference,
+   and the small controls on your own message. The bubbles, the list and the
+   composer are the foundation's, above; this is what B added to them.
+   ───────────────────────────────────────────────────────────── */
+.chat-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+/* Somebody written to by name, in the text as it is read back. */
+.mention {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+/* A message that asked for you: a gold edge, and the chip says so in words. */
+.bubble.mentions-me {
+  border-left: 3px solid var(--accent);
+}
+.attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    background var(--motion);
+}
+button.attach-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.attach-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--bone);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* The people this conversation can reach, offered as @ is typed. */
+.mention-menu {
+  position: absolute;
+  z-index: 5;
+  bottom: 100%;
+  left: 0;
+  min-width: 180px;
+  margin: 0 0 4px;
+  padding: 4px;
+  list-style: none;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px var(--scrim);
+}
+.mention-menu button {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition: background var(--motion);
+}
+.mention-menu button:hover {
+  background: var(--accent-soft);
+}
+.chat-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+/* A control that reads as a link because it acts on this one message. */
+.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.linkish:disabled {
+  color: var(--disabled-ink);
+  cursor: default;
+}

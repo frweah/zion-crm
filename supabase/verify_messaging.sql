@@ -67,10 +67,19 @@ begin
     failures := failures || 'FAILED: a text was sent through the staff-message door, round its consent and hours checks'::text;
   exception when check_violation then null;
   end;
+  -- Attaching arrived with staff chat (0106), which checks every reference
+  -- against the people in the conversation. What holds here is what held
+  -- before it: an attachment that is not a document on somebody's record does
+  -- not go, whether it names nothing or is not an id at all.
   begin
     perform public.post_message(v_dm, 'ZZ', '[{"kind":"client_file","id":"x"}]'::jsonb);
-    failures := failures || 'FAILED: an attachment went through before its access check exists'::text;
+    failures := failures || 'FAILED: an attachment that is not even an id went through'::text;
   exception when check_violation then null;
+  end;
+  begin
+    perform public.post_message(v_dm, 'ZZ', jsonb_build_array(jsonb_build_object('kind', 'client_file', 'id', gen_random_uuid())));
+    failures := failures || 'FAILED: an attachment pointing at no document went through'::text;
+  exception when no_data_found then null;
   end;
   begin
     insert into public.messages (conversation_id, sender_kind, sender_staff_id, body) values (v_dm, 'staff', v_a, 'ZZ direct');

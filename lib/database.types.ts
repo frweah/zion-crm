@@ -1828,6 +1828,7 @@ export type Database = {
           edited_at: string | null;
           removed_at: string | null;
           source_sms_id: string | null;
+          mentions: string[];
         };
         Insert: {
           id?: string;
@@ -1844,6 +1845,7 @@ export type Database = {
           edited_at?: string | null;
           removed_at?: string | null;
           source_sms_id?: string | null;
+          mentions?: string[];
         };
         Update: {
           id?: string;
@@ -1860,6 +1862,7 @@ export type Database = {
           edited_at?: string | null;
           removed_at?: string | null;
           source_sms_id?: string | null;
+          mentions?: string[];
         };
         Relationships: [];
       };
@@ -4396,8 +4399,16 @@ export type Database = {
       };
     };
     Functions: {
+      add_conversation_participant: {
+        Args: { p_conversation: string | null; p_staff: string | null };
+        Returns: undefined;
+      };
       answer_reminder: {
-        Args: { p_task_id: string | null; p_status: string | null; p_outcome: string | null };
+        Args: { p_task_id: string | null; p_status: string | null; p_outcome?: string | null };
+        Returns: undefined;
+      };
+      archive_conversation: {
+        Args: { p_conversation: string | null; p_archived?: boolean | null };
         Returns: undefined;
       };
       assign_text_conversation: {
@@ -4405,15 +4416,19 @@ export type Database = {
         Returns: undefined;
       };
       billing_office_reconciliation: {
-        Args: { p_billing_office: string | null; p_within_days: number | null };
+        Args: { p_billing_office: string | null; p_within_days?: number | null };
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; invoice_number: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
       };
       can_see_restricted: {
         Args: { p_client_id: string | null };
         Returns: boolean;
       };
+      can_staff_see_restricted: {
+        Args: { p_staff: string | null; p_client: string | null };
+        Returns: boolean;
+      };
       confirm_authorization_document: {
-        Args: { p_attachment: string | null; p_doc: string | null; p_auth: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours: number | null; p_start: string | null; p_end: string | null };
+        Args: { p_attachment?: string | null; p_doc?: string | null; p_auth?: string | null; p_number?: string | null; p_service_type?: string | null; p_rate_type?: string | null; p_rate?: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; created: boolean | null; attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       confirm_onboarding_certifications: {
@@ -4421,7 +4436,7 @@ export type Database = {
         Returns: undefined;
       };
       correct_authorization: {
-        Args: { p_auth: string | null; p_reason: string | null; p_service_type: string | null; p_client: string | null };
+        Args: { p_auth: string | null; p_reason: string | null; p_service_type?: string | null; p_client?: string | null };
         Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
       };
       current_staff_id: {
@@ -4440,12 +4455,16 @@ export type Database = {
         Args: { p_line: string | null; p_reason: string | null };
         Returns: undefined;
       };
+      edit_message: {
+        Args: { p_message: string | null; p_body: string | null };
+        Returns: undefined;
+      };
       exclude_mail_thread: {
-        Args: { p_conversation_id: string | null; p_reason: string | null };
+        Args: { p_conversation_id: string | null; p_reason?: string | null };
         Returns: undefined;
       };
       file_document_as_note: {
-        Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category: string | null; p_restricted: boolean | null; p_outcome: string | null; p_ocr: boolean | null };
+        Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category?: string | null; p_restricted?: boolean | null; p_outcome?: string | null; p_ocr?: boolean | null };
         Returns: { note_id: string | null; attachment_id: string | null; created: boolean | null }[];
       };
       fmt_hours: {
@@ -4493,7 +4512,7 @@ export type Database = {
         Returns: boolean;
       };
       inbox_seen: {
-        Args: { p_hashes: string | null };
+        Args: { p_hashes: string[] | null };
         Returns: { sha256: string | null; known: boolean | null }[];
       };
       is_active_staff: {
@@ -4512,8 +4531,12 @@ export type Database = {
         Args: { p_status: string | null };
         Returns: number;
       };
+      leave_conversation: {
+        Args: { p_conversation: string | null };
+        Returns: undefined;
+      };
       link_document_to_authorization: {
-        Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start: string | null; p_end: string | null; p_outcome: string | null; p_ocr: boolean | null };
+        Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start?: string | null; p_end?: string | null; p_outcome?: string | null; p_ocr?: boolean | null };
         Returns: { attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       log_mail_message: {
@@ -4533,7 +4556,7 @@ export type Database = {
         Returns: undefined;
       };
       mark_text_spam: {
-        Args: { p_conversation: string | null; p_spam: boolean | null };
+        Args: { p_conversation: string | null; p_spam?: boolean | null };
         Returns: undefined;
       };
       match_inbox_folder: {
@@ -4565,7 +4588,7 @@ export type Database = {
         Returns: { conversation_id: string | null; unread: number | null }[];
       };
       next_text_window: {
-        Args: { p_at: string | null };
+        Args: { p_at?: string | null };
         Returns: string;
       };
       normalize_phone: {
@@ -4589,7 +4612,7 @@ export type Database = {
         Returns: string;
       };
       offboard_staff: {
-        Args: { p_staff_id: string | null; p_last_day: string | null; p_reason: string | null; p_successor: string | null; p_note: string | null };
+        Args: { p_staff_id: string | null; p_last_day: string | null; p_reason?: string | null; p_successor?: string | null; p_note?: string | null };
         Returns: { clients_moved: number | null; tasks_moved: number | null; timer_discarded: boolean | null }[];
       };
       onboarding_open_steps: {
@@ -4617,7 +4640,7 @@ export type Database = {
         Returns: boolean;
       };
       post_message: {
-        Args: { p_conversation: string | null; p_body: string | null; p_attachments: string | null };
+        Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null };
         Returns: string;
       };
       practice_today: {
@@ -4629,15 +4652,15 @@ export type Database = {
         Returns: undefined;
       };
       read_client_intake: {
-        Args: { p_client_id: string | null; p_purpose: string | null };
+        Args: { p_client_id: string | null; p_purpose?: string | null };
         Returns: { phone: string | null; email: string | null; address: string | null; emergency_name: string | null; emergency_phone: string | null; goals: string | null; availability: string | null; transportation: string | null; accommodations: string | null; submitted_at: string | null; updated_on: string | null; allowed: boolean | null }[];
       };
       read_client_private: {
-        Args: { p_client_id: string | null; p_purpose: string | null };
+        Args: { p_client_id: string | null; p_purpose?: string | null };
         Returns: { dob: string | null; address: string | null; allowed: boolean | null }[];
       };
       reconcile_warrant_line: {
-        Args: { p_line: string | null; p_by_hand: boolean | null; p_auth: string | null; p_amount: number | null };
+        Args: { p_line: string | null; p_by_hand?: boolean | null; p_auth?: string | null; p_amount?: number | null };
         Returns: string;
       };
       reconcile_warrant_page: {
@@ -4657,11 +4680,11 @@ export type Database = {
         Returns: undefined;
       };
       record_incoming_sms: {
-        Args: { p_phone: string | null; p_body: string | null; p_provider_id: string | null; p_payload: string | null };
+        Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null };
         Returns: { client_id: string | null; action: string | null }[];
       };
       records_request_bundle: {
-        Args: { p_client: string | null; p_purpose: string | null };
+        Args: { p_client: string | null; p_purpose?: string | null };
         Returns: Json;
       };
       referral_from_text: {
@@ -4676,8 +4699,12 @@ export type Database = {
         Args: { p_staff: string | null };
         Returns: boolean;
       };
+      remove_message: {
+        Args: { p_message: string | null };
+        Returns: undefined;
+      };
       replace_placeholder_authorization: {
-        Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start: string | null; p_end: string | null };
+        Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       revoke_staff_access: {
@@ -4685,15 +4712,19 @@ export type Database = {
         Returns: undefined;
       };
       role_has_area: {
-        Args: { p_role: string | null; p_area: string | null; p_level: string | null };
+        Args: { p_role: string | null; p_area: string | null; p_level?: string | null };
         Returns: boolean;
       };
       save_intake: {
         Args: { p_client_id: string | null; p_data: Json | null };
         Returns: boolean;
       };
+      search_messages: {
+        Args: { p_query: string | null; p_limit?: number | null };
+        Returns: { message_id: string | null; conversation_id: string | null; conversation_label: string | null; sender_label: string | null; body: string | null; created_at: string | null }[];
+      };
       set_checklist_item: {
-        Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note: string | null };
+        Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note?: string | null };
         Returns: undefined;
       };
       set_contractor_tin: {
@@ -4721,11 +4752,11 @@ export type Database = {
         Returns: undefined;
       };
       set_sms_consent: {
-        Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note: string | null };
+        Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note?: string | null };
         Returns: undefined;
       };
       set_staff_pay: {
-        Args: { p_staff_id: string | null; p_rate: number | null; p_unit: string | null; p_effective_from: string | null; p_note: string | null };
+        Args: { p_staff_id: string | null; p_rate: number | null; p_unit: string | null; p_effective_from: string | null; p_note?: string | null };
         Returns: string;
       };
       set_statement_adjustment: {
@@ -4745,7 +4776,7 @@ export type Database = {
         Returns: { staff_id: string | null; staff_name: string | null; role: string | null; employment_type: string | null; active: boolean | null; hours: number | null; sessions: number | null; days_worked: number | null; statements_submitted: number | null; statements_approved: number | null; amount_paid: number | null; clients_assigned: number | null; tasks_open: number | null; tasks_done: number | null; notes_written: number | null; leads_added: number | null }[];
       };
       staff_has_area: {
-        Args: { p_area: string | null; p_level: string | null };
+        Args: { p_area: string | null; p_level?: string | null };
         Returns: boolean;
       };
       staff_presence_status: {
@@ -4756,12 +4787,16 @@ export type Database = {
         Args: { p_other: string | null };
         Returns: string;
       };
+      start_group_conversation: {
+        Args: { p_title: string | null; p_staff: string[] | null; p_client?: string | null };
+        Returns: string;
+      };
       submit_own_credential: {
         Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };
         Returns: string;
       };
       texts_inbox: {
-        Args: { p_show: string | null };
+        Args: { p_show?: string | null };
         Returns: { conversation_id: string | null; client_id: string | null; client_name: string | null; phone: string | null; assigned_staff_id: string | null; assigned_name: string | null; last_message_at: string | null; last_body: string | null; unread: number | null; unmatched: boolean | null; spam: boolean | null; can_text: boolean | null }[];
       };
       timer_elapsed_hours: {
