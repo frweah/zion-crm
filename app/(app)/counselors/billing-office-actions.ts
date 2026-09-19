@@ -3,20 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
+import { can } from "@/lib/roles";
 
 export type BillingOfficeState = { error: string | null; ok: string | null };
 
 const ADDRESS = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /**
- * Admin keeps the billing offices current - a new contact, a group address
- * that finally exists. The database refuses anybody else (0091); the check here
- * only saves them the round trip.
+ * Admin and Billing keep the billing offices current - a new contact, a group
+ * address that finally exists. The database refuses anybody without Billing to
+ * edit (0099) and logs every change; the check here only saves the round trip.
  */
 export async function updateBillingOffice(_prev: BillingOfficeState, formData: FormData): Promise<BillingOfficeState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
-  if (me.role !== "Admin") return { error: "Only Admin changes a billing office.", ok: null };
+  if (!can(me, "billing", "edit")) return { error: "Only those with Billing to edit change a billing office.", ok: null };
 
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const billingEmail = str("billing_email");
@@ -49,7 +50,7 @@ export async function updateBillingOffice(_prev: BillingOfficeState, formData: F
 export async function setOfficeBilling(_prev: BillingOfficeState, formData: FormData): Promise<BillingOfficeState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
-  if (me.role !== "Admin") return { error: "Only Admin changes where an office bills.", ok: null };
+  if (!can(me, "billing", "edit")) return { error: "Only those with Billing to edit change where an office bills.", ok: null };
 
   const office = String(formData.get("office") ?? "");
   const supabase = await createClient();

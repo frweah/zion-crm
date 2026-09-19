@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { today, fmtStamp } from "@/lib/constants";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
+import { can } from "@/lib/roles";
+import { DirectoryHistory, DIRECTORY_CHANGE_COLUMNS, type DirectoryChange } from "../directory-history";
+import { EditCounselorForm, MoveOfficeForm } from "./counselor-edit";
 
 /**
  * One counselor's caseload, for us.
@@ -36,7 +39,8 @@ export default async function CounselorCaseloadPage({
 }) {
   const { id } = await params;
   const { show: rawShow } = await searchParams;
-  await requireStaff();
+  const me = await requireStaff();
+  const canEdit = can(me, "counselors", "edit");
 
   const show = rawShow === "all" ? "all" : rawShow === "quiet" ? "quiet" : "active";
 
@@ -60,8 +64,15 @@ export default async function CounselorCaseloadPage({
   const ids = clients.map((c) => c.id);
   const none = ["00000000-0000-0000-0000-000000000000"];
 
-  const [{ data: staff }, { data: activity }, { data: next }, { data: contacts }] =
-    await Promise.all([
+  const [
+    { data: staff },
+    { data: activity },
+    { data: next },
+    { data: contacts },
+    { data: history },
+    { data: officeRows },
+    { data: billingRows },
+  ] = await Promise.all([
       supabase.from("staff").select("id, name"),
       supabase
         .from("client_last_activity")
@@ -77,7 +88,22 @@ export default async function CounselorCaseloadPage({
         .eq("counselor_id", id)
         .order("date", { ascending: false })
         .limit(15),
+      supabase
+        .from("directory_changes")
+        .select(DIRECTORY_CHANGE_COLUMNS)
+        .eq("entity", "Counselor")
+        .eq("entity_key", id)
+        .order("seq", { ascending: false })
+        .limit(50),
+      supabase.from("offices").select("name, billing_office_id").order("name"),
+      supabase.from("billing_offices").select("id, name"),
     ]);
+
+  const billingNames = new Map((billingRows ?? []).map((b) => [b.id, b.name]));
+  const officeOptions = (officeRows ?? []).map((o) => ({
+    name: o.name,
+    billing: billingNames.get(o.billing_office_id) ?? null,
+  }));
 
   const staffName = new Map((staff ?? []).map((s) => [s.id, s.name]));
   const lastBy = new Map((activity ?? []).map((a) => [a.client_id, a.last_activity_at]));
@@ -120,6 +146,11 @@ export default async function CounselorCaseloadPage({
         identity={[counselor.agency, counselor.office, counselor.phone, counselor.email]}
         actions={
           <>
+            {canEdit && (
+              <a className="btn ghost" href="#details" style={{ textDecoration: "none" }}>
+                Edit details
+              </a>
+            )}
             <Link className="btn gold" href="/counselors?tab=contact" style={{ textDecoration: "none" }}>
               Log contact
             </Link>
@@ -286,6 +317,31 @@ export default async function CounselorCaseloadPage({
               };
             })}
             empty="Nothing has been logged with this counselor yet."
+          />
+        </div>
+      </section>
+
+      {canEdit && (
+        <section className="page-section" id="details">
+          <h2 className="h2">Details and office</h2>
+          <div className="grid" style={{ gap: 14 }}>
+            <EditCounselorForm counselor={counselor} />
+            <MoveOfficeForm counselor={counselor} offices={officeOptions} clients={rows.length} />
+          </div>
+        </section>
+      )}
+
+      <section className="page-section">
+        <h2 className="h2">History</h2>
+        <p className="sub" style={{ margin: "0 0 10px" }}>
+          Every change to this counselor&apos;s record: who, when, and what it was before.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DirectoryHistory
+            changes={(history ?? []) as DirectoryChange[]}
+            billingNames={billingNames}
+            showWhat={false}
+            empty="No changes recorded since the log began."
           />
         </div>
       </section>

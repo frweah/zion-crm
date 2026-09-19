@@ -139,6 +139,7 @@ const RPC_FUNCTIONS = [
   "role_has_area",
   "grant_staff_access",
   "revoke_staff_access",
+  "move_counselor_office",
 ];
 
 const { rows: fns } = await client.query(

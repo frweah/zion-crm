@@ -95,7 +95,7 @@ function OfficeForm({ office, billingOffices }: { office: OfficeRow; billingOffi
   );
 }
 
-/** Admin only: the billing offices' details, and which office bills where. */
+/** Admin and Billing: the billing offices' details, and which office bills where. Every save is logged. */
 export function BillingOfficesPanel({
   billingOffices,
   offices,

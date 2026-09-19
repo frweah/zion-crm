@@ -8,6 +8,7 @@ import { can } from "@/lib/roles";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { BillingOfficesPanel } from "./billing-offices-panel";
+import { DirectoryHistory, DIRECTORY_CHANGE_COLUMNS, type DirectoryChange } from "./directory-history";
 import {
   LogContactForm,
   AddCounselorForm,
@@ -54,11 +55,15 @@ export default async function CounselorsPage({
   );
 
   if (tab === "directory") {
-    const billing = await readBillingOffices(supabase);
+    const [billing, { data: recent }] = await Promise.all([
+      readBillingOffices(supabase),
+      supabase.from("directory_changes").select(DIRECTORY_CHANGE_COLUMNS).order("seq", { ascending: false }).limit(25),
+    ]);
     const bo = readBoParam(rawBo, billing.billingOffices);
     const billingOf = (office: string | null) => (office ? (billing.officeBilling.get(office) ?? null) : null);
     const shown = counselors.filter((k) => matchesBo(bo, billingOf(k.office)));
-    const isAdmin = me.role === "Admin";
+    // Admin, the Billing role, or a Billing edit grant (0099).
+    const canEditBilling = can(me, "billing", "edit");
 
     // Per billing office: the offices it covers and how many counselors work from them.
     const officesOf = (id: string) => billing.offices.filter((o) => o.billing_office_id === id);
@@ -96,9 +101,18 @@ export default async function CounselorsPage({
                 key: k.id,
                 cells: {
                   name: (
-                    <Link href={`/counselors/${k.id}`} style={{ color: "var(--teal)" }}>
-                      <b>{k.name}</b>
-                    </Link>
+                    <>
+                      <Link href={`/counselors/${k.id}`} style={{ color: "var(--teal)" }}>
+                        <b>{k.name}</b>
+                      </Link>
+                      {canEdit && (
+                        <div>
+                          <Link href={`/counselors/${k.id}#details`} className="lock no-print">
+                            Edit
+                          </Link>
+                        </div>
+                      )}
+                    </>
                   ),
                   agency: k.agency,
                   phone: k.phone,
@@ -196,7 +210,24 @@ export default async function CounselorsPage({
               empty="No billing offices are on file."
             />
           </div>
-          {isAdmin && <BillingOfficesPanel billingOffices={billing.billingOffices} offices={billing.offices} />}
+          {canEditBilling && <BillingOfficesPanel billingOffices={billing.billingOffices} offices={billing.offices} />}
+        </section>
+
+        <section id="directory-changes" style={{ marginTop: 28 }}>
+          <h2 className="h2" style={{ marginBottom: 4 }}>
+            Recent changes
+          </h2>
+          <p className="sub" style={{ marginBottom: 10 }}>
+            The last 25 changes to counselors, billing offices and offices - who made each, and what it
+            was before. Each counselor&apos;s full history is on their page.
+          </p>
+          <div className="card" style={{ padding: 0 }}>
+            <DirectoryHistory
+              changes={(recent ?? []) as DirectoryChange[]}
+              billingNames={new Map(billing.billingOffices.map((b) => [b.id, b.name]))}
+              empty="No changes recorded since the log began."
+            />
+          </div>
         </section>
       </>
     );

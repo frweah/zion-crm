@@ -137,3 +137,77 @@ export async function updateHoursRequest(
   revalidatePath("/counselors");
   return { error: null, ok: "Response recorded." };
 }
+
+/**
+ * A counselor's details. The office is not among them: that is a move, with
+ * its own action and a reason, because it moves the billing office too. The
+ * database logs whatever changed (0099); a save that changes nothing logs
+ * nothing.
+ */
+export async function updateCounselor(
+  _prev: CounselorState,
+  formData: FormData,
+): Promise<CounselorState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const id = str("id");
+  const name = str("name");
+  if (!name) return { error: "A name is required.", ok: null };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("counselors")
+    .update({
+      name,
+      agency: str("agency") || "Utah State Office of Rehabilitation",
+      phone: str("phone") || null,
+      fax: str("fax") || null,
+      email: str("email") || null,
+      notes: str("notes"),
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message, ok: null };
+  if (!data) return { error: "You cannot change counselors.", ok: null };
+
+  revalidatePath("/counselors");
+  revalidatePath(`/counselors/${id}`);
+  return { error: null, ok: `${name} saved.` };
+}
+
+/** Moves a counselor to another office - and so to that office's billing office. */
+export async function moveCounselorOffice(
+  _prev: CounselorState,
+  formData: FormData,
+): Promise<CounselorState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const id = String(formData.get("id") ?? "");
+  const office = String(formData.get("office") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!office) return { error: "Choose the office they moved to.", ok: null };
+  if (!reason) return { error: "Say why they moved.", ok: null };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("move_counselor_office", { p_counselor: id, p_office: office, p_reason: reason })
+    .maybeSingle();
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/counselors");
+  revalidatePath(`/counselors/${id}`);
+  revalidatePath("/billing");
+  revalidatePath("/clients");
+  const m = data;
+  if (!m) return { error: null, ok: `Moved to ${office}.` };
+  const billing =
+    m.from_billing === m.to_billing
+      ? `The billing office stays ${m.to_billing ?? "unset"}.`
+      : `Billing office: ${m.from_billing ?? "none"} → ${m.to_billing ?? "none"}, for ${m.clients ?? 0} client${m.clients === 1 ? "" : "s"}.`;
+  return { error: null, ok: `Moved from ${m.from_office ?? "no office"} to ${m.to_office ?? office}. ${billing}` };
+}

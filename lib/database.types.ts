@@ -852,6 +852,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      directory_changes: {
+        Row: {
+          id: string;
+          seq: number;
+          at: string;
+          entity: string;
+          entity_key: string;
+          entity_name: string;
+          action: string;
+          changes: Json;
+          reason: string;
+          changed_by: string | null;
+          changed_by_name: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          at?: string;
+          entity: string;
+          entity_key: string;
+          entity_name: string;
+          action: string;
+          changes?: Json;
+          reason?: string;
+          changed_by?: string | null;
+          changed_by_name?: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          at?: string;
+          entity?: string;
+          entity_key?: string;
+          entity_name?: string;
+          action?: string;
+          changes?: Json;
+          reason?: string;
+          changed_by?: string | null;
+          changed_by_name?: string;
+        };
+        Relationships: [];
+      };
       employers: {
         Row: {
           id: string;
@@ -4084,6 +4126,10 @@ export type Database = {
       mileage_rate_on: {
         Args: { p_date: string | null };
         Returns: number;
+      };
+      move_counselor_office: {
+        Args: { p_counselor: string | null; p_office: string | null; p_reason: string | null };
+        Returns: { from_office: string | null; to_office: string | null; from_billing: string | null; to_billing: string | null; clients: number | null }[];
       };
       normalize_phone: {
         Args: { p_raw: string | null };

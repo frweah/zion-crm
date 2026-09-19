@@ -48,8 +48,10 @@ declare
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff
    where role = 'Admin' and active and user_id is not null order by created_at, id limit 1;
+  -- Somebody whose role gives no Billing: since 0099, Billing may edit billing
+  -- offices, so the refusal is tried from Job Search or Reports.
   select id, user_id into v_billing, v_bil_uid from public.staff
-   where role <> 'Admin' and active and user_id is not null order by created_at, id limit 1;
+   where role in ('Job Search', 'Reports') and active and user_id is not null order by created_at, id limit 1;
 
   select id into v_vw from public.billing_offices where name = 'Valley West CRP';
   select id into v_dt from public.billing_offices where name = 'Downtown CRP';
@@ -200,19 +202,19 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', v_bil_uid, 'role', 'authenticated')::text, true);
     select count(*) into v_n from public.billing_offices;
     if v_n < 5 then
-      failures := failures || 'FAILED: a member of staff who is not Admin cannot read the billing offices'::text;
+      failures := failures || 'FAILED: a member of staff without Billing cannot read the billing offices'::text;
     end if;
     update public.billing_offices set contact_name = 'ZZ changed' where id = v_vw;
     perform set_config('role', 'postgres', true);
     if (select contact_name from public.billing_offices where id = v_vw) = 'ZZ changed' then
-      failures := failures || 'FAILED: a member of staff who is not Admin changed a billing office'::text;
+      failures := failures || 'FAILED: a member of staff without Billing changed a billing office'::text;
     else
-      raise notice 'ok  every member of staff reads the billing offices; only Admin changes them';
+      raise notice 'ok  every member of staff reads the billing offices; only those with Billing to edit change them';
     end if;
     perform set_config('role', 'authenticated', true);
     begin
       insert into public.billing_offices (name, billing_email) values ('ZZ Office', 'zz@example.test');
-      failures := failures || 'FAILED: a member of staff who is not Admin added a billing office'::text;
+      failures := failures || 'FAILED: a member of staff without Billing added a billing office'::text;
     exception when insufficient_privilege then null;
     end;
   end if;
