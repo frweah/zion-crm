@@ -16,6 +16,8 @@ export type TokenBundle = {
   accessToken: string;
   refreshToken: string | null;
   expiresAt: Date | null;
+  /** What the connection was granted, so a refresh asks for the same again. */
+  scopes?: string;
 };
 
 /**
@@ -38,7 +40,7 @@ export async function ensureFreshToken(
     throw new Error("The connection has expired and there is no refresh token. Reconnect Outlook.");
   }
 
-  const fresh = await refreshTokens(bundle.refreshToken);
+  const fresh = await refreshTokens(bundle.refreshToken, bundle.scopes);
   await save({
     accessToken: fresh.accessToken,
     refreshToken: fresh.refreshToken,

@@ -29,6 +29,12 @@ export async function GET(request: NextRequest) {
   // and nothing wider.
   const shared = request.nextUrl.searchParams.get("shared") === "1" && me.role === "Admin";
 
+  // Turning sending on (Messaging brief, M): Mail.Send, and for the roles that
+  // work the shared mailbox (Admin and Billing) the permission to read it -
+  // which opens only a mailbox Exchange has already given them.
+  const send = request.nextUrl.searchParams.get("send") === "1";
+  const sharedToo = shared || (send && (me.role === "Admin" || me.role === "Billing"));
+
   const state = randomBytes(16).toString("base64url");
   const { verifier, challenge } = pkce();
 
@@ -43,5 +49,5 @@ export async function GET(request: NextRequest) {
   jar.set("ms_state", state, options);
   jar.set("ms_verifier", verifier, options);
 
-  return NextResponse.redirect(authorizeUrl(state, challenge, shared));
+  return NextResponse.redirect(authorizeUrl(state, challenge, sharedToo, send));
 }

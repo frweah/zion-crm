@@ -12,6 +12,12 @@ const PATHS: Record<string, React.ReactNode> = {
       <rect x="13" y="13" width="7" height="7" rx="1.5" />
     </>
   ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+    </>
+  ),
   clients: (
     <>
       <circle cx="9" cy="8" r="3.5" />

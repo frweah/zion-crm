@@ -115,6 +115,15 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [{ label: "Dashboard", href: "/dashboard", roles: EVERYONE }],
   },
   {
+    // Each person's own Outlook, read live (Messaging brief, M, 19 Sept 2026).
+    key: "mail",
+    label: "Mail",
+    items: [
+      { label: "Mail", href: "/mail", roles: EVERYONE },
+      { label: "Calendar", href: "/calendar", roles: EVERYONE },
+    ],
+  },
+  {
     key: "clients",
     label: "Clients",
     items: [

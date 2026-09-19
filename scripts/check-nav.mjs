@@ -78,21 +78,21 @@ const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/system",
     "/billing", "/billing/export", "/billing/forms",
-    "/clients", "/counselors", "/dashboard", "/hours",
+    "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
-    "/leads", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
-    "/billing/forms", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/paperwork", "/sops", "/tasks",
+    "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
+    "/hours", "/leads", "/mail", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
-    "/billing/forms", "/clients", "/dashboard", "/hours",
-    "/leads", "/paperwork", "/sops", "/tasks",
+    "/billing/forms", "/calendar", "/clients", "/dashboard", "/hours",
+    "/leads", "/mail", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
-    "/billing", "/billing/export", "/billing/forms", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/paperwork", "/sops",
+    "/billing", "/billing/export", "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
+    "/hours", "/leads", "/mail", "/paperwork", "/sops",
   ],
 };
 

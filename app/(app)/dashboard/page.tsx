@@ -49,7 +49,7 @@ export default async function DashboardPage({
         .order("sort_order"),
       supabase
         .from("microsoft_connections")
-        .select("microsoft_email, display_name, connected_at, last_error")
+        .select("microsoft_email, display_name, connected_at, last_error, scopes")
         .eq("staff_id", me.id)
         .maybeSingle(),
       supabase

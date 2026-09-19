@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { ownAccess } from "@/lib/sync-callers";
 import { ensureFreshToken, createEvent, deleteEvent } from "@/lib/graph";
+import { practiceWallToDate } from "@/lib/practice-time";
 
 export type EventState = { error: string | null; ok: string | null };
 
@@ -39,8 +40,10 @@ export async function createClientEvent(
   if (!startsAt) return { error: "Say when it starts.", ok: null };
   if (!(minutes > 0)) return { error: "An appointment lasts more than no time.", ok: null };
 
-  const start = new Date(startsAt);
-  if (Number.isNaN(start.getTime())) return { error: "Check the start time.", ok: null };
+  // A datetime-local value is Salt Lake City time; read on the server (UTC)
+  // it put a 10:00 appointment in Outlook at 04:00.
+  const start = practiceWallToDate(startsAt);
+  if (!start) return { error: "Check the start time.", ok: null };
   const end = new Date(start.getTime() + minutes * 60000);
 
   const supabase = await createClient();

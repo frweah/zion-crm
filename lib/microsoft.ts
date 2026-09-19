@@ -33,11 +33,12 @@ function required(name: string, value: string | undefined): string {
  *
  * Calendars.ReadWrite because events are pushed as well as read.
  *
- * Mail.Read, not Mail.ReadWrite and emphatically not Mail.Send. The CRM logs
- * correspondence and never composes it — everything this system sends still
- * goes through Resend, under its own identity, where it can be seen. Asking
- * for Mail.Send would let it send as the person who consented, which is not a
- * power anybody asked for and not one worth holding unused.
+ * Mail.Read, not Mail.ReadWrite. Mail.Send is not in this list: it is asked
+ * for separately (MAIL_SEND_SCOPES), by each person turning sending on, once
+ * the owner has granted it in Azure (Messaging brief, M, 19 Sept 2026). The
+ * CRM then sends only as that person and only when they press Send. Forms,
+ * invoices, reconciliations and the digest stay on Resend from service@ - a
+ * personal mailbox is never the identity official documents go out under.
  *
  * offline_access is what makes a refresh token possible; without it the
  * connection would silently stop working in about an hour.
@@ -65,8 +66,20 @@ export const MICROSOFT_SCOPES = [
  */
 export const SHARED_MAILBOX_SCOPE = "Mail.Read.Shared";
 
-export function scopesFor(shared: boolean): string[] {
-  return shared ? [...MICROSOFT_SCOPES, SHARED_MAILBOX_SCOPE] : MICROSOFT_SCOPES;
+/**
+ * Sending, as the person who is signed in. Delegated Mail.Send: it can send
+ * only from the mailbox of whoever consented, never from anybody else's and
+ * never from the shared one (that would be Mail.Send.Shared, not asked for).
+ */
+export const MAIL_SEND_SCOPE = "Mail.Send";
+
+export function scopesFor(shared: boolean, send = false): string[] {
+  return [...MICROSOFT_SCOPES, ...(shared ? [SHARED_MAILBOX_SCOPE] : []), ...(send ? [MAIL_SEND_SCOPE] : [])];
+}
+
+/** Whether a connection's granted scopes include one. Microsoft returns them space-separated, sometimes as URLs. */
+export function hasScope(granted: string, scope: string): boolean {
+  return granted.split(/\s+/).some((s) => s === scope || s.endsWith("/" + scope));
 }
 
 const AUTH_BASE = (tenant: string) =>
@@ -84,13 +97,13 @@ export function pkce(): { verifier: string; challenge: string } {
   return { verifier, challenge };
 }
 
-export function authorizeUrl(state: string, challenge: string, shared = false): string {
+export function authorizeUrl(state: string, challenge: string, shared = false, send = false): string {
   const params = new URLSearchParams({
     client_id: required("MICROSOFT_CLIENT_ID", CLIENT_ID),
     response_type: "code",
     redirect_uri: redirectUri(),
     response_mode: "query",
-    scope: scopesFor(shared).join(" "),
+    scope: scopesFor(shared, send).join(" "),
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
@@ -147,11 +160,20 @@ export function exchangeCode(code: string, verifier: string): Promise<TokenSet> 
   });
 }
 
-export function refreshTokens(refreshToken: string): Promise<TokenSet> {
+/**
+ * A new access token. It asks for the scopes the connection was granted, not
+ * the base list: asking for fewer returns a token with fewer, and the shared
+ * mailbox or sending would quietly stop working at the next refresh.
+ */
+export function refreshTokens(refreshToken: string, grantedScopes?: string): Promise<TokenSet> {
+  const wanted = (grantedScopes ?? "")
+    .split(/\s+/)
+    .map((s) => s.replace(/^https:\/\/graph\.microsoft\.com\//, ""))
+    .filter(Boolean);
   return tokenRequest({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
-    scope: MICROSOFT_SCOPES.join(" "),
+    scope: (wanted.length ? [...new Set([...MICROSOFT_SCOPES, ...wanted])] : MICROSOFT_SCOPES).join(" "),
   });
 }
 

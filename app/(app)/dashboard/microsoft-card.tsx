@@ -46,8 +46,10 @@ function WhatSyncDoes() {
           in Outlook. The body is never read into the CRM — there is nowhere to put it.
         </li>
         <li>
-          <b>It never sends.</b> Everything the CRM emails goes out through its own address, not
-          yours. You can exclude a thread, or disconnect, at any time.
+          <b>It sends only when you press Send.</b> Once you turn sending on, a message you write
+          on the Mail screen goes from your own mailbox. Nothing is ever sent on its own: forms,
+          invoices and reminders still go from the practice&apos;s address. You can exclude a
+          thread, or disconnect, at any time.
         </li>
       </ul>
     </details>
@@ -121,6 +123,7 @@ export function MicrosoftCard({
     display_name: string;
     connected_at: string;
     last_error: string;
+    scopes?: string;
   } | null;
   notice: string | null;
   detail: string | null;
@@ -154,7 +157,7 @@ export function MicrosoftCard({
               : null;
 
   return (
-    <div className="card" style={{ marginBottom: 18 }}>
+    <div className="card" id="outlook" style={{ marginBottom: 18 }}>
       <h3>Outlook</h3>
 
       {message && <div className={`alert ${message.tone}`}>{message.text}</div>}
@@ -172,6 +175,16 @@ export function MicrosoftCard({
               The connection stopped working: {connection.last_error}. Disconnect and connect again.
             </div>
           )}
+          <p className="lock" style={{ marginTop: 0 }}>
+            {(connection.scopes ?? "").split(/\s+/).some((s) => s.endsWith("Mail.Send")) ? (
+              <>Sending from the CRM is on - only when you press Send on the Mail screen.</>
+            ) : (
+              <>
+                Sending from the CRM is off.{" "}
+                <a href="/api/auth/microsoft/start?send=1">Turn sending on</a> - one reconnect.
+              </>
+            )}
+          </p>
           <LastRun lastRun={lastRun} lastResult={lastResult} />
           <SyncNow />
           <form action={action} style={{ display: "inline" }}>

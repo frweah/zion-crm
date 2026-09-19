@@ -151,6 +151,11 @@ export default async function CounselorCaseloadPage({
                 Edit details
               </a>
             )}
+            {counselor.email && (
+              <Link className="btn ghost" href={`/mail/compose?counselor=${counselor.id}`} style={{ textDecoration: "none" }}>
+                Email {counselor.name.split(" ")[0]}
+              </Link>
+            )}
             <Link className="btn gold" href="/counselors?tab=contact" style={{ textDecoration: "none" }}>
               Log contact
             </Link>

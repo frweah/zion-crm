@@ -128,7 +128,16 @@ export default async function ClientPage({
             <span className="chip gold">{detail.stage}</span>
           </>
         }
-        actions={<RecordActions clientId={id} tab={tab} staff={staff} myId={me.id} />}
+        actions={
+          <>
+            <RecordActions clientId={id} tab={tab} staff={staff} myId={me.id} />
+            {counselor?.email && (
+              <Link className="btn ghost" href={`/mail/compose?client=${id}`} style={{ textDecoration: "none" }}>
+                Email the counselor
+              </Link>
+            )}
+          </>
+        }
       />
 
       <nav className="tabs">

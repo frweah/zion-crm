@@ -24,7 +24,11 @@ export function ownAccess(
   return {
     tokens: {
       read: async () => {
-        const { data } = await supabase.rpc("get_microsoft_tokens", { p_staff_id: staffId });
+        // The scopes ride along so a refresh asks for everything granted.
+        const [{ data }, { data: conn }] = await Promise.all([
+          supabase.rpc("get_microsoft_tokens", { p_staff_id: staffId }),
+          supabase.from("microsoft_connections").select("scopes").eq("staff_id", staffId).maybeSingle(),
+        ]);
         const row = (data as unknown as
           | { access_token: string | null; refresh_token: string | null; expires_at: string | null }[]
           | null)?.[0];
@@ -33,6 +37,7 @@ export function ownAccess(
           accessToken: row.access_token ?? "",
           refreshToken: row.refresh_token,
           expiresAt: row.expires_at ? new Date(row.expires_at) : null,
+          scopes: conn?.scopes ?? "",
         };
       },
       write: async (t) => {
@@ -70,7 +75,10 @@ export function sweepAccess(
   return {
     tokens: {
       read: async () => {
-        const { data } = await admin.rpc("get_microsoft_tokens_for_sync", { p_staff_id: staffId });
+        const [{ data }, { data: conn }] = await Promise.all([
+          admin.rpc("get_microsoft_tokens_for_sync", { p_staff_id: staffId }),
+          admin.from("microsoft_connections").select("scopes").eq("staff_id", staffId).maybeSingle(),
+        ]);
         const row = (data as unknown as
           | { access_token: string | null; refresh_token: string | null; expires_at: string | null }[]
           | null)?.[0];
@@ -79,6 +87,7 @@ export function sweepAccess(
           accessToken: row.access_token ?? "",
           refreshToken: row.refresh_token,
           expiresAt: row.expires_at ? new Date(row.expires_at) : null,
+          scopes: conn?.scopes ?? "",
         };
       },
       write: async (t) => {
