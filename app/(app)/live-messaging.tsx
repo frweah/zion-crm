@@ -65,7 +65,9 @@ export function LiveMessaging({ myId, initialUnread }: { myId: string; initialUn
     events.forEach((e) => window.addEventListener(e, touched, { passive: true }));
     const beat = () => {
       const state = Date.now() - lastInput.current > IDLE_MS ? "away" : "online";
-      void supabase.rpc("presence_heartbeat", { p_state: state });
+      void supabase.rpc("presence_heartbeat", { p_state: state }).then(({ error }) => {
+        if (error) console.warn("Presence heartbeat refused:", error.message);
+      });
     };
     beat();
     const timer = window.setInterval(beat, BEAT_MS);
