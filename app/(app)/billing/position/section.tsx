@@ -47,17 +47,29 @@ const add = (t: Totals, p: Position): Totals => ({
 });
 const ZERO: Totals = { authorized: 0, invoiced: 0, paid: 0, outstanding: 0, notYet: 0 };
 
-export default async function PositionPage({ searchParams }: { searchParams: Promise<{ show?: string; bo?: string }> }) {
+/** What the section reads, as a loader Billing → Invoices can start early. */
+export async function loadPosition() {
+  const supabase = await createClient();
+  return Promise.all([
+    supabase.from("billing_position").select("*").order("client_name").order("auth_number"),
+    readBillingOffices(supabase),
+  ]);
+}
+
+export default async function PositionPage({
+  searchParams,
+  preload,
+}: {
+  searchParams: Promise<{ show?: string; bo?: string }>;
+  /** Already started by the page; otherwise the section loads for itself. */
+  preload?: ReturnType<typeof loadPosition>;
+}) {
   const me = await requireStaff();
   if (!can(me, "billing", "view")) redirect("/dashboard");
   const { show, bo: rawBo } = await searchParams;
   const owedOnly = show === "outstanding";
 
-  const supabase = await createClient();
-  const [{ data }, billing] = await Promise.all([
-    supabase.from("billing_position").select("*").order("client_name").order("auth_number"),
-    readBillingOffices(supabase),
-  ]);
+  const [{ data }, billing] = await (preload ?? loadPosition());
   // The billing office the Invoices tab is filtered to, if any - one filter
   // for the invoices and the money they add up to.
   const bo = readBoParam(rawBo, billing.billingOffices);

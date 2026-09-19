@@ -13,8 +13,8 @@ import {
   type AuthOption,
 } from "./billing-forms";
 import { readPayments } from "@/lib/payments";
-import { WarrantsToReview } from "./warrants/review-section";
-import PositionSection from "./position/section";
+import { WarrantsToReview, loadWarrantsToReview } from "./warrants/review-section";
+import PositionSection, { loadPosition } from "./position/section";
 import { PageHead } from "../page-head";
 import { DataTable, type DataRow } from "../data-table";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
@@ -61,6 +61,10 @@ export default async function BillingPage({
         )
       : null;
   const paymentsPromise = tab === "invoices" ? readPayments(supabase) : null;
+  // The two sections under the invoices, started now too rather than once the
+  // invoice list has arrived.
+  const positionPromise = tab === "invoices" ? loadPosition() : null;
+  const warrantsPromise = tab === "invoices" ? loadWarrantsToReview() : null;
 
   const [authsResult, clientsResult, entriesResult, billing] = await Promise.all([
     supabase
@@ -439,12 +443,12 @@ export default async function BillingPage({
         </p>
 
         <section id="warrant-review" style={{ marginTop: 32 }}>
-          <WarrantsToReview />
+          <WarrantsToReview data={warrantsPromise ?? undefined} />
         </section>
 
         {/* Paid & outstanding lives here, beside the invoices it counts (owner, 14 Sept 2026). */}
         <section id="paid-and-outstanding" style={{ marginTop: 32 }}>
-          <PositionSection searchParams={Promise.resolve({ show, bo: bo ?? undefined })} />
+          <PositionSection searchParams={Promise.resolve({ show, bo: bo ?? undefined })} preload={positionPromise ?? undefined} />
         </section>
 
         {reconcileOverlay}

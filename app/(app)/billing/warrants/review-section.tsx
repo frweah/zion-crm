@@ -26,7 +26,12 @@ type ReviewPage = {
  * almost always visible on the stub - a digit OCR misread, a smudged total.
  * The storage policy lets only Admin and Billing sign the image links.
  */
-export async function WarrantsToReview({ showAllLink = true }: { showAllLink?: boolean }) {
+/**
+ * What the section shows, as a loader. Billing → Invoices starts it with its
+ * own queries and hands the result over, so the section does not begin its
+ * two waits only after the invoices have arrived.
+ */
+export async function loadWarrantsToReview() {
   const supabase = await createClient();
   const [{ data: pageData }, { data: authData }] = await Promise.all([
     supabase
@@ -51,6 +56,18 @@ export async function WarrantsToReview({ showAllLink = true }: { showAllLink?: b
     : { data: [] as { path: string | null; signedUrl: string }[] };
   const urlFor = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]));
   const waitingLines = review.reduce((n, p) => n + (p.warrant_lines ?? []).filter((l) => l.status === "Needs review").length, 0);
+  return { review, auths, urlFor, waitingLines };
+}
+
+export async function WarrantsToReview({
+  showAllLink = true,
+  data,
+}: {
+  showAllLink?: boolean;
+  /** Already started by the page; otherwise the section loads for itself. */
+  data?: ReturnType<typeof loadWarrantsToReview>;
+}) {
+  const { review, auths, urlFor, waitingLines } = await (data ?? loadWarrantsToReview());
 
   return (
     <>

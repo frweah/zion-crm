@@ -24,10 +24,14 @@ export type CurrentStaff = {
 export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // Verified here against the project's published signing key (ES256, cached
+  // for ten minutes per server) rather than by asking the Auth service - one
+  // network wait fewer on every page. The middleware still asks the Auth
+  // service on every request, which is what catches a signed-out or revoked
+  // session; and the staff row below still has to be active.
+  const { data: verified } = await supabase.auth.getClaims();
+  const userId = verified?.claims?.sub;
+  if (!userId) return null;
 
   // The person and their live grants together. It was two round trips, and
   // the layout, the page and every section that checks access each made them:
@@ -37,7 +41,7 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
     .select(
       "id, name, email, role, active, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at)",
     )
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("active", true)
     .maybeSingle()) as unknown as {
     data: (Omit<CurrentStaff, "grants"> & { grants: (Grant & { revoked_at: string | null })[] | null }) | null;
