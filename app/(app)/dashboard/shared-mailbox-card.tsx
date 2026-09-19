@@ -27,7 +27,7 @@ function Remove({ address }: { address: string }) {
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : "Stop reading it"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }

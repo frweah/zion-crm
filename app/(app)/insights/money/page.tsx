@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { money, today, daysBetween } from "@/lib/constants";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
+import { Kpi as Stat, lastTwelveMonths } from "../kpi";
 
 /**
  * Revenue.
@@ -51,45 +52,6 @@ type Econ = {
   committed: number | null;
 };
 
-function Stat({
-  value,
-  label,
-  detail,
-  tone,
-}: {
-  value: string;
-  label: string;
-  detail?: string;
-  tone?: "bad" | "good";
-}) {
-  const color =
-    tone === "bad" ? "var(--bad)" : tone === "good" ? "var(--lime)" : undefined;
-  return (
-    <div className="card">
-      <div className="stat" style={color ? { color } : undefined}>
-        {value}
-        <small>{label}</small>
-      </div>
-      {detail && (
-        <p className="lock" style={{ margin: "6px 0 0" }}>
-          {detail}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Twelve months back from the month given, oldest first. */
-function lastTwelve(month: string): string[] {
-  const [y, m] = month.split("-").map(Number);
-  const out: string[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(Date.UTC(y, m - 1 - i, 1));
-    out.push(d.toISOString().slice(0, 7));
-  }
-  return out;
-}
-
 export default async function RevenuePage() {
   const me = await requireStaff();
   const supabase = await createClient();
@@ -120,7 +82,7 @@ export default async function RevenuePage() {
   const receivedAll = econ.reduce((s, e) => s + n(e.received), 0);
 
   // ── the months ────────────────────────────────────────────
-  const months = lastTwelve(today().slice(0, 7));
+  const months = lastTwelveMonths(today().slice(0, 7));
   const byMonth = months.map((m) => ({
     month: m,
     received: invoices
@@ -228,7 +190,7 @@ export default async function RevenuePage() {
             <div className="lock">
               {e.auth_number || "(no number)"} · {e.service_type}
             </div>
-            <div style={{ fontSize: 12, color: "var(--bad)" }}>{reasons.join(" · ")}</div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>{reasons.join(" · ")}</div>
           </>
         ),
         unearned: <b>{money(n(e.committed))}</b>,
@@ -338,6 +300,8 @@ export default async function RevenuePage() {
           value={money(received12)}
           label="received in the last 12 months"
           tone="good"
+          series={byMonth.map((b) => ({ month: b.month, value: b.received }))}
+          describe={(v) => money(v)}
           detail={
             monthlyAverage > 0
               ? `${money(monthlyAverage)} in an average earning month. ${money(receivedAll)} received in total.`

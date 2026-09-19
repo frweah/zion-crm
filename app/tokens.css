@@ -45,8 +45,34 @@
   --ok-ink: #336640;
   --warn-ink: #7a5c1e;
 
+  /* A control that cannot be used: a flat fill and full ink-2, never faded
+     with opacity - faded text is text somebody cannot read. */
+  --disabled-bg: var(--line);
+  --disabled-ink: var(--ink-2);
+
   --focus: var(--accent);
+  /* The one translucent value, and only ever a backdrop behind a dialog -
+     never a border, never text (check-theme holds both). */
   --scrim: rgb(31 29 26 / 0.35);
+
+  /* The type scale. Every font size in the application is one of these;
+     check-theme fails a size written anywhere else. */
+  --text-xs: 11px; /* uppercase labels, tracked */
+  --text-sm: 12px; /* chips, small print */
+  --text-md: 13px; /* help text, meta, alerts */
+  --text-base: 14px; /* working text */
+  --text-lg: 16px;
+  --text-xl: 20px; /* section headings, card titles */
+  --text-2xl: 26px; /* the screen title */
+  --text-3xl: 32px; /* a figure */
+
+  /* Motion: one duration and curve for hover, focus, menus, dialogs and rows.
+     Nobody who has asked their device for less motion gets any. */
+  --motion: 200ms ease-in-out;
+
+  /* The sidebar, open and down to its icons. */
+  --side-wide: 236px;
+  --side-narrow: 64px;
 
   /* type: self-hosted by next/font in app/layout.tsx, with system fallbacks */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -66,4 +92,10 @@
   --sand: var(--line-strong);
   --gold: var(--warn-ink);
   --bg: var(--bone);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms linear;
+  }
 }

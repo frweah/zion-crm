@@ -65,7 +65,7 @@ export function ReconcilePanel({
 
           <div className="field">
             To
-            <div style={{ marginTop: 6, textTransform: "none", letterSpacing: "normal", fontSize: 14, color: "var(--ink)" }}>
+            <div style={{ marginTop: 6, textTransform: "none", letterSpacing: "normal", fontSize: "var(--text-base)", color: "var(--ink)" }}>
               {billingOfficeName} &lt;{to}&gt;
             </div>
           </div>

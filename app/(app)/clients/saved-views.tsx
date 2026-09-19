@@ -68,7 +68,7 @@ export function SavedViews({
               >
                 {v.name}
                 {v.shared && (
-                  <span style={{ opacity: 0.6, marginLeft: 5, fontSize: 11 }}>team</span>
+                  <span style={{ marginLeft: 5, fontSize: "var(--text-xs)", fontWeight: 400 }}>· team</span>
                 )}
               </button>
             </form>
@@ -81,7 +81,7 @@ export function SavedViews({
                   className="btn ghost"
                   disabled={deleting}
                   title={`Remove "${v.name}"`}
-                  style={{ padding: "4px 7px", fontSize: 12 }}
+                  style={{ padding: "4px 7px", fontSize: "var(--text-sm)" }}
                 >
                   ×
                 </button>
@@ -111,7 +111,7 @@ export function SavedViews({
               <input name="name" placeholder="e.g. Rei — active" required autoFocus />
             </label>
             {isAdmin && (
-              <label style={{ fontSize: 13 }}>
+              <label style={{ fontSize: "var(--text-md)" }}>
                 <input type="checkbox" name="shared" style={{ width: "auto", marginRight: 6 }} />
                 Share with the whole team
               </label>

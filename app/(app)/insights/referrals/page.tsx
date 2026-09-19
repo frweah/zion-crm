@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today, median } from "@/lib/constants";
 import { PageHead } from "../../page-head";
+import { Kpi, lastTwelveMonths } from "../kpi";
 import { DataTable, type DataRow } from "../../data-table";
 
 /**
@@ -48,14 +49,7 @@ type Row = {
   no_authorization: boolean;
 };
 
-function lastTwelve(month: string): string[] {
-  const [y, m] = month.split("-").map(Number);
-  const out: string[] = [];
-  for (let i = 11; i >= 0; i--) {
-    out.push(new Date(Date.UTC(y, m - 1 - i, 1)).toISOString().slice(0, 7));
-  }
-  return out;
-}
+
 
 export default async function ReferralsPage({
   searchParams,
@@ -103,7 +97,7 @@ export default async function ReferralsPage({
   const referredKnown = funnel[0].reached;
 
   // ── arriving ──────────────────────────────────────────────
-  const months = lastTwelve(today().slice(0, 7));
+  const months = lastTwelveMonths(today().slice(0, 7));
   const byMonth = months.map((m) => ({
     month: m,
     n: rows.filter((r) => r.referred_at.startsWith(m)).length,
@@ -176,7 +170,7 @@ export default async function ReferralsPage({
               <b>{r.name}</b>
             </Link>
             {r.no_authorization && (
-              <div style={{ fontSize: 12, color: "var(--bad)" }}>nothing authorized</div>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>nothing authorized</div>
             )}
           </>
         ),
@@ -243,34 +237,15 @@ export default async function ReferralsPage({
         className="grid"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", margin: "14px 0 8px" }}
       >
-        <div className="card">
-          <div className="stat">
-            {last90}
-            <small>referred in the last 90 days</small>
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat" style={front.length > 0 ? { color: "var(--gold)" } : undefined}>
-            {front.length}
-            <small>waiting at referral, intake or assessment</small>
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat" style={frontNoAuth > 0 ? { color: "var(--bad)" } : undefined}>
-            {frontNoAuth}
-            <small>of those with nothing authorized</small>
-          </div>
-          <p className="lock" style={{ margin: "6px 0 0" }}>
-            USOR has sent them and no service has been agreed, so no work can be billed for them
-            yet.
-          </p>
-        </div>
-        <div className="card">
-          <div className="stat">
-            {medianFrontWait === null ? "—" : medianFrontWait}
-            <small>median days waiting at the front</small>
-          </div>
-        </div>
+        <Kpi
+          value={last90}
+          label="referred in the last 90 days"
+          series={byMonth.map((b) => ({ month: b.month, value: b.n }))}
+          describe={(v) => `${v} referred`}
+        />
+        <Kpi value={front.length} label="waiting at referral, intake or assessment" tone={front.length > 0 ? "warn" : undefined} />
+        <Kpi value={frontNoAuth} label="of those with nothing authorized" tone={frontNoAuth > 0 ? "bad" : undefined} detail={<>USOR has sent them and no service has been agreed, so no work can be billed for them yet.</>} />
+        <Kpi value={medianFrontWait === null ? "—" : medianFrontWait} label="median days waiting at the front" />
       </div>
 
       {caveats.length > 0 && (

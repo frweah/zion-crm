@@ -204,11 +204,11 @@ export default async function LeadsPage({
                   name: (
                     <>
                       <b>{e.name}</b>
-                      {e.industry && <div style={{ fontSize: 12, color: "var(--muted)" }}>{e.industry}</div>}
+                      {e.industry && <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{e.industry}</div>}
                     </>
                   ),
                   contact: (
-                    <span style={{ fontSize: 13 }}>
+                    <span style={{ fontSize: "var(--text-md)" }}>
                       {e.contact_name && <div>{e.contact_name}</div>}
                       {e.contact_phone && <div>{e.contact_phone}</div>}
                       {e.contact_email && <div>{e.contact_email}</div>}
@@ -216,7 +216,7 @@ export default async function LeadsPage({
                     </span>
                   ),
                   hiring: (
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                       {e.hiring_pattern && <div>{e.hiring_pattern}</div>}
                       {e.notes && <div>{e.notes}</div>}
                       {!e.hiring_pattern && !e.notes && "—"}

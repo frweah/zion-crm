@@ -182,7 +182,7 @@ export function TextingPanel({
                   <>
                     {t.body}
                     {t.status === "Failed" && (
-                      <div style={{ fontSize: 12, color: "var(--bad)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>
                         not delivered — {t.error}
                       </div>
                     )}

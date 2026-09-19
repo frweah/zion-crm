@@ -97,7 +97,7 @@ export function W9Form({ defaultName }: { defaultName: string }) {
         )}
 
         {showForeignPartners && (
-          <label style={{ fontSize: 13, display: "block", marginBottom: 12 }}>
+          <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 12 }}>
             <input
               type="checkbox"
               name="foreign_partners"
@@ -157,7 +157,7 @@ export function W9Form({ defaultName }: { defaultName: string }) {
           case requires the second item to be struck out, which can only be done on paper.
         </p>
 
-        <label style={{ fontSize: 13, display: "block", marginBottom: 12 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 12 }}>
           <input type="checkbox" name="certify" style={{ width: "auto", marginRight: 8 }} required />
           I have read the certification above and it is true
         </label>

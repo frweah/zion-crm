@@ -120,7 +120,7 @@ export default async function DashboardPage({
           <h3>Still to do before you are fully set up</h3>
           <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
             {outstanding.map((r) => (
-              <li key={r.task_id} style={{ fontSize: 13, marginBottom: 4 }}>
+              <li key={r.task_id} style={{ fontSize: "var(--text-md)", marginBottom: 4 }}>
                 {r.label}
                 {r.detail && <div className="lock">{r.detail}</div>}
               </li>

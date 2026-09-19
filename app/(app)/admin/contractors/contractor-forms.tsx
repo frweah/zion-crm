@@ -272,7 +272,7 @@ export function DeletePayment({ id, amount }: { id: string; amount: number }) {
       >
         {pending ? "…" : "Remove"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -336,7 +336,7 @@ export function TaxYearEditor({ row }: { row: TaxYearRow }) {
           </label>
         </div>
 
-        <label style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 8 }}>
           <input
             type="checkbox"
             name="utah_state_copy"
@@ -346,7 +346,7 @@ export function TaxYearEditor({ row }: { row: TaxYearRow }) {
           Utah wants its own copy for {row.year}
         </label>
 
-        <label style={{ fontSize: 13, display: "block", marginBottom: 12 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 12 }}>
           <input
             type="checkbox"
             name="confirm"

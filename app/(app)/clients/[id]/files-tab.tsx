@@ -76,7 +76,7 @@ function FileActions({ clientId, file }: { clientId: string; file: AttachmentRow
           </button>
         </form>
         {(openState.error || delState.error) && (
-          <div style={{ color: "var(--bad)", fontSize: 12, whiteSpace: "normal" }}>
+          <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)", whiteSpace: "normal" }}>
             {openState.error ?? delState.error}
           </div>
         )}
@@ -195,7 +195,7 @@ export function FilesTab({
           </div>
 
           <div className="row2" style={{ marginTop: 10, alignItems: "center" }}>
-            <label style={{ fontSize: 13 }}>
+            <label style={{ fontSize: "var(--text-md)" }}>
               <input
                 type="checkbox"
                 name="restricted"
@@ -246,17 +246,17 @@ export function FilesTab({
                       restricted
                     </span>
                   )}
-                  {f.note && <div style={{ fontSize: 12, color: "var(--muted)" }}>{f.note}</div>}
+                  {f.note && <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{f.note}</div>}
                 </>
               ),
               category: <span className="chip">{f.category}</span>,
               size: (
-                <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)", whiteSpace: "nowrap" }}>
                   {fileSize(f.size_bytes)}
                 </span>
               ),
               added: (
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                   {f.uploaded_by_name}
                   <div>{fmtStamp(f.created_at)}</div>
                 </span>

@@ -203,7 +203,7 @@ export function ServiceEntryForm({ auths }: { auths: AuthOption[] }) {
             Activity notes
             <input name="notes" />
           </label>
-          <label style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+          <label style={{ fontSize: "var(--text-sm)", whiteSpace: "nowrap" }}>
             <input type="checkbox" name="non_billable" style={{ width: "auto", marginRight: 4 }} />
             Non-billable
           </label>
@@ -215,7 +215,7 @@ export function ServiceEntryForm({ auths }: { auths: AuthOption[] }) {
         {auth && remaining !== null && (
           <div
             style={{
-              fontSize: 12,
+              fontSize: "var(--text-sm)",
               marginTop: 10,
               color: remaining <= 0 ? "var(--bad)" : "var(--muted)",
             }}
@@ -272,7 +272,7 @@ export function CompletionDates({
           {pending ? "…" : "Save"}
         </button>
       </form>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </>
   );
 }
@@ -367,7 +367,7 @@ export function InvoiceAction({
         </button>
       </form>
       {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: 12, maxWidth: 320, marginTop: 4 }}>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)", maxWidth: 320, marginTop: 4 }}>
           {state.error}
         </div>
       )}

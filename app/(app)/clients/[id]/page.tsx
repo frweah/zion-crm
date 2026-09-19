@@ -434,11 +434,11 @@ export default async function ClientPage({
 
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="row2" style={{ gap: 24, flexWrap: "wrap", alignItems: "baseline" }}>
-            <div className="stat" style={{ fontSize: 20 }}>
+            <div className="stat" style={{ fontSize: "var(--text-xl)" }}>
               {money(received)}
               <small>received · invoices marked Paid</small>
             </div>
-            <div className="stat" style={{ fontSize: 20, color: outstanding > 0 ? "var(--bad)" : undefined }}>
+            <div className="stat" style={{ fontSize: "var(--text-xl)", color: outstanding > 0 ? "var(--bad)" : undefined }}>
               {money(outstanding)}
               <small>outstanding · submitted, not yet paid</small>
             </div>
@@ -481,7 +481,7 @@ export default async function ClientPage({
                 <b>{a.number || "(no authorization number)"}</b>
                 <span className="chip gold">{a.service_type}</span>
               </div>
-              <div style={{ fontSize: 13, marginTop: 6 }}>
+              <div style={{ fontSize: "var(--text-md)", marginTop: 6 }}>
                 {a.rate_type === "Hourly" && total !== null
                   ? `${total} hrs @ ${money(a.rate)} · used ${used} · ${remaining} remaining`
                   : `Flat fee ${money(a.rate)}`}
@@ -491,7 +491,7 @@ export default async function ClientPage({
                   <i className={tone} style={{ width: `${pct}%` }} />
                 </div>
               )}
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)", marginTop: 6 }}>
                 {a.start_date || "—"} → {a.end_date || "—"}
                 {a.dates_from_ocr && " (read by OCR from the scan — check them)"} · {a.status}
                 {a.requires_forms && ` · needs: ${a.requires_forms}`}
@@ -577,7 +577,7 @@ export default async function ClientPage({
                 ),
                 warrant:
                   i.status === "Paid" ? (
-                    <span style={{ fontSize: 12 }}>
+                    <span style={{ fontSize: "var(--text-sm)" }}>
                       <WarrantLink payment={{ warrant_no: i.warrant ?? "", page_id: pageByInvoice.get(i.id) ?? null }} />
                     </span>
                   ) : (

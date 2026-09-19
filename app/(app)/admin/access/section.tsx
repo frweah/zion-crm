@@ -241,7 +241,7 @@ export default async function AccessLogPage({
         <p className="sub" style={{ marginTop: 0 }}>
           Worth knowing before anybody quotes it as complete.
         </p>
-        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+        <ul style={{ margin: 0, paddingLeft: 20, fontSize: "var(--text-md)", lineHeight: 1.6 }}>
           <li>
             Reads made with the database password or the service key — a backup, a migration, a
             developer with the connection string. Those are two secrets in two places, not a log.

@@ -146,7 +146,7 @@ export function FormsTab({
                     >
                       {t?.usor ?? f.template_id}
                     </Link>
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{t?.name}</div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{t?.name}</div>
                   </>
                 ),
                 month: f.month ?? "—",
@@ -159,7 +159,7 @@ export function FormsTab({
                     {f.status}
                   </span>
                 ),
-                signed: <span style={{ fontSize: 12, color: "var(--muted)" }}>{signed}</span>,
+                signed: <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{signed}</span>,
               },
             };
           })}

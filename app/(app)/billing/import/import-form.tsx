@@ -258,7 +258,7 @@ export function ImportForm({ clients }: { clients: Client[] }) {
                   overflow: "auto",
                   whiteSpace: "pre-wrap",
                   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   lineHeight: 1.5,
                 }}
               >

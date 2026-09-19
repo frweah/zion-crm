@@ -304,6 +304,7 @@ export default async function ClientsPage({
         <DataTable
           label="clients"
           filter={false}
+          pageSize={50}
           columns={columns}
           rows={tableRows}
           empty={isFiltered(filters) ? "No clients match these filters." : "No clients yet."}

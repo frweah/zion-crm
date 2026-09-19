@@ -114,7 +114,7 @@ export default async function HoursPage({
                 who: (
                   <>
                     <b>{s.staff_name}</b>
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                       {s.period_start} to {s.period_end}
                     </div>
                   </>
@@ -153,7 +153,7 @@ export default async function HoursPage({
                       {s.status}
                     </span>
                     {s.submitted_at && (
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtStamp(s.submitted_at)}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)" }}>{fmtStamp(s.submitted_at)}</div>
                     )}
                   </>
                 ),

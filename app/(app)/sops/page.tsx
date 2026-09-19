@@ -69,7 +69,7 @@ export default async function SopsPage({
           ) : (
             <>
               <h3>{selected.title}</h3>
-              <div style={{ fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+              <div style={{ fontSize: "var(--text-base)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
                 {selected.body}
               </div>
               {selected.screen && (

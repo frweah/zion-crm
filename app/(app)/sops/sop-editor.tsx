@@ -16,7 +16,7 @@ export type Sop = {
 
 function RoleBoxes({ selected }: { selected: string[] }) {
   return (
-    <div className="row2" style={{ marginTop: 10, fontSize: 12, alignItems: "center" }}>
+    <div className="row2" style={{ marginTop: 10, fontSize: "var(--text-sm)", alignItems: "center" }}>
       <span style={{ color: "var(--muted)" }}>Visible to:</span>
       {ROLE_NAMES.map((r: Role) => (
         <label key={r}>

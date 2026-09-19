@@ -272,7 +272,7 @@ export function HoursRequestResponse({ request }: { request: HoursRequestRow }) 
           {pending ? "…" : "Save"}
         </button>
       </form>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
       {!settled && request.response !== "Pending" && (
         <div className="lock">Denied requests keep no approved hours.</div>
       )}

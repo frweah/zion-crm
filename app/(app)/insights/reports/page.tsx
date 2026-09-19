@@ -9,35 +9,11 @@ import {
   STAGES,
   POST_JD_STAGES,
 } from "@/lib/constants";
+import { Kpi, lastTwelveMonths } from "../kpi";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 
-function Stat({
-  value,
-  label,
-  tone,
-  href,
-}: {
-  value: string | number;
-  label: string;
-  tone?: "bad";
-  /** A figure whose home is another screen links there rather than standing alone. */
-  href?: string;
-}) {
-  const body = (
-    <div className="stat" style={tone === "bad" ? { color: "var(--bad)" } : undefined}>
-      {value}
-      <small>{label}</small>
-    </div>
-  );
-  return href ? (
-    <Link href={href} className="card" style={{ textDecoration: "none", color: "inherit" }}>
-      {body}
-    </Link>
-  ) : (
-    <div className="card">{body}</div>
-  );
-}
+const Stat = Kpi;
 
 /** An unmeasurable figure shows as a dash, never as zero. */
 const show = (v: number | null, unit = "") => (v === null ? "—" : `${v}${unit}`);
@@ -167,6 +143,21 @@ export default async function ReportsPage({
     .reduce((s, e) => s + Number(e.hours), 0);
   const issued = invoices.filter((i) => inMonth(i.date));
   const paidInMonth = invoices.filter((i) => i.status === "Paid" && inMonth(i.paid_date));
+
+  // The same five figures for each of the twelve months to the one shown.
+  const trend = lastTwelveMonths(month).map((m) => {
+    const inM = (d: string | null) => Boolean(d && d.startsWith(m));
+    return {
+      month: m,
+      newClients: clients.filter((c) => inM(c.created_at)).length,
+      placed: clients.filter((c) => (stagesByClient.get(c.id) ?? []).some((h) => h.stage === "Placement" && inM(h.at))).length,
+      hours: entries.filter((e) => inM(e.date) && !e.non_billable).reduce((s, e) => s + Number(e.hours), 0),
+      issued: invoices.filter((i) => inM(i.date)).length,
+      paid: invoices.filter((i) => i.status === "Paid" && inM(i.paid_date)).length,
+    };
+  });
+  const series = (k: "newClients" | "placed" | "hours" | "issued" | "paid") =>
+    trend.map((t) => ({ month: t.month, value: t[k] }));
 
   const byStage = STAGES.map((s) => ({
     stage: s,
@@ -313,16 +304,20 @@ export default async function ReportsPage({
         className="grid"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", margin: "14px 0 24px" }}
       >
-        <Stat value={newClients} label="new clients" />
-        <Stat value={placedThisMonth} label="placements" />
-        <Stat value={monthHours} label="billable hours logged" />
+        <Stat value={newClients} label="new clients" series={series("newClients")} describe={(v) => `${v} new`} />
+        <Stat value={placedThisMonth} label="placements" series={series("placed")} describe={(v) => `${v} placed`} />
+        <Stat value={monthHours} label="billable hours logged" series={series("hours")} describe={(v) => `${v} hours`} />
         <Stat
           value={issued.length}
           label={`invoices issued · ${money(issued.reduce((s, i) => s + i.amount, 0))}`}
+          series={series("issued")}
+          describe={(v) => `${v} issued`}
         />
         <Stat
           value={paidInMonth.length}
           label={`paid · ${money(paidInMonth.reduce((s, i) => s + i.amount, 0))}`}
+          series={series("paid")}
+          describe={(v) => `${v} paid`}
         />
       </div>
 

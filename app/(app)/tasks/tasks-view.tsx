@@ -53,7 +53,7 @@ function ReminderPrompt({ task }: { task: TaskListRow }) {
 
   return (
     <div className="card" style={{ padding: 12, minWidth: 260 }}>
-      <b style={{ fontSize: 13 }}>How did it go?</b>
+      <b style={{ fontSize: "var(--text-md)" }}>How did it go?</b>
       {state.error && <div className="alert bad">{state.error}</div>}
       <form action={action}>
         <input type="hidden" name="task_id" value={task.id} />
@@ -112,7 +112,7 @@ function StatusBox({ task }: { task: TaskListRow }) {
         {open ? "○" : "✓"}
       </button>
       {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: 11, maxWidth: 200 }}>{state.error}</div>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-xs)", maxWidth: 200 }}>{state.error}</div>
       )}
     </form>
   );
@@ -186,7 +186,7 @@ export function TasksView({
         </form>
       </div>
 
-      <label style={{ fontSize: 12 }}>
+      <label style={{ fontSize: "var(--text-sm)" }}>
         <input
           type="checkbox"
           style={{ width: "auto", marginRight: 6 }}

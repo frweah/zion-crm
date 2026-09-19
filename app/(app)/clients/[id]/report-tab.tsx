@@ -157,7 +157,7 @@ export function ReportTab({
             margin: 0,
             whiteSpace: "pre-wrap",
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            fontSize: 12.5,
+            fontSize: "var(--text-md)",
             lineHeight: 1.55,
           }}
         >
@@ -240,7 +240,7 @@ export function ReportTab({
                   overflow: "auto",
                   whiteSpace: "pre-wrap",
                   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: 12,
+                  fontSize: "var(--text-sm)",
                   lineHeight: 1.5,
                   padding: 12,
                   background: "var(--bg)",

@@ -96,7 +96,7 @@ export function HoursOffer({ event, clientId }: { event: EventRow; clientId: str
   return (
     <div className="alert" style={{ marginTop: 6 }}>
       This visit has finished. Log the service hours?
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
       <div className="row2" style={{ marginTop: 8, gap: 6 }}>
         <Link
           className="btn gold"
@@ -130,7 +130,7 @@ export function RemoveEvent({ id, clientId }: { id: string; clientId: string }) 
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : "Remove"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -144,7 +144,7 @@ export function ExcludeThread({ conversationId }: { conversationId: string }) {
       <button className="btn ghost" type="submit" disabled={pending} title="Stop logging this thread">
         {pending ? "…" : "Exclude thread"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -196,7 +196,7 @@ export function ComingUp({
           <span className="chip">{e.kind}</span>
           <span style={{ flex: 1 }}>
             <b>{e.title}</b>
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
               {when(e.starts_at)}
               {e.location && ` · ${e.location}`}
               {e.origin === "Outlook" && " · from Outlook"}
@@ -228,7 +228,7 @@ export function ComingUp({
       ))}
 
       <details style={{ marginTop: 12 }}>
-        <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 13 }}>New appointment</summary>
+        <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: "var(--text-md)" }}>New appointment</summary>
         <NewEvent clientId={clientId} />
       </details>
     </div>

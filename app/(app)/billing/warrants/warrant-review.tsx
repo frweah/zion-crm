@@ -63,7 +63,7 @@ export function WarrantLineReview({ line, auths }: { line: ReviewLine; auths: Au
         </span>
         <span className="chip warn">{line.problem || "Needs review"}</span>
       </div>
-      <p className="lock" style={{ margin: "4px 0 6px", fontFamily: "ui-monospace, monospace", fontSize: 12 }}>
+      <p className="lock" style={{ margin: "4px 0 6px", fontFamily: "ui-monospace, monospace", fontSize: "var(--text-sm)" }}>
         {line.raw}
       </p>
 

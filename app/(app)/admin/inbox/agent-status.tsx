@@ -70,7 +70,7 @@ export async function AgentStatus() {
             </p>
           )}
 
-          <h3 style={{ margin: "14px 0 6px", fontSize: 14, lineHeight: "22px" }}>The runs before</h3>
+          <h3 style={{ margin: "14px 0 6px", fontSize: "var(--text-base)", lineHeight: "22px" }}>The runs before</h3>
           <div style={{ border: "1px solid var(--line)", borderRadius: 6 }}>
             <DataTable
               label="agent runs"

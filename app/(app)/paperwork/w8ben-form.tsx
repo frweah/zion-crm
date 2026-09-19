@@ -101,7 +101,7 @@ export function W8BenForm({ defaultName }: { defaultName: string }) {
           </label>
         </div>
 
-        <label style={{ fontSize: 13, display: "block", marginTop: 4 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginTop: 4 }}>
           <input
             type="checkbox"
             name="ftin_not_required"
@@ -151,12 +151,12 @@ export function W8BenForm({ defaultName }: { defaultName: string }) {
           stops being true.
         </div>
 
-        <label style={{ fontSize: 13, display: "block", marginBottom: 12 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 12 }}>
           <input type="checkbox" name="certify" style={{ width: "auto", marginRight: 8 }} required />
           I have read the certification above and it is true
         </label>
 
-        <label style={{ fontSize: 13, display: "block", marginBottom: 14 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 14 }}>
           <input
             type="checkbox"
             name="signing_for_another"

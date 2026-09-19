@@ -73,7 +73,7 @@ function FieldInput({
 
     case "check":
       return (
-        <label style={{ fontSize: 13, display: "block", margin: "10px 0" }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", margin: "10px 0" }}>
           <input
             type="checkbox"
             style={{ width: "auto", marginRight: 8 }}
@@ -92,7 +92,7 @@ function FieldInput({
           {field.l}
           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
             {(field.o ?? []).map((o) => (
-              <label key={o} style={{ fontSize: 13, color: "var(--ink)" }}>
+              <label key={o} style={{ fontSize: "var(--text-md)", color: "var(--ink)" }}>
                 <input
                   type="checkbox"
                   style={{ width: "auto", marginRight: 8 }}
@@ -425,7 +425,7 @@ export function FormRenderer({
               margin: 0,
               whiteSpace: "pre-wrap",
               fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: 12.5,
+              fontSize: "var(--text-md)",
               lineHeight: 1.55,
             }}
           >

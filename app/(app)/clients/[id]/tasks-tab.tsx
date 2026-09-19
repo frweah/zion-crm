@@ -49,15 +49,15 @@ export function TaskToggle({ clientId, task }: { clientId: string; task: TaskRow
         )}
       </span>
 
-      <span style={{ color: overdue ? "var(--bad)" : "var(--muted)", fontSize: 12 }}>
+      <span style={{ color: overdue ? "var(--bad)" : "var(--muted)", fontSize: "var(--text-sm)" }}>
         {open ? (task.due ? `due ${task.due}` : "no due date") : `done ${task.done_at ?? ""}`}
       </span>
-      <span style={{ color: "var(--muted)", fontSize: 12, minWidth: 110 }}>
+      <span style={{ color: "var(--muted)", fontSize: "var(--text-sm)", minWidth: 110 }}>
         {task.assigned_name || "—"}
       </span>
 
       {state.error && (
-        <span style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</span>
+        <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</span>
       )}
     </div>
   );
@@ -119,7 +119,7 @@ export function TasksTab({
 
       {done.length > 0 && (
         <>
-          <h3 style={{ fontSize: 13, margin: "18px 0 4px", color: "var(--muted)" }}>
+          <h3 style={{ fontSize: "var(--text-md)", margin: "18px 0 4px", color: "var(--muted)" }}>
             Completed
           </h3>
           {done.map((t) => (

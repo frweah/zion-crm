@@ -185,7 +185,7 @@ export default async function PaperworkPage() {
                     </span>
                   ),
                   when: (
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                       {s.signed_at ? `signed ${fmtStamp(s.signed_at)}` : `started ${fmtStamp(s.created_at)}`}
                     </span>
                   ),
@@ -237,7 +237,7 @@ export default async function PaperworkPage() {
                     form: s.form_type,
                     status: <span className={"chip " + (s.status === "Signed" ? "ok" : "")}>{s.status}</span>,
                     signed: (
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                         {s.signed_at ? `${s.signer_name} · ${fmtStamp(s.signed_at)}` : "—"}
                         {s.pdf_sha256 && (
                           <div title="SHA-256 of the filed PDF">{s.pdf_sha256.slice(0, 12)}…</div>

@@ -45,7 +45,7 @@ function InspectButton({ id }: { id: string }) {
       <button className="btn gold" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
         {pending ? "…" : "Inspected in person"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -67,7 +67,7 @@ export function OpenButton({ id }: { id: string }) {
       <button className="btn ghost" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
         {pending ? "…" : "Open"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -104,11 +104,11 @@ function DeleteButton({ doc }: { doc: DocRow }) {
         Keep
       </button>
       {doc.backs_a_credential && (
-        <div style={{ color: "var(--bad)", fontSize: 12 }}>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>
           A credential is relying on this — removing it leaves that unevidenced.
         </div>
       )}
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -240,7 +240,7 @@ export function StaffDocuments({
                     {d.uploaded_by_name && ` · added by ${d.uploaded_by_name}`}
                     {d.system_generated && " · signed in the app"}
                   </div>
-                  {d.note && <div style={{ fontSize: 12 }}>{d.note}</div>}
+                  {d.note && <div style={{ fontSize: "var(--text-sm)" }}>{d.note}</div>}
                 </>
               ),
               added: d.created_at.slice(0, 10),

@@ -149,7 +149,7 @@ export function ActivityTab({
         <div className="list">
         {[...byDay.entries()].map(([day, items]) => (
           <div key={day} className="list-item">
-            <h3 style={{ margin: 0, fontSize: 13 }}>
+            <h3 style={{ margin: 0, fontSize: "var(--text-md)" }}>
               {dayOf(items[0].at)}
             </h3>
             <table className="t" data-layout="one day of the activity feed">
@@ -168,7 +168,7 @@ export function ActivityTab({
                           {row.title}
                         </Link>
                         {row.detail && (
-                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                          <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)", marginTop: 2 }}>
                             {row.detail.length > 240 ? row.detail.slice(0, 240) + "…" : row.detail}
                           </div>
                         )}

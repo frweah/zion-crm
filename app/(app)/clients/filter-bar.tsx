@@ -108,7 +108,7 @@ export function FilterBar({
           Status
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
             {CLIENT_STATUSES.map((s) => (
-              <label key={s} style={{ fontSize: 13, color: "var(--ink)" }}>
+              <label key={s} style={{ fontSize: "var(--text-md)", color: "var(--ink)" }}>
                 <input
                   type="checkbox"
                   name="status"
@@ -126,7 +126,7 @@ export function FilterBar({
           Stage
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
             {STAGES.map((s) => (
-              <label key={s} style={{ fontSize: 13, color: "var(--ink)" }}>
+              <label key={s} style={{ fontSize: "var(--text-md)", color: "var(--ink)" }}>
                 <input
                   type="checkbox"
                   name="stage"
@@ -142,7 +142,7 @@ export function FilterBar({
       </div>
 
       <div className="row2" style={{ marginTop: 12, alignItems: "center" }}>
-        <label style={{ fontSize: 13 }}>
+        <label style={{ fontSize: "var(--text-md)" }}>
           <input
             type="checkbox"
             name="hasImportReview"

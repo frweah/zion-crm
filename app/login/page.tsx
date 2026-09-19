@@ -102,12 +102,12 @@ function LoginForm() {
         <button className="btn ghost" type="submit" disabled={resetting} style={{ width: "100%" }}>
           {resetting ? "Sending…" : "Email me a password reset link"}
         </button>
-        <p className="sub" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
+        <p className="sub" style={{ marginTop: 8, marginBottom: 0, fontSize: "var(--text-sm)" }}>
           Fill in your email above first.
         </p>
       </form>
 
-      <p className="sub" style={{ marginTop: 20, marginBottom: 0, fontSize: 12 }}>
+      <p className="sub" style={{ marginTop: 20, marginBottom: 0, fontSize: "var(--text-sm)" }}>
         Accounts are created by the administrator. If you have not been invited yet, contact{" "}
         {ORG.email}.
       </p>

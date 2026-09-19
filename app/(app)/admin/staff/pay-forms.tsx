@@ -28,7 +28,7 @@ function RemoveRate({ id }: { id: string }) {
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : "Remove"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }

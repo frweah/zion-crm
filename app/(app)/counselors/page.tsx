@@ -83,6 +83,7 @@ export default async function CounselorsPage({
           <DataTable
             label="counselors"
             sortBy
+            pageSize={50}
             columns={[
               { key: "name", label: "Name" },
               { key: "agency", label: "Agency" },

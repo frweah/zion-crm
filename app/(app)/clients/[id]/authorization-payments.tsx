@@ -18,7 +18,7 @@ export function AuthorizationPayments({ payments, status }: { payments: PaymentR
   return (
     <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }}>
       {payments.map((p) => (
-        <div key={p.id} className="row2" style={{ alignItems: "center", gap: 6, fontSize: 13, marginBottom: 4 }}>
+        <div key={p.id} className="row2" style={{ alignItems: "center", gap: 6, fontSize: "var(--text-md)", marginBottom: 4 }}>
           <span className="chip ok">Paid {money(p.amount)}</span>
           <span>{p.warrant_date ?? "no date"}</span>
           <span className="lock">

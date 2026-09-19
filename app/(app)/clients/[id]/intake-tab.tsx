@@ -142,7 +142,7 @@ export function IntakeTab({
           />
         </label>
 
-        <label style={{ fontSize: 13, display: "block", marginTop: 12 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginTop: 12 }}>
           <input
             type="checkbox"
             name="consent_signed"

@@ -48,6 +48,10 @@ function plain(node: ReactNode): string | number | null {
  * main lists also offer the same sort as one "Sort by" choice above the rows
  * (sortBy). It is the same state as the headings - choose there or click here,
  * it is one sort.
+ *
+ * A long list shows fifty rows at a time (pageSize), with the pages and a
+ * "Show all" beneath. Paging happens after the filter and the sort, so a
+ * filter searches every row and a sort orders every row, not just this page.
  */
 export function DataTable({
   columns,
@@ -57,6 +61,7 @@ export function DataTable({
   label,
   initialSort = null,
   sortBy = false,
+  pageSize,
 }: {
   columns: DataColumn[];
   rows: DataRow[];
@@ -69,11 +74,15 @@ export function DataTable({
   initialSort?: Sort;
   /** Offer a "Sort by" choice above the table, for screens too narrow to reach the headings. */
   sortBy?: boolean;
+  /** Rows to a page, with "Show all" below. Unset: every row, as before. */
+  pageSize?: number;
 }) {
   const sortId = useId();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>(initialSort);
   const showFilter = filter ?? rows.length > 8;
+  const [page, setPage] = useState(0);
+  const [all, setAll] = useState(false);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -106,7 +115,14 @@ export function DataTable({
     return list;
   }, [rows, query, sort]);
 
+  // A new filter or sort starts again at the first page.
+  const paged = Boolean(pageSize) && !all && shown.length > (pageSize ?? 0);
+  const pages = paged ? Math.ceil(shown.length / pageSize!) : 1;
+  const current = Math.min(page, pages - 1);
+  const visible = paged ? shown.slice(current * pageSize!, (current + 1) * pageSize!) : shown;
+
   function toggle(key: string) {
+    setPage(0);
     setSort((s) => (!s || s.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
   }
 
@@ -124,6 +140,7 @@ export function DataTable({
             onChange={(e) => {
               const [key, dir] = e.target.value.split(":");
               setSort(key ? { key, dir: dir === "desc" ? "desc" : "asc" } : null);
+              setPage(0);
             }}
           >
             <option value="">As listed</option>
@@ -141,7 +158,10 @@ export function DataTable({
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
             placeholder={`Filter ${label ?? "this list"}…`}
             aria-label={`Filter ${label ?? "this list"}`}
           />
@@ -192,7 +212,7 @@ export function DataTable({
                 </td>
               </tr>
             )}
-            {shown.map((r) => (
+            {visible.map((r) => (
               <tr key={r.key}>
                 {columns.map((c) => (
                   <td key={c.key} className={c.align === "right" ? "num" : undefined}>
@@ -204,6 +224,41 @@ export function DataTable({
           </tbody>
         </table>
       </div>
+      {pageSize && shown.length > pageSize && (
+        <nav className="pager no-print" aria-label={`Pages of ${label ?? "rows"}`}>
+          <span className="lock" aria-live="polite">
+            {paged
+              ? `${current * pageSize + 1}–${Math.min((current + 1) * pageSize, shown.length)} of ${shown.length}`
+              : `All ${shown.length}`}
+          </span>
+          {paged && (
+            <>
+              <button type="button" className="btn ghost" disabled={current === 0} onClick={() => setPage(current - 1)}>
+                Previous
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={current >= pages - 1}
+                onClick={() => setPage(current + 1)}
+              >
+                Next
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className="btn ghost"
+            aria-pressed={all}
+            onClick={() => {
+              setAll(!all);
+              setPage(0);
+            }}
+          >
+            {all ? `Show ${pageSize} at a time` : `Show all ${shown.length}`}
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

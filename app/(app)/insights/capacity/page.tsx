@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, today } from "@/lib/constants";
 import { PageHead } from "../../page-head";
+import { Kpi } from "../kpi";
 import { DataTable, type DataRow } from "../../data-table";
 
 /**
@@ -162,38 +163,10 @@ export default async function CapacityPage() {
         className="grid"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", margin: "14px 0 8px" }}
       >
-        <div className="card">
-          <div className="stat">
-            {totals.clients}
-            <small>active clients carried</small>
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat" style={totals.quiet > 0 ? { color: "var(--bad)" } : undefined}>
-            {totals.quiet}
-            <small>of them untouched in 30 days</small>
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat">
-            {n(totals.committedHours).toFixed(0)}
-            <small>hours owed on open authorizations</small>
-          </div>
-          <p className="lock" style={{ margin: "6px 0 0" }}>
-            Plus {money(totals.committedValue)} of authorized work in total, flat fees included.
-          </p>
-        </div>
-        <div className="card">
-          <div className="stat">
-            {monthsInHand === null ? "—" : monthsInHand}
-            <small>months of work in hand</small>
-          </div>
-          <p className="lock" style={{ margin: "6px 0 0" }}>
-            {monthlyRate > 0
-              ? `At ${monthlyRate.toFixed(1)} hours logged in the last ${RECENT_DAYS} days.`
-              : "Nothing has been logged in the last 30 days, so there is no rate to divide by."}
-          </p>
-        </div>
+        <Kpi value={totals.clients} label="active clients carried" />
+        <Kpi value={totals.quiet} label="of them untouched in 30 days" tone={totals.quiet > 0 ? "bad" : undefined} />
+        <Kpi value={n(totals.committedHours).toFixed(0)} label="hours owed on open authorizations" detail={<>Plus {money(totals.committedValue)} of authorized work in total, flat fees included.</>} />
+        <Kpi value={monthsInHand === null ? "—" : monthsInHand} label="months of work in hand" detail={<>{monthlyRate > 0 ? `At ${monthlyRate.toFixed(1)} hours logged in the last ${RECENT_DAYS} days.` : "Nothing has been logged in the last 30 days, so there is no rate to divide by."}</>} />
       </div>
 
       {concentrated && (
@@ -249,7 +222,7 @@ export default async function CapacityPage() {
         <p className="sub" style={{ marginTop: 0 }}>
           Three separate questions, deliberately not added into one score.
         </p>
-        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+        <ul style={{ margin: 0, paddingLeft: 20, fontSize: "var(--text-md)", lineHeight: 1.6 }}>
           <li>
             <b>Caseload</b> is how many people are counting on them. A large one with everybody
             moving is fine; a small one where half is quiet is not.

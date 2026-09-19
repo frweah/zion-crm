@@ -36,7 +36,7 @@ export function HintBar({
         style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start" }}
       >
         <div>
-          <b style={{ fontSize: 13 }}>{title}</b>
+          <b style={{ fontSize: "var(--text-md)" }}>{title}</b>
           <p className="sub" style={{ margin: "4px 0 0" }}>
             {body}
           </p>
@@ -48,7 +48,7 @@ export function HintBar({
           </button>
         </form>
       </div>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </div>
   );
 }

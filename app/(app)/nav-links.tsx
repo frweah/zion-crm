@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navPath, type NavGroup, type NavItem } from "@/lib/roles";
+import { NavIcon } from "./nav-icons";
 
 /**
  * The sidebar: the eight groups, and nothing under them.
@@ -16,6 +17,10 @@ import { navPath, type NavGroup, type NavItem } from "@/lib/roles";
  * A group is a link to the first of its screens this person can open, so
  * somebody given Billing by a grant lands on a Billing screen, not on one
  * their access does not include.
+ *
+ * Each carries an icon, so the sidebar can close down to icons (below 1100px,
+ * or when somebody chooses): the label is then hidden from sight but stays the
+ * link's name for a screen reader, and shows as a tooltip.
  */
 export function NavLinks({
   groups,
@@ -40,8 +45,10 @@ export function NavLinks({
             href={items[0].href}
             className={"navb" + (open ? " on" : "")}
             aria-current={open ? "true" : undefined}
+            title={group.label}
           >
-            {group.label}
+            <NavIcon name={group.key} />
+            <span className="side-label">{group.label}</span>
           </Link>
         );
       })}

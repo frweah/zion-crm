@@ -88,7 +88,7 @@ export function CopyBButton({ recipientId, name }: { recipientId: string; name: 
       <button className="btn ghost" type="submit" disabled={pending} title={`Copy B for ${name}`}>
         {pending ? "…" : "Copy B"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -139,17 +139,17 @@ export function DeliveryForm({
   return (
     <form action={action} style={{ display: "flex", gap: 6, alignItems: "center" }}>
       <input type="hidden" name="recipient_id" value={recipientId} />
-      <select name="method" defaultValue={consent ? "Email" : "Post"} style={{ fontSize: 12 }}>
+      <select name="method" defaultValue={consent ? "Email" : "Post"} style={{ fontSize: "var(--text-sm)" }}>
         <option value="Secure download">Secure download</option>
         <option value="Email">Email</option>
         <option value="Post">Post</option>
         <option value="In person">In person</option>
       </select>
-      <input type="date" name="delivered_on" defaultValue={defaultDate} style={{ fontSize: 12 }} />
+      <input type="date" name="delivered_on" defaultValue={defaultDate} style={{ fontSize: "var(--text-sm)" }} />
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : "Mark sent"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }

@@ -55,7 +55,7 @@ export function InviteForm() {
           {pending ? "Sending…" : "Add and send invite"}
         </button>
       </form>
-      <p className="sub" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
+      <p className="sub" style={{ fontSize: "var(--text-sm)", marginTop: 10, marginBottom: 0 }}>
         They receive an email asking them to complete onboarding, choose their own password, and
         are taken through it on first sign-in: personal details, identity documents,
         certifications, tax form, the data-handling policy, and payment. The rest of the CRM
@@ -104,7 +104,7 @@ export function StaffRowActions({
         </form>
       </div>
       {message && (
-        <div style={{ fontSize: 12, color: isError ? "var(--bad)" : "var(--ok)", maxWidth: 320 }}>
+        <div style={{ fontSize: "var(--text-sm)", color: isError ? "var(--bad)" : "var(--ok)", maxWidth: 320 }}>
           {message}
         </div>
       )}

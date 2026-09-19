@@ -135,9 +135,9 @@ export function NotesTab({
           />
 
           <div className="row2" style={{ marginTop: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>Visible to:</span>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>Visible to:</span>
             {ROLE_NAMES.map((r: Role) => (
-              <label key={r} style={{ fontSize: 12 }}>
+              <label key={r} style={{ fontSize: "var(--text-sm)" }}>
                 <input
                   type="checkbox"
                   name="visible_roles"

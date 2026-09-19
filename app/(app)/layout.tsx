@@ -8,6 +8,8 @@ import { NavLinks } from "./nav-links";
 import { HintBar } from "./hint-bar";
 import { QuickAdd } from "./quick-add";
 import { GroupTabs } from "./group-tabs";
+import { SidebarToggle } from "./sidebar-toggle";
+import { NavIcon } from "./nav-icons";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,11 +19,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }] = await Promise.all([
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }] = await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
     supabase.from("staff_prefs").select("key").like("key", "hint:%"),
+    // Kept to icons by choice (the width alone does it below 1100px).
+    supabase.from("staff_prefs").select("key").eq("key", "sidebar:narrow").maybeSingle(),
   ]);
+  const narrow = Boolean(narrowPref);
   const nav = navFor(staff);
 
   // Typing a URL should get you no further than the navigation does. Every
@@ -53,11 +58,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .sort((a, b) => b.screen.length - a.screen.length)[0] ?? null;
 
   return (
-    <div className="shell">
-      <nav className="side">
+    <div className={"shell" + (narrow ? " side-narrow" : "")}>
+      <nav className="side" aria-label="Main">
         <div className="brand">
           <Image src="/zion-logo.png" alt="" width={36} height={36} priority />
-          <span>
+          <span className="side-label">
             Zion Vocational Rehab
             <small>CRM</small>
           </span>
@@ -68,20 +73,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <NavLinks groups={nav} />
         </Suspense>
 
+        <SidebarToggle initial={narrow} />
+
         <div className="roleblock">
-          <div className="who">{staff.name}</div>
-          <div>{ROLE_LABEL[staff.role]}</div>
+          <div className="who side-label">{staff.name}</div>
+          <div className="side-label">{ROLE_LABEL[staff.role]}</div>
           {staff.grants.length > 0 && (
-            <div style={{ fontSize: 11 }}>
+            <div className="side-label" style={{ fontSize: "var(--text-xs)" }}>
               Also {staff.grants.map((g) => `${AREA_LABEL[g.area]} (${LEVEL_LABEL[g.level]})`).join(", ")}
             </div>
           )}
-          <div style={{ marginTop: 6, fontSize: 11 }}>
+          <div className="side-label" style={{ marginTop: 6, fontSize: "var(--text-xs)" }}>
             Counselors {ORG.phone} · Clients {ORG.clientPhone}
           </div>
           <form action="/auth/signout" method="post" style={{ marginTop: 10 }}>
-            <button className="btn ghost" type="submit" style={{ width: "100%" }}>
-              Sign out
+            <button className="btn ghost signout" type="submit" style={{ width: "100%" }} title="Sign out">
+              <NavIcon name="sign-out" />
+              <span className="side-label">Sign out</span>
             </button>
           </form>
         </div>

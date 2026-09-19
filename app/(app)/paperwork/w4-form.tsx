@@ -105,7 +105,7 @@ export function W4Form({ defaultName }: { defaultName: string }) {
         </label>
 
         <div className="alert" style={{ marginTop: 18 }}>
-          <label style={{ fontSize: 13, display: "block" }}>
+          <label style={{ fontSize: "var(--text-md)", display: "block" }}>
             <input
               type="checkbox"
               name="exempt"
@@ -126,7 +126,7 @@ export function W4Form({ defaultName }: { defaultName: string }) {
         {!exempt && (
           <>
             <h3 style={{ marginTop: 20 }}>Step 2 · More than one job</h3>
-            <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>
+            <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 4 }}>
               <input
                 type="checkbox"
                 name="multiple_jobs"
@@ -215,7 +215,7 @@ export function W4Form({ defaultName }: { defaultName: string }) {
           knowledge and belief, is true, correct, and complete.
         </div>
 
-        <label style={{ fontSize: 13, display: "block", marginBottom: 12 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 12 }}>
           <input type="checkbox" name="certify" style={{ width: "auto", marginRight: 8 }} required />
           I have read the declaration above and it is true
         </label>

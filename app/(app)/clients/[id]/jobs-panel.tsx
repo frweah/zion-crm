@@ -59,7 +59,7 @@ function CreatePlacement({ matchId }: { matchId: string }) {
     <div className="alert">
       A placement carries the 30, 60 and 90 day retention checks USOR measures, and the placement
       fee. Create it?
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
       <div className="row2" style={{ gap: 6, marginTop: 8 }}>
         <form action={action} style={{ display: "inline" }}>
           <input type="hidden" name="match_id" value={matchId} />
@@ -92,7 +92,7 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <b>{job.employer_name}</b>
-        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
           {job.title}
           {job.location && ` · ${job.location}`}
           {job.wage_range && ` · ${job.wage_range}`}
@@ -103,12 +103,12 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
             {job.contact_phone && ` · ${job.contact_phone}`}
           </div>
         )}
-        {job.outcome && <div style={{ fontSize: 12, marginTop: 2 }}>{job.outcome}</div>}
+        {job.outcome && <div style={{ fontSize: "var(--text-sm)", marginTop: 2 }}>{job.outcome}</div>}
       </div>
 
       <div style={{ whiteSpace: "nowrap" }}>
         <span className={"chip " + jobStatusTone(job.status)}>{job.status}</span>
-        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)", marginTop: 4 }}>
           {job.applied_on && <div>applied {job.applied_on}</div>}
           {job.interview_on && <div>interview {job.interview_on}</div>}
           {job.follow_up_on && <div>follow up {job.follow_up_on}</div>}
@@ -132,7 +132,7 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
 
         <Message state={state} />
         {remState.error && (
-          <div style={{ color: "var(--bad)", fontSize: 12 }}>{remState.error}</div>
+          <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{remState.error}</div>
         )}
 
         {open && (

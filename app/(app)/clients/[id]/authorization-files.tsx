@@ -50,7 +50,7 @@ export function OpenFile({ file }: { file: { storage_path: string } }) {
       <button className="btn ghost" type="submit" disabled={opening}>
         {opening ? "…" : "Open"}
       </button>
-      {state.error && <span style={{ color: "var(--bad)", fontSize: 12 }}> {state.error}</span>}
+      {state.error && <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}> {state.error}</span>}
     </form>
   );
 }
@@ -127,7 +127,7 @@ export function AuthorizationFiles({
       ) : (
         linked.map((f) => (
           <div key={f.id} className="row2" style={{ alignItems: "center", gap: 6 }}>
-            <b style={{ fontSize: 13 }}>{f.filename}</b>
+            <b style={{ fontSize: "var(--text-md)" }}>{f.filename}</b>
             {/* An invoice we sent: paid once a payment for this authorization is on file. */}
             {f.category === "Invoice" ? (
               <span className={"chip " + (paidOn ? "ok" : "warn")}>

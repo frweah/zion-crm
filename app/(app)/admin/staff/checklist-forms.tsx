@@ -45,7 +45,7 @@ function ItemControl({ row }: { row: ChecklistRow }) {
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : done ? `done ${row.done_on} — undo` : "Mark done"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -100,12 +100,12 @@ export function Checklist({
               ),
               item: (
                 <>
-                  <div style={{ opacity: done ? 0.65 : 1 }}>
+                  <div style={done ? { color: "var(--muted)" } : undefined}>
                     {r.label}
                     {!r.required && <span className="lock"> optional</span>}
                   </div>
                   {r.detail && <div className="lock">{r.detail}</div>}
-                  {r.note && <div style={{ fontSize: 12 }}>{r.note}</div>}
+                  {r.note && <div style={{ fontSize: "var(--text-sm)" }}>{r.note}</div>}
                 </>
               ),
               action: readOnly ? (

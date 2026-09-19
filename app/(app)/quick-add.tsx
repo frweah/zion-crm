@@ -98,6 +98,9 @@ export function QuickAdd({
       >
         <div
           className="card"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add something"
           onClick={(e) => e.stopPropagation()}
           style={{ width: "min(560px, 100%)", zIndex: 41 }}
         >

@@ -32,7 +32,7 @@ export function DeliveryConsent({ consentedOn }: { consentedOn: string | null })
       </p>
 
       <form action={action}>
-        <label style={{ fontSize: 13, display: "block", marginBottom: 10 }}>
+        <label style={{ fontSize: "var(--text-md)", display: "block", marginBottom: 10 }}>
           <input
             type="checkbox"
             name="consent"

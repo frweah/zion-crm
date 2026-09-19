@@ -131,7 +131,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                           {name}
                         </Link>
                         {canEdit && m.notes && (
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>{m.notes}</div>
+                          <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{m.notes}</div>
                         )}
                       </>
                     ),
@@ -141,7 +141,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                       <span className="chip">{m.status}</span>
                     ),
                     dates: (
-                      <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)", whiteSpace: "nowrap" }}>
                         {m.applied_on && <div>applied {m.applied_on}</div>}
                         {m.interview_on && <div>interview {m.interview_on}</div>}
                         {canEdit && m.decided_on && <div>decided {m.decided_on}</div>}
@@ -179,7 +179,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               </tbody>
             </table>
             {lead.requirements && (
-              <p style={{ fontSize: 13, marginTop: 10, whiteSpace: "pre-wrap" }}>
+              <p style={{ fontSize: "var(--text-md)", marginTop: 10, whiteSpace: "pre-wrap" }}>
                 {lead.requirements}
               </p>
             )}
@@ -188,7 +188,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           {employer && (
             <div className="card">
               <h3>Employer contact</h3>
-              <div style={{ fontSize: 13 }}>
+              <div style={{ fontSize: "var(--text-md)" }}>
                 {employer.contact_name && <div>{employer.contact_name}</div>}
                 {employer.contact_phone && <div>{employer.contact_phone}</div>}
                 {employer.contact_email && <div>{employer.contact_email}</div>}

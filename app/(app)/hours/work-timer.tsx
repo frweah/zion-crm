@@ -121,7 +121,7 @@ export function WorkTimer({
           </form>
         ) : (
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 22, fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+            <div style={{ fontSize: "var(--text-xl)", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
               {now ? clock(running.started_at, now) : "—"}
             </div>
             <div className="lock">since {new Date(running.started_at).toLocaleTimeString()}</div>

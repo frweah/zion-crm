@@ -30,8 +30,8 @@ function SyncNow() {
 function WhatSyncDoes() {
   return (
     <details style={{ marginTop: 10 }}>
-      <summary style={{ cursor: "pointer", fontSize: 13 }}>What the sync does</summary>
-      <ul style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0", paddingLeft: 18 }}>
+      <summary style={{ cursor: "pointer", fontSize: "var(--text-md)" }}>What the sync does</summary>
+      <ul style={{ fontSize: "var(--text-sm)", color: "var(--muted)", margin: "8px 0 0", paddingLeft: 18 }}>
         <li>
           <b>Calendar, both ways.</b> Appointments you create in the CRM go into your Outlook
           calendar. Outlook events tagged with a client number come back onto that client.

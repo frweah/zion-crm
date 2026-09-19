@@ -135,7 +135,7 @@ export function EmployerStatusControl({
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : "Save"}
       </button>
-      {state.error && <span style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</span>}
+      {state.error && <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</span>}
     </form>
   );
 }
@@ -242,7 +242,7 @@ export function LeadStatusControl({ leadId, status }: { leadId: string; status: 
       <button className="btn ghost" type="submit" disabled={pending}>
         {pending ? "…" : "Save"}
       </button>
-      {state.error && <span style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</span>}
+      {state.error && <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</span>}
     </form>
   );
 }
@@ -324,7 +324,7 @@ export function MatchStatusControl({
           {saving ? "…" : "Save"}
         </button>
       </form>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </>
   );
 }
@@ -347,7 +347,7 @@ export function MatchPlacementControl({
   return (
     <>
       {placeState.error && (
-        <div style={{ color: "var(--bad)", fontSize: 12 }}>{placeState.error}</div>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{placeState.error}</div>
       )}
         {match.placement_id ? (
           <Link

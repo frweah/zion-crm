@@ -81,7 +81,7 @@ export function PaperworkStrip({
                     <>
                       <b>{r.usor}</b>
                       {r.month && <span className="lock"> {r.month}</span>}
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.form_name}</div>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{r.form_name}</div>
                     </>
                   ),
                   authorization: (

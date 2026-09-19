@@ -51,7 +51,7 @@ export function DashboardTask({
         <span className={"chip " + (overdue ? "bad" : "")}>{due ?? "no date"}</span>
       </div>
       {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: 12, paddingBottom: 6 }}>{state.error}</div>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)", paddingBottom: 6 }}>{state.error}</div>
       )}
     </>
   );

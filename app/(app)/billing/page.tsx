@@ -286,7 +286,7 @@ export default async function BillingPage({
             <>
               <b>{i.number}</b>
               {i.warrant && (
-                <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)" }}>
                   {pageByInvoice.has(i.id) ? (
                     <a
                       href={`/billing/warrants/image/${pageByInvoice.get(i.id)}`}
@@ -345,14 +345,14 @@ export default async function BillingPage({
         >
           {(["0-30", "31-60", "61-90", "90+"] as const).map((k) => (
             <div key={k} className="card">
-              <div className="stat" style={{ fontSize: 18 }}>
+              <div className="stat" style={{ fontSize: "var(--text-xl)" }}>
                 {money(ar[k])}
                 <small>{k} days</small>
               </div>
             </div>
           ))}
           <div className="card" style={{ borderColor: "var(--lime)" }}>
-            <div className="stat" style={{ fontSize: 18 }}>
+            <div className="stat" style={{ fontSize: "var(--text-xl)" }}>
               {money(ar.total)}
               <small>total outstanding</small>
             </div>
@@ -414,6 +414,7 @@ export default async function BillingPage({
           <DataTable
             label="invoices"
             sortBy
+            pageSize={50}
             columns={[
               { key: "invoice", label: "Invoice" },
               { key: "service", label: "Service" },
@@ -589,6 +590,7 @@ export default async function BillingPage({
         <DataTable
           label="authorizations"
           sortBy
+          pageSize={50}
           columns={[
             { key: "number", label: "Auth #" },
             { key: "client", label: "Client" },

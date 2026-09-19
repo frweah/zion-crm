@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { money, today, daysBetween, median } from "@/lib/constants";
+import { Kpi, lastTwelveMonths, type MonthPoint } from "../kpi";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 
@@ -46,28 +47,8 @@ function periods(now: string): Period[] {
   ];
 }
 
-function Figure({
-  value,
-  label,
-  note,
-}: {
-  value: string | number;
-  label: string;
-  note?: string;
-}) {
-  return (
-    <div className="card">
-      <div className="stat">
-        {value}
-        <small>{label}</small>
-      </div>
-      {note && (
-        <p className="lock" style={{ margin: "6px 0 0" }}>
-          {note}
-        </p>
-      )}
-    </div>
-  );
+function Figure({ note, ...rest }: { note?: string } & Omit<Parameters<typeof Kpi>[0], "detail">) {
+  return <Kpi {...rest} detail={note} />;
 }
 
 export default async function OutcomesPage({
@@ -118,6 +99,16 @@ export default async function OutcomesPage({
 
   const authService = new Map(econ.map((e) => [e.auth_id, e.service_type ?? "—"]));
   const authClient = new Map(econ.map((e) => [e.auth_id, e.client_id]));
+
+  // The twelve months to the end of the period, for the figures that are
+  // counts of things that happen on a date.
+  const trend = lastTwelveMonths(end.slice(0, 7));
+  const perMonth = (dates: (string | null | undefined)[], amounts?: number[]): MonthPoint[] =>
+    trend.map((m) => ({
+      month: m,
+      value: dates.reduce((s, d, i) => (d && d.startsWith(m) ? s + (amounts ? amounts[i] : 1) : s), 0),
+    }));
+  const paidInvoices = invoices.filter((i) => i.status === "Paid");
 
   // ── who we worked with ────────────────────────────────────
   const referredInPeriod = clients.filter((c) => within(c.created_at.slice(0, 10)));
@@ -318,16 +309,37 @@ export default async function OutcomesPage({
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", marginBottom: 14 }}
       >
         <Figure value={servedIds.size} label="clients served" note="Hours logged, a placement started, or an invoice paid for them." />
-        <Figure value={referredInPeriod.length} label="new referrals" />
-        <Figure value={started.length} label="placements started" />
-        <Figure value={feesPaid.length} label="placement fees paid" note="A fee paid is USOR agreeing the placement stood." />
+        <Figure
+          value={referredInPeriod.length}
+          label="new referrals"
+          series={perMonth(clients.map((c) => c.created_at))}
+          describe={(v) => `${v} referred`}
+        />
+        <Figure
+          value={started.length}
+          label="placements started"
+          series={perMonth(placements.map((p) => p.start_date))}
+          describe={(v) => `${v} started`}
+        />
+        <Figure
+          value={feesPaid.length}
+          label="placement fees paid"
+          note="A fee paid is USOR agreeing the placement stood."
+          series={perMonth(placements.map((p) => p.jp_paid))}
+          describe={(v) => `${v} paid`}
+        />
         <Figure value={show(retention90, "%")} label="90-day retention" note={`${held90.length} of ${eligible90.length} eligible`} />
         <Figure
           value={medianWage === null ? "—" : money(medianWage / 100)}
           label="median starting wage"
         />
         <Figure value={show(medianHours)} label="median hours a week" />
-        <Figure value={money(receivedInPeriod)} label="received for services" />
+        <Figure
+          value={money(receivedInPeriod)}
+          label="received for services"
+          series={perMonth(paidInvoices.map((i) => i.paid_date), paidInvoices.map((i) => i.amount))}
+          describe={(v) => money(v)}
+        />
       </div>
 
       <div
@@ -425,7 +437,7 @@ export default async function OutcomesPage({
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>How these figures are counted</h3>
-        <ul style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+        <ul style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: "var(--text-md)", lineHeight: 1.6 }}>
           <li>
             <b>Clients served</b> — anyone with an hour logged, a placement started, or an invoice
             paid for their service inside the period.
@@ -449,7 +461,7 @@ export default async function OutcomesPage({
         {unmeasured.length > 0 && (
           <>
             <h3 style={{ marginBottom: 4 }}>What is not in the record</h3>
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: "var(--text-md)", lineHeight: 1.6 }}>
               {unmeasured.map((u) => (
                 <li key={u}>{u}</li>
               ))}

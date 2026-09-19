@@ -46,7 +46,7 @@ export default async function FormsLibraryPage() {
         client,
         month: f.month ?? "—",
         status: <span className={"chip " + (f.status === "Completed" ? "gold" : "")}>{f.status}</span>,
-        touched: <span style={{ fontSize: 12, color: "var(--muted)" }}>{touched}</span>,
+        touched: <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{touched}</span>,
       },
       sort: {
         form: formName(f.template_id),
@@ -69,7 +69,7 @@ export default async function FormsLibraryPage() {
         ),
         client,
         sent: (
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
             {fmtStamp(f.sent_at)} → {f.sent_to}
           </span>
         ),
@@ -87,8 +87,8 @@ export default async function FormsLibraryPage() {
         form: (
           <>
             <b>{t.usor}</b>
-            <div style={{ fontSize: 12 }}>{t.name}</div>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.due}</div>
+            <div style={{ fontSize: "var(--text-sm)" }}>{t.name}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)" }}>{t.due}</div>
           </>
         ),
         applies: t.incoming

@@ -152,7 +152,7 @@ function CorrectForm({
   return (
     <form action={action} style={{ minWidth: 280 }}>
       <input type="hidden" name="corrects_id" value={session.id} />
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
       <div className="row2" style={{ gap: 6 }}>
         <label className="field" style={{ maxWidth: 90, marginBottom: 0 }}>
           Hours
@@ -210,7 +210,7 @@ function CategoriseForm({
       <button className="btn ghost" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
         {pending ? "…" : "Save"}
       </button>
-      {state.error && <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>}
+      {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
     </form>
   );
 }
@@ -260,16 +260,16 @@ export function SessionList({
                 work: (
                   <div style={muted(s)}>
                     {s.description}
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                       {s.category_label || <span className="lock">no kind of time recorded</span>}
                     </div>
                     {s.corrects_id && (
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                         correction · {s.correction_reason}
                       </div>
                     )}
                     {s.voided && replacedBy && (
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
                         superseded — now {replacedBy.hours} hrs
                       </div>
                     )}
@@ -416,7 +416,7 @@ export function ApprovalActions({ statement }: { statement: Pick<ApprovalStateme
   return (
     <div style={{ textAlign: "right" }}>
       {(state.error ?? reopenState.error) && (
-        <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error ?? reopenState.error}</div>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error ?? reopenState.error}</div>
       )}
 
       {statement.status === "Submitted" && !returning && (

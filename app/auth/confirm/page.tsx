@@ -112,7 +112,7 @@ function Confirm() {
         <a className="btn ghost" href="/login" style={{ textDecoration: "none" }}>
           Back to sign in
         </a>
-        <p className="sub" style={{ marginTop: 16, marginBottom: 0, fontSize: 12 }}>
+        <p className="sub" style={{ marginTop: 16, marginBottom: 0, fontSize: "var(--text-sm)" }}>
           Still stuck? Contact {ORG.email}.
         </p>
       </div>

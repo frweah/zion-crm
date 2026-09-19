@@ -38,7 +38,7 @@ export function DownloadButton({
         {pending ? "Opening…" : (label ?? "Open")}
       </button>
       {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: 12 }}>{state.error}</div>
+        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>
       )}
     </form>
   );
