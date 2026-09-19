@@ -1520,3 +1520,59 @@ table.t tbody tr[aria-selected="true"] td {
 .composer .field {
   flex: 1;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Client texting (Messaging brief, A). Written for a phone first: the thread
+   fills the screen, the reply box and the templates are within a thumb's
+   reach, and nothing needs two hands.
+   ───────────────────────────────────────────────────────────── */
+.texting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+}
+.thread-list.texts {
+  max-height: 58vh;
+  padding: 4px;
+}
+.thread-list.texts .bubble {
+  max-width: 88%;
+}
+/* What the system did - a reminder going out, STOP, START - reads as a note
+   between the two sides rather than as either of them speaking. */
+.thread-list.texts .bubble.system {
+  align-self: center;
+  max-width: 100%;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-2);
+  font-size: var(--text-md);
+}
+.thread-list.texts .bubble.failed {
+  border-left: 3px solid var(--bad);
+}
+.templates {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 2px;
+}
+.templates .btn {
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .composer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .composer .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+  .thread-list.texts {
+    max-height: 62vh;
+  }
+  .thread-list.texts .bubble {
+    max-width: 95%;
+  }
+}

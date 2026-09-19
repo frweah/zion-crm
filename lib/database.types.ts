@@ -807,6 +807,7 @@ export type Database = {
           last_seq: number;
           archived_at: string | null;
           archived_by: string | null;
+          spam: boolean;
         };
         Insert: {
           id?: string;
@@ -822,6 +823,7 @@ export type Database = {
           last_seq?: number;
           archived_at?: string | null;
           archived_by?: string | null;
+          spam?: boolean;
         };
         Update: {
           id?: string;
@@ -837,6 +839,7 @@ export type Database = {
           last_seq?: number;
           archived_at?: string | null;
           archived_by?: string | null;
+          spam?: boolean;
         };
         Relationships: [];
       };
@@ -1824,6 +1827,7 @@ export type Database = {
           created_at: string;
           edited_at: string | null;
           removed_at: string | null;
+          source_sms_id: string | null;
         };
         Insert: {
           id?: string;
@@ -1839,6 +1843,7 @@ export type Database = {
           created_at?: string;
           edited_at?: string | null;
           removed_at?: string | null;
+          source_sms_id?: string | null;
         };
         Update: {
           id?: string;
@@ -1854,6 +1859,7 @@ export type Database = {
           created_at?: string;
           edited_at?: string | null;
           removed_at?: string | null;
+          source_sms_id?: string | null;
         };
         Relationships: [];
       };
@@ -2846,6 +2852,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           provider_payload: Json | null;
+          send_after: string | null;
         };
         Insert: {
           id?: string;
@@ -2863,6 +2870,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           provider_payload?: Json | null;
+          send_after?: string | null;
         };
         Update: {
           id?: string;
@@ -2880,6 +2888,40 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           provider_payload?: Json | null;
+          send_after?: string | null;
+        };
+        Relationships: [];
+      };
+      sms_templates: {
+        Row: {
+          id: string;
+          label: string;
+          body: string;
+          sort_order: number;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          label: string;
+          body: string;
+          sort_order?: number;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          body?: string;
+          sort_order?: number;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -4358,6 +4400,10 @@ export type Database = {
         Args: { p_task_id: string | null; p_status: string | null; p_outcome: string | null };
         Returns: undefined;
       };
+      assign_text_conversation: {
+        Args: { p_conversation: string | null; p_staff: string | null };
+        Returns: undefined;
+      };
       billing_office_reconciliation: {
         Args: { p_billing_office: string | null; p_within_days: number | null };
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; invoice_number: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
@@ -4486,9 +4532,17 @@ export type Database = {
         Args: { p_conversation: string | null; p_seq: number | null };
         Returns: undefined;
       };
+      mark_text_spam: {
+        Args: { p_conversation: string | null; p_spam: boolean | null };
+        Returns: undefined;
+      };
       match_inbox_folder: {
         Args: { p_folder: string | null };
         Returns: string;
+      };
+      match_text_conversation: {
+        Args: { p_conversation: string | null; p_client: string | null };
+        Returns: undefined;
       };
       messages_digest_due: {
         Args: Record<string, never>;
@@ -4509,6 +4563,10 @@ export type Database = {
       my_unread: {
         Args: Record<string, never>;
         Returns: { conversation_id: string | null; unread: number | null }[];
+      };
+      next_text_window: {
+        Args: { p_at: string | null };
+        Returns: string;
       };
       normalize_phone: {
         Args: { p_raw: string | null };
@@ -4606,6 +4664,10 @@ export type Database = {
         Args: { p_client: string | null; p_purpose: string | null };
         Returns: Json;
       };
+      referral_from_text: {
+        Args: { p_conversation: string | null; p_name: string | null };
+        Returns: string;
+      };
       refresh_microsoft_tokens: {
         Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: undefined;
@@ -4697,6 +4759,10 @@ export type Database = {
       submit_own_credential: {
         Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };
         Returns: string;
+      };
+      texts_inbox: {
+        Args: { p_show: string | null };
+        Returns: { conversation_id: string | null; client_id: string | null; client_name: string | null; phone: string | null; assigned_staff_id: string | null; assigned_name: string | null; last_message_at: string | null; last_body: string | null; unread: number | null; unmatched: boolean | null; spam: boolean | null; can_text: boolean | null }[];
       };
       timer_elapsed_hours: {
         Args: { p_started: string | null };

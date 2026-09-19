@@ -37,7 +37,9 @@ begin
        ('note_templates', 'body'), ('portal_terms', 'body'), ('records_requests', 'contents'),
        ('sms_messages', 'body'), ('sops', 'body'), ('staff_policies', 'body'), ('tour_hints', 'body'),
        -- Chat and texts, written in the CRM (0104) - never an email's body.
-       ('messages', 'body'));
+       ('messages', 'body'),
+       -- Text templates: the practice's own words, ready to send (0105).
+       ('sms_templates', 'body'));
   if v_extra is not null then
     failures := failures || format('FAILED: somewhere a message body could be kept: %s', v_extra)::text;
   else

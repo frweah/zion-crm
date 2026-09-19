@@ -19,6 +19,7 @@ import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
+import { TextThread } from "./messages-tab";
 import { RecordActions } from "./record-actions";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
@@ -194,6 +195,51 @@ export default async function ClientPage({
           />
         </div>
       </div>
+    );
+  }
+
+  // ── Messages: the client's texts, both ways (Messaging brief, A) ──
+  if (tab === "messages") {
+    const [{ data: conv }, { data: consent }, { data: templates }, { data: scheduled }, { data: window }] = await Promise.all([
+      supabase.from("conversations").select("id").eq("kind", "sms").eq("client_id", id).maybeSingle(),
+      supabase.from("client_sms_consent").select("can_text, consented_phone, client_phone, state").eq("client_id", id).maybeSingle(),
+      supabase.from("sms_templates").select("id, label, body").eq("active", true).order("sort_order"),
+      supabase.from("sms_messages").select("id, body, send_after").eq("client_id", id).eq("status", "Scheduled").order("send_after"),
+      supabase.rpc("next_text_window", { p_at: new Date().toISOString() }),
+    ]);
+
+    const { data: thread } = conv
+      ? await supabase
+          .from("messages")
+          .select("id, seq, sender_kind, sender_label, body, status, created_at")
+          .eq("conversation_id", conv.id)
+          .order("seq")
+          .limit(300)
+      : { data: [] };
+
+    const next = String(window ?? new Date().toISOString());
+    return (
+      <>
+        {header}
+        <TextThread
+          clientId={id}
+          clientName={detail.name}
+          conversationId={conv?.id ?? null}
+          messages={(thread ?? []) as never}
+          scheduled={(scheduled ?? []) as never}
+          templates={(templates ?? []) as never}
+          canText={Boolean(consent?.can_text)}
+          consentState={consent?.state ?? null}
+          phone={consent?.consented_phone ?? consent?.client_phone ?? ""}
+          canSend={canEdit}
+          insideHours={new Date(next).getTime() <= Date.now() + 60_000}
+          nextWindow={next}
+        />
+        <p className="lock" style={{ marginTop: 12 }}>
+          Every text here is on the client&apos;s Activity as well, and goes into their file if their record is ever
+          produced. Texts go out between 8am and 9pm, to the number they agreed to.
+        </p>
+      </>
     );
   }
 

@@ -128,7 +128,10 @@ export const NAV_GROUPS: NavGroup[] = [
     // join it (Messaging brief, 19 Sept 2026).
     key: "messages",
     label: "Messages",
-    items: [{ label: "Messages", href: "/messages", roles: EVERYONE }],
+    items: [
+      { label: "Messages", href: "/messages", roles: EVERYONE },
+      { label: "Texts", href: "/messages/texts", roles: EVERYONE },
+    ],
   },
   {
     key: "clients",

@@ -80,19 +80,19 @@ const EXPECTED = {
     "/billing", "/billing/export", "/billing/forms",
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
-    "/leads", "/mail", "/messages", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
     "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/mail", "/messages", "/paperwork", "/sops", "/tasks",
+    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
     "/billing/forms", "/calendar", "/clients", "/dashboard", "/hours",
-    "/leads", "/mail", "/messages", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
     "/billing", "/billing/export", "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/mail", "/messages", "/paperwork", "/sops",
+    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops",
   ],
 };
 
@@ -241,7 +241,11 @@ const OLD_CLIENT_TABS = [
   "activity", "overview", "intake", "notes", "forms", "files",
   "report", "placements", "tasks", "calendar", "authorizations", "payments",
 ];
-if (CLIENT_TABS.length > 6) fail(`the client record has ${CLIENT_TABS.length} tabs; six is the most a screen may have`);
+// Six was the consolidation's limit. Messages (Messaging brief, A) makes
+// seven, which the owner chose deliberately on 19 Sept 2026 over burying the
+// client's texts inside Activity. Seven is the limit now, and an eighth is a
+// conversation, not a commit.
+if (CLIENT_TABS.length > 7) fail(`the client record has ${CLIENT_TABS.length} tabs; seven is the most a screen may have`);
 const unmapped = OLD_CLIENT_TABS.filter((k) => !CLIENT_TABS.some((t) => t.key === k) && !MOVED_CLIENT_TABS[k]);
 if (unmapped.length) fail(`old client tabs with nowhere to go: ${unmapped.join(", ")}`);
 
@@ -264,7 +268,7 @@ for (const file of [
   if (oldLink.test(await readFile(file, "utf8"))) staleLinks.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
 }
 if (staleLinks.length) fail(`links to a client tab that moved: ${staleLinks.join(", ")}`);
-if (CLIENT_TABS.length <= 6 && !unmapped.length && !staleLinks.length) {
+if (CLIENT_TABS.length <= 7 && !unmapped.length && !staleLinks.length) {
   ok(`the client record has ${CLIENT_TABS.length} tabs, every old tab redirects to one, and no link names an old tab`);
 }
 

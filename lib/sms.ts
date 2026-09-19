@@ -67,9 +67,16 @@ export async function sendClientSms(
     eventId?: string | null;
     staffId?: string | null;
     ghlId?: string | null;
+    /**
+     * Written now, sent then (0105). The gate still decides: consent, the
+     * right number, and a time inside 8am-9pm. Nothing is sent here - the
+     * cron picks it up when the window opens.
+     */
+    sendAfter?: string | null;
   },
 ): Promise<SendResult> {
   // ── the permission check, which is also the record ─────────
+  const scheduled = Boolean(params.sendAfter);
   const { data: row, error: insertError } = await supabase
     .from("sms_messages")
     .insert({
@@ -79,7 +86,8 @@ export async function sendClientSms(
       body: params.body,
       kind: params.kind,
       event_id: params.eventId ?? null,
-      status: "Queued",
+      status: scheduled ? "Scheduled" : "Queued",
+      send_after: params.sendAfter ?? null,
       created_by: params.staffId ?? null,
     })
     .select("id")
@@ -100,6 +108,9 @@ export async function sendClientSms(
       .eq("id", row.id);
     return { ok: false, error, recorded: true };
   };
+
+  // Scheduled: recorded, and that is all for now.
+  if (scheduled) return { ok: true, id: row.id };
 
   // ── who to send it to ──────────────────────────────────────
   let contactId = params.ghlId ?? null;
@@ -189,5 +200,62 @@ export async function sendDueReminders(
     }
   }
 
+  return result;
+}
+
+/**
+ * Texts written for the next window (0105), now that it is open.
+ *
+ * Each one goes through the same send as any other, and the gate is asked
+ * again on the way: consent withdrawn overnight means it does not go.
+ */
+export async function sendScheduledTexts(
+  supabase: SupabaseClient<Database>,
+): Promise<{ sent: number; failed: number; errors: string[] }> {
+  const result = { sent: 0, failed: 0, errors: [] as string[] };
+
+  const { data: due, error } = await supabase
+    .from("sms_messages")
+    .select("id, client_id, phone, body, kind, created_by")
+    .eq("status", "Scheduled")
+    .lte("send_after", new Date().toISOString())
+    .limit(100);
+  if (error) {
+    result.errors.push(error.message);
+    return result;
+  }
+
+  for (const row of due ?? []) {
+    if (!row.client_id) continue;
+    const { data: client } = await supabase
+      .from("clients")
+      .select("name, ghl_id")
+      .eq("id", row.client_id)
+      .maybeSingle();
+
+    // Sent as a new message and the scheduled one closed, so the gate runs
+    // again rather than being remembered from last night.
+    const outcome = await sendClientSms(supabase, {
+      clientId: row.client_id,
+      clientName: client?.name ?? "",
+      phone: row.phone,
+      body: row.body,
+      kind: "Manual",
+      staffId: row.created_by,
+      ghlId: client?.ghl_id ?? null,
+    });
+
+    if (outcome.ok) {
+      await supabase.from("sms_messages").delete().eq("id", row.id);
+      result.sent += 1;
+    } else {
+      await supabase
+        .from("sms_messages")
+        .update({ status: "Failed", error: outcome.error.slice(0, 300) })
+        .eq("id", row.id);
+      result.failed += 1;
+      result.errors.push(`${client?.name ?? row.phone}: ${outcome.error}`);
+    }
+  }
   return result;
 }

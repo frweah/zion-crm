@@ -17,6 +17,9 @@ export const CLIENT_TABS = [
   { key: "jobs", label: "Jobs" },
   { key: "billing", label: "Billing" },
   { key: "documents", label: "Documents" },
+  // The client's texts, both ways (Messaging brief, A; owner, 19 Sept 2026 -
+  // a seventh tab, deliberately, rather than buried inside Activity).
+  { key: "messages", label: "Messages" },
 ] as const;
 
 export type ClientTab = (typeof CLIENT_TABS)[number]["key"];
