@@ -23,7 +23,7 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-underline-offset: 2px;
 }
 
@@ -129,13 +129,12 @@ textarea {
   min-height: 100vh;
 }
 
-/* A light sidebar: paper on the bone page, divided by one hairline. */
+/* A dark panel beside the cream page (owner, 19 Sept 2026). */
 .side {
   width: var(--side-wide);
   flex-shrink: 0;
-  background: var(--paper);
-  border-right: 1px solid var(--line);
-  color: var(--ink-2);
+  background: var(--side-bg);
+  color: var(--side-ink);
   padding: 20px 12px;
   display: flex;
   flex-direction: column;
@@ -150,7 +149,7 @@ textarea {
   font-size: var(--text-base);
   line-height: 20px;
   font-weight: 500;
-  color: var(--ink);
+  color: var(--side-ink);
 }
 
 .brand img {
@@ -164,7 +163,7 @@ textarea {
   font-size: var(--text-md);
   line-height: 18px;
   font-weight: 400;
-  color: var(--muted);
+  color: var(--side-muted);
 }
 
 .navb {
@@ -179,8 +178,8 @@ textarea {
   background: none;
   border: 0;
   border-radius: 6px;
-  /* Full ink at 500: at 14px on a light panel, ink-2 at 400 read as soft. */
-  color: var(--ink);
+  /* Warm off-white at 500 on the dark panel. */
+  color: var(--side-ink);
   font-size: var(--text-base);
   line-height: 22px;
   font-weight: 500;
@@ -188,25 +187,30 @@ textarea {
 }
 
 .navb:hover {
-  background: var(--bone);
-  color: var(--ink);
+  background: var(--side-hover);
+  color: var(--side-ink);
 }
 
 .navb.on {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--side-active-ink);
+  background: var(--side-active-bg);
   font-weight: 500;
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--side-active-ink);
+}
+
+.side a:focus-visible,
+.side button:focus-visible {
+  outline-color: var(--side-active-ink);
 }
 
 .navb .chev {
-  color: var(--muted);
+  color: var(--side-muted);
   font-size: var(--text-base);
   line-height: 1;
 }
 
 .navb.group.open {
-  color: var(--ink);
+  color: var(--side-ink);
   font-weight: 500;
 }
 
@@ -222,7 +226,7 @@ textarea {
   flex-direction: column;
   gap: 1px;
   margin: 2px 0 8px 16px;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--side-line);
 }
 
 /* "sub" is also the page subtitle class, which carries a bottom margin and a
@@ -232,30 +236,42 @@ textarea {
   margin: 0;
   padding-left: 14px;
   border-radius: 0 6px 6px 0;
-  color: var(--ink);
+  color: var(--side-ink);
   font-size: var(--text-base);
   line-height: 22px;
   font-weight: 500;
 }
 
 .navb.sub.on {
-  color: var(--accent);
+  color: var(--side-active-ink);
 }
 
 .roleblock {
   margin-top: auto;
   padding: 14px 10px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--side-line);
   font-size: var(--text-md);
   line-height: 18px;
-  color: var(--muted);
+  color: var(--side-muted);
 }
 
 .roleblock .who {
   font-size: var(--text-base);
   line-height: 20px;
   font-weight: 500;
-  color: var(--ink);
+  color: var(--side-ink);
+}
+
+/* Sign out, on the dark panel: an outline in the panel's own hairline. */
+.side .btn.ghost.signout {
+  background: transparent;
+  border-color: var(--side-line);
+  color: var(--side-ink);
+}
+.side .btn.ghost.signout:hover {
+  background: var(--side-hover);
+  border-color: var(--side-muted);
+  color: var(--side-ink);
 }
 
 .main {
@@ -524,7 +540,7 @@ tr.row {
 
 .chip.gold {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* ── centred pages (login, no access) ──────────────────────── */
@@ -574,7 +590,7 @@ tr.row {
 }
 
 .tabs a.on {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 500;
   border-bottom-color: var(--accent);
 }
@@ -626,7 +642,7 @@ tr.row {
 .bar i {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--accent-text);
 }
 
 .bar i.warn {
@@ -815,7 +831,7 @@ table.t th .sort:focus-visible {
 }
 .segmented a.on,
 .segmented button.on {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--accent-soft);
   color: var(--ink);
   font-weight: 500;
@@ -947,12 +963,12 @@ table.t tbody tr[aria-selected="true"] td {
 
 .side-toggle {
   margin-top: 8px;
-  color: var(--muted);
+  color: var(--side-muted);
   font-weight: 400;
 }
 
 .side-toggle:hover {
-  color: var(--ink);
+  color: var(--side-ink);
 }
 
 .signout {
@@ -1090,13 +1106,13 @@ table.t tbody tr[aria-selected="true"] td {
 }
 .spark-line {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--accent-text);
   stroke-width: 1.5;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 .spark-end {
-  fill: var(--accent);
+  fill: var(--accent-text);
   stroke: var(--paper);
   stroke-width: 1.5;
 }

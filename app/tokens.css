@@ -6,8 +6,9 @@
    control edge under 3:1). Change a value here and that check says whether it
    still reads.
 
-   Warm charcoal on bone, one accent - Zion's forest green - and muted status
+   Warm charcoal on bone, one accent - a muted gold - and muted status
    colours that are never the only signal: every chip and alert carries words.
+   The sidebar is a dark panel of its own. Zion's green is in the logo only.
    ───────────────────────────────────────────────────────────── */
 :root {
   /* ink and paper */
@@ -23,13 +24,29 @@
      and a field has to be findable (WCAG 1.4.11 asks 3:1 for its boundary). */
   --field-line: #8c857a;
 
-  /* the one accent */
-  --accent: #1f5a2e;
-  --accent-hover: #184a25;
-  --accent-ink: #ffffff;
-  --accent-soft: #e8efe9;
-  /* --accent-soft at 40% over paper: the table row under the pointer */
-  --accent-soft-hover: #f3f6f1;
+  /* The one accent: a muted gold (owner, 19 Sept 2026). As a fill - primary
+     buttons, the active tab's bar, the sidebar's current item - it is
+     #c9a46b, with ink on it (white on it is 2.3:1). As text on cream it is
+     too light (2.1:1), so links, active tab labels, focus rings and the
+     sparklines use the text gold (#7f6437), the nearest shade of the owner's
+     #9c7b45 that reaches 4.5:1 on every cream surface (#9c7b45 is 3.5:1). */
+  --accent: #c9a46b;
+  --accent-hover: #b8935a;
+  --accent-ink: var(--ink);
+  --accent-text: #7f6437;
+  --accent-soft: #f3ecdd;
+  /* the table row under the pointer */
+  --accent-soft-hover: #f8f4eb;
+
+  /* The sidebar: a dark panel. Text in warm off-white at 500; the current
+     item in gold on a slightly lighter slate, with a gold bar on its left. */
+  --side-bg: var(--ink);
+  --side-ink: #e9e5dc;
+  --side-muted: #b3ac9f;
+  --side-hover: #2a2824;
+  --side-active-bg: #302d28;
+  --side-active-ink: var(--accent);
+  --side-line: #3a3733;
 
   /* status: muted, always paired with a word */
   --ok: #3f7a4e;
@@ -50,7 +67,7 @@
   --disabled-bg: var(--line);
   --disabled-ink: var(--ink-2);
 
-  --focus: var(--accent);
+  --focus: var(--accent-text);
   /* The one translucent value, and only ever a backdrop behind a dialog -
      never a border, never text (check-theme holds both). */
   --scrim: rgb(31 29 26 / 0.35);
@@ -81,12 +98,12 @@
   /* Names the screens were written against, still used in about 170 inline
      styles. They point at the new palette so nothing needs rewriting to change
      colour - and nothing else defines a value. */
-  --forest: var(--accent);
-  --forest-2: var(--accent-hover);
+  --forest: var(--accent-text);
+  --forest-2: var(--accent-text);
   --forest-3: var(--line-strong);
-  --lime: var(--accent);
-  --lime-deep: var(--accent-hover);
-  --teal: var(--accent);
+  --lime: var(--accent-text);
+  --lime-deep: var(--accent-text);
+  --teal: var(--accent-text);
   --ivory: var(--bone);
   --card: var(--paper);
   --sand: var(--line-strong);

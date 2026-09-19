@@ -118,6 +118,9 @@ for (const file of [...sources.filter((f) => /\.(css|tsx)$/.test(f)), TOKENS]) {
     for (const m of line.matchAll(/\bopacity:\s*([^;,}]+)/g)) {
       if (Number(m[1].trim()) !== 1) say("fade", `${at} fades something with opacity (${m[1].trim()}); text is never faded`);
     }
+    // The fill gold is 2.1:1 on cream: as text it is --accent-text, always.
+    if (!isTokens && /(^|[^-])color:\s*"?var\(--accent\)/.test(line))
+      say("fade", `${at} uses the fill gold as text; use var(--accent-text)`);
     if (/backdrop-filter/.test(line)) say("glass", `${at} uses backdrop-filter; no glass`);
     if (/border[a-z-]*\s*:[^;]*var\(--scrim\)/.test(line)) say("glass", `${at} draws a border with --scrim; no translucent borders`);
     if (/prefers-color-scheme|data-theme/.test(line)) say("dark", `${at} adds a dark mode; there is none`);
@@ -156,23 +159,30 @@ const ratio = (a, b) => {
 const TEXT = [
   ["ink", "bone"], ["ink", "paper"], ["ink-2", "bone"], ["ink-2", "paper"],
   ["muted", "bone"], ["muted", "paper"], ["muted", "accent-soft-hover"],
-  ["accent", "paper"], ["accent", "bone"], ["accent", "accent-soft"],
+  // Gold as text on cream is --accent-text; the fill gold carries ink.
+  ["accent-text", "paper"], ["accent-text", "bone"], ["accent-text", "accent-soft"], ["accent-text", "accent-soft-hover"],
   ["accent-ink", "accent"], ["accent-ink", "accent-hover"],
   ["ink", "accent-soft-hover"], ["ink", "warn-soft"], ["ink", "ok-soft"], ["ink", "bad-soft"],
   ["ok", "paper"], ["ok-ink", "ok-soft"],
   ["warn-ink", "paper"], ["warn-ink", "warn-soft"],
   ["bad", "paper"], ["bad", "bone"], ["bad", "bad-soft"],
   ["ink-2", "accent-soft"],
-  // v2: a chosen row, a disabled control, a figure under the pointer
-  ["ink", "accent-soft"], ["muted", "accent-soft"], ["accent", "accent-soft-hover"],
+  // a chosen row, a disabled control, a figure under the pointer
+  ["ink", "accent-soft"], ["muted", "accent-soft"],
   ["bad", "accent-soft-hover"], ["warn-ink", "accent-soft-hover"],
   ["disabled-ink", "disabled-bg"],
+  // the dark sidebar: its text, the current item, its small print
+  ["side-ink", "side-bg"], ["side-ink", "side-hover"], ["side-ink", "side-active-bg"],
+  ["side-active-ink", "side-active-bg"], ["side-active-ink", "side-bg"],
+  ["side-muted", "side-bg"], ["side-muted", "side-hover"],
 ];
 const EDGES = [
   ["field-line", "paper"], ["field-line", "bone"],
   ["focus", "paper"], ["focus", "bone"],
-  // the sparkline's line against the figure it sits under
-  ["accent", "paper"],
+  // the sparkline's line, and a progress bar's fill against its track
+  ["accent-text", "paper"], ["accent-text", "line-strong"],
+  // the focus ring on the dark panel
+  ["side-active-ink", "side-bg"], ["side-active-ink", "side-hover"],
 ];
 
 let worst = Infinity;

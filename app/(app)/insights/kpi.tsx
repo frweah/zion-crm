@@ -15,7 +15,7 @@ export type MonthPoint = { month: string; value: number };
 
 const TONE: Record<string, string> = {
   bad: "var(--bad)",
-  good: "var(--accent)",
+  good: "var(--accent-text)",
   warn: "var(--warn-ink)",
 };
 
