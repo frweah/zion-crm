@@ -28,7 +28,7 @@ const inter = localFont({
 const serif = Source_Serif_4({ subsets: ["latin"], display: "swap", variable: "--font-source-serif" });
 
 export const metadata: Metadata = {
-  title: "Zion Vocational Rehab CRM",
+  title: "Zion Voc Rehab",
   description: "Client, billing and reporting system for Zion Vocational Rehabilitation Center.",
   robots: { index: false, follow: false },
 };

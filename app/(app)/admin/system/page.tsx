@@ -1,15 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/session";
+import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, today, CAN_EDIT_BILLING } from "@/lib/constants";
+import { today } from "@/lib/constants";
 import { PageHead } from "../../page-head";
-import { DataTable } from "../../data-table";
 import SettingsSection from "../settings/section";
 import NoteTemplatesSection from "../note-templates/section";
 import AccessLogSection from "../access/section";
-import ExportsSection from "../exports/section";
-import { AgentStatus } from "../inbox/agent-status";
 import { TaxYearEditor, type TaxYearRow } from "../contractors/contractor-forms";
 import { MileageRateForm } from "../../hours/expenses";
 import { SharedMailboxCard, type SharedMailboxRow } from "../../dashboard/shared-mailbox-card";
@@ -17,27 +13,22 @@ import { SharedMailboxCard, type SharedMailboxRow } from "../../dashboard/shared
 /**
  * Admin → System.
  *
- * Everything configured rather than worked: who the practice is, the rate
- * schedule, the tax years a 1099 run depends on, the mileage rate, the
- * headings a note starts with, the documents agent and the shared mailboxes -
- * and the records kept about the system itself, the access log and the monthly
- * export. Nothing configurable sits in a workflow screen any more.
- *
- * Billing reaches this page for the rate schedule, the agent's status and the
- * monthly export; the rest is Admin's, and is not shown to them.
+ * Everything configured rather than worked: who the practice is, the tax
+ * years a 1099 run depends on, the mileage rate, the headings a note starts
+ * with and the shared mailboxes - and the access log. Admin's alone (owner,
+ * 19 Sept 2026): the rate schedule and the monthly export are Billing → Export
+ * now, and the documents agent's status is on Billing → Documents.
  */
 export default async function SystemPage({
   searchParams,
 }: {
-  searchParams: Promise<{ client?: string; who?: string; subject?: string; days?: string; month?: string }>;
+  searchParams: Promise<{ client?: string; who?: string; subject?: string; days?: string }>;
 }) {
-  const me = await requireStaff();
-  if (!CAN_EDIT_BILLING.includes(me.role)) redirect("/dashboard");
-  const isAdmin = me.role === "Admin";
+  await requireAdmin();
+  const isAdmin = true;
 
   const supabase = await createClient();
-  const [{ data: rates }, { data: mileageRates }, { data: mailboxes }, { data: years }, { data: staff }] = await Promise.all([
-    supabase.from("rate_schedule").select("service, sub, fee, unit, funding_source").order("service"),
+  const [{ data: mileageRates }, { data: mailboxes }, { data: years }, { data: staff }] = await Promise.all([
     isAdmin
       ? supabase.from("mileage_rates").select("effective_from, cents_per_mile, note").order("effective_from", { ascending: false })
       : Promise.resolve({ data: [] }),
@@ -68,23 +59,20 @@ export default async function SystemPage({
     notes: y.notes,
   }));
 
-  const toc: [string, string][] = [];
-  if (isAdmin) toc.push(["organization", "Organization"]);
-  toc.push(["rates", "Rate schedule"]);
-  if (isAdmin) toc.push(["tax-years", "Tax years"], ["mileage", "Mileage rate"], ["note-headings", "Note headings"]);
-  toc.push(["agent", "Documents agent"]);
-  if (isAdmin) toc.push(["integrations", "Shared mailboxes"], ["access-log", "Access log"]);
-  toc.push(["export", "Monthly export"]);
+  const toc: [string, string][] = [
+    ["organization", "Organization"],
+    ["tax-years", "Tax years"],
+    ["mileage", "Mileage rate"],
+    ["note-headings", "Note headings"],
+    ["integrations", "Shared mailboxes"],
+    ["access-log", "Access log"],
+  ];
 
   return (
     <>
       <PageHead
         title="System"
-        context={
-          isAdmin
-            ? "How the practice is set up, and the records kept about the system itself"
-            : "The rate schedule, the documents agent, and the month as files"
-        }
+        context="How the practice is set up, and the records kept about the system itself"
         toc={toc}
       />
 
@@ -93,39 +81,6 @@ export default async function SystemPage({
           <SettingsSection />
         </section>
       )}
-
-      <section id="rates" className="page-section">
-        <h2 className="h2">Rate schedule</h2>
-        <p className="sub">
-          The CRP rate schedule from the Voc Rehab Workbook. New authorizations are pre-filled from
-          it, and it is keyed by funding source so a second funder can be added without code
-          changes.
-        </p>
-        <div className="card" style={{ padding: 0 }}>
-          <DataTable
-            label="rates"
-            columns={[
-              { key: "service", label: "Service" },
-              { key: "sub", label: "Subcategory" },
-              { key: "fee", label: "Approved fee", align: "right" },
-              { key: "unit", label: "Unit" },
-              { key: "funder", label: "Funder" },
-            ]}
-            rows={(rates ?? []).map((r, i) => ({
-              key: `${r.funding_source}-${r.service}-${r.sub}-${i}`,
-              sort: { fee: Number(r.fee) },
-              cells: {
-                service: r.service,
-                sub: r.sub,
-                fee: money(r.fee),
-                unit: r.unit,
-                funder: r.funding_source,
-              },
-            }))}
-            empty="The rate schedule is empty."
-          />
-        </div>
-      </section>
 
       {isAdmin && (
         <section id="tax-years" className="page-section">
@@ -165,16 +120,6 @@ export default async function SystemPage({
         </section>
       )}
 
-      <section id="agent" className="page-section">
-        <h2 className="h2">Documents agent</h2>
-        <p className="sub">
-          The program on the office PC that reads the client folders and posts what it finds to{" "}
-          <Link href="/admin/documents">Admin → Documents</Link>. It runs every fifteen minutes when
-          the machine is on.
-        </p>
-        <AgentStatus />
-      </section>
-
       {isAdmin && (
         <section id="integrations" className="page-section">
           <h2 className="h2">Shared mailboxes</h2>
@@ -192,9 +137,6 @@ export default async function SystemPage({
         </section>
       )}
 
-      <section id="export" className="page-section">
-        <ExportsSection searchParams={searchParams} />
-      </section>
     </>
   );
 }

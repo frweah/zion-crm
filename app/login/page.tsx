@@ -78,7 +78,7 @@ function LoginForm() {
 
   return (
     <div className="panel">
-      <h1>Zion Vocational Rehab CRM</h1>
+      <h1>Zion Voc Rehab</h1>
       <p className="sub">Sign in with your work email address.</p>
 
       {message && <div className="alert bad">{message}</div>}

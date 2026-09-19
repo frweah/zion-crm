@@ -277,24 +277,24 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Find something USOR sent that is in the documents folder",
-        where: "Admin → Documents — read, sorted, and waiting for somebody to confirm",
-        href: "/admin/documents",
+        where: "Billing → Documents — read, sorted, and waiting for somebody to confirm",
+        href: "/billing/documents",
       },
       {
         ask: "Say whose folder a document came out of",
-        where: "Admin → Documents — the folders nobody has claimed are at the top",
-        href: "/admin/documents",
+        where: "Billing → Documents — the folders nobody has claimed are at the top",
+        href: "/billing/documents",
       },
       {
         ask: "Check the documents agent is still running",
-        where: "Admin → System — it says when it last ran and what it found",
-        href: "/admin/system#agent",
+        where: "Billing → Documents — it says when it last ran and what it found",
+        href: "/billing/documents#agent",
         roles: ["Admin", "Billing"],
       },
       {
         ask: "Send the accountant the month",
-        where: "Admin → System → Monthly export",
-        href: "/admin/system#export",
+        where: "Billing → Export",
+        href: "/billing/export",
         roles: ["Admin", "Billing"],
       },
       {

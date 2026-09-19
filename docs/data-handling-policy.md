@@ -6,6 +6,9 @@
 Every person with a login to the Zion CRM signs this before their first use of
 the system. It is what a counselor, USOR, or an auditor will ask to see.
 
+*Version 2, 19 September 2026: rule 2, on AI tools, is new. The text people
+sign in the CRM is stored there (staff_policies); this file matches it.*
+
 ---
 
 ## What this covers
@@ -23,37 +26,42 @@ to disclose it in order to get help finding work. It is handled accordingly.
    laptop, not in a notes app. If you need it somewhere, that is a reason to
    fix the CRM, not to copy the data out of it.
 
-2. **Your login is yours alone.** Sharing a login is prohibited, including with
+2. **Microsoft 365 Copilot Chat is the only AI tool client information may be
+   entered into** - signed in with your Zion work account, from the Copilot
+   link in the CRM's sidebar. Not ChatGPT, not Gemini, not Copilot under a
+   personal Microsoft account, and no other AI service, on any device.
+
+3. **Your login is yours alone.** Sharing a login is prohibited, including with
    another member of staff. Every note, form and invoice records who did it;
    a shared login makes that record a lie. Do not save your password in a
    shared browser profile.
 
-3. **Access is need-to-know.** Your role determines what you can see. Dates of
+4. **Access is need-to-know.** Your role determines what you can see. Dates of
    birth, addresses, intake records and DWS-USOR 94 and 98 content are
    restricted to the administrator, Intake & Reports, and the staff member
    assigned to that client. Do not ask a colleague to look something up for you
    that your own role does not give you.
 
-4. **Client documents go into the client record.** Signed USOR forms, work
+5. **Client documents go into the client record.** Signed USOR forms, work
    schedules and authorizations are uploaded to the client in the CRM — not
    left in a Downloads folder, an email attachment, or a desk drawer. Delete
    local copies once uploaded.
 
-5. **Texting and calling.** Until the CRM handles messaging directly, use the
+6. **Texting and calling.** Until the CRM handles messaging directly, use the
    business lines — 801-657-6671 for counselors, 385-406-3432 for clients — and
    log the outcome in the CRM. Do not use a personal number.
 
-6. **Departing staff lose access the same day.** The administrator deactivates
+7. **Departing staff lose access the same day.** The administrator deactivates
    the account, which cuts off access immediately. Anyone leaving returns any
    printed client material before their last day.
 
-7. **Report any suspected exposure to the owner immediately.** A phone left in
+8. **Report any suspected exposure to the owner immediately.** A phone left in
    a taxi, an email sent to the wrong counselor, a document left on a printer,
    a login you think someone else has used. Same day, no exceptions, no blame
    for reporting. The damage from a late report is always worse than the damage
    from the mistake.
 
-8. **Do not discuss client information where it can be overheard**, and do not
+9. **Do not discuss client information where it can be overheard**, and do not
    share it with family, friends, or on social media — including details you
    think are anonymous. In a caseload this size, they are not.
 

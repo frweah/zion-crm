@@ -35,10 +35,12 @@ declare
   v_cred      uuid;
   v_n         bigint;
   v_b         boolean;
+  v_ver       integer;
   failures    text[] := '{}';
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff
    where role = 'Admin' and active and user_id is not null order by created_at, id limit 1;
+  select version into v_ver from public.staff_policies where key = 'data-handling' and is_current;
 
   insert into public.staff (name, email, role, active)
   values ('ZZ Onboard New', 'zz-onboard-new@example.test', 'Job Search', true) returning id into v_new;
@@ -162,16 +164,16 @@ begin
   insert into public.staff_files (staff_id, storage_path, filename, mime_type, size_bytes, category, uploaded_by)
   values (v_new, 'zz/policy.pdf', 'policy.pdf', 'application/pdf', 10, 'Signed policy', v_new) returning id into v_pol_file;
   begin
-    perform public.sign_staff_policy('data-handling', 1, 'ZZ Somebody Else', '', v_pol_file, '');
+    perform public.sign_staff_policy('data-handling', v_ver, 'ZZ Somebody Else', '', v_pol_file, '');
     failures := failures || 'FAILED: the policy was signed in a name other than the legal name on file'::text;
   exception when check_violation then null;
   end;
   begin
-    perform public.sign_staff_policy('data-handling', 1, 'ZZ Onboard Newperson', '', v_col_file, '');
+    perform public.sign_staff_policy('data-handling', v_ver, 'ZZ Onboard Newperson', '', v_col_file, '');
     failures := failures || 'FAILED: the signed copy was put on a colleague''s file'::text;
   exception when insufficient_privilege then null;
   end;
-  perform public.sign_staff_policy('data-handling', 1, 'zz onboard newperson', '203.0.113.9', v_pol_file, 'abc');
+  perform public.sign_staff_policy('data-handling', v_ver, 'zz onboard newperson', '203.0.113.9', v_pol_file, 'abc');
   if not public.onboarding_step_done(v_new, 'policy_signed')
      or (select text_sha256 from public.staff_policy_signatures where staff_id = v_new)
         <> (select text_sha256 from public.staff_policies where key = 'data-handling' and is_current) then

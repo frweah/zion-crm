@@ -38,8 +38,8 @@ export default async function BillingPage({
   const { tab: rawTab, show, filter, bo: rawBo, reconcile } = await searchParams;
 
   // Completions and the rate schedule were tabs. Completions sit under
-  // Authorizations now; the rate schedule is a setting, in Admin → System.
-  if (rawTab === "rates") redirect("/admin/system#rates");
+  // Authorizations now; the rate schedule is on Billing → Export.
+  if (rawTab === "rates") redirect("/billing/export#rates");
   if (rawTab === "completions") redirect("/billing?tab=authorizations#completions");
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
 
@@ -558,7 +558,7 @@ export default async function BillingPage({
 
       {(waitingInInbox ?? 0) > 0 && (
         <div className="alert" style={{ marginBottom: 12 }}>
-          <Link href="/admin/documents#inbox" style={{ color: "inherit" }}>
+          <Link href="/billing/documents#inbox" style={{ color: "inherit" }}>
             <b>
               {waitingInInbox} authorization{waitingInInbox === 1 ? "" : "s"} from documents awaiting
               confirmation

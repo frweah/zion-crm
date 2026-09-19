@@ -71,25 +71,27 @@ if (orphans.length) {
 // The consolidation (Sept 2026) put these on fewer sidebar entries, so the
 // paths listed here are the entries; screens under them (/dashboard/needs,
 // /billing/import, /billing/warrants, a records request) are reached through
-// them. Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026).
+// them. Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026),
+// and so is the whole Admin group (19 Sept 2026): the document inbox, the
+// agent's status, the monthly export and the rate schedule are under Billing.
 const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/system",
-    "/billing", "/billing/forms",
+    "/billing", "/billing/documents", "/billing/export", "/billing/forms",
     "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
     "/leads", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
-    "/admin/documents", "/billing/forms", "/clients", "/counselors", "/dashboard",
+    "/billing/documents", "/billing/forms", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
-    "/admin/documents", "/billing/forms", "/clients", "/dashboard", "/hours",
+    "/billing/documents", "/billing/forms", "/clients", "/dashboard", "/hours",
     "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
-    "/admin/documents", "/admin/system", "/billing", "/billing/forms", "/clients", "/counselors", "/dashboard",
+    "/billing", "/billing/documents", "/billing/export", "/billing/forms", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/paperwork", "/sops",
   ],
 };
@@ -176,19 +178,19 @@ for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.area)) {
 if (mismatch.length) fail(`the navigation and the role defaults disagree for: ${mismatch.join(", ")}`);
 else ok("the sidebar and the role defaults agree on every area");
 
-// No grant, of anything, opens People, System, Capacity or Statement approvals
-// to somebody whose role does not include them.
+// No grant, of anything, opens the Admin group, Capacity or Statement
+// approvals to somebody whose role does not include them.
 const everything = AREAS.flatMap((area) => AREA_LEVELS[area].map((level) => ({ area, level })));
 for (const role of ["Job Search", "Reports", "Billing"]) {
   const reach = reachableFor({ role, grants: everything }).map((i) => navPath(i.href));
-  const never = ["/admin/people", "/insights/capacity"].concat(role === "Billing" ? [] : ["/admin/system"]);
+  const never = ["/admin/people", "/admin/documents", "/admin/system", "/insights/capacity"];
   const leak = never.filter((p) => reach.includes(p));
   if (leak.length) fail(`${role} given every area reaches ${leak.join(", ")}, which no grant may open`);
   if (reach.includes("/hours") && reachableFor({ role, grants: everything }).some((i) => i.label === "Statement approvals")) {
     fail(`${role} given every area reaches Statement approvals`);
   }
 }
-ok("no grant opens People, Admin → System, Capacity or Statement approvals");
+ok("no grant opens Admin (People, Documents, System), Capacity or Statement approvals");
 
 // ── everything that moved still answers ──────────────────────
 const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");

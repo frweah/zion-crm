@@ -7,8 +7,8 @@ import { DataTable } from "../../data-table";
  *
  * An agent that quietly stopped three weeks ago looks exactly like a quiet
  * month, so this says when it was last heard from and what it found. It was the
- * top of the document inbox; it is part of the system, so it lives in
- * Admin → System.
+ * top of the document inbox, then in Admin → System; it is on Billing →
+ * Documents now, under the inbox it feeds.
  */
 export async function AgentStatus() {
   const supabase = await createClient();

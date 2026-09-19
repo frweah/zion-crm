@@ -1,66 +1,36 @@
-import { can } from "@/lib/roles";
-import Link from "next/link";
-import { requireStaff } from "@/lib/session";
-
+import { requireAdmin } from "@/lib/session";
 import { PageHead } from "../../page-head";
-import InboxSection from "../inbox/section";
 import RetentionSection from "../retention/section";
 import RecordsRequestSection from "../records-request/section";
 
 /**
  * Admin → Documents.
  *
- * What arrives, what is kept, and what goes out: the document inbox (every
- * role reviews it), then - for Admin - how long records are kept and the
- * requests for a person's file. Reading an authorization PDF is the header's
- * action for the roles that can. These were the Document inbox, Retention and
- * Records requests screens; the old paths redirect here.
- *
- * Warrant review is not here: it is money, and lives on Billing → Invoices.
- * Whether the documents agent is running is in Admin → System.
+ * How long records are kept, and requests for a person's file - Admin's
+ * alone. The document inbox that used to open this page is Billing →
+ * Documents now (owner, 19 Sept 2026), with the documents agent's status.
  */
 export default async function DocumentsPage() {
-  const me = await requireStaff();
-  const isAdmin = me.role === "Admin";
-  const canReadPdf = can(me, "billing", "edit");
-
-  const toc: [string, string][] = [["inbox", "Document inbox"]];
-  if (isAdmin) toc.push(["retention", "Retention"], ["records-requests", "Records requests"]);
+  await requireAdmin();
 
   return (
     <>
       <PageHead
         title="Documents"
-        context={
-          isAdmin
-            ? "What has arrived and is waiting, how long records are kept, and requests for a person's file"
-            : "What has arrived from the client folders and is waiting for somebody to say what it is"
-        }
-        actions={
-          canReadPdf ? (
-            <Link className="btn ghost" href="/billing/import" style={{ textDecoration: "none" }}>
-              Read an authorization PDF
-            </Link>
-          ) : undefined
-        }
-        toc={toc}
+        context="How long records are kept, and requests for a person's file"
+        toc={[
+          ["retention", "Retention"],
+          ["records-requests", "Records requests"],
+        ]}
       />
 
-      <section id="inbox" className="page-section">
-        <InboxSection />
+      <section id="retention" className="page-section">
+        <RetentionSection />
       </section>
 
-      {isAdmin && (
-        <section id="retention" className="page-section">
-          <RetentionSection />
-        </section>
-      )}
-
-      {isAdmin && (
-        <section id="records-requests" className="page-section">
-          <RecordsRequestSection />
-        </section>
-      )}
+      <section id="records-requests" className="page-section">
+        <RecordsRequestSection />
+      </section>
     </>
   );
 }

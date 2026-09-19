@@ -1134,3 +1134,11 @@ table.t tbody tr[aria-selected="true"] td {
   min-height: 32px;
   padding: 4px 12px;
 }
+
+/* Copilot: a link out of the CRM, set apart from the groups by a hairline. */
+.side-rule {
+  width: 100%;
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--side-line);
+}

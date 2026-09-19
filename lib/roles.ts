@@ -144,6 +144,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Service log", href: "/billing?tab=log", roles: BILLS, area: "billing" },
       { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS, area: "billing" },
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
+      // The document inbox is everybody's to review; the agent's status on the
+      // same page is shown to Billing. Moved from Admin (owner, 19 Sept 2026)
+      // so that Admin is Admin's alone.
+      { label: "Documents", href: "/billing/documents", roles: EVERYONE },
+      // The month as files, and the rate schedule. Also from Admin → System.
+      { label: "Export", href: "/billing/export", roles: BILLS, area: "billing" },
     ],
   },
   {
@@ -175,13 +181,13 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: "admin",
     label: "Admin",
+    // Admin's alone (owner, 19 Sept 2026). What Billing used here - the
+    // document inbox, the agent's status, the monthly export and the rate
+    // schedule - is under Billing now.
     items: [
       { label: "People", href: "/admin/people", roles: ADMIN },
-      // The document inbox is everybody's; retention and records requests on
-      // the same page are Admin's, and the page shows them to Admin only.
-      { label: "Documents", href: "/admin/documents", roles: EVERYONE },
-      // Billing reaches System for the monthly export; the rest is Admin's.
-      { label: "System", href: "/admin/system", roles: BILLS },
+      { label: "Documents", href: "/admin/documents", roles: ADMIN },
+      { label: "System", href: "/admin/system", roles: ADMIN },
     ],
   },
 ];

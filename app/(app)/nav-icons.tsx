@@ -61,6 +61,13 @@ const PATHS: Record<string, React.ReactNode> = {
       <circle cx="18" cy="18" r="2" />
     </>
   ),
+  // A spark: Microsoft 365 Copilot Chat, outside the CRM.
+  copilot: (
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
+    </>
+  ),
   "sign-out": (
     <>
       <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />

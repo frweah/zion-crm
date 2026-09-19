@@ -56,7 +56,7 @@ export async function mapFolder(_prev: InboxState, formData: FormData): Promise<
       .is("client_id", null);
   }
 
-  revalidatePath("/admin/documents");
+  revalidatePath("/billing/documents");
   return {
     error: null,
     ok: notAClient
@@ -124,7 +124,7 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
     })
     .eq("id", id);
 
-  revalidatePath("/admin/documents");
+  revalidatePath("/billing/documents");
   revalidatePath(`/clients/${doc.client_id}`);
   return { error: null, ok: `Filed against the client as ${category}.` };
 }
@@ -154,7 +154,7 @@ export async function ignoreDocument(_prev: InboxState, formData: FormData): Pro
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/documents");
+  revalidatePath("/billing/documents");
   return { error: null, ok: "Set aside. The file stays where it is on the machine." };
 }
 
@@ -196,7 +196,7 @@ export async function linkNamedDocument(_prev: InboxState, formData: FormData): 
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/documents");
+  revalidatePath("/billing/documents");
   revalidatePath("/clients", "layout");
   return {
     error: null,
@@ -236,7 +236,7 @@ export async function replacePlaceholder(_prev: InboxState, formData: FormData):
   if (error) return { error: error.message, ok: null };
 
   const row = Array.isArray(data) ? data[0] : null;
-  revalidatePath("/admin/documents");
+  revalidatePath("/billing/documents");
   revalidatePath("/billing");
   revalidatePath("/clients", "layout");
   return {
@@ -298,7 +298,7 @@ export async function confirmAuthorization(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/admin/documents");
+  revalidatePath("/billing/documents");
   revalidatePath("/billing");
   revalidatePath("/clients", "layout");
   return { error: null, ok: describeConfirmation(Array.isArray(data) ? data[0] : null) };

@@ -7,12 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 import { InboxView, type PendingRow, type Placeholder } from "./inbox-view";
 
 /**
- * The document inbox, a section of Admin → Documents.
+ * The document inbox, a section of Billing → Documents.
  *
  * An agent on the owner's machine posts every PDF from the client folders.
  * Nothing it sends is filed on arrival — this is where a person looks at what
- * arrived and says what it is. Whether the agent is running is shown in
- * Admin → System (./agent-status.tsx).
+ * arrived and says what it is. Whether the agent is running is shown below it
+ * on the same page (./agent-status.tsx).
  */
 const CAN_REVIEW = ["Admin", "Billing", "Job Search", "Reports"];
 
@@ -47,7 +47,7 @@ export default async function InboxSection() {
         {canBill && (
           <>
             {" "}
-            Whether the agent is running: <Link href="/admin/system#agent">Admin → System</Link>.
+            Whether the agent is running: <Link href="#agent">further down this page</Link>.
           </>
         )}
       </p>

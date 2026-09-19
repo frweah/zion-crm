@@ -62,16 +62,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <nav className="side" aria-label="Main">
         <div className="brand">
           <Image src="/zion-logo.png" alt="" width={36} height={36} priority />
-          <span className="side-label">
-            Zion Vocational Rehab
-            <small>CRM</small>
-          </span>
+          <span className="side-label">Zion Voc Rehab</span>
         </div>
 
         {/* It reads ?tab= to tell same-path screens apart, like the tab strip. */}
         <Suspense fallback={null}>
           <NavLinks groups={nav} />
         </Suspense>
+
+        {/* Microsoft 365 Copilot Chat: the one AI tool client information may
+            go into (data-handling policy, rule 2). It opens in a new tab,
+            outside the CRM; nothing from here is sent to it. */}
+        <hr className="side-rule" />
+        <a
+          className="navb side-external"
+          href="https://m365.cloud.microsoft/chat"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Microsoft 365 Copilot Chat - opens in a new tab"
+          aria-label="Copilot: Microsoft 365 Copilot Chat, opens in a new tab"
+        >
+          <NavIcon name="copilot" />
+          <span className="side-label">Copilot</span>
+        </a>
 
         <SidebarToggle initial={narrow} />
 
