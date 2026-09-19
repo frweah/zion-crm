@@ -200,7 +200,7 @@ function ReplacePlaceholder({
   );
 }
 
-function AuthorizationProposal({
+export function AuthorizationProposal({
   doc,
   canBill,
   placeholders,

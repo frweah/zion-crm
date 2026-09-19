@@ -19,12 +19,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }] = await Promise.all([
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: policyDue }] = await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
     supabase.from("staff_prefs").select("key").like("key", "hint:%"),
     // Kept to icons by choice (the width alone does it below 1100px).
     supabase.from("staff_prefs").select("key").eq("key", "sidebar:narrow").maybeSingle(),
+    // A policy version in force they have not signed (0103).
+    supabase.rpc("policy_signature_due"),
   ]);
   const narrow = Boolean(narrowPref);
   const nav = navFor(staff);
@@ -43,6 +45,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // and resumed; signing in again lands them back on it.
   if (staff.onboardingOpen && pathname && !pathname.startsWith("/paperwork")) {
     redirect("/paperwork/onboarding");
+  }
+
+  // A new version of a staff policy is signed before anything else, on the
+  // next sign-in and every screen after until it is (owner, 19 Sept 2026).
+  // The onboarding walkthrough has its own policy step, so it goes first.
+  if (policyDue === true && !staff.onboardingOpen && pathname && !pathname.startsWith("/paperwork")) {
+    redirect("/paperwork/policy");
   }
 
   // The hint for this screen, if there is one this person has not put away.

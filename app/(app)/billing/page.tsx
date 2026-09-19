@@ -21,6 +21,7 @@ import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-office
 import { buildReconciliation, ENDING_WITHIN_DAYS } from "@/lib/reconcile";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { ReconcilePanel } from "./reconcile-panel";
+import PendingAuthorizations from "./pending-authorizations";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
@@ -32,10 +33,10 @@ const TABS = ["authorizations", "log", "invoices"];
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; show?: string; filter?: string; bo?: string; reconcile?: string }>;
+  searchParams: Promise<{ tab?: string; show?: string; filter?: string; bo?: string; reconcile?: string; doc?: string }>;
 }) {
   const me = await requireStaff();
-  const { tab: rawTab, show, filter, bo: rawBo, reconcile } = await searchParams;
+  const { tab: rawTab, show, filter, bo: rawBo, reconcile, doc: rawDoc } = await searchParams;
 
   // Completions and the rate schedule were tabs. Completions sit under
   // Authorizations now; the rate schedule is on Billing → Export.
@@ -463,10 +464,9 @@ export default async function BillingPage({
   const closedCount = inOfficeAuths.filter((a) => a.status !== "Open").length;
   const shownAuths = inOfficeAuths.filter((a) => showAll || a.status === "Open");
 
-  const [{ data: completions }, { count: waitingInInbox }] = await Promise.all([
-    supabase.from("completions").select("id, auth_id, start_date, completion, billed, notes"),
-    supabase.from("inbox_pending").select("id", { count: "exact", head: true }).eq("kind", "Authorization"),
-  ]);
+  const { data: completions } = await supabase
+    .from("completions")
+    .select("id, auth_id, start_date, completion, billed, notes");
   const authById = new Map(auths.map((a) => [a.id, a]));
 
   const authRows: DataRow[] = shownAuths.map((a) => {
@@ -556,16 +556,14 @@ export default async function BillingPage({
     <>
       {header}
 
-      {(waitingInInbox ?? 0) > 0 && (
-        <div className="alert" style={{ marginBottom: 12 }}>
-          <Link href="/billing/documents#inbox" style={{ color: "inherit" }}>
-            <b>
-              {waitingInInbox} authorization{waitingInInbox === 1 ? "" : "s"} from documents awaiting
-              confirmation
-            </b>{" "}
-            — confirm them in the document inbox.
-          </Link>
-        </div>
+      {canBill && (
+        <PendingAuthorizations
+          selected={rawDoc && /^[0-9a-f-]{36}$/.test(rawDoc) ? rawDoc : null}
+          hrefFor={(docId) => {
+            const base = withBo(showAll ? "/billing?tab=authorizations&show=all" : "/billing?tab=authorizations", bo);
+            return docId ? `${base}&doc=${docId}#from-documents` : `${base}#from-documents`;
+          }}
+        />
       )}
 
       <BillingOfficeFilter

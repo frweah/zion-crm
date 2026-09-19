@@ -4280,6 +4280,10 @@ export type Database = {
         Args: { p_staff: string | null; p_area: string | null; p_level: string | null; p_reason: string | null };
         Returns: string;
       };
+      inbox_document_open_to_me: {
+        Args: { p_doc: string | null };
+        Returns: boolean;
+      };
       inbox_seen: {
         Args: { p_hashes: string | null };
         Returns: { sha256: string | null; known: boolean | null }[];
@@ -4367,6 +4371,10 @@ export type Database = {
       period_start: {
         Args: { d: string | null };
         Returns: string;
+      };
+      policy_signature_due: {
+        Args: Record<string, never>;
+        Returns: boolean;
       };
       practice_today: {
         Args: Record<string, never>;

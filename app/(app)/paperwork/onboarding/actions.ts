@@ -272,6 +272,8 @@ export async function signPolicy(_prev: OnboardingState, formData: FormData): Pr
   }
 
   revalidatePath(PATH);
+  // Every screen checks for an unsigned version (the layout), so all of them.
+  revalidatePath("/", "layout");
   return { error: null, ok: "Signed. The signed copy is on your file." };
 }
 

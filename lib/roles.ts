@@ -144,11 +144,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Service log", href: "/billing?tab=log", roles: BILLS, area: "billing" },
       { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS, area: "billing" },
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
-      // The document inbox is everybody's to review; the agent's status on the
-      // same page is shown to Billing. Moved from Admin (owner, 19 Sept 2026)
-      // so that Admin is Admin's alone.
-      { label: "Documents", href: "/billing/documents", roles: EVERYONE },
-      // The month as files, and the rate schedule. Also from Admin → System.
+      // The month as files, and the rate schedule - from Admin → System, so
+      // that Admin is Admin's alone (owner, 19 Sept 2026). The authorizations
+      // that arrive in the documents folder are confirmed on Authorizations.
       { label: "Export", href: "/billing/export", roles: BILLS, area: "billing" },
     ],
   },
@@ -181,9 +179,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: "admin",
     label: "Admin",
-    // Admin's alone (owner, 19 Sept 2026). What Billing used here - the
-    // document inbox, the agent's status, the monthly export and the rate
-    // schedule - is under Billing now.
+    // Admin's alone (owner, 19 Sept 2026), the document inbox included.
+    // Billing confirms the authorizations from it on Billing → Authorizations,
+    // with the agent's status; the monthly export and the rate schedule are
+    // Billing → Export.
     items: [
       { label: "People", href: "/admin/people", roles: ADMIN },
       { label: "Documents", href: "/admin/documents", roles: ADMIN },

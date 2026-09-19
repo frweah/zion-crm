@@ -45,7 +45,7 @@ const nextConfig = {
       "/billing/position": "/billing?tab=invoices#paid-and-outstanding",
       "/admin/staff": "/admin/people",
       "/admin/contractors": "/admin/people#contractors",
-      "/admin/inbox": "/billing/documents",
+      "/admin/inbox": "/admin/documents",
       "/admin/retention": "/admin/documents#retention",
       "/admin/records-request": "/admin/documents#records-requests",
       "/admin/records-request/:id": "/admin/documents/records-request/:id",

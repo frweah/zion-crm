@@ -288,8 +288,8 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
 {
   const fs = await import("node:fs");
   const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), "utf8");
-  const inboxActions = read("../app/(app)/billing/inbox/actions.ts");
-  const inboxView = read("../app/(app)/billing/inbox/inbox-view.tsx");
+  const inboxActions = read("../app/(app)/admin/inbox/actions.ts");
+  const inboxView = read("../app/(app)/admin/inbox/inbox-view.tsx");
   const upload = read("../app/api/agent/file/route.ts");
   const manifest = read("../app/api/agent/warrants/manifest/route.ts");
   const page = read("../app/api/agent/warrants/page/route.ts");

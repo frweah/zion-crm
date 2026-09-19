@@ -2,9 +2,9 @@
 --
 -- The owner, 19 Sept 2026:
 --
---   The Admin group is Admin-only. The document inbox and the documents
---   agent's status move to Billing → Documents, and the monthly export and the
---   rate schedule to Billing → Export. The screen hints follow them.
+--   The Admin group is Admin-only. The monthly export and the rate schedule
+--   move to Billing → Export, and the screen hint follows them. (The document
+--   inbox stays in Admin → Documents; see 0103.)
 --
 --   Microsoft 365 Copilot Chat is linked from the sidebar, and the
 --   data-handling policy says it is the only AI tool client information may be
@@ -12,7 +12,6 @@
 --   version 2, and version 2 is what is signed from now on.
 
 -- ── the hints follow the screens ────────────────────────────
-update public.tour_hints set screen = '/billing/documents' where key = 'document-inbox' and screen = '/admin/documents';
 update public.tour_hints set screen = '/billing/export' where key = 'exports' and screen = '/admin/system';
 
 -- ── the data-handling policy, version 2 ─────────────────────

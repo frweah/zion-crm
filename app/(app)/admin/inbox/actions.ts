@@ -22,8 +22,8 @@ const CAN_REVIEW = ["Admin", "Billing", "Job Search", "Reports"];
  */
 export async function mapFolder(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT_CLIENTS.includes(me.role)) {
-    return { error: "Your role does not change client records.", ok: null };
+  if (!me || me.role !== "Admin") {
+    return { error: "Only Admin says whose a folder is.", ok: null };
   }
 
   const folder = String(formData.get("folder") ?? "").trim();
@@ -56,7 +56,7 @@ export async function mapFolder(_prev: InboxState, formData: FormData): Promise<
       .is("client_id", null);
   }
 
-  revalidatePath("/billing/documents");
+  revalidatePath("/admin/documents");
   return {
     error: null,
     ok: notAClient
@@ -75,8 +75,8 @@ export async function mapFolder(_prev: InboxState, formData: FormData): Promise<
  */
 export async function fileDocument(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_REVIEW.includes(me.role)) {
-    return { error: "Your role does not file documents.", ok: null };
+  if (!me || me.role !== "Admin") {
+    return { error: "Only Admin files documents from the inbox.", ok: null };
   }
 
   const id = String(formData.get("document_id") ?? "");
@@ -124,7 +124,7 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
     })
     .eq("id", id);
 
-  revalidatePath("/billing/documents");
+  revalidatePath("/admin/documents");
   revalidatePath(`/clients/${doc.client_id}`);
   return { error: null, ok: `Filed against the client as ${category}.` };
 }
@@ -132,8 +132,8 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
 /** Set it aside, with a reason — a template, a duplicate, something personal. */
 export async function ignoreDocument(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_REVIEW.includes(me.role)) {
-    return { error: "Your role does not review the inbox.", ok: null };
+  if (!me || me.role !== "Admin") {
+    return { error: "Only Admin sets inbox documents aside.", ok: null };
   }
 
   const id = String(formData.get("document_id") ?? "");
@@ -154,7 +154,7 @@ export async function ignoreDocument(_prev: InboxState, formData: FormData): Pro
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/billing/documents");
+  revalidatePath("/admin/documents");
   return { error: null, ok: "Set aside. The file stays where it is on the machine." };
 }
 
@@ -196,7 +196,7 @@ export async function linkNamedDocument(_prev: InboxState, formData: FormData): 
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/billing/documents");
+  revalidatePath("/admin/documents");
   revalidatePath("/clients", "layout");
   return {
     error: null,
@@ -236,7 +236,7 @@ export async function replacePlaceholder(_prev: InboxState, formData: FormData):
   if (error) return { error: error.message, ok: null };
 
   const row = Array.isArray(data) ? data[0] : null;
-  revalidatePath("/billing/documents");
+  revalidatePath("/admin/documents");
   revalidatePath("/billing");
   revalidatePath("/clients", "layout");
   return {
@@ -298,7 +298,7 @@ export async function confirmAuthorization(
 
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/billing/documents");
+  revalidatePath("/admin/documents");
   revalidatePath("/billing");
   revalidatePath("/clients", "layout");
   return { error: null, ok: describeConfirmation(Array.isArray(data) ? data[0] : null) };

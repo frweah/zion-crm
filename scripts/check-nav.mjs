@@ -77,21 +77,21 @@ if (orphans.length) {
 const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/system",
-    "/billing", "/billing/documents", "/billing/export", "/billing/forms",
+    "/billing", "/billing/export", "/billing/forms",
     "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
     "/leads", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
-    "/billing/documents", "/billing/forms", "/clients", "/counselors", "/dashboard",
+    "/billing/forms", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
-    "/billing/documents", "/billing/forms", "/clients", "/dashboard", "/hours",
+    "/billing/forms", "/clients", "/dashboard", "/hours",
     "/leads", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
-    "/billing", "/billing/documents", "/billing/export", "/billing/forms", "/clients", "/counselors", "/dashboard",
+    "/billing", "/billing/export", "/billing/forms", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/paperwork", "/sops",
   ],
 };

@@ -142,6 +142,8 @@ const RPC_FUNCTIONS = [
   "move_counselor_office",
   "onboarding_step_done",
   "onboarding_open_steps",
+  "policy_signature_due",
+  "inbox_document_open_to_me",
   "record_identity_inspection",
   "submit_own_credential",
   "verify_credential",

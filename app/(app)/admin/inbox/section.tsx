@@ -7,18 +7,18 @@ import { createClient } from "@/lib/supabase/server";
 import { InboxView, type PendingRow, type Placeholder } from "./inbox-view";
 
 /**
- * The document inbox, a section of Billing → Documents.
+ * The document inbox, a section of Admin → Documents - Admin's alone.
  *
  * An agent on the owner's machine posts every PDF from the client folders.
  * Nothing it sends is filed on arrival — this is where a person looks at what
- * arrived and says what it is. Whether the agent is running is shown below it
- * on the same page (./agent-status.tsx).
+ * arrived and says what it is. The authorizations in it are Billing's to
+ * confirm too, on Billing → Authorizations, which is also where the agent's
+ * status is shown (./agent-status.tsx). The database holds the same line
+ * (0103): Billing reads the authorizations and nothing else here.
  */
-const CAN_REVIEW = ["Admin", "Billing", "Job Search", "Reports"];
-
 export default async function InboxSection() {
   const me = await requireStaff();
-  if (!CAN_REVIEW.includes(me.role)) redirect("/dashboard");
+  if (me.role !== "Admin") redirect("/dashboard");
   const canBill = can(me, "billing", "edit");
 
   const supabase = await createClient();
@@ -47,7 +47,9 @@ export default async function InboxSection() {
         {canBill && (
           <>
             {" "}
-            Whether the agent is running: <Link href="#agent">further down this page</Link>.
+            Billing confirms the authorizations from here on{" "}
+            <Link href="/billing?tab=authorizations#from-documents">Billing → Authorizations</Link>, where
+            the agent's status is too.
           </>
         )}
       </p>
