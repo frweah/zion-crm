@@ -86,7 +86,8 @@ export function LiveMessaging({ myId, initialUnread }: { myId: string; initialUn
         window.dispatchEvent(new CustomEvent("zion:message", { detail: row }));
         if (window.location.pathname === "/messages" && window.location.search.includes(row.conversation_id)) return;
         const who = row.sender_kind === "staff" ? row.sender_label || "A colleague" : row.sender_kind === "client" ? "A client" : "A visitor";
-        setToasts((t) => [...t.slice(-2), { id: row.id, who, conversationId: row.conversation_id }]);
+        // The same message can arrive twice (a reconnect, a retry); one toast.
+        setToasts((t) => (t.some((x) => x.id === row.id) ? t : [...t.slice(-2), { id: row.id, who, conversationId: row.conversation_id }]));
         window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== row.id)), 8000);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "read_receipts" }, () => void refreshUnread())
