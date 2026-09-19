@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navPath, type NavGroup, type NavItem } from "@/lib/roles";
 import { NavIcon } from "./nav-icons";
+import { useUnreadMessages } from "./live-messaging";
 
 /**
  * The sidebar: the eight groups, and nothing under them.
@@ -28,6 +29,7 @@ export function NavLinks({
   groups: { group: NavGroup; items: NavItem[] }[];
 }) {
   const pathname = usePathname();
+  const unread = useUnreadMessages();
 
   const inGroup = (items: NavItem[]) =>
     items.some((item) => {
@@ -49,6 +51,12 @@ export function NavLinks({
           >
             <NavIcon name={group.key} />
             <span className="side-label">{group.label}</span>
+            {group.key === "messages" && unread > 0 && (
+              <span className="nav-badge">
+                {unread > 99 ? "99+" : unread}
+                <span className="side-label"> unread</span>
+              </span>
+            )}
           </Link>
         );
       })}

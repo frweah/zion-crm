@@ -61,6 +61,8 @@ declare
     'sms_messages=texts',
     'sms_consent_events=texting_consent',
     'mail_log=email',
+    -- Texts, web chats and staff threads about the client (0104).
+    'conversations=conversations',
     'attachments=files',
     'access_log=who_read_this_record',
     'portal_accounts=portal_access',

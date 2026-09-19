@@ -768,6 +768,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      conversation_participants: {
+        Row: {
+          conversation_id: string;
+          staff_id: string;
+          joined_at: string;
+          left_at: string | null;
+          added_by: string | null;
+        };
+        Insert: {
+          conversation_id: string;
+          staff_id: string;
+          joined_at?: string;
+          left_at?: string | null;
+          added_by?: string | null;
+        };
+        Update: {
+          conversation_id?: string;
+          staff_id?: string;
+          joined_at?: string;
+          left_at?: string | null;
+          added_by?: string | null;
+        };
+        Relationships: [];
+      };
+      conversations: {
+        Row: {
+          id: string;
+          kind: string;
+          title: string;
+          client_id: string | null;
+          counselor_id: string | null;
+          external_address: string;
+          assigned_staff_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          last_message_at: string | null;
+          last_seq: number;
+          archived_at: string | null;
+          archived_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          kind: string;
+          title?: string;
+          client_id?: string | null;
+          counselor_id?: string | null;
+          external_address?: string;
+          assigned_staff_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          last_message_at?: string | null;
+          last_seq?: number;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          kind?: string;
+          title?: string;
+          client_id?: string | null;
+          counselor_id?: string | null;
+          external_address?: string;
+          assigned_staff_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          last_message_at?: string | null;
+          last_seq?: number;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Relationships: [];
+      };
       counselors: {
         Row: {
           id: string;
@@ -1737,6 +1809,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      messages: {
+        Row: {
+          id: string;
+          seq: number;
+          conversation_id: string;
+          sender_kind: string;
+          sender_staff_id: string | null;
+          sender_label: string;
+          body: string;
+          attachments: Json;
+          status: string;
+          provider_message_id: string | null;
+          created_at: string;
+          edited_at: string | null;
+          removed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          conversation_id: string;
+          sender_kind: string;
+          sender_staff_id?: string | null;
+          sender_label?: string;
+          body?: string;
+          attachments?: Json;
+          status?: string;
+          provider_message_id?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          removed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          conversation_id?: string;
+          sender_kind?: string;
+          sender_staff_id?: string | null;
+          sender_label?: string;
+          body?: string;
+          attachments?: Json;
+          status?: string;
+          provider_message_id?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          removed_at?: string | null;
+        };
+        Relationships: [];
+      };
       microsoft_connections: {
         Row: {
           staff_id: string;
@@ -2403,6 +2523,30 @@ export type Database = {
           unit?: string;
           effective_from?: string | null;
           effective_to?: string | null;
+        };
+        Relationships: [];
+      };
+      read_receipts: {
+        Row: {
+          conversation_id: string;
+          staff_id: string;
+          last_read_seq: number;
+          read_at: string;
+          emailed_through_seq: number;
+        };
+        Insert: {
+          conversation_id: string;
+          staff_id: string;
+          last_read_seq?: number;
+          read_at?: string;
+          emailed_through_seq?: number;
+        };
+        Update: {
+          conversation_id?: string;
+          staff_id?: string;
+          last_read_seq?: number;
+          read_at?: string;
+          emailed_through_seq?: number;
         };
         Relationships: [];
       };
@@ -3303,6 +3447,24 @@ export type Database = {
           key?: string;
           value?: Json;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_presence: {
+        Row: {
+          staff_id: string;
+          state: string;
+          last_seen: string;
+        };
+        Insert: {
+          staff_id: string;
+          state: string;
+          last_seen?: string;
+        };
+        Update: {
+          staff_id?: string;
+          state?: string;
+          last_seen?: string;
         };
         Relationships: [];
       };
@@ -4296,6 +4458,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      is_conversation_participant: {
+        Args: { p_conversation: string | null };
+        Returns: boolean;
+      };
       job_status_rank: {
         Args: { p_status: string | null };
         Returns: number;
@@ -4316,9 +4482,21 @@ export type Database = {
         Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
       };
+      mark_read: {
+        Args: { p_conversation: string | null; p_seq: number | null };
+        Returns: undefined;
+      };
       match_inbox_folder: {
         Args: { p_folder: string | null };
         Returns: string;
+      };
+      messages_digest_due: {
+        Args: Record<string, never>;
+        Returns: { staff_id: string | null; email: string | null; name: string | null; conversation_id: string | null; conversation_label: string | null; unread: number | null; through_seq: number | null }[];
+      };
+      messages_digest_sent: {
+        Args: { p_staff: string | null; p_conversation: string | null; p_through: number | null };
+        Returns: undefined;
       };
       mileage_rate_on: {
         Args: { p_date: string | null };
@@ -4327,6 +4505,10 @@ export type Database = {
       move_counselor_office: {
         Args: { p_counselor: string | null; p_office: string | null; p_reason: string | null };
         Returns: { from_office: string | null; to_office: string | null; from_billing: string | null; to_billing: string | null; clients: number | null }[];
+      };
+      my_unread: {
+        Args: Record<string, never>;
+        Returns: { conversation_id: string | null; unread: number | null }[];
       };
       normalize_phone: {
         Args: { p_raw: string | null };
@@ -4376,9 +4558,17 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      post_message: {
+        Args: { p_conversation: string | null; p_body: string | null; p_attachments: string | null };
+        Returns: string;
+      };
       practice_today: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      presence_heartbeat: {
+        Args: { p_state: string | null };
+        Returns: undefined;
       };
       read_client_intake: {
         Args: { p_client_id: string | null; p_purpose: string | null };
@@ -4495,6 +4685,14 @@ export type Database = {
       staff_has_area: {
         Args: { p_area: string | null; p_level: string | null };
         Returns: boolean;
+      };
+      staff_presence_status: {
+        Args: Record<string, never>;
+        Returns: { staff_id: string | null; status: string | null }[];
+      };
+      start_direct_conversation: {
+        Args: { p_other: string | null };
+        Returns: string;
       };
       submit_own_credential: {
         Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };

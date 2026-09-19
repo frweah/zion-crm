@@ -7,7 +7,7 @@
 --   mail_log has exactly its log columns, and nothing that could hold text.
 --   No table anywhere has a body or content column except the ones known to
 --   hold the CRM's own writing (policies, SOPs, hints, templates, texts,
---   records requests). A new one fails this until it is looked at.
+--   records requests, chat and texts). A new one fails this until it is looked at.
 --   Nobody signed in can write a mail_log row by hand.
 --
 -- Read-only. Runs inside a transaction that is rolled back.
@@ -35,7 +35,9 @@ begin
      and column_name ~ '(body|html|content|message_text|preview)'
      and (table_name, column_name) not in (
        ('note_templates', 'body'), ('portal_terms', 'body'), ('records_requests', 'contents'),
-       ('sms_messages', 'body'), ('sops', 'body'), ('staff_policies', 'body'), ('tour_hints', 'body'));
+       ('sms_messages', 'body'), ('sops', 'body'), ('staff_policies', 'body'), ('tour_hints', 'body'),
+       -- Chat and texts, written in the CRM (0104) - never an email's body.
+       ('messages', 'body'));
   if v_extra is not null then
     failures := failures || format('FAILED: somewhere a message body could be kept: %s', v_extra)::text;
   else

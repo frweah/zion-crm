@@ -80,19 +80,19 @@ const EXPECTED = {
     "/billing", "/billing/export", "/billing/forms",
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
-    "/leads", "/mail", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
     "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/mail", "/paperwork", "/sops", "/tasks",
+    "/hours", "/leads", "/mail", "/messages", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
     "/billing/forms", "/calendar", "/clients", "/dashboard", "/hours",
-    "/leads", "/mail", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
     "/billing", "/billing/export", "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/mail", "/paperwork", "/sops",
+    "/hours", "/leads", "/mail", "/messages", "/paperwork", "/sops",
   ],
 };
 

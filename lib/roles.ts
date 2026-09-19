@@ -124,6 +124,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Conversations: staff with staff now; texts (A) and the website chat (C)
+    // join it (Messaging brief, 19 Sept 2026).
+    key: "messages",
+    label: "Messages",
+    items: [{ label: "Messages", href: "/messages", roles: EVERYONE }],
+  },
+  {
     key: "clients",
     label: "Clients",
     items: [
