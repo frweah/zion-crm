@@ -12,8 +12,8 @@ import { HoursOffer } from "../clients/[id]/calendar-tab";
 /**
  * Calendar (Messaging brief, M).
  *
- * The signed-in person's Outlook calendar, a week or a day at a time, read
- * live. Appointments with a client - made here, or tagged [Client #N] in
+ * The signed-in person's Outlook calendar, a month, a week or a day at a time,
+ * read live. Appointments with a client - made here, or tagged [Client #N] in
  * Outlook - are marked with the client, in words as well as colour. A visit
  * that has finished offers to log the hours; it never logs them itself.
  */
@@ -23,6 +23,13 @@ const addDays = (ymd: string, n: number) => iso(new Date(Date.parse(`${ymd}T00:0
 const weekday = (ymd: string) => new Date(`${ymd}T00:00:00Z`).getUTCDay(); // 0 Sunday
 const dayLabel = (ymd: string) =>
   new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+const monthLabel = (ymd: string) =>
+  new Date(`${ymd.slice(0, 7)}-15T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+/** The first of the month n months from the one ymd is in. */
+const monthStart = (ymd: string, n = 0) => {
+  const [y, m] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 10);
+};
 const hm = (wall: string) => {
   const [h, m] = wall.slice(11, 16).split(":").map(Number);
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
@@ -52,10 +59,14 @@ export default async function CalendarPage({
   searchParams: Promise<{ view?: string; date?: string }>;
 }) {
   const { view: rawView, date: rawDate } = await searchParams;
-  const view = rawView === "day" ? "day" : "week";
+  const view = rawView === "day" ? "day" : rawView === "month" ? "month" : "week";
   const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate ?? "") ? rawDate! : today();
-  const first = view === "day" ? date : addDays(date, -((weekday(date) + 6) % 7)); // Monday
-  const days = view === "day" ? [first] : Array.from({ length: 7 }, (_, i) => addDays(first, i));
+  const monday = (d: string) => addDays(d, -((weekday(d) + 6) % 7));
+  // A month is the six weeks that hold it, Monday first, so it is always a full grid.
+  const first = view === "day" ? date : view === "month" ? monday(monthStart(date)) : monday(date);
+  const days =
+    view === "day" ? [first] : Array.from({ length: view === "month" ? 42 : 7 }, (_, i) => addDays(first, i));
+  const thisMonth = date.slice(0, 7);
   const from = practiceWallToDate(`${first}T00:00`)!;
   const to = practiceWallToDate(`${addDays(days[days.length - 1], 1)}T00:00`)!;
 
@@ -117,6 +128,8 @@ export default async function CalendarPage({
   const pickable = clientList.filter((c) => c.status !== "Closed").map((c) => ({ id: c.id, name: c.name }));
   const link = (v: string, d: string) => `/calendar?view=${v}&date=${d}`;
   const step = view === "day" ? 1 : 7;
+  const before = view === "month" ? monthStart(date, -1) : addDays(first, -step);
+  const after = view === "month" ? monthStart(date, 1) : addDays(first, step);
 
   return (
     <>
@@ -126,7 +139,9 @@ export default async function CalendarPage({
           access.ok
             ? view === "day"
               ? dayLabel(first)
-              : `Week of ${dayLabel(first)}`
+              : view === "month"
+                ? monthLabel(date)
+                : `Week of ${dayLabel(first)}`
             : "Your Outlook calendar, inside the CRM"
         }
         actions={access.ok ? <EventForm draft={{ startsAt: `${date}T09:00` }} clients={pickable} label="New appointment" /> : undefined}
@@ -146,11 +161,14 @@ export default async function CalendarPage({
 
       <div className="row2 no-print" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div className="segmented" role="group" aria-label="Move through the calendar">
-          <Link href={link(view, addDays(first, -step))}>← {view === "day" ? "Day before" : "Last week"}</Link>
+          <Link href={link(view, before)}>← {view === "day" ? "Day before" : view === "month" ? "Last month" : "Last week"}</Link>
           <Link href={link(view, today())}>Today</Link>
-          <Link href={link(view, addDays(first, step))}>{view === "day" ? "Day after" : "Next week"} →</Link>
+          <Link href={link(view, after)}>{view === "day" ? "Day after" : view === "month" ? "Next month" : "Next week"} →</Link>
         </div>
         <div className="segmented" role="group" aria-label="View">
+          <Link href={link("month", date)} className={view === "month" ? "on" : undefined}>
+            Month
+          </Link>
           <Link href={link("week", date)} className={view === "week" ? "on" : undefined}>
             Week
           </Link>
@@ -160,6 +178,53 @@ export default async function CalendarPage({
         </div>
       </div>
 
+      {view === "month" ? (
+        <div className="cal-month" aria-label={monthLabel(date)}>
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+            <div key={d} className="cal-month-head" aria-hidden="true">
+              {d}
+            </div>
+          ))}
+          {days.map((d) => {
+            const todays = items.filter((e) => e.start.slice(0, 10) === d);
+            const shown = todays.slice(0, 3);
+            const outside = d.slice(0, 7) !== thisMonth;
+            return (
+              <section
+                key={d}
+                aria-label={dayLabel(d)}
+                className={"cal-month-day" + (outside ? " outside" : "") + (d === today() ? " today" : "") + (todays.length === 0 ? " empty" : "")}
+              >
+                <Link href={link("day", d)} className="cal-month-date">
+                  <span>
+                    <span className="cal-month-dow">{dayLabel(d)}</span>
+                    <span className="cal-month-num">{Number(d.slice(8, 10))}</span>
+                  </span>
+                  {d === today() && <span className="chip gold">Today</span>}
+                </Link>
+                {shown.map((e) => {
+                  const client = e.clientId ? clientById.get(e.clientId) : null;
+                  return (
+                    <Link
+                      key={e.id}
+                      href={link("day", d)}
+                      className={"cal-month-event" + (client ? " client" : "") + (e.isCancelled ? " cancelled" : "")}
+                    >
+                      <span className="lock">{e.isAllDay ? "All day" : hm(e.start)}</span> {e.subject}
+                      {client && <span className="cal-month-client">Client: {client.name}</span>}
+                    </Link>
+                  );
+                })}
+                {todays.length > shown.length && (
+                  <Link href={link("day", d)} className="lock">
+                    +{todays.length - shown.length} more
+                  </Link>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      ) : (
       <div className={view === "day" ? "cal-day" : "cal-week"}>
         {days.map((d) => {
           const todays = items.filter((e) => e.start.slice(0, 10) === d);
@@ -221,6 +286,7 @@ export default async function CalendarPage({
           );
         })}
       </div>
+      )}
     </>
   );
 }

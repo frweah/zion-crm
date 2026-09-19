@@ -33,8 +33,9 @@ function required(name: string, value: string | undefined): string {
  *
  * Calendars.ReadWrite because events are pushed as well as read.
  *
- * Mail.Read, not Mail.ReadWrite. Mail.Send is not in this list: it is asked
- * for separately (MAIL_SEND_SCOPES), by each person turning sending on, once
+ * Mail.Read, for the sync. Mail.Send and Mail.ReadWrite are not in this list:
+ * they are asked for separately (MAIL_SEND_SCOPE, MAIL_WRITE_SCOPE), by each
+ * person turning sending on, once
  * the owner has granted it in Azure (Messaging brief, M, 19 Sept 2026). The
  * CRM then sends only as that person and only when they press Send. Forms,
  * invoices, reconciliations and the digest stay on Resend from service@ - a
@@ -73,8 +74,20 @@ export const SHARED_MAILBOX_SCOPE = "Mail.Read.Shared";
  */
 export const MAIL_SEND_SCOPE = "Mail.Send";
 
+/**
+ * Deleting - moving a message to the person's own Deleted Items, as Outlook
+ * does (owner, 19 Sept 2026). Mail.Read cannot move anything; Mail.ReadWrite
+ * can, in the person's own mailbox only. The shared mailbox would need
+ * Mail.ReadWrite.Shared, which is not asked for.
+ */
+export const MAIL_WRITE_SCOPE = "Mail.ReadWrite";
+
 export function scopesFor(shared: boolean, send = false): string[] {
-  return [...MICROSOFT_SCOPES, ...(shared ? [SHARED_MAILBOX_SCOPE] : []), ...(send ? [MAIL_SEND_SCOPE] : [])];
+  return [
+    ...MICROSOFT_SCOPES,
+    ...(shared ? [SHARED_MAILBOX_SCOPE] : []),
+    ...(send ? [MAIL_SEND_SCOPE, MAIL_WRITE_SCOPE] : []),
+  ];
 }
 
 /** Whether a connection's granted scopes include one. Microsoft returns them space-separated, sometimes as URLs. */

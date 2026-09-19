@@ -1,10 +1,12 @@
 import "server-only";
 
 /**
- * Sending mail, as the signed-in person (Messaging brief, M).
+ * Sending mail, as the signed-in person (Messaging brief, M) - and moving a
+ * message of their own to Deleted Items.
  *
- * The only file that calls Graph's send, reply or forward, and it is called
- * only from the Send, Reply and Forward actions in app/(app)/mail/actions.ts -
+ * The only file that calls Graph's send, reply, forward or move, and it is
+ * called only from the Send, Reply, Forward and Delete actions in
+ * app/(app)/mail/actions.ts -
  * scripts/check-mail.mjs fails the build otherwise. Nothing sends on a timer,
  * on a trigger, or on anybody's behalf.
  *
@@ -34,7 +36,7 @@ async function post(token: string, path: string, body: unknown): Promise<void> {
       // the status says enough
     }
     if (response.status === 403) {
-      throw new Error("Microsoft refused to send. Sending needs Mail.Send - turn sending on from the Mail screen and reconnect once.");
+      throw new Error("Microsoft refused. This needs the permission that comes with turning sending on - use “Turn sending on” on the Mail screen and reconnect once.");
     }
     throw new Error(`Microsoft did not send it (${response.status}): ${detail}`);
   }
@@ -65,4 +67,12 @@ export async function replyOwn(token: string, messageId: string, text: string, a
 /** Forward a message from the person's own mailbox. */
 export async function forwardOwn(token: string, messageId: string, to: string[], text: string): Promise<void> {
   await post(token, `/me/messages/${encodeURIComponent(messageId)}/forward`, { comment: text, toRecipients: recipients(to) });
+}
+
+/**
+ * "Delete": into the person's own Deleted Items, as Outlook does, where it
+ * can be got back. Never a permanent deletion, and never in a shared mailbox.
+ */
+export async function moveToDeletedItems(token: string, messageId: string): Promise<void> {
+  await post(token, `/me/messages/${encodeURIComponent(messageId)}/move`, { destinationId: "deleteditems" });
 }

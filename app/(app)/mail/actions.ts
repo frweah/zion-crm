@@ -1,12 +1,14 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { myMailAccess, resolveMailbox } from "@/lib/mail-access";
 import { getMessage } from "@/lib/mail";
-import { sendNew, replyOwn, forwardOwn } from "@/lib/mail-send";
+import { sendNew, replyOwn, forwardOwn, moveToDeletedItems } from "@/lib/mail-send";
 
 /**
  * Send, Reply, Forward - the only three things in the CRM that use Mail.Send,
- * each run by the person pressing its button (Messaging brief, M). Nothing is
+ * each run by the person pressing its button (Messaging brief, M) - and
+ * Delete, which moves a message of their own to Deleted Items. Nothing is
  * written to the database here: the message goes to Microsoft and is kept in
  * the person's own Sent Items, and the nightly sweep logs it on a client or
  * counselor record exactly as it logs any other mail - subject, date,
@@ -121,4 +123,30 @@ export async function forwardMessage(_prev: SendState, formData: FormData): Prom
     return { error: err instanceof Error ? err.message : "It was not forwarded.", ok: null };
   }
   return { error: null, ok: "Forwarded." };
+}
+
+/**
+ * Delete (owner, 19 Sept 2026): moves a message in the person's own mailbox to
+ * their Deleted Items, as Outlook's Delete does - it can be got back there, and
+ * a message already logged on a record stays logged. Not offered for the
+ * shared mailbox.
+ */
+export async function deleteMessage(_prev: SendState, formData: FormData): Promise<SendState> {
+  const access = await myMailAccess();
+  if (!access.ok) return { error: access.message, ok: null };
+  if (!access.canDelete) {
+    return { error: "Deleting is not turned on for your Outlook yet. Use “Turn sending on” on the Mail screen.", ok: null };
+  }
+  const mailbox = resolveMailbox(access, String(formData.get("box") ?? ""));
+  if (mailbox !== null) return { error: "Messages in a shared mailbox are deleted in Outlook, not here.", ok: null };
+  const id = String(formData.get("message_id") ?? "");
+  if (!id) return { error: "Which message?", ok: null };
+
+  try {
+    await moveToDeletedItems(access.token, id);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "It was not deleted.", ok: null };
+  }
+  const back = String(formData.get("back") ?? "/mail");
+  redirect(back.startsWith("/mail") ? back : "/mail");
 }

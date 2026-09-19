@@ -11,11 +11,11 @@
  *   (supabase/verify_mail.sql holds the other half: no table has anywhere to
  *   put one.)
  *
- *   Mail.Send is exercised only by Send, Reply and Forward. Graph's send,
- *   reply and forward are called in lib/mail-send.ts and nowhere else, and
- *   lib/mail-send.ts is used by app/(app)/mail/actions.ts and nothing else,
- *   from exported functions named send*, reply* or forward* - the three
- *   buttons.
+ *   Mail.Send is exercised only by Send, Reply and Forward, and Mail.ReadWrite
+ *   only by Delete (a move to Deleted Items). Graph's send, reply, forward and
+ *   move are called in lib/mail-send.ts and nowhere else, and lib/mail-send.ts
+ *   is used by app/(app)/mail/actions.ts and nothing else, from exported
+ *   functions named send*, reply*, forward* or delete* - the buttons.
  *
  *   A shared mailbox is opened only through resolveMailbox. Every file that
  *   reads mail imports it and calls it before any read.
@@ -57,7 +57,7 @@ for (const [f, s] of [...usesMail, ...usesSend]) {
 if (!problems.length) ok(`mail is read and sent without touching the database (${usesMail.length + usesSend.length} files use it)`);
 
 // ── Mail.Send only from Send, Reply and Forward ─────────────
-const sendPaths = /\/sendMail|\/replyAll|\/reply["`/]|\/forward["`/]|\/send["`]/;
+const sendPaths = /\/sendMail|\/replyAll|\/reply["`/]|\/forward["`/]|\/send["`]|\/move["`]/;
 for (const [f, s] of src) {
   if (f !== SEND && sendPaths.test(s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1"))) {
     fail(`${f} calls a Graph send path; only ${SEND} may`);
@@ -69,10 +69,10 @@ for (const [f] of usesSend) {
 if (src.has(ACTIONS)) {
   const a = src.get(ACTIONS);
   const exported = [...a.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  const stray = exported.filter((n) => !/^(send|reply|forward)[A-Z]/.test(n));
-  if (stray.length) fail(`${ACTIONS} exports ${stray.join(", ")} - only send*, reply* and forward* belong there`);
+  const stray = exported.filter((n) => !/^(send|reply|forward|delete)[A-Z]/.test(n));
+  if (stray.length) fail(`${ACTIONS} exports ${stray.join(", ")} - only send*, reply*, forward* and delete* belong there`);
 }
-if (!problems.some((p) => /send path|uses lib\/mail-send|exports/.test(p))) ok("Mail.Send is used only by the Send, Reply and Forward actions");
+if (!problems.some((p) => /send path|uses lib\/mail-send|exports/.test(p))) ok("mail is sent, or moved to Deleted Items, only by the Send, Reply, Forward and Delete actions");
 
 // ── shared mailboxes through one door ───────────────────────
 const readers = usesMail.filter(([, s]) => /\b(listMessages|getMessage|listAttachments|fetchAttachment)\(/.test(s));

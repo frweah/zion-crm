@@ -4,7 +4,7 @@ import { fmtStamp } from "@/lib/constants";
 import { myMailAccess, resolveMailbox } from "@/lib/mail-access";
 import { listMessages, getMessage, listAttachments, MailError, type MessageSummary, type Folder } from "@/lib/mail";
 import { PageHead } from "../page-head";
-import { RespondForms } from "./mail-forms";
+import { RespondForms, DeleteMessage } from "./mail-forms";
 
 /**
  * Mail (Messaging brief, M).
@@ -130,8 +130,9 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
 
       {!access.canSend && (
         <div className="alert" style={{ marginBottom: 12 }}>
-          You can read your mail here. Sending from the CRM needs one reconnect of your Outlook, which asks Microsoft to
-          let the CRM send as you when - and only when - you press Send.{" "}
+          You can read your mail here. Sending and deleting from the CRM need one reconnect of your Outlook, which asks
+          Microsoft to let the CRM send as you, or move a message to your Deleted Items, when - and only when - you press
+          the button.{" "}
           <a href="/api/auth/microsoft/start?send=1" style={{ color: "inherit" }}>
             <b>Turn sending on</b>
           </a>
@@ -208,9 +209,12 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
           )}
           {open && (
             <article className="card">
-              <h2 className="h2" style={{ marginBottom: 6 }}>
-                {open.subject}
-              </h2>
+              <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                <h2 className="h2" style={{ marginBottom: 6 }}>
+                  {open.subject}
+                </h2>
+                {mailbox === null && access.canDelete && <DeleteMessage messageId={open.id} back={href({ id: undefined })} />}
+              </div>
               <p className="lock" style={{ margin: "0 0 12px" }}>
                 From <b>{open.from?.name || open.from?.address}</b> {open.from?.name ? `<${open.from.address}>` : ""} ·{" "}
                 {fmtStamp(open.receivedAt)}

@@ -177,10 +177,10 @@ export function MicrosoftCard({
           )}
           <p className="lock" style={{ marginTop: 0 }}>
             {(connection.scopes ?? "").split(/\s+/).some((s) => s.endsWith("Mail.Send")) ? (
-              <>Sending from the CRM is on - only when you press Send on the Mail screen.</>
+              <>Sending and deleting from the CRM are on - only when you press Send or Delete on the Mail screen.</>
             ) : (
               <>
-                Sending from the CRM is off.{" "}
+                Sending and deleting from the CRM are off.{" "}
                 <a href="/api/auth/microsoft/start?send=1">Turn sending on</a> - one reconnect.
               </>
             )}

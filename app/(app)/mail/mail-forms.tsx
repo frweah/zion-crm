@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { sendMessage, replyMessage, forwardMessage, type SendState } from "./actions";
+import { sendMessage, replyMessage, forwardMessage, deleteMessage, type SendState } from "./actions";
 
 const initial: SendState = { error: null, ok: null };
 
@@ -111,5 +111,32 @@ export function RespondForms({ messageId, box, canSend }: { messageId: string; b
         </form>
       )}
     </div>
+  );
+}
+
+/** Delete - to the person's own Deleted Items, after a second press. */
+export function DeleteMessage({ messageId, back }: { messageId: string; back: string }) {
+  const [sure, setSure] = useState(false);
+  const [state, action, pending] = useActionState(deleteMessage, initial);
+  if (!sure) {
+    return (
+      <button type="button" className="btn ghost" onClick={() => setSure(true)}>
+        Delete
+      </button>
+    );
+  }
+  return (
+    <form action={action} style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+      <input type="hidden" name="message_id" value={messageId} />
+      <input type="hidden" name="box" value="me" />
+      <input type="hidden" name="back" value={back} />
+      <button className="btn danger" type="submit" disabled={pending}>
+        {pending ? "Deleting…" : "Move to Deleted Items"}
+      </button>
+      <button className="btn ghost" type="button" onClick={() => setSure(false)}>
+        Keep it
+      </button>
+      {state.error && <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</span>}
+    </form>
   );
 }
