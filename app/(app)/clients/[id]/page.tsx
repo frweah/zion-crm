@@ -1,4 +1,4 @@
-import { can } from "@/lib/roles";
+import { can, ORG } from "@/lib/roles";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
@@ -112,6 +112,7 @@ export default async function ClientPage({
     { data: billingOfficeRow },
     { data: consentRow },
     { data: economics },
+    { data: authFiles },
   ] = await Promise.all([
     supabase.rpc("client_next_actions", { p_client: id }),
     supabase
@@ -124,6 +125,9 @@ export default async function ClientPage({
     supabase.from("client_billing_office").select("billing_office").eq("client_id", id).maybeSingle(),
     supabase.from("client_sms_consent").select("can_text, state").eq("client_id", id).maybeSingle(),
     supabase.from("authorization_economics").select("auth_id, unbilled").eq("client_id", id),
+    // Whether each authorization has its own PDF on the record, so the
+    // billing panel can say what will actually go with the claim.
+    supabase.from("attachments").select("auth_id").eq("client_id", id).not("auth_id", "is", null),
   ]);
 
   // Opening a record puts it at the top of this person's recents, which is
@@ -133,7 +137,12 @@ export default async function ClientPage({
   const nextActions = (nextRows ?? []) as NextAction[];
   const unbilledTotal = (economics ?? []).reduce((sum, e) => sum + Number(e.unbilled ?? 0), 0);
 
-  // "n hrs @ $45", or the flat fee - the way the authorization actually reads.
+  // "100 hrs @ $45.00", or "$2,250.00 flat" - the way the authorization reads.
+  const priceOf = (a: { rate: number | null; rate_type: string; total_hours: number | null }) =>
+    a.rate_type === "Hourly" && a.total_hours != null
+      ? `${Number(a.total_hours)} hrs @ ${money(Number(a.rate ?? 0))}`
+      : `${money(Number(a.rate ?? 0))} flat`;
+
   const authLabel = (a: {
     number: string | null;
     service_type: string;
@@ -141,13 +150,9 @@ export default async function ClientPage({
     rate_type: string;
     total_hours: number | null;
     status: string;
-  }) => {
-    const price =
-      a.rate_type === "Hourly" && a.total_hours != null
-        ? `${Number(a.total_hours)} hrs @ ${money(Number(a.rate ?? 0))}`
-        : money(Number(a.rate ?? 0));
-    return `${a.service_type} · ${a.number || "no V-number"} · ${price} · ${a.status}`;
-  };
+  }) => `${a.service_type} · ${a.number || "no V-number"} · ${priceOf(a)} · ${a.status}`;
+
+  const withAuthPdf = new Set((authFiles ?? []).map((f) => f.auth_id).filter(Boolean) as string[]);
 
   const visitAuths: VisitAuth[] = (openAuths ?? []).map((a) => ({ id: a.id, label: authLabel(a) }));
 
@@ -157,6 +162,11 @@ export default async function ClientPage({
     .map((a) => ({
       authId: a.id,
       label: authLabel(a),
+      service: a.service_type,
+      number: a.number ?? "",
+      price: priceOf(a),
+      status: a.status,
+      hasPdf: withAuthPdf.has(a.id),
       templates: templatesForService(a.service_type)
         .filter((t) => t.requiredForBilling)
         .map((t) => ({
@@ -221,6 +231,9 @@ export default async function ClientPage({
             bills={bills}
             coachingCodes={[...COACHING_CODES]}
             counselorEmail={counselor?.email ?? null}
+            counselorName={counselor?.name ?? ""}
+            agency={ORG.name}
+            preparedBy={me.name}
           />
         }
       />

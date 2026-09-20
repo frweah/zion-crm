@@ -14,14 +14,79 @@ const initial: SignatureState = { error: null, ok: null };
  * your typed name and the moment the database recorded the signing - the
  * image is what the page looks like, the record is what it means.
  */
+/**
+ * A photograph of a signature, made ready to upload.
+ *
+ * Whatever the phone produced - a 4 MB HEIC off an iPhone, a 3 MB JPEG off an
+ * Android - becomes a small PNG here, in the browser, before anything is
+ * sent. Without this the honest limits of the server side (500 KB, PNG or
+ * JPEG only) refuse almost every photograph anybody would actually take,
+ * which is a rule that reads as a bug.
+ *
+ * Small matters twice over: the image is embedded in every USOR form the
+ * person signs, so a 4 MB signature would be a 4 MB attachment on every
+ * claim.
+ */
+async function readyForUpload(file: File): Promise<File> {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("decode"));
+      img.src = url;
+    });
+
+    const MAX_W = 900;
+    const MAX_H = 400;
+    const scale = Math.min(1, MAX_W / image.naturalWidth, MAX_H / image.naturalHeight);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("decode");
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("decode");
+    return new File([blob], "signature.png", { type: "image/png" });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function SignatureCard({ current }: { current: string | null }) {
   const [state, action, pending] = useActionState(uploadSignature, initial);
   const [removing, setRemoving] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [trouble, setTrouble] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (state.ok) router.refresh();
   }, [state, router]);
+
+  /** Shrink first, then hand the small PNG to the server action. */
+  async function submit(formData: FormData) {
+    setTrouble(null);
+    const chosen = formData.get("file");
+    if (!(chosen instanceof File) || chosen.size === 0) {
+      setTrouble("Choose an image of your signature first.");
+      return;
+    }
+    setPreparing(true);
+    try {
+      formData.set("file", await readyForUpload(chosen));
+    } catch {
+      setTrouble(
+        "This browser could not read that image. If it came off an iPhone it may be a HEIC - open it, choose Share, then Save as JPEG, and upload that.",
+      );
+      return;
+    } finally {
+      setPreparing(false);
+    }
+    await action(formData);
+  }
 
   return (
     <div className="card" style={{ marginTop: 14 }}>
@@ -31,6 +96,7 @@ export function SignatureCard({ current }: { current: string | null }) {
         beside your name and the time you signed.
       </p>
 
+      {trouble && <div className="alert bad">{trouble}</div>}
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}
 
@@ -72,19 +138,20 @@ export function SignatureCard({ current }: { current: string | null }) {
         </div>
       )}
 
-      <form action={action} style={{ marginTop: 10 }}>
+      <form action={submit} style={{ marginTop: 10 }}>
         <div className="row2" style={{ alignItems: "flex-end", gap: 8 }}>
           <label className="field" style={{ margin: 0, flex: 1 }}>
             {current ? "Replace it" : "Your signature"}
-            <input name="file" type="file" accept="image/png,image/jpeg" required />
+            <input name="file" type="file" accept="image/*" capture="environment" required />
           </label>
-          <button className="btn gold" type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save signature"}
+          <button className="btn gold" type="submit" disabled={pending || preparing}>
+            {preparing ? "Preparing…" : pending ? "Saving…" : "Save signature"}
           </button>
         </div>
         <p className="lock" style={{ margin: "8px 0 0" }}>
-          PNG or JPEG, up to 500 KB. It is kept in the staff tier and nobody else can read it — not Admin either,
-          because holding somebody&apos;s signature is the ability to sign as them.
+          A photograph straight off your phone is fine — it is shrunk here before it is sent, so there is no size to
+          worry about. It is kept in the staff tier and nobody else can read it — not Admin either, because holding
+          somebody&apos;s signature is the ability to sign as them.
         </p>
       </form>
     </div>
