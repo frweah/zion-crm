@@ -138,6 +138,9 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "clients",
     label: "Clients",
     items: [
+      // Where somebody with a caseload starts the day: their own clients and
+      // what is due against each (Workflow brief, 20 Sept 2026).
+      { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"] },
       { label: "Clients", href: "/clients", roles: EVERYONE },
       { label: "Jobs", href: "/leads", roles: EVERYONE },
     ],

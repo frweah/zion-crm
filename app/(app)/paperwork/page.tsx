@@ -8,6 +8,8 @@ import { W4Form } from "./w4-form";
 import { DeliveryConsent } from "./delivery-consent";
 import { DownloadButton } from "./download-button";
 import { MyCredentials } from "./my-credentials";
+import { SignatureCard } from "./signature";
+import { signaturePreview } from "./signature-actions";
 import { StaffDocuments, type DocCategory, type DocRow } from "../admin/staff/documents";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
@@ -100,6 +102,9 @@ export default async function PaperworkPage() {
       <W9Form defaultName={me.name} />
     ) : null;
 
+  // What their signature looks like on file, if they have uploaded one.
+  const signature = await signaturePreview();
+
   return (
     <>
       <PageHead title="Paperwork" context="Your tax form, completed and signed here rather than on paper." />
@@ -158,6 +163,9 @@ export default async function PaperworkPage() {
       {required !== "W-4" && profile && (
         <DeliveryConsent consentedOn={profile.e_delivery_consent_on} />
       )}
+
+      {/* Everybody signs USOR forms, whatever their tax form is. */}
+      <SignatureCard current={signature} />
 
       {/* Somebody who has never started a form has no history, so the section only appears once they have. */}
       {mine.length > 0 && (

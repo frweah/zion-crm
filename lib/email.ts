@@ -40,18 +40,32 @@ export function parseCc(raw: string, to: string): { cc: string[]; bad: string[] 
   return { cc, bad };
 }
 
+/**
+ * A file to send with the message.
+ *
+ * The bytes, not a link: a billing office should not have to sign in to
+ * anything to read what was sent to them, and a link would go stale the
+ * moment the storage path changed.
+ */
+export type Attachment = { filename: string; bytes: Uint8Array };
+
+/** Resend takes attachments base64-encoded in the JSON body. */
+const MAX_ATTACHED_BYTES = 15 * 1024 * 1024;
+
 export async function sendEmail({
   to,
   cc,
   subject,
   text,
   replyTo,
+  attachments,
 }: {
   to: string;
   cc?: string[];
   subject: string;
   text: string;
   replyTo?: string;
+  attachments?: Attachment[];
 }): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
@@ -63,6 +77,15 @@ export async function sendEmail({
   }
 
   const from = process.env.EMAIL_FROM ?? `${ORG.name} <${ORG.email}>`;
+
+  const files = attachments ?? [];
+  const total = files.reduce((sum, f) => sum + f.bytes.byteLength, 0);
+  if (total > MAX_ATTACHED_BYTES) {
+    return {
+      ok: false,
+      error: `Those attachments come to ${Math.round(total / 1024 / 1024)} MB, and the limit is 15 MB. Send the larger one separately.`,
+    };
+  }
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -78,6 +101,14 @@ export async function sendEmail({
         subject,
         text,
         ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(files.length
+          ? {
+              attachments: files.map((f) => ({
+                filename: f.filename,
+                content: Buffer.from(f.bytes).toString("base64"),
+              })),
+            }
+          : {}),
       }),
     });
 

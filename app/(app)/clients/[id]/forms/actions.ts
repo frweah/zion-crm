@@ -7,7 +7,9 @@ import { getCurrentStaff } from "@/lib/session";
 import { autofillForm } from "@/lib/form-autofill";
 import { formToText, type FormContext } from "@/lib/form-text";
 import { templateById, validateForm } from "@/lib/form-templates";
-import { parseCc, sendEmail } from "@/lib/email";
+import { parseCc, sendEmail, type Attachment } from "@/lib/email";
+import { signedFormPdf } from "@/lib/form-pdf";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { today } from "@/lib/constants";
 import type { Json } from "@/lib/database.types";
 
@@ -210,7 +212,48 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
     auth?.number ? ` — ${auth.number}` : ""
   }`;
 
-  const result = await sendEmail({ to, cc, subject, text });
+  // ── what goes with it ──────────────────────────────────────
+  // The form as a PDF, signed, and the authorization's own PDF where the
+  // record holds one: a billing office asked for a claim should not have to
+  // go and find the authorization it is against.
+  const admin = createAdminClient();
+  const attachments: Attachment[] = [];
+  let pdfSha = "";
+
+  const signature = await signatureFor(me.id, admin);
+  const pdf = await signedFormPdf({
+    templateId: form.template_id,
+    data: form.data as Record<string, unknown>,
+    ctx,
+    signature: {
+      name: form.completed_by_name || me.name,
+      at: form.completed_at ? new Date(form.completed_at) : null,
+      image: signature,
+    },
+  });
+  pdfSha = pdf.sha256;
+  const pdfName = `${tpl?.usor ?? "USOR form"} ${client?.name ?? "client"}${auth?.number ? ` ${auth.number}` : ""}.pdf`
+    .replace(/[\/:*?"<>|]/g, "-");
+  attachments.push({ filename: pdfName, bytes: pdf.bytes });
+
+  if (form.auth_id) {
+    const { data: authFile } = await supabase
+      .from("attachments")
+      .select("storage_path, filename")
+      .eq("auth_id", form.auth_id)
+      .eq("restricted", false)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (authFile) {
+      const { data: file } = await admin.storage.from("client-files").download(authFile.storage_path);
+      if (file) {
+        attachments.push({ filename: authFile.filename, bytes: new Uint8Array(await file.arrayBuffer()) });
+      }
+    }
+  }
+
+  const result = await sendEmail({ to, cc, subject, text, attachments });
   if (!result.ok) {
     return { error: `Not sent. ${result.error}`, ok: null };
   }
@@ -237,11 +280,75 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
     staff_id: me.id,
   });
 
+  // The copy that went out, kept on the record. Written with the service role
+  // because the person sending may not be allowed to attach a restricted
+  // document by hand - this one is not restricted, and it is theirs anyway.
+  const storagePath = `clients/${clientId}/forms/${formId}-${pdfSha.slice(0, 12)}.pdf`;
+  const stored = await admin.storage
+    .from("client-files")
+    .upload(storagePath, attachments[0].bytes, { contentType: "application/pdf", upsert: true });
+  if (!stored.error) {
+    await admin.from("attachments").upsert(
+      {
+        client_id: clientId,
+        storage_path: storagePath,
+        filename: attachments[0].filename,
+        mime_type: "application/pdf",
+        size_bytes: attachments[0].bytes.byteLength,
+        category: "Signed USOR form",
+        restricted: false,
+        note: `Sent to ${sentTo}`,
+        form_id: formId,
+        auth_id: form.auth_id,
+        uploaded_by: me.id,
+        uploaded_by_name: me.name,
+      },
+      { onConflict: "storage_path" },
+    );
+  }
+
+  // If that was the last form the authorization was waiting on, the invoice
+  // it has earned is raised as a Draft. The database decides whether there is
+  // one to raise; this only asks.
+  let billed = "";
+  if (form.auth_id) {
+    const { data: invoiceId } = await supabase.rpc("draft_invoice_for_authorization", { p_auth: form.auth_id });
+    if (invoiceId) billed = " A draft invoice is waiting in Billing.";
+  }
+
   revalidatePath(`/clients/${clientId}/forms/${formId}`);
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/billing/forms");
   revalidatePath("/counselors");
   revalidatePath("/billing");
 
-  return { error: null, ok: `Sent to ${sentTo} and logged in the contact log.` };
+  return {
+    error: null,
+    ok: `Sent to ${sentTo} with the signed PDF attached, and logged in the contact log.${billed}`,
+  };
+}
+
+/**
+ * The sender's signature image, if they have uploaded one.
+ *
+ * Read with the service role: the image lives in the staff tier, and reading
+ * one's own signature to stamp it on one's own signature block is the only
+ * thing this is for.
+ */
+async function signatureFor(
+  staffId: string,
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<{ bytes: Uint8Array; type: "png" | "jpg" } | null> {
+  const { data: row } = await admin
+    .from("staff_signatures")
+    .select("storage_path")
+    .eq("staff_id", staffId)
+    .maybeSingle();
+  if (!row) return null;
+  const { data: file } = await admin.storage.from("staff-files").download(row.storage_path);
+  if (!file) return null;
+  return {
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    type: /\.jpe?g$/i.test(row.storage_path) ? "jpg" : "png",
+  };
 }

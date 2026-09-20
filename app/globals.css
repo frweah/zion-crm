@@ -1688,3 +1688,201 @@ button.attach-chip:hover {
   color: var(--disabled-ink);
   cursor: default;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   The client record at the centre.
+
+   The header carries what you can do, the strip under it carries what is
+   due, and both of them are the first thing on the screen on a phone - where
+   most of this work is actually done, standing in somebody's workplace with
+   one hand free.
+   ───────────────────────────────────────────────────────────── */
+.record-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.status-line {
+  line-height: 1.9;
+}
+
+/* What is next: a row of taps, scrolling sideways on a narrow screen rather
+   than wrapping into a wall. */
+.next-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0 0 2px;
+}
+.next-strip li {
+  flex: 0 0 auto;
+  max-width: 320px;
+}
+.next-strip a {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color var(--motion),
+    background var(--motion);
+}
+.next-strip a:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+/* Due today or overdue: the gold edge, and the word still says which. */
+.next-strip li.soon a {
+  border-left-color: var(--accent);
+}
+.next-detail {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.next-clear {
+  margin: 12px 0 0;
+  font-size: var(--text-md);
+  color: var(--muted);
+}
+
+/* One dialog shell for everything the header opens. */
+.record-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--scrim);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 16px;
+  overflow-y: auto;
+}
+.record-dialog {
+  width: min(560px, 100%);
+  text-align: left;
+}
+
+@media (max-width: 720px) {
+  /* On a phone the actions come first and fill the width: they are the
+     reason the record was opened. */
+  .record-actions {
+    justify-content: stretch;
+    width: 100%;
+  }
+  .record-actions > * {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 44px;
+    text-align: center;
+  }
+  .next-strip li {
+    max-width: 78vw;
+  }
+  .record-dialog-scrim {
+    padding: 0;
+    align-items: stretch;
+  }
+  .record-dialog {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 0;
+  }
+}
+
+/* The find-a-client box in the header, and what it opens. */
+.top-bar {
+  align-items: center;
+  gap: 10px;
+}
+.client-search-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--field-line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-md);
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    color var(--motion);
+}
+.client-search-open:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.client-search-open kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--bone);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+.client-search {
+  width: min(560px, 100%);
+  text-align: left;
+}
+.client-search-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.client-search-list button {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion);
+}
+.client-search-list button.on {
+  background: var(--accent-soft);
+}
+@media (max-width: 720px) {
+  .client-search-open kbd {
+    display: none;
+  }
+  .client-search {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 0;
+  }
+}
+
+/* The caseload list's "nothing due" tail: names, not cards. */
+.quiet-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: var(--text-md);
+}
