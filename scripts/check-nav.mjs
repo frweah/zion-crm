@@ -79,21 +79,21 @@ if (orphans.length) {
 const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/system",
-    "/billing", "/billing/export", "/billing/forms",
+    "/billing", "/billing/export", "/billing/forms", "/billing/report",
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
-    "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
+    "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
-    "/billing/forms", "/calendar", "/clients", "/dashboard", "/hours",
+    "/billing/forms", "/billing/report", "/calendar", "/clients", "/dashboard", "/hours",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
-    "/billing", "/billing/export", "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
+    "/billing", "/billing/export", "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors", "/dashboard",
     "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops",
   ],
 };
