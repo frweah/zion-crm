@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { assignConversation, matchConversation, referralFromText, markSpam, type InboxState } from "./actions";
+import { assignConversation, matchConversation, referralFromConversation, markSpam, type InboxState } from "./actions";
 
 const initial: InboxState = { error: null, ok: null };
 
@@ -45,8 +45,9 @@ export function AssignForm({
 }
 
 /**
- * A number nobody knows: whose it is, a referral, or spam. Never nothing - an
- * unmatched text that is ignored is a person who was ignored.
+ * Somebody nobody knows - a number that texted in, or a name off the website:
+ * whose it is, a referral, or spam. Never nothing; an unmatched conversation
+ * that is ignored is a person who was ignored.
  */
 export function UnmatchedActions({
   conversationId,
@@ -57,7 +58,7 @@ export function UnmatchedActions({
 }) {
   const [mode, setMode] = useState<"" | "match" | "referral">("");
   const [matchState, matchAction, matching] = useActionState(matchConversation, initial);
-  const [refState, refAction, referring] = useActionState(referralFromText, initial);
+  const [refState, refAction, referring] = useActionState(referralFromConversation, initial);
   const [spamState, spamAction, spamming] = useActionState(markSpam, initial);
 
   return (

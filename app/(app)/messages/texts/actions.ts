@@ -2,57 +2,82 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { markRead } from "../actions";
 
 /**
- * The texts inbox (Messaging brief, A). Who has a conversation, whose number
- * an unknown one turns out to be, and what to do with the rest. Each is a
- * database function that checks the role itself (0105).
+ * The inbox (Messaging brief, A and C): texts and website chats.
+ *
+ * Every write is one of the database's own functions (0105, 0107), which
+ * decide who may. The five behind this screen lost "text" from their names
+ * when the website chat joined it - the rules did not change, only what can
+ * be in the list.
  */
 export type InboxState = { error: string | null; ok: string | null };
 
 export async function assignConversation(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const supabase = await createClient();
   const staff = String(formData.get("staff_id") ?? "");
-  const { error } = await supabase.rpc("assign_text_conversation", {
+  const { error } = await supabase.rpc("assign_conversation", {
     p_conversation: String(formData.get("conversation_id") ?? ""),
-    p_staff: staff || null,
+    p_staff: staff === "" ? null : staff,
   });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/messages/texts");
-  return { error: null, ok: staff ? "Assigned." : "Unassigned." };
+  return { error: null, ok: "Assigned." };
 }
 
 export async function matchConversation(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("match_text_conversation", {
+  const { error } = await supabase.rpc("match_conversation", {
     p_conversation: String(formData.get("conversation_id") ?? ""),
     p_client: String(formData.get("client_id") ?? ""),
   });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/messages/texts");
-  revalidatePath("/clients", "layout");
-  return { error: null, ok: "Matched. The texts are on their record." };
+  return { error: null, ok: "Matched." };
 }
 
-export async function referralFromText(_prev: InboxState, formData: FormData): Promise<InboxState> {
+export async function referralFromConversation(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("referral_from_text", {
+  const { error } = await supabase.rpc("referral_from_conversation", {
     p_conversation: String(formData.get("conversation_id") ?? ""),
     p_name: String(formData.get("name") ?? ""),
   });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/messages/texts");
-  revalidatePath("/clients", "layout");
-  return { error: null, ok: `Referral started${data ? "" : ""}. An intake call is on your tasks for tomorrow.` };
+  revalidatePath("/clients");
+  return { error: null, ok: "Referral started, with an intake call on the list." };
 }
 
 export async function markSpam(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("mark_text_spam", {
+  const { error } = await supabase.rpc("mark_conversation_spam", {
     p_conversation: String(formData.get("conversation_id") ?? ""),
     p_spam: formData.get("spam") !== "no",
   });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/messages/texts");
-  return { error: null, ok: formData.get("spam") !== "no" ? "Marked spam. It is kept, not deleted." : "Back in the inbox." };
+  return { error: null, ok: null };
+}
+
+/**
+ * Answering a visitor.
+ *
+ * A website chat has no client record to answer from - the person may not be
+ * anybody the practice knows yet - so it is answered here, where it arrived.
+ */
+export async function replyToWebChat(_prev: InboxState, formData: FormData): Promise<InboxState> {
+  const supabase = await createClient();
+  const conversation = String(formData.get("conversation_id") ?? "");
+  const { error } = await supabase.rpc("post_web_reply", {
+    p_conversation: conversation,
+    p_body: String(formData.get("body") ?? ""),
+  });
+  if (error) return { error: error.message, ok: null };
+  revalidatePath("/messages/texts");
+  return { error: null, ok: "sent" };
+}
+
+export async function markInboxRead(conversationId: string, seq: number): Promise<void> {
+  await markRead(conversationId, seq);
 }

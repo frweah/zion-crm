@@ -13,7 +13,9 @@
 --
 --   A text from a number nobody knows is kept, and sits in the inbox as
 --   unmatched until somebody matches it, makes a referral of it, or marks it
---   spam. Only the roles that work texts may do any of that.
+--   spam. Only the roles that work texts may do any of that. (The inbox holds
+--   website chats as well since 0107, which is why the five functions behind
+--   it no longer say "text" - the rules here are unchanged.)
 --
 -- Uses a made-up client and made-up staff (ZZ). Runs inside a transaction
 -- that is rolled back.
@@ -130,28 +132,28 @@ begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_bill_uid, 'role', 'authenticated')::text, true);
   begin
-    perform public.match_text_conversation(v_unknown, v_other);
+    perform public.match_conversation(v_unknown, v_other);
     failures := failures || 'FAILED: a role that does not work texts matched one to a client'::text;
   exception when insufficient_privilege then null;
   end;
   begin
-    perform public.mark_text_spam(v_unknown);
+    perform public.mark_conversation_spam(v_unknown);
     failures := failures || 'FAILED: a role that does not work texts marked one spam'::text;
   exception when insufficient_privilege then null;
   end;
-  select count(*) into v_n from public.texts_inbox('unmatched');
+  select count(*) into v_n from public.message_inbox('unmatched');
   if v_n < 1 then
     failures := failures || 'FAILED: Billing cannot see the texts inbox at all'::text;
   end if;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_staff_uid, 'role', 'authenticated')::text, true);
-  perform public.assign_text_conversation(v_unknown, v_staff);
-  select count(*) into v_n from public.texts_inbox('mine');
+  perform public.assign_conversation(v_unknown, v_staff);
+  select count(*) into v_n from public.message_inbox('mine');
   if v_n <> 1 then
     failures := failures || format('FAILED: "mine" showed %s conversations after assigning one', v_n)::text;
   end if;
 
-  v_ref := public.referral_from_text(v_unknown, 'ZZ Walked In');
+  v_ref := public.referral_from_conversation(v_unknown, 'ZZ Walked In');
   if (select stage from public.clients where id = v_ref) <> 'Referral' then
     failures := failures || 'FAILED: a referral from a text did not start at Referral'::text;
   elsif not exists (select 1 from public.tasks where client_id = v_ref and title like 'Intake call%') then
@@ -171,11 +173,11 @@ begin
   perform public.record_incoming_sms('801-555-0188', 'ZZ win a free cruise', 'zz-provider-4', null);
   perform set_config('role', 'authenticated', true);
   select id into v_unknown from public.conversations where kind = 'sms' and client_id is null and external_address = public.normalize_phone('801-555-0188');
-  perform public.mark_text_spam(v_unknown);
-  select count(*) into v_n from public.texts_inbox('open');
-  if exists (select 1 from public.texts_inbox('open') where conversation_id = v_unknown) then
+  perform public.mark_conversation_spam(v_unknown);
+  select count(*) into v_n from public.message_inbox('open');
+  if exists (select 1 from public.message_inbox('open') where conversation_id = v_unknown) then
     failures := failures || 'FAILED: something marked spam was still in the open inbox'::text;
-  elsif not exists (select 1 from public.texts_inbox('spam') where conversation_id = v_unknown) then
+  elsif not exists (select 1 from public.message_inbox('spam') where conversation_id = v_unknown) then
     failures := failures || 'FAILED: something marked spam was lost rather than set aside'::text;
   elsif not exists (select 1 from public.messages m join public.conversations c on c.id = m.conversation_id where c.id = v_unknown) then
     failures := failures || 'FAILED: the spam text itself was deleted'::text;
@@ -184,8 +186,8 @@ begin
   end if;
 
   perform set_config('request.jwt.claims', '', true);
-  if has_function_privilege('anon', 'public.texts_inbox(text)', 'execute')
-     or has_function_privilege('anon', 'public.referral_from_text(uuid, text)', 'execute') then
+  if has_function_privilege('anon', 'public.message_inbox(text)', 'execute')
+     or has_function_privilege('anon', 'public.referral_from_conversation(uuid, text)', 'execute') then
     failures := failures || 'FAILED: somebody not signed in can work the texts inbox'::text;
   end if;
 

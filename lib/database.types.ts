@@ -2122,6 +2122,13 @@ export type Database = {
           employer_address: string;
           employer_ein: string;
           payroll_service: string;
+          web_chat_enabled: boolean;
+          web_chat_takers: string[];
+          web_chat_open: string;
+          web_chat_close: string;
+          web_chat_days: number[];
+          web_chat_promise: string;
+          web_chat_greeting: string;
         };
         Insert: {
           id?: boolean;
@@ -2132,6 +2139,13 @@ export type Database = {
           employer_address?: string;
           employer_ein?: string;
           payroll_service?: string;
+          web_chat_enabled?: boolean;
+          web_chat_takers?: string[];
+          web_chat_open?: string;
+          web_chat_close?: string;
+          web_chat_days?: number[];
+          web_chat_promise?: string;
+          web_chat_greeting?: string;
         };
         Update: {
           id?: boolean;
@@ -2142,6 +2156,13 @@ export type Database = {
           employer_address?: string;
           employer_ein?: string;
           payroll_service?: string;
+          web_chat_enabled?: boolean;
+          web_chat_takers?: string[];
+          web_chat_open?: string;
+          web_chat_close?: string;
+          web_chat_days?: number[];
+          web_chat_promise?: string;
+          web_chat_greeting?: string;
         };
         Relationships: [];
       };
@@ -3837,6 +3858,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      web_chat_sessions: {
+        Row: {
+          token_hash: string;
+          conversation_id: string;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: {
+          token_hash: string;
+          conversation_id: string;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Update: {
+          token_hash?: string;
+          conversation_id?: string;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Relationships: [];
+      };
+      web_chats: {
+        Row: {
+          conversation_id: string;
+          visitor_name: string;
+          contact: string;
+          contact_kind: string;
+          consent_text: string;
+          consent_at: string;
+          ip_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          conversation_id: string;
+          visitor_name: string;
+          contact: string;
+          contact_kind: string;
+          consent_text: string;
+          consent_at?: string;
+          ip_hash?: string;
+          created_at?: string;
+        };
+        Update: {
+          conversation_id?: string;
+          visitor_name?: string;
+          contact?: string;
+          contact_kind?: string;
+          consent_text?: string;
+          consent_at?: string;
+          ip_hash?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       work_categories: {
         Row: {
           key: string;
@@ -4411,7 +4486,7 @@ export type Database = {
         Args: { p_conversation: string | null; p_archived?: boolean | null };
         Returns: undefined;
       };
-      assign_text_conversation: {
+      assign_conversation: {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
       };
@@ -4551,21 +4626,25 @@ export type Database = {
         Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
       };
+      mark_conversation_spam: {
+        Args: { p_conversation: string | null; p_spam?: boolean | null };
+        Returns: undefined;
+      };
       mark_read: {
         Args: { p_conversation: string | null; p_seq: number | null };
         Returns: undefined;
       };
-      mark_text_spam: {
-        Args: { p_conversation: string | null; p_spam?: boolean | null };
+      match_conversation: {
+        Args: { p_conversation: string | null; p_client: string | null };
         Returns: undefined;
       };
       match_inbox_folder: {
         Args: { p_folder: string | null };
         Returns: string;
       };
-      match_text_conversation: {
-        Args: { p_conversation: string | null; p_client: string | null };
-        Returns: undefined;
+      message_inbox: {
+        Args: { p_show?: string | null };
+        Returns: { conversation_id: string | null; kind: string | null; client_id: string | null; client_name: string | null; who: string | null; assigned_staff_id: string | null; assigned_name: string | null; last_message_at: string | null; last_body: string | null; unread: number | null; unmatched: boolean | null; spam: boolean | null; can_text: boolean | null }[];
       };
       messages_digest_due: {
         Args: Record<string, never>;
@@ -4643,6 +4722,18 @@ export type Database = {
         Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null };
         Returns: string;
       };
+      post_visitor_message: {
+        Args: { p_conversation: string | null; p_body: string | null };
+        Returns: number;
+      };
+      post_web_reply: {
+        Args: { p_conversation: string | null; p_body: string | null };
+        Returns: number;
+      };
+      practice_now: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
       practice_today: {
         Args: Record<string, never>;
         Returns: string;
@@ -4687,7 +4778,7 @@ export type Database = {
         Args: { p_client: string | null; p_purpose?: string | null };
         Returns: Json;
       };
-      referral_from_text: {
+      referral_from_conversation: {
         Args: { p_conversation: string | null; p_name: string | null };
         Returns: string;
       };
@@ -4791,13 +4882,13 @@ export type Database = {
         Args: { p_title: string | null; p_staff: string[] | null; p_client?: string | null };
         Returns: string;
       };
+      start_web_chat: {
+        Args: { p_name: string | null; p_contact: string | null; p_consent: string | null; p_token_hash: string | null; p_ip_hash?: string | null };
+        Returns: { conversation_id: string | null; live: boolean | null; promise: string | null; assigned_name: string | null }[];
+      };
       submit_own_credential: {
         Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };
         Returns: string;
-      };
-      texts_inbox: {
-        Args: { p_show?: string | null };
-        Returns: { conversation_id: string | null; client_id: string | null; client_name: string | null; phone: string | null; assigned_staff_id: string | null; assigned_name: string | null; last_message_at: string | null; last_body: string | null; unread: number | null; unmatched: boolean | null; spam: boolean | null; can_text: boolean | null }[];
       };
       timer_elapsed_hours: {
         Args: { p_started: string | null };
@@ -4806,6 +4897,22 @@ export type Database = {
       verify_credential: {
         Args: { p_credential_id: string | null };
         Returns: undefined;
+      };
+      web_chat_config: {
+        Args: Record<string, never>;
+        Returns: { enabled: boolean | null; live: boolean | null; greeting: string | null; promise: string | null }[];
+      };
+      web_chat_live: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      web_chat_session: {
+        Args: { p_token_hash: string | null };
+        Returns: string;
+      };
+      web_chat_thread: {
+        Args: { p_conversation: string | null; p_since?: number | null };
+        Returns: { seq: number | null; who: string | null; sender_label: string | null; body: string | null; created_at: string | null }[];
       };
     };
     Enums: { [_ in never]: never };
