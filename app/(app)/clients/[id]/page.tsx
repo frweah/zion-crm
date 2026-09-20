@@ -472,7 +472,7 @@ export default async function ClientPage({
       supabase.from("employers").select("id, name").order("name"),
       supabase
         .from("placements")
-        .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid")
+        .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid, shifts_worked, fifth_shift_on, stability_on, stability_basis")
         .eq("client_id", id)
         .order("start_date", { ascending: false, nullsFirst: false }),
     ]);

@@ -17,6 +17,11 @@
 --   The invoice a completed form has earned is raised once, as a Draft, for
 --   what the hours come to, and never while a form is still outstanding.
 --
+--   The two moments the CRP billing pathway turns on say so when they
+--   arrive: five shifts kept means the placement may be billed on USOR 92,
+--   and thirty days of stability means the High Quality Indicators may be.
+--   Neither can be dated before the placement started.
+--
 -- Uses made-up staff, clients and authorizations (ZZ). Runs inside a
 -- transaction that is rolled back.
 
@@ -31,6 +36,7 @@ declare
   v_auth   uuid;
   v_invoice uuid;
   v_again  uuid;
+  v_placement uuid;
   v_n      integer;
   v_amount numeric;
   failures text[] := '{}';
@@ -160,6 +166,48 @@ begin
     failures := failures || format('FAILED: the authorization ended up with %s invoices', v_n)::text;
   else
     raise notice 'ok  the invoice the paperwork earned is raised once, as a Draft, for what the hours come to - and not before';
+  end if;
+
+  -- ── the two moments the pathway turns on (0111) ───────────
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  insert into public.placements (client_id, employer, title, start_date, wage, hours_week)
+  values (v_client, 'ZZ Centre Employer', 'ZZ Job', public.practice_today() - 60, 15, 32)
+  returning id into v_placement;
+
+  -- A placement cannot be stable, or have worked its fifth shift, before it
+  -- started.
+  begin
+    update public.placements set fifth_shift_on = public.practice_today() - 90 where id = v_placement;
+    failures := failures || 'FAILED: a fifth shift was dated before the placement began'::text;
+  exception when check_violation then null;
+  end;
+  begin
+    update public.placements set stability_on = public.practice_today() - 90 where id = v_placement;
+    failures := failures || 'FAILED: a placement was stable before it began'::text;
+  exception when check_violation then null;
+  end;
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_worker_uid, 'role', 'authenticated')::text, true);
+  if exists (select 1 from public.client_next_actions(v_client) where kind = 'placement') then
+    failures := failures || 'FAILED: the placement was billable before any shift was recorded'::text;
+  end if;
+
+  perform set_config('role', 'postgres', true);
+  update public.placements
+     set shifts_worked = 5, fifth_shift_on = public.practice_today() - 40,
+         stability_on = public.practice_today() - 31, stability_basis = 'SJBT'
+   where id = v_placement;
+  perform set_config('role', 'authenticated', true);
+
+  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'placement') then
+    failures := failures || 'FAILED: five shifts kept did not make the placement billable'::text;
+  end if;
+  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'stability') then
+    failures := failures || 'FAILED: thirty days of stability did not raise the indicators'::text;
+  else
+    raise notice 'ok  five shifts kept and thirty days of stability each say so, and neither can predate the placement';
   end if;
 
   -- ── nobody signed in ───────────────────────────────────────

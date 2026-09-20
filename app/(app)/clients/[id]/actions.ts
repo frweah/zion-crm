@@ -382,6 +382,11 @@ export async function updatePlacement(
     patch.check30 = date("check30");
     patch.check60 = date("check60");
     patch.check90 = date("check90");
+    // The two the CRP billing pathway turns on (0111).
+    patch.shifts_worked = num("shifts_worked") ?? 0;
+    patch.fifth_shift_on = date("fifth_shift_on");
+    patch.stability_on = date("stability_on");
+    patch.stability_basis = str("stability_basis");
   }
   if (canBill) {
     patch.jp_submitted = date("jp_submitted");
