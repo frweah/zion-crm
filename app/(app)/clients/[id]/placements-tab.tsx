@@ -18,6 +18,10 @@ export type PlacementRow = {
   check90: string | null;
   jp_submitted: string | null;
   jp_paid: string | null;
+  shifts_worked: number | null;
+  fifth_shift_on: string | null;
+  stability_on: string | null;
+  stability_basis: string | null;
 };
 
 function retention(p: PlacementRow) {
@@ -95,6 +99,57 @@ function PlacementItem({
               defaultValue={placement.hours_week ?? ""}
               disabled={!canEdit}
             />
+          </label>
+        </div>
+
+        {/*
+          The two moments the CRP billing pathway turns on (owner, 20 Sept
+          2026). Neither is computed: a shift is a shift somebody worked, and
+          stability is a judgement about a person. The CRM carries them once
+          somebody knows them, and stops the claim being forgotten.
+        */}
+        <div className="row2" style={{ marginTop: 10 }}>
+          <label className="field" style={{ maxWidth: 120 }}>
+            Shifts worked
+            <input
+              name="shifts_worked"
+              type="number"
+              min="0"
+              max="500"
+              defaultValue={placement.shifts_worked ?? 0}
+              disabled={!canEdit}
+            />
+            <span className="lock">A split shift counts as one</span>
+          </label>
+          <label className="field" style={{ maxWidth: 160 }}>
+            Fifth shift on
+            <input
+              name="fifth_shift_on"
+              type="date"
+              max={today()}
+              defaultValue={placement.fifth_shift_on ?? ""}
+              disabled={!canEdit}
+            />
+            <span className="lock">Job Placement bills from here, on USOR 92</span>
+          </label>
+          <label className="field" style={{ maxWidth: 160 }}>
+            Stable since
+            <input
+              name="stability_on"
+              type="date"
+              max={today()}
+              defaultValue={placement.stability_on ?? ""}
+              disabled={!canEdit}
+            />
+            <span className="lock">What an HQI invoice is dated</span>
+          </label>
+          <label className="field" style={{ maxWidth: 150 }}>
+            Which rule
+            <select name="stability_basis" defaultValue={placement.stability_basis ?? ""} disabled={!canEdit}>
+              <option value="">Not decided</option>
+              <option value="SJBT">SJBT — 30 days CIE</option>
+              <option value="SE">SE — 80/20 or 24 months</option>
+            </select>
           </label>
         </div>
 

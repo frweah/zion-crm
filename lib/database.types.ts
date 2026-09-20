@@ -2247,6 +2247,10 @@ export type Database = {
           notes: string;
           created_at: string;
           updated_at: string;
+          shifts_worked: number;
+          fifth_shift_on: string | null;
+          stability_on: string | null;
+          stability_basis: string;
         };
         Insert: {
           id?: string;
@@ -2265,6 +2269,10 @@ export type Database = {
           notes?: string;
           created_at?: string;
           updated_at?: string;
+          shifts_worked?: number;
+          fifth_shift_on?: string | null;
+          stability_on?: string | null;
+          stability_basis?: string;
         };
         Update: {
           id?: string;
@@ -2283,6 +2291,10 @@ export type Database = {
           notes?: string;
           created_at?: string;
           updated_at?: string;
+          shifts_worked?: number;
+          fifth_shift_on?: string | null;
+          stability_on?: string | null;
+          stability_basis?: string;
         };
         Relationships: [];
       };
