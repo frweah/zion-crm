@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp } from "@/lib/constants";
-import { myMailAccess, resolveMailbox } from "@/lib/mail-access";
+import { myMailAccess, resolveMailbox, SHARED_MAILBOX_ROLES } from "@/lib/mail-access";
 import { listMessages, getMessage, listAttachments, MailError, type MessageSummary, type Folder } from "@/lib/mail";
 import { PageHead } from "../page-head";
 import { RespondForms, DeleteMessage } from "./mail-forms";
@@ -131,8 +131,14 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
       {!access.canSend && (
         <div className="alert" style={{ marginBottom: 12 }}>
           You can read your mail here. Sending and deleting from the CRM need one reconnect of your Outlook, which asks
-          Microsoft to let the CRM send as you, or move a message to your Deleted Items, when - and only when - you press
-          the button.{" "}
+          Microsoft to let the CRM send as you, or move a message to Deleted Items, when - and only when - you press the
+          button.{" "}
+          {SHARED_MAILBOX_ROLES.includes(access.me.role) && (
+            <>
+              For your role it covers the practice&apos;s shared mailbox as well, where a message goes to that
+              mailbox&apos;s Deleted Items rather than yours.{" "}
+            </>
+          )}
           <a href="/api/auth/microsoft/start?send=1" style={{ color: "inherit" }}>
             <b>Turn sending on</b>
           </a>
@@ -213,7 +219,14 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
                 <h2 className="h2" style={{ marginBottom: 6 }}>
                   {open.subject}
                 </h2>
-                {mailbox === null && access.canDelete && <DeleteMessage messageId={open.id} back={href({ id: undefined })} />}
+                {/*
+                  Your own mailbox needs Mail.ReadWrite; the shared one needs
+                  Mail.ReadWrite.Shared and the role that works it. Somebody
+                  can have one and not the other, so each is asked separately.
+                */}
+                {mailbox !== false && (mailbox === null ? access.canDelete : access.canDeleteShared) && (
+                  <DeleteMessage messageId={open.id} back={href({ id: undefined })} box={mailbox ?? "me"} />
+                )}
               </div>
               <p className="lock" style={{ margin: "0 0 12px" }}>
                 From <b>{open.from?.name || open.from?.address}</b> {open.from?.name ? `<${open.from.address}>` : ""} ·{" "}
