@@ -75,18 +75,32 @@ export const SHARED_MAILBOX_SCOPE = "Mail.Read.Shared";
 export const MAIL_SEND_SCOPE = "Mail.Send";
 
 /**
- * Deleting - moving a message to the person's own Deleted Items, as Outlook
- * does (owner, 19 Sept 2026). Mail.Read cannot move anything; Mail.ReadWrite
- * can, in the person's own mailbox only. The shared mailbox would need
- * Mail.ReadWrite.Shared, which is not asked for.
+ * Deleting - moving a message to Deleted Items, as Outlook does (owner,
+ * 19 Sept 2026). Mail.Read cannot move anything; Mail.ReadWrite can, in the
+ * person's own mailbox.
  */
 export const MAIL_WRITE_SCOPE = "Mail.ReadWrite";
+
+/**
+ * The same, in the shared mailbox (owner, 19 Sept 2026: Billing clears
+ * service@ from the CRM rather than switching to Outlook to do it).
+ *
+ * Asked for only alongside the shared read permission, and only by the roles
+ * that work that mailbox - and, like the read, it opens nothing by itself: it
+ * reaches exactly the mailboxes Exchange has already given that person, so
+ * who can actually delete is an Exchange administrator's decision, not ours.
+ */
+export const SHARED_WRITE_SCOPE = "Mail.ReadWrite.Shared";
 
 export function scopesFor(shared: boolean, send = false): string[] {
   return [
     ...MICROSOFT_SCOPES,
     ...(shared ? [SHARED_MAILBOX_SCOPE] : []),
     ...(send ? [MAIL_SEND_SCOPE, MAIL_WRITE_SCOPE] : []),
+    // Deleting in the shared mailbox goes with working it, not with sending:
+    // both halves have to be true, so nobody is asked for a permission over a
+    // mailbox they never open.
+    ...(shared && send ? [SHARED_WRITE_SCOPE] : []),
   ];
 }
 

@@ -10,10 +10,17 @@ import "server-only";
  * scripts/check-mail.mjs fails the build otherwise. Nothing sends on a timer,
  * on a trigger, or on anybody's behalf.
  *
- * Always from /me: delegated Mail.Send reaches only the mailbox of whoever
- * consented. A reply to a message in the shared mailbox is sent from the
- * person's own address, quoting it, because sending as service@ would need
- * Mail.Send.Shared, which the CRM does not ask for.
+ * Always sent from /me: delegated Mail.Send reaches only the mailbox of
+ * whoever consented. A reply to a message in the shared mailbox is sent from
+ * the person's own address, quoting it, because sending as service@ would
+ * need Mail.Send.Shared, which the CRM does not ask for.
+ *
+ * Deleting is the one thing that reaches another mailbox, and only ever as a
+ * move to that mailbox's own Deleted Items (owner, 19 Sept 2026). Nothing
+ * here is recorded in the CRM: the files that touch mail may not write to the
+ * database at all - that is what keeps a message body out of it
+ * (scripts/check-mail.mjs) - so the record of who cleared the shared mailbox
+ * is Exchange's own, where a shared mailbox is audited anyway.
  *
  * Plain text. The body is sent and not kept.
  */
@@ -70,9 +77,15 @@ export async function forwardOwn(token: string, messageId: string, to: string[],
 }
 
 /**
- * "Delete": into the person's own Deleted Items, as Outlook does, where it
- * can be got back. Never a permanent deletion, and never in a shared mailbox.
+ * "Delete": into Deleted Items, as Outlook does, where it can be got back.
+ * Never a permanent deletion.
+ *
+ * Without a mailbox it is the person's own. With one it is a shared mailbox
+ * they have been offered, and the message goes to that mailbox's Deleted
+ * Items rather than to theirs - service@'s mail stays service@'s, including
+ * after somebody has finished with it.
  */
-export async function moveToDeletedItems(token: string, messageId: string): Promise<void> {
-  await post(token, `/me/messages/${encodeURIComponent(messageId)}/move`, { destinationId: "deleteditems" });
+export async function moveToDeletedItems(token: string, messageId: string, mailbox?: string | null): Promise<void> {
+  const root = mailbox ? `/users/${encodeURIComponent(mailbox)}` : "/me";
+  await post(token, `${root}/messages/${encodeURIComponent(messageId)}/move`, { destinationId: "deleteditems" });
 }
