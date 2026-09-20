@@ -18,6 +18,15 @@ export type TokenBundle = {
   expiresAt: Date | null;
   /** What the connection was granted, so a refresh asks for the same again. */
   scopes?: string;
+  /**
+   * How this connection reports its own health.
+   *
+   * It rides on the bundle rather than being passed in at each call so that a
+   * caller cannot forget it. set_microsoft_error existed for a year without a
+   * single caller, and the cost was mail being down while every screen said
+   * it was connected.
+   */
+  note?: (error: string | null) => Promise<void>;
 };
 
 /**
@@ -40,12 +49,27 @@ export async function ensureFreshToken(
     throw new Error("The connection has expired and there is no refresh token. Reconnect Outlook.");
   }
 
-  const fresh = await refreshTokens(bundle.refreshToken, bundle.scopes);
+  let fresh;
+  try {
+    fresh = await refreshTokens(bundle.refreshToken, bundle.scopes);
+  } catch (err) {
+    // Microsoft turning down a refresh is the connection being broken, not
+    // one call going wrong: it is written onto the connection so the
+    // dashboard can say so, and then re-thrown so this call still fails.
+    const message = err instanceof Error ? err.message : "Microsoft refused to renew the connection.";
+    await bundle.note?.(message).catch(() => {
+      // Recording the trouble must not replace reporting it.
+    });
+    throw err;
+  }
+
   await save({
     accessToken: fresh.accessToken,
     refreshToken: fresh.refreshToken,
     expiresAt: fresh.expiresAt,
   });
+  // A connection that has just refreshed is working, whatever it said before.
+  await bundle.note?.(null).catch(() => {});
   return fresh.accessToken;
 }
 

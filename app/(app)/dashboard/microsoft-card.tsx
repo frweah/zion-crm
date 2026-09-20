@@ -170,21 +170,35 @@ export function MicrosoftCard({
             Connected as <b>{connection.microsoft_email || connection.display_name}</b> since{" "}
             {connection.connected_at.slice(0, 10)}.
           </p>
-          {connection.last_error && (
-            <div className="alert warn">
-              The connection stopped working: {connection.last_error}. Disconnect and connect again.
+          {/*
+            What the connection was granted and whether it still works are two
+            different questions, and only the second one matters when the
+            answer is no. Microsoft refusing a refresh used to leave this card
+            saying "sending is on" while mail was down in both directions, so
+            a live refusal is now the only thing it says about sending.
+          */}
+          {connection.last_error ? (
+            <div className="alert bad">
+              <b>Outlook needs reconnecting.</b> Microsoft is refusing this connection, so mail cannot be read or sent
+              from the CRM. It said: {connection.last_error}
+              <div style={{ marginTop: 8 }}>
+                <a className="btn gold" href="/api/auth/microsoft/start?send=1" style={{ textDecoration: "none" }}>
+                  Reconnect Outlook
+                </a>
+              </div>
             </div>
+          ) : (
+            <p className="lock" style={{ marginTop: 0 }}>
+              {(connection.scopes ?? "").split(/\s+/).some((s) => s.endsWith("Mail.Send")) ? (
+                <>Sending and deleting from the CRM are on - only when you press Send or Delete on the Mail screen.</>
+              ) : (
+                <>
+                  Sending and deleting from the CRM are off.{" "}
+                  <a href="/api/auth/microsoft/start?send=1">Turn sending on</a> - one reconnect.
+                </>
+              )}
+            </p>
           )}
-          <p className="lock" style={{ marginTop: 0 }}>
-            {(connection.scopes ?? "").split(/\s+/).some((s) => s.endsWith("Mail.Send")) ? (
-              <>Sending and deleting from the CRM are on - only when you press Send or Delete on the Mail screen.</>
-            ) : (
-              <>
-                Sending and deleting from the CRM are off.{" "}
-                <a href="/api/auth/microsoft/start?send=1">Turn sending on</a> - one reconnect.
-              </>
-            )}
-          </p>
           <LastRun lastRun={lastRun} lastResult={lastResult} />
           <SyncNow />
           <form action={action} style={{ display: "inline" }}>

@@ -38,6 +38,9 @@ export function ownAccess(
           refreshToken: row.refresh_token,
           expiresAt: row.expires_at ? new Date(row.expires_at) : null,
           scopes: conn?.scopes ?? "",
+          note: async (error) => {
+            await supabase.rpc("set_microsoft_error", { p_staff_id: staffId, p_error: error ?? "" });
+          },
         };
       },
       write: async (t) => {
@@ -88,6 +91,11 @@ export function sweepAccess(
           refreshToken: row.refresh_token,
           expiresAt: row.expires_at ? new Date(row.expires_at) : null,
           scopes: conn?.scopes ?? "",
+          // The sweep has no session, so it cannot use the function that asks
+          // whose connection this is (0108).
+          note: async (error) => {
+            await admin.rpc("set_microsoft_error_for_sync", { p_staff_id: staffId, p_error: error ?? "" });
+          },
         };
       },
       write: async (t) => {

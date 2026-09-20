@@ -144,6 +144,50 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
+  -- ── a refused connection says so ───────────────────────────
+  -- set_microsoft_error existed from 0029 and nothing called it, so when
+  -- Microsoft began refusing every refresh (19 Sept 2026) mail was down in
+  -- both directions while the dashboard went on saying it was connected. The
+  -- application writes the refusal now; what is checked here is that it may,
+  -- that the sweep has its own way in, and that a colleague has not.
+  -- As the person whose connection it is, which is how the screens call it.
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
+  perform public.set_microsoft_error(v_admin, 'ZZ Microsoft refused this connection');
+  if (select last_error from public.microsoft_connections where staff_id = v_admin) <> 'ZZ Microsoft refused this connection' then
+    failures := failures || 'FAILED: a refused connection was not recorded against it'::text;
+  end if;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  -- The sweep has no session at three in the morning.
+  perform public.set_microsoft_error_for_sync(v_admin, 'ZZ refused during the nightly sweep');
+  if (select last_error from public.microsoft_connections where staff_id = v_admin) <> 'ZZ refused during the nightly sweep' then
+    failures := failures || 'FAILED: the nightly sweep cannot record a refused connection'::text;
+  end if;
+
+  -- And a working refresh clears it, or the card would nag forever.
+  perform public.set_microsoft_error_for_sync(v_admin, '');
+  if coalesce((select last_error from public.microsoft_connections where staff_id = v_admin), 'x') <> '' then
+    failures := failures || 'FAILED: a connection that started working again still says it is broken'::text;
+  end if;
+
+  if has_function_privilege('anon', 'public.set_microsoft_error_for_sync(uuid, text)', 'execute')
+     or has_function_privilege('authenticated', 'public.set_microsoft_error_for_sync(uuid, text)', 'execute') then
+    failures := failures || 'FAILED: the sweep''s way in is open to somebody signed in, or to nobody at all'::text;
+  end if;
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_rei_uid, 'role', 'authenticated')::text, true);
+  begin
+    perform public.set_microsoft_error(v_admin, 'ZZ somebody else saying it is broken');
+    failures := failures || 'FAILED: a colleague marked somebody else''s connection broken'::text;
+  exception when insufficient_privilege then
+    raise notice 'ok  a refused connection is recorded, cleared when it works again, and is nobody else''s to mark';
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
   -- ── offboarding destroys the token ─────────────────────────
   update public.staff set active = false where id = v_rei;
 
