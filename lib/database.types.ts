@@ -4834,6 +4834,10 @@ export type Database = {
         Args: { p_staff_id: string | null; p_error: string | null };
         Returns: undefined;
       };
+      set_microsoft_error_for_sync: {
+        Args: { p_staff_id: string | null; p_error: string | null };
+        Returns: undefined;
+      };
       set_microsoft_tokens: {
         Args: { p_microsoft_user_id: string | null; p_email: string | null; p_display_name: string | null; p_scopes: string | null; p_access: string | null; p_refresh: string | null; p_expires_at: string | null };
         Returns: undefined;

@@ -93,6 +93,8 @@ const RPC_FUNCTIONS = [
   "exclude_mail_thread",
   "get_microsoft_tokens",
   "set_microsoft_error",
+  // The sweep has no session, so it reports a refused refresh its own way (0108).
+  "set_microsoft_error_for_sync",
   "set_statement_adjustment",
   "staff_activity",
   "record_1099_delivery",
