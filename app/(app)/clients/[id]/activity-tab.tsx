@@ -222,6 +222,18 @@ export function ActivityTab({
                         {row.who && <div className="lock">{row.who}</div>}
                       </td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>
+                        {/* A text answered from the feed rather than from a
+                            second screen: the reply box is one tap away, with
+                            the consent and hours rules where they already are. */}
+                        {row.kind === "Text" && (
+                          <Link
+                            className="btn ghost"
+                            href={`/clients/${clientId}?tab=messages`}
+                            style={{ textDecoration: "none", padding: "2px 10px" }}
+                          >
+                            Reply
+                          </Link>
+                        )}{" "}
                         {outlook && (
                           <a className="btn ghost" href={outlook} target="_blank" rel="noopener noreferrer">
                             Open in Outlook

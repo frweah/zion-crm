@@ -80,7 +80,13 @@ declare
     'work_session_timers',   -- a running stopwatch, gone in an hour
     'legal_holds',           -- about the record rather than in it
     'retention_dispositions',
-    'records_requests'       -- the request, not the record
+    'records_requests',      -- the request, not the record
+    -- Which records a staff member had open lately, so the search box can
+    -- offer them (0109). It is staff navigation, not anything about the
+    -- client: it holds no fact about them that is not already on the record,
+    -- and the reads that are disclosable - somebody opening the restricted
+    -- tier - are in access_log, which is in the bundle above.
+    'client_recents'
   ];
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff

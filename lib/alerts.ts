@@ -44,7 +44,7 @@ export async function getAlerts(): Promise<Alert[]> {
 
   const { data } = await supabase
     .from("notifications")
-    .select("id, level, text, href, created_at")
+    .select("id, kind, level, text, href, created_at, client_id")
     .is("resolved_at", null)
     .order("level")
     .order("created_at", { ascending: false })
@@ -54,9 +54,49 @@ export async function getAlerts(): Promise<Alert[]> {
     id: n.id,
     level: n.level === "bad" ? "bad" : "warn",
     text: n.text,
-    href: n.href,
+    href: alertHref(n.kind, n.href, n.client_id),
     createdAt: n.created_at,
   }));
+}
+
+/** Which tab of a client's record an alert about them is dealt with on. */
+const TAB_FOR_KIND: Record<string, string> = {
+  auth_ending: "billing",
+  auth_hours: "billing",
+  invoice_unpaid: "billing",
+  invoice_overdue: "billing",
+  monthly_forms: "billing",
+  paperwork_missing: "billing",
+  task_overdue: "activity",
+  followup_due: "activity",
+  counselor_followup: "activity",
+  inactive: "activity",
+};
+
+/** Screens that moved, whose alerts were still pointing at the old place. */
+const MOVED: Record<string, string> = {
+  "/admin/staff": "/admin/people",
+  "/staff": "/admin/people",
+};
+
+/**
+ * Where an alert opens.
+ *
+ * An alert about a client opens that client's record, on the tab where the
+ * thing is dealt with - not a list of everybody with the same problem, which
+ * is a second search for something the alert already knew. The stored href is
+ * kept for alerts that are not about one client.
+ */
+export function alertHref(kind: string, stored: string | null, clientId: string | null): string | null {
+  if (clientId) {
+    const tab = TAB_FOR_KIND[kind];
+    if (tab) return `/clients/${clientId}?tab=${tab}`;
+    // An alert about a client with no tab of its own still belongs on the
+    // record rather than on a list.
+    if (!stored || !stored.startsWith("/clients/")) return `/clients/${clientId}`;
+  }
+  if (stored && MOVED[stored]) return MOVED[stored];
+  return stored;
 }
 
 /** How old the alerts may be before a dashboard asks for them to be worked out again. */

@@ -35,6 +35,12 @@ export function formToText(
   templateId: string,
   data: Record<string, unknown>,
   ctx: FormContext,
+  /**
+   * The PDF (lib/form-pdf.ts) draws its own signature block, with the
+   * signer's uploaded signature in it, so it asks for the content without the
+   * text one rather than rendering the content a second time itself.
+   */
+  opts?: { omitSignature?: boolean },
 ): string {
   const tpl = templateById(templateId);
   if (!tpl) return "Unknown form.";
@@ -87,12 +93,14 @@ export function formToText(
     }
   }
 
-  L.push("");
-  L.push(
-    ctx.completedAt
-      ? `I understand that I am electronically signing this form, and I certify that the information on this form is correct to the best of my knowledge.\nCRP Signature: /s/ ${ctx.completedBy}    Date: ${ctx.completedAt.slice(0, 10)}`
-      : "DRAFT — not signed",
-  );
+  if (!opts?.omitSignature) {
+    L.push("");
+    L.push(
+      ctx.completedAt
+        ? `I understand that I am electronically signing this form, and I certify that the information on this form is correct to the best of my knowledge.\nCRP Signature: /s/ ${ctx.completedBy}    Date: ${ctx.completedAt.slice(0, 10)}`
+        : "DRAFT — not signed",
+    );
+  }
 
   return L.join("\n");
 }

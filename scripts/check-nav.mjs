@@ -74,21 +74,23 @@ if (orphans.length) {
 // them. Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026),
 // and so is the whole Admin group (19 Sept 2026): the document inbox, the
 // agent's status, the monthly export and the rate schedule are under Billing.
+// "My clients today" (20 Sept 2026) is for the two roles that carry a
+// caseload, and Admin, who sees everybody's of everything.
 const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/system",
     "/billing", "/billing/export", "/billing/forms",
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals", "/insights/reports",
-    "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/paperwork", "/sops", "/tasks",
   ],
   "Job Search": [
     "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",
-    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops", "/tasks",
+    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/paperwork", "/sops", "/tasks",
   ],
   Reports: [
     "/billing/forms", "/calendar", "/clients", "/dashboard", "/hours",
-    "/leads", "/mail", "/messages", "/messages/texts", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/paperwork", "/sops", "/tasks",
   ],
   Billing: [
     "/billing", "/billing/export", "/billing/forms", "/calendar", "/clients", "/counselors", "/dashboard",

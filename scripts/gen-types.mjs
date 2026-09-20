@@ -187,6 +187,15 @@ const RPC_FUNCTIONS = [
   "sign_staff_policy",
   "refresh_onboarding",
   "note_staff_personal_access",
+  // The client record at the centre (0109, 0110).
+  "note_client_opened",
+  "search_clients",
+  "client_next_actions",
+  "set_my_signature",
+  "clear_my_signature",
+  "have_my_signature",
+  "billing_gate_met",
+  "draft_invoice_for_authorization",
 ];
 
 const { rows: fns } = await client.query(

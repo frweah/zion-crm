@@ -11,6 +11,7 @@ import { GroupTabs } from "./group-tabs";
 import { SidebarToggle } from "./sidebar-toggle";
 import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
+import { ClientSearch } from "./client-search";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -126,9 +127,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             — the alternative is finding the client first, which is how a phone
             call ends up not written down. */}
         <div
-          className="row2 no-print"
-          style={{ justifyContent: "flex-end", marginBottom: 10 }}
+          className="row2 no-print top-bar"
+          style={{ justifyContent: "space-between", marginBottom: 10 }}
         >
+          {/* The way to a client from wherever you are. It is on the left and
+              first in the tab order because it is the commonest thing anybody
+              does: the work is against a person, not against a screen. */}
+          <ClientSearch />
           <QuickAdd />
         </div>
 

@@ -18,6 +18,9 @@ import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
+import { WhatsNext, StatusLine, type NextAction } from "./whats-next";
+import { COACHING_CODES, CAN_LOG_HOURS } from "@/lib/constants";
+import type { BillOption, VisitAuth } from "./record-actions";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
 import { TextThread } from "./messages-tab";
 import { RecordActions } from "./record-actions";
@@ -98,6 +101,75 @@ export default async function ClientPage({
   if (!client) notFound();
 
   const detail = client as ClientDetail;
+
+  // ── what this record needs, and what can be done to it ─────
+  // Asked together, after the client is known: each one needs the id, and
+  // none of them needs any of the others.
+  const [
+    { data: nextRows },
+    { data: openAuths },
+    { data: paperworkRows },
+    { data: billingOfficeRow },
+    { data: consentRow },
+    { data: economics },
+  ] = await Promise.all([
+    supabase.rpc("client_next_actions", { p_client: id }),
+    supabase
+      .from("authorizations")
+      .select("id, number, service_type, rate, rate_type, total_hours, status")
+      .eq("client_id", id)
+      .eq("status", "Open")
+      .order("end_date", { ascending: true, nullsFirst: false }),
+    supabase.from("client_paperwork").select("auth_id, template_id, state, month").eq("client_id", id),
+    supabase.from("client_billing_office").select("billing_office").eq("client_id", id).maybeSingle(),
+    supabase.from("client_sms_consent").select("can_text, state").eq("client_id", id).maybeSingle(),
+    supabase.from("authorization_economics").select("auth_id, unbilled").eq("client_id", id),
+  ]);
+
+  // Opening a record puts it at the top of this person's recents, which is
+  // what the search box offers before anybody types.
+  await supabase.rpc("note_client_opened", { p_client: id });
+
+  const nextActions = (nextRows ?? []) as NextAction[];
+  const unbilledTotal = (economics ?? []).reduce((sum, e) => sum + Number(e.unbilled ?? 0), 0);
+
+  // "n hrs @ $45", or the flat fee - the way the authorization actually reads.
+  const authLabel = (a: {
+    number: string | null;
+    service_type: string;
+    rate: number | null;
+    rate_type: string;
+    total_hours: number | null;
+    status: string;
+  }) => {
+    const price =
+      a.rate_type === "Hourly" && a.total_hours != null
+        ? `${Number(a.total_hours)} hrs @ ${money(Number(a.rate ?? 0))}`
+        : money(Number(a.rate ?? 0));
+    return `${a.service_type} · ${a.number || "no V-number"} · ${price} · ${a.status}`;
+  };
+
+  const visitAuths: VisitAuth[] = (openAuths ?? []).map((a) => ({ id: a.id, label: authLabel(a) }));
+
+  // Which form each authorization bills on, and whether it is still wanted.
+  const billingForms = paperworkRows ?? [];
+  const bills: BillOption[] = (openAuths ?? [])
+    .map((a) => ({
+      authId: a.id,
+      label: authLabel(a),
+      templates: templatesForService(a.service_type)
+        .filter((t) => t.requiredForBilling)
+        .map((t) => ({
+          id: t.id,
+          usor: t.usor,
+          name: t.name,
+          monthly: Boolean(t.monthly),
+          outstanding: billingForms.some(
+            (p) => p.auth_id === a.id && p.template_id === t.id && p.state !== "Complete",
+          ),
+        })),
+    }))
+    .filter((b) => b.templates.length > 0);
   const canEdit = CAN_EDIT_CLIENTS.includes(me.role);
   const canBill = can(me, "billing", "edit");
   const isAdmin = me.role === "Admin";
@@ -125,21 +197,35 @@ export default async function ClientPage({
         ]}
         standing={
           <>
-            Counselor {counselor?.name || "not set"} · Assigned to {assignedName ?? "nobody"} ·{" "}
-            <span className="chip gold">{detail.stage}</span>
+            <StatusLine
+              stage={detail.stage}
+              assignedName={assignedName ?? null}
+              counselorName={counselor?.name ?? null}
+              billingOffice={billingOfficeRow?.billing_office ?? null}
+              canText={Boolean(consentRow?.can_text)}
+              consentState={consentRow?.state ?? null}
+              unbilled={unbilledTotal}
+              clientId={id}
+            />
           </>
         }
         actions={
-          <>
-            <RecordActions clientId={id} tab={tab} staff={staff} myId={me.id} />
-            {counselor?.email && (
-              <Link className="btn ghost" href={`/mail/compose?client=${id}`} style={{ textDecoration: "none" }}>
-                Email the counselor
-              </Link>
-            )}
-          </>
+          <RecordActions
+            clientId={id}
+            clientName={detail.name}
+            tab={tab}
+            staff={staff}
+            myId={me.id}
+            canLogHours={CAN_LOG_HOURS.includes(me.role) || canBill}
+            visitAuths={visitAuths}
+            bills={bills}
+            coachingCodes={[...COACHING_CODES]}
+            counselorEmail={counselor?.email ?? null}
+          />
         }
       />
+
+      <WhatsNext items={nextActions} />
 
       <nav className="tabs">
         {CLIENT_TABS.map((t) => (
