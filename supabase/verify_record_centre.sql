@@ -22,6 +22,12 @@
 --   and thirty days of stability means the High Quality Indicators may be.
 --   Neither can be dated before the placement started.
 --
+--   An indicator nobody has answered is unknown, never false, and is left
+--   out of the total: the difference is $560 an indicator, and a total that
+--   treats "we have not looked" as "no" loses money quietly. Hours and wages
+--   cannot be answered at all until somebody records which stability rule
+--   applies, because SJBT and SE ask for different figures.
+--
 -- Uses made-up staff, clients and authorizations (ZZ). Runs inside a
 -- transaction that is rolled back.
 
@@ -37,6 +43,7 @@ declare
   v_invoice uuid;
   v_again  uuid;
   v_placement uuid;
+  v_unanswered integer;
   v_n      integer;
   v_amount numeric;
   failures text[] := '{}';
@@ -210,12 +217,52 @@ begin
     raise notice 'ok  five shifts kept and thirty days of stability each say so, and neither can predate the placement';
   end if;
 
+  -- ── the indicators, and what is not known (0112) ──────────
+  -- The placement above: 32 hrs/wk at $15.50, benefits unanswered, and no
+  -- job development authorization to measure the sixty days from.
+  perform set_config('role', 'postgres', true);
+  update public.placements set wage = 15.50, hours_week = 32 where id = v_placement;
+  perform set_config('role', 'authenticated', true);
+
+  -- Which rule has been recorded (SJBT, above), so hours and wages answer.
+  if (select met from public.hqi_for_placement(v_placement) where key = 'hours') is not true then
+    failures := failures || 'FAILED: 32 hours a week did not meet the SJBT hours indicator'::text;
+  end if;
+  if (select met from public.hqi_for_placement(v_placement) where key = 'wages') is not true then
+    failures := failures || 'FAILED: $15.50 an hour did not meet the SJBT wages indicator'::text;
+  end if;
+  -- The three nobody has answered are unknown, not false.
+  if (select count(*) from public.hqi_for_placement(v_placement)
+       where key in ('benefits', 'stem', 'rural') and met is not null) <> 0 then
+    failures := failures || 'FAILED: an indicator nobody has answered came back as answered'::text;
+  end if;
+  select met, unanswered, total into v_n, v_unanswered, v_amount from public.hqi_total(v_placement);
+  if v_amount <> 1120 then
+    failures := failures || format('FAILED: two indicators met came to %s and should come to 1120', v_amount)::text;
+  end if;
+  if v_unanswered <> 4 then
+    failures := failures || format('FAILED: %s indicators were reported unanswered and four are', v_unanswered)::text;
+  end if;
+
+  -- Take the rule away and the two that depend on it stop answering.
+  perform set_config('role', 'postgres', true);
+  update public.placements set stability_basis = '' where id = v_placement;
+  perform set_config('role', 'authenticated', true);
+  if (select count(*) from public.hqi_for_placement(v_placement)
+       where key in ('hours', 'wages') and met is not null) <> 0 then
+    failures := failures || 'FAILED: hours and wages were answered without a stability rule to measure against'::text;
+  else
+    raise notice 'ok  the indicators count only what was answered yes, and answer nothing until the rule is known';
+  end if;
+
   -- ── nobody signed in ───────────────────────────────────────
   perform set_config('request.jwt.claims', '', true);
   if has_function_privilege('anon', 'public.search_clients(text, integer)', 'execute')
      or has_function_privilege('anon', 'public.client_next_actions(uuid)', 'execute')
      or has_function_privilege('anon', 'public.set_my_signature(text)', 'execute')
      or has_function_privilege('anon', 'public.draft_invoice_for_authorization(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.hqi_for_placement(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.hqi_total(uuid)', 'execute')
      or has_table_privilege('anon', 'public.staff_signatures', 'select')
      or has_table_privilege('anon', 'public.client_recents', 'select') then
     failures := failures || 'FAILED: somebody not signed in can reach the record centre'::text;

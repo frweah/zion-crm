@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { addPlacement, updatePlacement, type DetailState } from "./actions";
-import { today, daysBetween } from "@/lib/constants";
+import { today, daysBetween, money } from "@/lib/constants";
 
 const initial: DetailState = { error: null, ok: null };
 
@@ -22,7 +22,21 @@ export type PlacementRow = {
   fifth_shift_on: string | null;
   stability_on: string | null;
   stability_basis: string | null;
+  employer_benefits: boolean | null;
+  stem_occupation: boolean | null;
+  rural_client: boolean | null;
 };
+
+/** One indicator, as the database works it out (0112). */
+export type HqiRow = {
+  key: string;
+  label: string;
+  met: boolean | null;
+  detail: string;
+  amount: number;
+};
+
+const yesNo = (v: boolean | null) => (v === null || v === undefined ? "" : v ? "yes" : "no");
 
 function retention(p: PlacementRow) {
   if (p.check90) return { label: "90-day retained", cls: "chip ok" };
@@ -36,11 +50,13 @@ function PlacementItem({
   placement,
   canEdit,
   canBill,
+  indicators,
 }: {
   clientId: string;
   placement: PlacementRow;
   canEdit: boolean;
   canBill: boolean;
+  indicators: HqiRow[];
 }) {
   const [state, action, pending] = useActionState(updatePlacement, initial);
   const badge = retention(placement);
@@ -153,6 +169,39 @@ function PlacementItem({
           </label>
         </div>
 
+        {/*
+          The three High Quality Indicators nothing in the CRM can answer: an
+          employer's benefits, what O*NET calls the occupation, and where the
+          client lives. Three states, not two - "nobody has looked" is not
+          "no", and the difference is $560 an indicator.
+        */}
+        <div className="row2" style={{ marginTop: 10 }}>
+          <label className="field" style={{ maxWidth: 190 }}>
+            Employer pays health benefits
+            <select name="employer_benefits" defaultValue={yesNo(placement.employer_benefits)} disabled={!canEdit}>
+              <option value="">Not answered</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label className="field" style={{ maxWidth: 190 }}>
+            STEM occupation on O*NET
+            <select name="stem_occupation" defaultValue={yesNo(placement.stem_occupation)} disabled={!canEdit}>
+              <option value="">Not answered</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label className="field" style={{ maxWidth: 190 }}>
+            Client lives rurally
+            <select name="rural_client" defaultValue={yesNo(placement.rural_client)} disabled={!canEdit}>
+              <option value="">Not answered</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+        </div>
+
         <div className="row2" style={{ marginTop: 10 }}>
           <label className="field" style={{ maxWidth: 150 }}>
             30-day check
@@ -216,7 +265,52 @@ function PlacementItem({
           </div>
         )}
       </form>
+
+      <Indicators rows={indicators} />
     </div>
+  );
+}
+
+
+/**
+ * The High Quality Indicators for one placement.
+ *
+ * Six at $560 each, from the fee schedule USOR publishes. Only the ones
+ * answered "yes" are counted; one nobody has looked at is shown as such and
+ * left out of the total, because a total that treats "we have not checked"
+ * as "no" is a total that quietly loses $560 a time.
+ */
+function Indicators({ rows }: { rows: HqiRow[] }) {
+  if (rows.length === 0) return null;
+  const met = rows.filter((r) => r.met === true);
+  const unanswered = rows.filter((r) => r.met === null);
+  const total = met.reduce((sum, r) => sum + Number(r.amount), 0);
+
+  return (
+    <details className="hqi">
+      <summary>
+        High Quality Indicators — <b>{money(total)}</b> from {met.length} of {rows.length}{" "}
+        {unanswered.length > 0 && <span className="chip warn">{unanswered.length} unanswered</span>}
+      </summary>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.key} className={r.met === true ? "on" : r.met === null ? "unknown" : undefined}>
+            <span className="hqi-mark" aria-hidden="true">
+              {r.met === true ? "\u2713" : r.met === null ? "?" : "\u00d7"}
+            </span>
+            <span>
+              <b>{r.label}</b>
+              <span className="lock"> {r.detail}</span>
+            </span>
+            <span className="hqi-amount">{r.met === true ? money(Number(r.amount)) : "—"}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="lock">
+        Billed against the HQI authorization the counselor raises at stability, dated the stability date. The
+        authorization is still what decides the amount — this is what the schedule says it should come to.
+      </p>
+    </details>
   );
 }
 
@@ -225,11 +319,14 @@ export function PlacementsTab({
   placements,
   canEdit,
   canBill,
+  indicators,
 }: {
   clientId: string;
   placements: PlacementRow[];
   canEdit: boolean;
   canBill: boolean;
+  /** The six High Quality Indicators per placement, worked out by 0112. */
+  indicators: Record<string, HqiRow[]>;
 }) {
   const [state, action, pending] = useActionState(addPlacement, initial);
 
@@ -251,6 +348,7 @@ export function PlacementsTab({
               placement={p}
               canEdit={canEdit}
               canBill={canBill}
+              indicators={indicators[p.id] ?? []}
             />
           ))}
         </div>

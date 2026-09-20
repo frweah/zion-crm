@@ -370,6 +370,7 @@ export async function updatePlacement(
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const date = (k: string) => str(k) || null;
   const num = (k: string) => (str(k) === "" ? null : Number(str(k)));
+  const tri = (k: string) => (str(k) === "" ? null : str(k) === "yes");
 
   const patch: Update<"placements"> = {};
 
@@ -387,6 +388,10 @@ export async function updatePlacement(
     patch.fifth_shift_on = date("fifth_shift_on");
     patch.stability_on = date("stability_on");
     patch.stability_basis = str("stability_basis");
+    // Three-valued: not answered stays null rather than becoming false (0112).
+    patch.employer_benefits = tri("employer_benefits");
+    patch.stem_occupation = tri("stem_occupation");
+    patch.rural_client = tri("rural_client");
   }
   if (canBill) {
     patch.jp_submitted = date("jp_submitted");

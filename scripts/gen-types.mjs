@@ -196,6 +196,9 @@ const RPC_FUNCTIONS = [
   "have_my_signature",
   "billing_gate_met",
   "draft_invoice_for_authorization",
+  // The High Quality Indicator schedule (0112).
+  "hqi_for_placement",
+  "hqi_total",
 ];
 
 const { rows: fns } = await client.query(

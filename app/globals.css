@@ -2045,3 +2045,69 @@ button.attach-chip:hover {
 .bill-pathway dd {
   margin: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   High Quality Indicators: six at $560, and which of them anybody has
+   actually answered. Met, not met and not looked at are three different
+   things and read as three different things.
+   ───────────────────────────────────────────────────────────── */
+.hqi {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bone);
+}
+.hqi summary {
+  cursor: pointer;
+  font-size: var(--text-md);
+}
+.hqi ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hqi li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--paper);
+  font-size: var(--text-md);
+}
+.hqi li.on {
+  background: var(--accent-soft);
+}
+.hqi-mark {
+  flex: 0 0 auto;
+  width: 18px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--muted);
+}
+.hqi li.on .hqi-mark {
+  color: var(--accent-text);
+}
+.hqi li.unknown .hqi-mark {
+  color: var(--warn-ink);
+}
+.hqi li > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.hqi-amount {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.hqi li.on .hqi-amount {
+  color: var(--ink);
+  font-weight: 600;
+}
+.hqi p {
+  margin: 10px 0 0;
+}
