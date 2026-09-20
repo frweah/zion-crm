@@ -2020,3 +2020,28 @@ button.attach-chip:hover {
   background: var(--accent-soft);
   color: var(--accent-text);
 }
+
+/* What USOR publishes about the stage being billed, beside the form. */
+.bill-pathway {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+  font-size: var(--text-md);
+}
+.bill-pathway p {
+  margin: 0 0 6px;
+}
+.bill-pathway dl {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr;
+  gap: 3px 12px;
+  margin: 0;
+}
+.bill-pathway dt {
+  color: var(--accent-text);
+}
+.bill-pathway dd {
+  margin: 0;
+}

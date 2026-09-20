@@ -234,6 +234,7 @@ export default async function ClientPage({
             counselorName={counselor?.name ?? ""}
             agency={ORG.name}
             preparedBy={me.name}
+            billingOffice={billingOfficeRow?.billing_office ?? null}
           />
         }
       />

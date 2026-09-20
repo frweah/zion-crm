@@ -166,6 +166,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Authorizations", href: "/billing?tab=authorizations", roles: BILLS, area: "billing" },
       { label: "Service log", href: "/billing?tab=log", roles: BILLS, area: "billing" },
       { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS, area: "billing" },
+      // Pick a client, pick the authorization, the form comes up filled in
+      // (owner's layout, 20 Sept 2026). Everybody who bills can reach it.
+      { label: "Report & bill", href: "/billing/report", roles: EVERYONE },
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
       // The month as files, and the rate schedule - from Admin → System, so
       // that Admin is Admin's alone (owner, 19 Sept 2026). The authorizations
