@@ -9,6 +9,7 @@ import AccessLogSection from "../access/section";
 import { TaxYearEditor, type TaxYearRow } from "../contractors/contractor-forms";
 import { MileageRateForm } from "../../hours/expenses";
 import { SharedMailboxCard, type SharedMailboxRow } from "../../dashboard/shared-mailbox-card";
+import { WebChatSettingsForm, type WebChatSettings } from "./web-chat";
 
 /**
  * Admin → System.
@@ -28,7 +29,7 @@ export default async function SystemPage({
   const isAdmin = true;
 
   const supabase = await createClient();
-  const [{ data: mileageRates }, { data: mailboxes }, { data: years }, { data: staff }] = await Promise.all([
+  const [{ data: mileageRates }, { data: mailboxes }, { data: years }, { data: staff }, { data: webChat, error: webChatFailure }, { data: webLive }] = await Promise.all([
     isAdmin
       ? supabase.from("mileage_rates").select("effective_from, cents_per_mile, note").order("effective_from", { ascending: false })
       : Promise.resolve({ data: [] }),
@@ -39,7 +40,14 @@ export default async function SystemPage({
           .order("address")
       : Promise.resolve({ data: [] }),
     isAdmin ? supabase.from("tax_years").select("*").order("year", { ascending: false }) : Promise.resolve({ data: [] }),
-    isAdmin ? supabase.from("staff").select("id, name") : Promise.resolve({ data: [] }),
+    isAdmin ? supabase.from("staff").select("id, name").eq("active", true).order("name") : Promise.resolve({ data: [] }),
+    supabase
+      .from("org_settings")
+      .select("web_chat_enabled, web_chat_takers, web_chat_open, web_chat_close, web_chat_days, web_chat_greeting, web_chat_promise")
+      .maybeSingle(),
+    // Live is not a setting: it is whether anybody who takes chats has a
+    // window open right now, inside the hours below.
+    supabase.rpc("web_chat_live"),
   ]);
 
   const staffName = new Map(((staff ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]));
@@ -59,8 +67,24 @@ export default async function SystemPage({
     notes: y.notes,
   }));
 
+  // A refused read of this table arrives as an empty row rather than as
+  // nothing, so it has to be said out loud: defaults shown as if they were
+  // the practice's settings would be a screen quietly lying.
+  const chat = (webChat ?? {
+    web_chat_enabled: false,
+    web_chat_takers: [],
+    web_chat_open: "09:00",
+    web_chat_close: "17:00",
+    web_chat_days: [1, 2, 3, 4, 5],
+    web_chat_greeting: "",
+    web_chat_promise: "",
+  }) as WebChatSettings;
+
+  const webChatError = webChatFailure?.message ?? null;
+
   const toc: [string, string][] = [
     ["organization", "Organization"],
+    ["website-chat", "Website chat"],
     ["tax-years", "Tax years"],
     ["mileage", "Mileage rate"],
     ["note-headings", "Note headings"],
@@ -79,6 +103,29 @@ export default async function SystemPage({
       {isAdmin && (
         <section id="organization" className="page-section">
           <SettingsSection />
+        </section>
+      )}
+
+      {isAdmin && (
+        <section id="website-chat" className="page-section">
+          <h2 className="h2">Website chat</h2>
+          <p className="sub">
+            The bubble on zionrehabcenter.com. What somebody says there arrives in{" "}
+            <Link href="/messages/texts?show=web">Texts &amp; web</Link>, beside the texts, and joins a client&apos;s
+            record as soon as it is matched to one.
+          </p>
+          {webChatError && (
+            <div className="alert bad">
+              These settings could not be read ({webChatError}), so what is shown below is not what is saved. Do not
+              save over them until that is fixed.
+            </div>
+          )}
+          <WebChatSettingsForm
+            settings={chat}
+            staff={staff ?? []}
+            live={Boolean(webLive)}
+            embed={`<script src="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://zion-crm-red.vercel.app"}/widget.js" async></script>`}
+          />
         </section>
       )}
 

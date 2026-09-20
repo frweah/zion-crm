@@ -130,7 +130,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Messages",
     items: [
       { label: "Messages", href: "/messages", roles: EVERYONE },
-      { label: "Texts", href: "/messages/texts", roles: EVERYONE },
+      // Texts and website chats, in the one place (Messaging brief, A and C).
+      { label: "Texts & web", href: "/messages/texts", roles: EVERYONE },
     ],
   },
   {

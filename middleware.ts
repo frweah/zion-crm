@@ -29,6 +29,8 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/sms",
   "/api/agent",
+  "/api/widget",
+  "/widget.js",
 ];
 // /api/cron already covers the sync sweep — it arrives with a shared secret
 // and no session, because there is nobody signed in at three in the morning.
@@ -43,6 +45,14 @@ const PUBLIC_PATHS = [
 //
 // /api/agent is the document agent on the owner's machine. Same shape: no
 // session, its own shared secret, checked by both routes behind it.
+//
+// /api/widget and /widget.js are the website chat (Messaging brief, C). These
+// two are different from the others above: there is no secret, because the
+// caller is a member of the public on zionrehabcenter.com who has no way to
+// hold one. What stands in its place is that the browser is given nothing to
+// hold - no database key, no conversation id - and that each route only
+// answers the sites the practice named, and only ever acts on the one
+// conversation the caller's token opens.
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

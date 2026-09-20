@@ -35,6 +35,7 @@ export const ACTIVITY_KINDS = [
   "Mail",
   "Text",
   "Chat",
+  "Website",
   "Hours",
   "Payment",
 ] as const;
@@ -55,10 +56,12 @@ const JOB_KINDS = new Set(["Job", "Interview", "Follow-up"]);
  * against the twelve tabs, so its tab names are mapped to the six that took
  * them in; a job's dates live on Jobs, not Profile. Counselor contacts are
  * kept against the counselor, on their own screen. A staff thread about this
- * client opens on Messages, where it is read and answered.
+ * client opens on Messages, where it is read and answered; a chat somebody
+ * started on the website opens in the inbox it arrived in.
  */
 function hrefFor(clientId: string, row: ActivityRow): string {
   if (row.tab === "chat") return `/messages?c=${row.ref_id}`;
+  if (row.tab === "web") return `/messages/texts?show=web&c=${row.ref_id}`;
   if (row.tab === "counselors") return "/counselors";
   const tab = JOB_KINDS.has(row.kind) ? "jobs" : clientTabFor(row.tab);
   return `/clients/${clientId}?tab=${tab}`;
