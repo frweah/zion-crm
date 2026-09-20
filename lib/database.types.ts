@@ -2251,6 +2251,9 @@ export type Database = {
           fifth_shift_on: string | null;
           stability_on: string | null;
           stability_basis: string;
+          employer_benefits: boolean | null;
+          stem_occupation: boolean | null;
+          rural_client: boolean | null;
         };
         Insert: {
           id?: string;
@@ -2273,6 +2276,9 @@ export type Database = {
           fifth_shift_on?: string | null;
           stability_on?: string | null;
           stability_basis?: string;
+          employer_benefits?: boolean | null;
+          stem_occupation?: boolean | null;
+          rural_client?: boolean | null;
         };
         Update: {
           id?: string;
@@ -2295,6 +2301,9 @@ export type Database = {
           fifth_shift_on?: string | null;
           stability_on?: string | null;
           stability_basis?: string;
+          employer_benefits?: boolean | null;
+          stem_occupation?: boolean | null;
+          rural_client?: boolean | null;
         };
         Relationships: [];
       };
@@ -4649,6 +4658,14 @@ export type Database = {
       have_my_signature: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      hqi_for_placement: {
+        Args: { p_placement: string | null };
+        Returns: { key: string | null; label: string | null; met: boolean | null; detail: string | null; amount: number | null }[];
+      };
+      hqi_total: {
+        Args: { p_placement: string | null };
+        Returns: { met: number | null; unanswered: number | null; total: number | null }[];
       };
       inbox_document_open_to_me: {
         Args: { p_doc: string | null };

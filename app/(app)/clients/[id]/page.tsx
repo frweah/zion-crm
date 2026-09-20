@@ -12,7 +12,7 @@ import { IntakeTab, type IntakeRow } from "./intake-tab";
 import { FormsTab, type FormRow, type AuthChoice } from "./forms-tab";
 import { FilesTab, type AttachmentRow } from "./files-tab";
 import { templatesForService } from "@/lib/form-templates";
-import { PlacementsTab, type PlacementRow } from "./placements-tab";
+import { PlacementsTab, type PlacementRow, type HqiRow } from "./placements-tab";
 import { ReportTab } from "./report-tab";
 import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
@@ -472,10 +472,21 @@ export default async function ClientPage({
       supabase.from("employers").select("id, name").order("name"),
       supabase
         .from("placements")
-        .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid, shifts_worked, fifth_shift_on, stability_on, stability_basis")
+        .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid, shifts_worked, fifth_shift_on, stability_on, stability_basis, employer_benefits, stem_occupation, rural_client")
         .eq("client_id", id)
         .order("start_date", { ascending: false, nullsFirst: false }),
     ]);
+
+    const rows = (placements ?? []) as PlacementRow[];
+    // The six indicators per placement, from the database (0112) so the
+    // figure here and anything else that asks cannot disagree.
+    const indicatorPairs = await Promise.all(
+      rows.map(async (p) => {
+        const { data } = await supabase.rpc("hqi_for_placement", { p_placement: p.id });
+        return [p.id, (data ?? []) as HqiRow[]] as const;
+      }),
+    );
+    const indicators = Object.fromEntries(indicatorPairs) as Record<string, HqiRow[]>;
 
     return (
       <>
@@ -488,7 +499,13 @@ export default async function ClientPage({
           canEdit={canEdit}
         />
         <h2 className="h2" style={{ margin: "22px 0 8px" }}>Placements</h2>
-        <PlacementsTab clientId={id} placements={(placements ?? []) as PlacementRow[]} canEdit={canEdit} canBill={canBill} />
+        <PlacementsTab
+          clientId={id}
+          placements={rows}
+          canEdit={canEdit}
+          canBill={canBill}
+          indicators={indicators}
+        />
         {overlay}
       </>
     );
