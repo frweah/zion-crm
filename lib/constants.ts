@@ -154,6 +154,35 @@ export const SERVICE_TYPES = [
   "Other",
 ] as const;
 
+/**
+ * The short code a service goes by in conversation and on a worksheet.
+ *
+ * The owner's layout (20 Sept 2026) prefixes every authorization with it, so
+ * a list of four reads at a glance instead of being four long phrases that
+ * begin with the same word. The full service name is still shown beside it -
+ * the code is a handle, not a replacement.
+ */
+export const SERVICE_CODE: Record<string, string> = {
+  "Job Coaching": "JC",
+  "Job Development": "JD",
+  "Job Development + HQ Indicator": "JD+HQ",
+  "Job Placement": "JP",
+  "Job Placement (SE)": "JP-SE",
+  "WSA Tier 1": "WSA1",
+  "WSA Tier 2": "WSA2",
+  "HQ Indicator": "HQ",
+  "Temporary Work Experience": "TWE",
+  "Life Skills": "LS",
+  "CRP Group Training": "CGT",
+  "Job Readiness": "JR",
+  "Supported Employment": "SE",
+  "Follow-Along": "FA",
+  Other: "—",
+};
+
+export const serviceCode = (service: string): string =>
+  SERVICE_CODE[service] ?? service.slice(0, 3).toUpperCase();
+
 /** Rate defaults from the CRP schedule, used to pre-fill a new authorization. */
 export const SERVICE_DEFAULTS: Record<string, { rate: number; rateType: "Hourly" | "Flat Fee" }> = {
   "Job Coaching": { rate: 45, rateType: "Hourly" },

@@ -1886,3 +1886,137 @@ button.attach-chip:hover {
   padding: 0;
   font-size: var(--text-md);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Report & bill, in the owner's three steps (20 Sept 2026): which
+   authorization, the form with what is already known on it, and where it
+   goes. Stacked rather than three columns — the same order top to bottom on
+   a phone as left to right on a desk, and no horizontal scrolling either way.
+   ───────────────────────────────────────────────────────────── */
+.bill-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+.bill-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: var(--text-base);
+}
+.bill-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--text-sm);
+}
+
+/* Every service the client is authorized for, prefixed with its code. */
+.bill-auths {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bill-auths button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    background var(--motion);
+}
+.bill-auths button:hover {
+  border-color: var(--accent);
+}
+.bill-auths button.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.bill-code {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.bill-auth-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* What the form already knows, before it is opened. */
+.bill-facts {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) 1fr;
+  gap: 4px 14px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bone);
+  font-size: var(--text-md);
+}
+.bill-facts dt {
+  color: var(--muted);
+}
+.bill-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.bill-sig {
+  display: block;
+  max-height: 34px;
+  max-width: 100%;
+}
+
+/* What will go with the claim, and what will not. */
+.bill-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bill-files li {
+  padding: 2px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.bill-files li.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
