@@ -33,6 +33,11 @@ type Row = {
   counselor_name: string;
   assigned_name: string;
   last_activity: string | null;
+  schedule: string;
+  preferred_locations: string;
+  applied7: number;
+  next_interview: string | null;
+  searching: boolean;
 };
 
 export default async function ClientsPage({
@@ -54,7 +59,7 @@ export default async function ClientsPage({
   let query = supabase
     .from("clients")
     .select(
-      "id, name, client_no, stage, status, agency_id, referring_office, import_review, funding_source, created_at, counselor_id, assigned_staff_id",
+      "id, name, client_no, stage, status, agency_id, referring_office, import_review, funding_source, created_at, counselor_id, assigned_staff_id, schedule, preferred_locations",
     );
 
   if (filters.status.length) query = query.in("status", filters.status);
@@ -66,7 +71,7 @@ export default async function ClientsPage({
   if (filters.office.length) query = query.in("referring_office", filters.office);
   if (filters.hasImportReview) query = query.neq("import_review", "");
 
-  const [billing, clientsResult, counselorsResult, staffResult, officesResult, activityResult, viewsResult, totalResult, prefResult] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, activityResult, viewsResult, totalResult, prefResult, jobsResult] =
     await Promise.all([
       readBillingOffices(supabase),
       query,
@@ -87,7 +92,25 @@ export default async function ClientsPage({
         .eq("staff_id", me.id)
         .eq("key", "last_view:clients")
         .maybeSingle(),
+      // The job search, per client: applications and interviews (0117).
+      supabase.from("lead_matches").select("client_id, status, applied_on, interview_on, interview_result"),
     ]);
+
+  // What the job-search board showed, worked out from the applications.
+  const todayIso = today();
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const search = new Map<string, { applied7: number; next: string | null; searching: boolean }>();
+  for (const m of jobsResult.data ?? []) {
+    const s = search.get(m.client_id) ?? { applied7: 0, next: null, searching: false };
+    if (m.applied_on && m.applied_on >= weekAgo) s.applied7++;
+    const live = !["Hired", "Not selected", "Withdrawn"].includes(m.status);
+    if (live || (m.applied_on && m.applied_on >= monthAgo)) s.searching = true;
+    if (m.interview_on && m.interview_on >= todayIso && !["Cancelled", "Backed out", "Unscheduled"].includes(m.interview_result) && (!s.next || m.interview_on < s.next)) {
+      s.next = m.interview_on;
+    }
+    search.set(m.client_id, s);
+  }
 
   const counselors = counselorsResult.data ?? [];
   const staff = staffResult.data ?? [];
@@ -112,7 +135,14 @@ export default async function ClientsPage({
     counselor_name: c.counselor_id ? (counselorName.get(c.counselor_id) ?? "") : "",
     assigned_name: c.assigned_staff_id ? (staffName.get(c.assigned_staff_id) ?? "") : "",
     last_activity: activity.get(c.id) ?? null,
+    schedule: c.schedule ?? "",
+    preferred_locations: c.preferred_locations ?? "",
+    applied7: search.get(c.id)?.applied7 ?? 0,
+    next_interview: search.get(c.id)?.next ?? null,
+    searching: search.get(c.id)?.searching ?? false,
   }));
+
+  if (filters.jobSearch) rows = rows.filter((r) => r.searching);
 
   // Free-text search spans the fields someone would actually search by.
   if (filters.q) {
@@ -150,6 +180,9 @@ export default async function ClientsPage({
       case "assigned": return r.assigned_name.toLowerCase();
       case "createdAt": return r.created_at;
       case "lastActivity": return r.last_activity ?? "";
+      case "availability": return r.schedule.toLowerCase();
+      case "applied": return r.applied7;
+      case "nextInterview": return r.next_interview ?? "9999";
       default: return r.name.toLowerCase();
     }
   };
@@ -214,6 +247,9 @@ export default async function ClientsPage({
         assigned: c.assigned_name,
         createdAt: c.created_at,
         lastActivity: c.last_activity,
+        availability: c.schedule,
+        applied: c.applied7,
+        nextInterview: c.next_interview,
       },
       cells: {
         name: (
@@ -248,6 +284,18 @@ export default async function ClientsPage({
               {d === 0 ? "today" : `${d}d ago`}
             </span>
           ),
+        availability: (
+          <>
+            {c.schedule || "—"}
+            {c.preferred_locations && <div className="lock">{c.preferred_locations}</div>}
+          </>
+        ),
+        applied: c.applied7 || <span className="lock">0</span>,
+        nextInterview: c.next_interview ? (
+          <span className="chip warn" style={{ whiteSpace: "nowrap" }}>{c.next_interview}</span>
+        ) : (
+          <span className="lock">—</span>
+        ),
       },
     };
   });

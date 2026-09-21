@@ -86,7 +86,7 @@ export default async function ClientPage({
     supabase
     .from("clients")
     .select(
-      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, counselor_contact, referring_office, caseload, unit, schedule, target_jobs, assigned_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
+      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, counselor_contact, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
     )
     .eq("id", id)
     .maybeSingle(),

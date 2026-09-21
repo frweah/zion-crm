@@ -16,6 +16,10 @@ export const CLIENT_SORTS = [
   "assigned",
   "createdAt",
   "lastActivity",
+  // The job-search board's columns (0117).
+  "availability",
+  "applied",
+  "nextInterview",
 ] as const;
 export type ClientSort = (typeof CLIENT_SORTS)[number];
 
@@ -29,6 +33,9 @@ export const CLIENT_SORT_LABELS: Record<ClientSort, string> = {
   assigned: "Assigned",
   createdAt: "Referred",
   lastActivity: "Last activity",
+  availability: "Availability",
+  applied: "Applied (7d)",
+  nextInterview: "Next interview",
 };
 
 export type SortDir = "asc" | "desc";
@@ -44,6 +51,8 @@ export type ClientFilters = {
   /** A billing office's id, or "none". */
   billingOffice: string[];
   hasImportReview: boolean;
+  /** Looking for work: an application still going, or one made in the last 30 days (0117). */
+  jobSearch: boolean;
   inactiveDays: number | null;
   sort: ClientSort;
   dir: SortDir;
@@ -59,6 +68,7 @@ export const EMPTY_FILTERS: ClientFilters = {
   office: [],
   billingOffice: [],
   hasImportReview: false,
+  jobSearch: false,
   inactiveDays: null,
   sort: "name",
   dir: "asc",
@@ -86,6 +96,7 @@ export function parseFilters(raw: Record<string, unknown>): ClientFilters {
   const sort = String(first(r.sort) ?? "name");
   const dir = String(first(r.dir) ?? "asc");
   const review = first(r.hasImportReview);
+  const jobSearch = first(r.jobSearch);
 
   return {
     q: String(first(r.q) ?? ""),
@@ -97,6 +108,7 @@ export function parseFilters(raw: Record<string, unknown>): ClientFilters {
     office: asArray(r.office),
     billingOffice: asArray(r.billingOffice),
     hasImportReview: review === true || review === "true" || review === "on",
+    jobSearch: jobSearch === true || jobSearch === "true" || jobSearch === "on",
     inactiveDays: Number.isFinite(days) && days > 0 ? days : null,
     sort: (CLIENT_SORTS as readonly string[]).includes(sort) ? (sort as ClientSort) : "name",
     dir: dir === "desc" ? "desc" : "asc",
@@ -111,6 +123,7 @@ export function toQuery(f: ClientFilters): string {
     for (const v of f[k]) p.append(k, v);
   }
   if (f.hasImportReview) p.set("hasImportReview", "true");
+  if (f.jobSearch) p.set("jobSearch", "true");
   if (f.inactiveDays) p.set("inactiveDays", String(f.inactiveDays));
   if (f.sort !== "name") p.set("sort", f.sort);
   if (f.dir !== "asc") p.set("dir", f.dir);
@@ -125,6 +138,7 @@ export function toParams(f: ClientFilters): Record<string, unknown> {
     if (f[k].length) out[k] = f[k];
   }
   if (f.hasImportReview) out.hasImportReview = true;
+  if (f.jobSearch) out.jobSearch = true;
   if (f.inactiveDays) out.inactiveDays = f.inactiveDays;
   out.sort = f.sort;
   out.dir = f.dir;
@@ -142,6 +156,7 @@ export function isFiltered(f: ClientFilters): boolean {
       f.office.length ||
       f.billingOffice.length ||
       f.hasImportReview ||
+      f.jobSearch ||
       f.inactiveDays,
   );
 }

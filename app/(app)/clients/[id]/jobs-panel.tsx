@@ -9,7 +9,7 @@ import {
   type JobState,
 } from "./job-actions";
 import { createPlacementFromMatch } from "../../leads/actions";
-import { JOB_STATUSES, jobStatusTone } from "@/lib/constants";
+import { JOB_STATUSES, JOB_DONE, INTERVIEW_KINDS, INTERVIEW_CONFIRMED, INTERVIEW_RESULTS, jobStatusTone } from "@/lib/constants";
 import { DataTable } from "../../data-table";
 
 const initial: JobState = { error: null, ok: null };
@@ -34,7 +34,25 @@ export type JobRow = {
   contact_name: string;
   contact_phone: string;
   contact_email: string;
+  // The job-search spreadsheet's columns (0117).
+  interview_time: string | null;
+  interview_kind: string;
+  interview_location: string;
+  interview_confirmed: string;
+  interview_result: string;
+  requisition: string;
+  posting_url: string;
+  apply_url: string;
+  hours_week: string;
+  industry: string;
 };
+
+/** "14:30:00" as "2:30 pm". */
+function clock(t: string | null): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+}
 
 function Message({ state }: { state: JobState }) {
   if (state.error) return <div className="alert bad">{state.error}</div>;
@@ -94,9 +112,45 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
         <b>{job.employer_name}</b>
         <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
           {job.title}
+          {job.hours_week && ` · ${job.hours_week}`}
           {job.location && ` · ${job.location}`}
           {job.wage_range && ` · ${job.wage_range}`}
         </div>
+        {(job.requisition || job.posting_url || job.apply_url) && (
+          <div className="lock">
+            {job.requisition && `Job ID ${job.requisition}`}
+            {job.posting_url && (
+              <>
+                {job.requisition && " · "}
+                <a href={job.posting_url} target="_blank" rel="noopener noreferrer">
+                  posting
+                </a>
+              </>
+            )}
+            {job.apply_url && job.apply_url !== job.posting_url && (
+              <>
+                {" · "}
+                <a href={job.apply_url} target="_blank" rel="noopener noreferrer">
+                  application
+                </a>
+              </>
+            )}
+          </div>
+        )}
+        {job.interview_on && (
+          <div style={{ fontSize: "var(--text-sm)", marginTop: 2 }}>
+            Interview {job.interview_on}
+            {job.interview_time && ` at ${clock(job.interview_time)}`}
+            {job.interview_kind && ` · ${job.interview_kind.toLowerCase()}`}
+            {job.interview_location && ` · ${job.interview_location}`}
+            {job.interview_confirmed && (
+              <span className={"chip " + (job.interview_confirmed === "Confirmed" ? "ok" : "warn")} style={{ marginLeft: 6 }}>
+                {job.interview_confirmed === "Confirmed" ? "client confirmed" : "not confirmed"}
+              </span>
+            )}
+            {job.interview_result && <span className="chip" style={{ marginLeft: 6 }}>{job.interview_result}</span>}
+          </div>
+        )}
         {(job.contact_name || job.contact_phone) && (
           <div className="lock">
             {job.contact_name}
@@ -110,7 +164,7 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
         <span className={"chip " + jobStatusTone(job.status)}>{job.status}</span>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)", marginTop: 4 }}>
           {job.applied_on && <div>applied {job.applied_on}</div>}
-          {job.interview_on && <div>interview {job.interview_on}</div>}
+          {job.interview_on && <div>interview {job.interview_on}{job.interview_time && ` ${clock(job.interview_time)}`}</div>}
           {job.follow_up_on && <div>follow up {job.follow_up_on}</div>}
         </div>
       </div>
@@ -163,6 +217,43 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
                 <input type="date" name="follow_up_on" defaultValue={job.follow_up_on ?? ""} />
               </label>
             </div>
+            <div className="row2">
+              <label className="field" htmlFor={`iv-time-${job.match_id}`}>
+                Interview time
+                <input id={`iv-time-${job.match_id}`} type="time" name="interview_time" defaultValue={job.interview_time?.slice(0, 5) ?? ""} />
+              </label>
+              <label className="field" htmlFor={`iv-kind-${job.match_id}`}>
+                How
+                <select id={`iv-kind-${job.match_id}`} name="interview_kind" defaultValue={job.interview_kind}>
+                  <option value="">—</option>
+                  {INTERVIEW_KINDS.map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" htmlFor={`iv-conf-${job.match_id}`}>
+                Client confirmed?
+                <select id={`iv-conf-${job.match_id}`} name="interview_confirmed" defaultValue={job.interview_confirmed}>
+                  <option value="">Not asked</option>
+                  {INTERVIEW_CONFIRMED.map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" htmlFor={`iv-res-${job.match_id}`}>
+                Interview result
+                <select id={`iv-res-${job.match_id}`} name="interview_result" defaultValue={job.interview_result}>
+                  <option value="">—</option>
+                  {INTERVIEW_RESULTS.map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="field" htmlFor={`iv-loc-${job.match_id}`}>
+              Where the interview is
+              <input id={`iv-loc-${job.match_id}`} name="interview_location" defaultValue={job.interview_location} placeholder="Address, or the video link" />
+            </label>
             <label className="field">
               How did it go?
               <input name="outcome" defaultValue={job.outcome} placeholder="The outcome, in a line" />
@@ -302,6 +393,21 @@ function AddJob({
           </label>
         </div>
 
+        <div className="row2">
+          <label className="field">
+            Job ID
+            <input name="requisition" placeholder="Requisition #" />
+          </label>
+          <label className="field" style={{ flex: 2 }}>
+            Posting link
+            <input name="posting_url" type="url" placeholder="https://" />
+          </label>
+          <label className="field" style={{ flex: 2 }}>
+            Application link
+            <input name="apply_url" type="url" placeholder="https://" />
+          </label>
+        </div>
+
         <label className="field">
           Notes
           <input name="notes" />
@@ -342,15 +448,19 @@ export function JobsPanel({
   employers: { id: string; name: string }[];
   canEdit: boolean;
 }) {
-  const open = jobs.filter((j) => j.status !== "Hired" && j.status !== "Not selected");
-  const closed = jobs.filter((j) => j.status === "Hired" || j.status === "Not selected");
+  const done = (s: string) => (JOB_DONE as readonly string[]).includes(s);
+  const open = jobs.filter((j) => !done(j.status));
+  const closed = jobs.filter((j) => done(j.status));
+  // The spreadsheet counted applications week by week; so does this.
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const thisWeek = jobs.filter((j) => j.applied_on && j.applied_on >= weekAgo).length;
 
   return (
     <section style={{ marginTop: 14 }}>
       <h2 className="h2">Jobs we have tried</h2>
       <p className="sub" style={{ marginTop: 4 }}>
         {open.length} still going
-        {closed.length > 0 && `, ${closed.length} finished`}.
+        {closed.length > 0 && `, ${closed.length} finished`}. {thisWeek} applied for in the last 7 days.
       </p>
 
       {jobs.length === 0 ? (

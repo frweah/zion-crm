@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_CLIENTS, JOB_STATUSES, today } from "@/lib/constants";
+import { CAN_EDIT_CLIENTS, JOB_STATUSES, today, JOB_DONE, INTERVIEW_KINDS, INTERVIEW_CONFIRMED, INTERVIEW_RESULTS } from "@/lib/constants";
 import { ownAccess } from "@/lib/sync-callers";
 import { pushPendingEvents } from "@/lib/calendar-push";
 
@@ -52,6 +52,18 @@ const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
  * somebody leave the client, add an employer, and come back is how a job ends
  * up recorded as "Some Diner (?)" in a note instead.
  */
+/** A value from its own list, or nothing. */
+function oneOf(v: FormDataEntryValue | null, list: readonly string[]): string {
+  const s = String(v ?? "").trim();
+  return list.includes(s) ? s : "";
+}
+
+/** A web address, or nothing: a link field is not for notes. */
+function url(v: FormDataEntryValue | null): string {
+  const s = String(v ?? "").trim();
+  return /^https?:\/\/\S+$/i.test(s) ? s : "";
+}
+
 export async function addClientJob(_prev: JobState, formData: FormData): Promise<JobState> {
   const { me, error: denied } = await editor();
   if (!me) return { error: denied, ok: null };
@@ -111,6 +123,9 @@ export async function addClientJob(_prev: JobState, formData: FormData): Promise
       title,
       wage_range: String(formData.get("wage_range") ?? "").trim(),
       location: String(formData.get("location") ?? "").trim(),
+      requisition: String(formData.get("requisition") ?? "").trim(),
+      posting_url: url(formData.get("posting_url")),
+      apply_url: url(formData.get("apply_url")),
       source: "Client profile",
       owner_staff_id: me.id,
       created_by: me.id,
@@ -175,13 +190,20 @@ export async function updateClientJob(_prev: JobState, formData: FormData): Prom
     applied_on: dateOrNull("applied_on"),
     outcome: String(formData.get("outcome") ?? "").trim(),
     notes: String(formData.get("notes") ?? "").trim(),
+    // The interview's own details (0117): the time puts it on the calendar at
+    // that hour, and a cancelled one stops the reminders.
+    interview_time: /^\d{2}:\d{2}$/.test(String(formData.get("interview_time") ?? "")) ? String(formData.get("interview_time")) : null,
+    interview_kind: oneOf(formData.get("interview_kind"), INTERVIEW_KINDS),
+    interview_location: String(formData.get("interview_location") ?? "").trim(),
+    interview_confirmed: oneOf(formData.get("interview_confirmed"), INTERVIEW_CONFIRMED),
+    interview_result: oneOf(formData.get("interview_result"), INTERVIEW_RESULTS),
   };
 
   // A date the status implies but nobody typed. Filled in rather than left
   // blank, because "Applied" with no date is a job nobody can chase.
   if (status === "Applied" && !patch.applied_on) patch.applied_on = today();
   if (status === "Interview" && !patch.interview_on) patch.interview_on = today();
-  if (status === "Hired" || status === "Not selected") patch.decided_on = today();
+  if ((JOB_DONE as readonly string[]).includes(status)) patch.decided_on = today();
 
   const supabase = await createClient();
   const { error } = await supabase
