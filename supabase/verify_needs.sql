@@ -111,7 +111,10 @@ begin
   -- month shows no paperwork at all, which reads as "nothing needed".
   insert into public.authorizations (client_id, number, service_type, total_hours, rate,
                                      rate_type, status, start_date)
-  values (v_client, 'ZZ-AUTH-M', 'Job Development', 10, 50, 'Hourly', 'Open', public.practice_today())
+  -- Started 50 days back, so the hours logged 45 days ago fall inside its
+  -- dates (0116 refuses billable hours outside them) and in the same
+  -- earlier month.
+  values (v_client, 'ZZ-AUTH-M', 'Job Development', 10, 50, 'Hourly', 'Open', public.practice_today() - 50)
   returning id into v_monthly;
 
   select state into v_state from public.client_paperwork
