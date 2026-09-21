@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { templateById } from "@/lib/form-templates";
 import { formToText, type FormContext } from "@/lib/form-text";
 import { FormRenderer } from "./form-renderer";
+import { FormReadiness, type Blocker } from "./readiness";
+import { today } from "@/lib/constants";
 import { recipientsFor, type BillingOffice } from "@/lib/billing-offices";
 
 export default async function FormPage({
@@ -21,7 +23,7 @@ export default async function FormPage({
   const { data: form } = await supabase
     .from("forms")
     .select(
-      "id, template_id, client_id, auth_id, month, status, data, completed_by_name, completed_at, sent_to",
+      "id, template_id, client_id, auth_id, month, status, data, completed_by_name, completed_at, sent_to, updated_at",
     )
     .eq("id", formId)
     .eq("client_id", id)
@@ -83,6 +85,55 @@ export default async function FormPage({
 
   const preview = formToText(form.template_id, form.data as Record<string, unknown>, ctx);
 
+  // ── what stands between this form and the counselor (punch list #3) ──
+  const draft = form.status === "Draft";
+  const blockers: Blocker[] = [];
+  let authChoices: { id: string; label: string }[] = [];
+  let suggested: string | null = null;
+  if (form.status !== "Sent") {
+    if (!form.auth_id) {
+      const { data: auths } = await supabase
+        .from("authorizations")
+        .select("id, number, service_type, status")
+        .eq("client_id", id)
+        .order("start_date", { ascending: false, nullsFirst: false });
+      const fits = (a: { service_type: string }) => template.services?.includes(a.service_type) ?? false;
+      const list = auths ?? [];
+      authChoices = [...list.filter(fits), ...list.filter((a) => !fits(a))].map((a) => ({
+        id: a.id,
+        label: `${a.number} · ${a.service_type} · ${a.status}${fits(a) ? "" : " (not a service this form is for)"}`,
+      }));
+      const matching = list.filter(fits);
+      suggested = matching.length === 1 ? matching[0].id : null;
+      blockers.push({
+        tone: template.requiredForBilling ? "bad" : "warn",
+        text: template.requiredForBilling
+          ? "No authorization is attached, so this form cannot count towards any invoice."
+          : "No authorization is attached.",
+      });
+    } else if (auth?.number?.startsWith("(workbook)")) {
+      blockers.push({
+        tone: "bad",
+        text: `It is on ${auth.number}, a workbook placeholder with no USOR number, so it cannot be sent. Put the USOR number on it first.`,
+        href: "/billing?tab=authorizations",
+        linkText: "Billing → Authorizations",
+      });
+    }
+    const data = (form.data ?? {}) as Record<string, unknown>;
+    if (form.template_id === "usor95" && !(Array.isArray(data.rows) && data.rows.length > 0)) {
+      blockers.push({
+        tone: "warn",
+        text: `No coaching is on the daily log for ${form.month ?? "this month"}. Log the visits, then fill it again from the record.`,
+      });
+    }
+    if (template.monthly && form.month && form.month >= today().slice(0, 7)) {
+      blockers.push({ tone: "warn", text: `${form.month} is not over yet - a monthly form reports a finished month.` });
+    }
+    if (!recipients.to) {
+      blockers.push({ tone: "warn", text: "Nobody to send it to: no billing office and no counselor email on file for this client." });
+    }
+  }
+
   return (
     <>
       {/*
@@ -111,7 +162,18 @@ export default async function FormPage({
         {auth?.number && ` · authorization ${auth.number}`}
       </div>
 
+      <FormReadiness
+        formId={form.id}
+        clientId={id}
+        blockers={blockers}
+        draft={draft}
+        authChoices={authChoices}
+        suggested={suggested}
+        canRefill={["usor60", "usor92", "usor93", "usor95", "usor96", "usor148", "wsa"].includes(form.template_id)}
+      />
+
       <FormRenderer
+        key={form.updated_at}
         template={template}
         formId={form.id}
         clientId={id}

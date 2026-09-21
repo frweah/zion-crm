@@ -53,6 +53,8 @@ begin
     (client_id, number, service_type, rate_type, rate, status)
   values (v_client, 'ZZ-FLAT', 'Other', 'Flat Fee', 500, 'Open')
     returning id into a_flat;
+  -- A flat fee is sent only once its completion is recorded (0116).
+  update public.completions set completion = current_date - 100 where auth_id = a_flat;
   insert into public.invoices (auth_id, number, date, amount, status)
   values (a_flat, 'ZZ-INV-95', current_date - 95, 500, 'Sent');
 

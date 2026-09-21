@@ -85,6 +85,80 @@ export async function saveForm(_prev: FormState, formData: FormData): Promise<Fo
 }
 
 /**
+ * Which authorization a draft is for (punch list #3). A form with none can
+ * never count towards an invoice: the billing gate looks for the form on the
+ * authorization being billed. Only a draft, and only one of this client's
+ * own authorizations - the database locks it once the form is signed.
+ */
+export async function setFormAuthorization(_prev: FormState, formData: FormData): Promise<FormState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const formId = String(formData.get("form_id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  const authId = String(formData.get("auth_id") ?? "").trim();
+  if (!authId) return { error: "Choose the authorization this form is for.", ok: null };
+
+  const supabase = await createClient();
+  const { data: auth } = await supabase
+    .from("authorizations")
+    .select("id, number")
+    .eq("id", authId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (!auth) return { error: "That is not one of this client's authorizations.", ok: null };
+
+  const { data, error } = await supabase
+    .from("forms")
+    .update({ auth_id: auth.id })
+    .eq("id", formId)
+    .eq("client_id", clientId)
+    .eq("status", "Draft")
+    .select("id");
+  if (error) return { error: error.message, ok: null };
+  if (!data?.length) return { error: "Only a draft can change which authorization it is for.", ok: null };
+
+  revalidatePath(`/clients/${clientId}/forms/${formId}`);
+  revalidatePath(`/clients/${clientId}`);
+  return { error: null, ok: `This form is now for ${auth.number}.` };
+}
+
+/**
+ * Fill a draft again from the record: the hours, the daily log, the
+ * placement - whatever the form takes from the CRM. What the CRM does not
+ * know (the client's own hours, the observations) is kept.
+ *
+ * For a draft started before the work was logged, and for the USOR 95s
+ * started while the prefill read no log at all in 30-day months (fixed
+ * 20 Sept 2026).
+ */
+export async function refillForm(_prev: FormState, formData: FormData): Promise<FormState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const formId = String(formData.get("form_id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+
+  const supabase = await createClient();
+  const { data: form } = await supabase
+    .from("forms")
+    .select("id, template_id, auth_id, month, status, data")
+    .eq("id", formId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (!form) return { error: "Form not found.", ok: null };
+  if (form.status !== "Draft") return { error: "A signed form is locked; start a new one instead.", ok: null };
+
+  const fresh = await autofillForm(form.template_id, clientId, form.auth_id, form.month ?? today().slice(0, 7));
+  const data = { ...((form.data ?? {}) as Record<string, unknown>), ...fresh };
+  const { error } = await supabase.from("forms").update({ data: data as Json }).eq("id", formId).eq("status", "Draft");
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath(`/clients/${clientId}/forms/${formId}`);
+  return { error: null, ok: "Filled again from the record." };
+}
+
+/**
  * Sign and lock a form.
  *
  * The database records who signed and when, and refuses every later edit. The
@@ -194,6 +268,17 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  // A workbook placeholder is not a USOR authorization: its "number" is the
+  // CRM's own label. A form carrying it would reach the billing office with
+  // no authorization number USOR can match (punch list #3).
+  if (auth?.number?.startsWith("(workbook)")) {
+    return {
+      error:
+        "This form is on a workbook placeholder, not a USOR authorization, so it has no authorization number to send. Put the USOR number on it (Billing -> Authorizations), or start the form on the right authorization.",
+      ok: null,
+    };
+  }
 
   const tpl = templateById(form.template_id);
   const ctx: FormContext = {
