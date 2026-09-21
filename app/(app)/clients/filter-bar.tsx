@@ -162,6 +162,21 @@ export function FilterBar({
           Looking for work
         </label>
 
+        <label style={{ fontSize: "var(--text-md)" }}>
+          <input
+            type="checkbox"
+            name="openAuth"
+            defaultChecked={filters.openAuth}
+            style={{ width: "auto", marginRight: 6 }}
+          />
+          Open authorization
+        </label>
+
+        <label className="field" style={{ maxWidth: 170, marginBottom: 0 }}>
+          Referred since
+          <input type="date" name="since" defaultValue={filters.since} />
+        </label>
+
         <label className="field" style={{ maxWidth: 210, marginBottom: 0 }}>
           No activity in (days)
           <input

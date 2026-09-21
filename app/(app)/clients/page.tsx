@@ -17,6 +17,8 @@ import { AddClientPanel } from "./clients-view";
 import { FilterBar } from "./filter-bar";
 import { readBillingOffices, matchesBo } from "@/lib/billing-offices";
 import { SavedViews, type SavedView } from "./saved-views";
+import { loadCaseload } from "@/lib/caseload";
+import { CaseloadSummary } from "../caseload-summary";
 
 type Row = {
   id: string;
@@ -70,6 +72,7 @@ export default async function ClientsPage({
   if (filters.fundingSource.length) query = query.in("funding_source", filters.fundingSource);
   if (filters.office.length) query = query.in("referring_office", filters.office);
   if (filters.hasImportReview) query = query.neq("import_review", "");
+  if (filters.since) query = query.gte("created_at", filters.since);
 
   const [billing, clientsResult, counselorsResult, staffResult, officesResult, activityResult, viewsResult, totalResult, prefResult, jobsResult] =
     await Promise.all([
@@ -143,6 +146,11 @@ export default async function ClientsPage({
   }));
 
   if (filters.jobSearch) rows = rows.filter((r) => r.searching);
+  if (filters.openAuth) {
+    const { data: open } = await supabase.from("authorizations").select("client_id").eq("status", "Open");
+    const withOpen = new Set((open ?? []).map((a) => a.client_id));
+    rows = rows.filter((r) => withOpen.has(r.id));
+  }
 
   // Free-text search spans the fields someone would actually search by.
   if (filters.q) {
@@ -313,6 +321,9 @@ export default async function ClientsPage({
           </>
         }
       />
+
+      {/* The counts in sight while moving through the list (21 Sept 2026). */}
+      <CaseloadSummary caseload={await loadCaseload(supabase, me)} slim />
 
       <SavedViews
         screen="clients"
