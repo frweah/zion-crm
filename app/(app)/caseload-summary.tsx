@@ -1,5 +1,27 @@
 import Link from "next/link";
 import type { Caseload } from "@/lib/caseload";
+import { setCaseloadMine } from "./caseload-actions";
+
+/** All · Mine, remembered for the person; the same choice on both screens. */
+function MineToggle({ caseload }: { caseload: Caseload }) {
+  return (
+    <form action={setCaseloadMine} className="segmented caseload-toggle" role="group" aria-label="Whose caseload">
+      <button type="submit" name="mine" value="false" className={!caseload.mine ? "on" : undefined} aria-pressed={!caseload.mine}>
+        All
+      </button>
+      <button
+        type="submit"
+        name="mine"
+        value="true"
+        className={caseload.mine ? "on" : undefined}
+        aria-pressed={caseload.mine}
+        title={`Only clients ${caseload.mineLabel}`}
+      >
+        Mine
+      </button>
+    </form>
+  );
+}
 
 /**
  * The caseload at a glance (lib/caseload.ts): three counts and a bar per
@@ -27,6 +49,7 @@ export function CaseloadSummary({ caseload, slim = false }: { caseload: Caseload
   if (slim) {
     return (
       <nav className="caseload-strip" aria-label={`${caseload.scopeLabel}, by stage`}>
+        <MineToggle caseload={caseload} />
         <span className="lock">{caseload.scopeLabel}</span>
         {counts}
         <span className="caseload-stages">
@@ -44,6 +67,7 @@ export function CaseloadSummary({ caseload, slim = false }: { caseload: Caseload
     <section className="card day-section caseload" aria-labelledby="caseload-title">
       <h2 className="h2" id="caseload-title">
         Caseload <span className="day-total">{caseload.scopeLabel.toLowerCase()}</span>
+        <MineToggle caseload={caseload} />
       </h2>
       {caseload.total === 0 ? (
         <p className="empty">
