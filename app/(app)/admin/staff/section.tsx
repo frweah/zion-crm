@@ -21,7 +21,7 @@ type StaffRow = {
 };
 
 /**
- * Staff, a section of Admin → People.
+ * Staff: HR → People.
  *
  * The accounts, inviting somebody, offboarding and the staff report. What is
  * held about one person - pay, checklists, certifications, documents - is on

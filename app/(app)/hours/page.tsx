@@ -96,7 +96,7 @@ export default async function HoursPage({
           context="Contractors' statements for each period, priced by the totals view, waiting on your decision."
         />
         {waiting.length === 0 && (
-          <div className="alert ok">Nothing waiting for approval.</div>
+          <p className="empty">Nothing waiting for approval.</p>
         )}
         <div className="card" style={{ padding: 0 }}>
           <DataTable

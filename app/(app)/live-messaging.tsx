@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { outsideUnread } from "./inbox-count-actions";
+import { mailWaiting } from "./inbox-mail";
 
 /**
  * The messaging foundation's live half (Messaging brief), running in every
@@ -24,10 +26,18 @@ import { createClient } from "@/lib/supabase/client";
  */
 
 // ── the unread count, shared with the sidebar ────────────────
+// One Inbox badge (21 Sept 2026): staff chat, live; texts and website chats,
+// and the person's own unread mail, asked for every two minutes and whenever
+// a message arrives.
 let unreadTotal = 0;
+let outsideTotal = 0;
 const listeners = new Set<() => void>();
 function setUnread(n: number) {
   unreadTotal = n;
+  listeners.forEach((l) => l());
+}
+function setOutside(n: number) {
+  outsideTotal = n;
   listeners.forEach((l) => l());
 }
 export function useUnreadMessages(): number {
@@ -36,10 +46,11 @@ export function useUnreadMessages(): number {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    () => unreadTotal,
+    () => unreadTotal + outsideTotal,
     () => 0,
   );
 }
+const OUTSIDE_MS = 2 * 60 * 1000;
 
 const IDLE_MS = 5 * 60 * 1000;
 const BEAT_MS = 60 * 1000;
@@ -77,12 +88,23 @@ export function LiveMessaging({ myId, initialUnread }: { myId: string; initialUn
       const { data } = await supabase.rpc("my_unread");
       setUnread((data ?? []).reduce((s, r) => s + (r.unread ?? 0), 0));
     };
+    const refreshOutside = async () => {
+      try {
+        const [outside, mail] = await Promise.all([outsideUnread(), mailWaiting(0)]);
+        setOutside(outside + mail.count);
+      } catch {
+        // A badge that cannot be worked out keeps its last number.
+      }
+    };
+    void refreshOutside();
+    const outsideTimer = window.setInterval(() => void refreshOutside(), OUTSIDE_MS);
     const channel = supabase
       .channel("messages-live")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
         const row = payload.new as { id: string; conversation_id: string; sender_staff_id: string | null; sender_label: string; sender_kind: string };
         if (row.sender_staff_id === myId) return;
         void refreshUnread();
+        if (row.sender_kind !== "staff") void refreshOutside();
         window.dispatchEvent(new CustomEvent("zion:message", { detail: row }));
         if (window.location.pathname === "/messages" && window.location.search.includes(row.conversation_id)) return;
         const who = row.sender_kind === "staff" ? row.sender_label || "A colleague" : row.sender_kind === "client" ? "A client" : "A visitor";
@@ -90,13 +112,20 @@ export function LiveMessaging({ myId, initialUnread }: { myId: string; initialUn
         setToasts((t) => (t.some((x) => x.id === row.id) ? t : [...t.slice(-2), { id: row.id, who, conversationId: row.conversation_id }]));
         window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== row.id)), 8000);
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "read_receipts" }, () => void refreshUnread())
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "read_receipts" }, () => void refreshUnread())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "read_receipts" }, () => {
+        void refreshUnread();
+        void refreshOutside();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "read_receipts" }, () => {
+        void refreshUnread();
+        void refreshOutside();
+      })
       .subscribe();
 
     return () => {
       events.forEach((e) => window.removeEventListener(e, touched));
       window.clearInterval(timer);
+      window.clearInterval(outsideTimer);
       void supabase.removeChannel(channel);
     };
   }, [myId]);

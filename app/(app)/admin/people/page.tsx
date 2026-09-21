@@ -4,7 +4,7 @@ import StaffSection from "../staff/section";
 import ContractorsSection from "../contractors/section";
 
 /**
- * Admin → People.
+ * HR → People and HR → Contractors (21 Sept 2026; was Admin → People).
  *
  * Everybody who works here, on one page: accounts and roles, pay rates,
  * onboarding and offboarding, certifications and documents, then contractors -
@@ -15,27 +15,28 @@ import ContractorsSection from "../contractors/section";
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; year?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; year?: string; tab?: string }>;
 }) {
   await requireAdmin();
+  // HR → People and HR → Contractors are this screen's two halves (21 Sept 2026).
+  const contractors = (await searchParams).tab === "contractors";
+
+  if (contractors) {
+    return (
+      <>
+        <PageHead title="Contractors" context="Contractor profiles, payments as they were made, and what a 1099 needs" />
+        <section id="contractors" className="page-section">
+          <ContractorsSection searchParams={searchParams} />
+        </section>
+      </>
+    );
+  }
 
   return (
     <>
-      <PageHead
-        title="People"
-        context="Staff and contractors: accounts, pay, onboarding, certifications, and what a 1099 needs"
-        toc={[
-          ["staff", "Staff"],
-          ["contractors", "Contractors and 1099s"],
-        ]}
-      />
-
+      <PageHead title="People" context="Staff: accounts, pay, onboarding, certifications and offboarding" />
       <section id="staff" className="page-section">
         <StaffSection searchParams={searchParams} />
-      </section>
-
-      <section id="contractors" className="page-section">
-        <ContractorsSection searchParams={searchParams} />
       </section>
     </>
   );

@@ -8,7 +8,7 @@ import { GenerateRun, RunPanel, type RecipientRow } from "./run-forms";
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 /**
- * Contractors, a section of Admin → People.
+ * Contractors: HR → Contractors, the second half of the People screen.
  *
  * The details a 1099 needs, the payments made, and the runs built from them.
  * The per-person details and the runs are each one list with an item apiece,

@@ -14,8 +14,11 @@ import { StaffDocuments, type DocCategory, type DocRow } from "../admin/staff/do
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
 
-export default async function PaperworkPage() {
+export default async function PaperworkPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const me = await requireStaff();
+  // HR → Certifications is this screen's certifications on their own
+  // (21 Sept 2026); plain /paperwork is the tax form and documents.
+  const certifications = (await searchParams).tab === "certifications";
   const supabase = await createClient();
 
   const [
@@ -104,6 +107,25 @@ export default async function PaperworkPage() {
 
   // What their signature looks like on file, if they have uploaded one.
   const signature = await signaturePreview();
+
+  if (certifications) {
+    return (
+      <>
+        <PageHead title="Certifications" context="What you are certified in, and when each runs out." />
+        <MyCredentials
+          staffId={me.id}
+          rows={(credentialResult.data ?? []) as never}
+          ce={(ceResult.data ?? []) as never}
+          today={today()}
+        />
+        {me.role === "Admin" && (
+          <p className="lock" style={{ marginTop: 14 }}>
+            Everyone&apos;s certifications, with what is missing or expiring, are on HR → People.
+          </p>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -211,13 +233,6 @@ export default async function PaperworkPage() {
         docs={(myDocsResult.data ?? []) as unknown as DocRow[]}
         categories={(docCategoryResult.data ?? []) as DocCategory[]}
         canDelete={false}
-      />
-
-      <MyCredentials
-        staffId={me.id}
-        rows={(credentialResult.data ?? []) as never}
-        ce={(ceResult.data ?? []) as never}
-        today={today()}
       />
 
       {me.role === "Admin" && (

@@ -89,13 +89,24 @@ export type NavGroup = {
 };
 
 /**
- * The navigation, in eight groups.
+ * The navigation, in six groups.
  *
- * It was a flat list of nineteen links, which is the shape a system takes when
- * screens are added one at a time and nobody stops to say what belongs with
- * what. Grouping it was the first pass; the consolidation (September 2026) was
- * the second: one home per fact, no more than six tabs to a screen, reports in
- * Insights and settings in Admin → System. Every path that moved redirects
+ * It was a flat list of nineteen links; grouping it was the first pass, the
+ * consolidation (September 2026) the second, and this the third (owner,
+ * 21 Sept 2026): Dashboard, Clients, Inbox, Billing, HR, Admin.
+ *
+ *   Dashboard  the person's day, and every task under it.
+ *   Clients    the people, the jobs, and the counselors who send them.
+ *   Inbox      everything that arrives: mail, texts, staff chat, the
+ *              website chat, and the calendar - one unread badge.
+ *   Billing    unchanged.
+ *   HR         a person's own hours, paperwork, certifications and SOPs;
+ *              Admin also finds the staff and contractors here.
+ *   Admin      documents, system, and the Insights reports.
+ *
+ * The screens kept their addresses: only the grouping moved, so every link,
+ * bookmark and alert still lands where it did. The group names that are new
+ * addresses of their own (/inbox, /hr...) redirect to their first screen
  * (next.config.mjs), and scripts/check-nav.mjs holds each role to the screens
  * it should reach.
  *
@@ -111,27 +122,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: "dashboard",
     label: "Dashboard",
-    // One page. The counters open their lists at /dashboard/needs.
-    items: [{ label: "Dashboard", href: "/dashboard", roles: EVERYONE }],
-  },
-  {
-    // Each person's own Outlook, read live (Messaging brief, M, 19 Sept 2026).
-    key: "mail",
-    label: "Mail",
     items: [
-      { label: "Mail", href: "/mail", roles: EVERYONE },
-      { label: "Calendar", href: "/calendar", roles: EVERYONE },
-    ],
-  },
-  {
-    // Conversations: staff with staff now; texts (A) and the website chat (C)
-    // join it (Messaging brief, 19 Sept 2026).
-    key: "messages",
-    label: "Messages",
-    items: [
-      { label: "Messages", href: "/messages", roles: EVERYONE },
-      // Texts and website chats, in the one place (Messaging brief, A and C).
-      { label: "Texts & web", href: "/messages/texts", roles: EVERYONE },
+      // The person's day (owner, 21 Sept 2026). The counters open their lists
+      // at /dashboard/needs.
+      { label: "Today", href: "/dashboard", roles: EVERYONE },
+      // Every task, not only one's own - off the sidebar, under the day.
+      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks" },
     ],
   },
   {
@@ -143,20 +139,23 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"] },
       { label: "Clients", href: "/clients", roles: EVERYONE },
       { label: "Jobs", href: "/leads", roles: EVERYONE },
+      // The counselors who refer them; the directory, the contact log and
+      // hours requests are tabs on the Counselors screen itself.
+      { label: "Counselors", href: "/counselors", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
     ],
   },
   {
-    key: "tasks",
-    label: "Tasks",
-    items: [{ label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks" }],
-  },
-  {
-    key: "counselors",
-    label: "Counselors",
+    // Everything that arrives, in one place with one unread badge (owner,
+    // 21 Sept 2026). Mail is each person's own Outlook, read live; texts and
+    // the website chat are one screen shown two ways.
+    key: "inbox",
+    label: "Inbox",
     items: [
-      { label: "Directory", href: "/counselors?tab=directory", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
-      { label: "Contact log", href: "/counselors?tab=contact", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
-      { label: "Hours requests", href: "/counselors?tab=hours", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
+      { label: "Mail", href: "/mail", roles: EVERYONE },
+      { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE },
+      { label: "Chat", href: "/messages", roles: EVERYONE },
+      { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE },
+      { label: "Calendar", href: "/calendar", roles: EVERYONE },
     ],
   },
   {
@@ -170,18 +169,35 @@ export const NAV_GROUPS: NavGroup[] = [
       // (owner's layout, 20 Sept 2026). Everybody who bills can reach it.
       { label: "Report & bill", href: "/billing/report", roles: EVERYONE },
       { label: "Forms", href: "/billing/forms", roles: EVERYONE },
-      // The month as files, and the rate schedule - from Admin → System, so
-      // that Admin is Admin's alone (owner, 19 Sept 2026). The authorizations
-      // that arrive in the documents folder are confirmed on Authorizations.
+      // The month as files, and the rate schedule. The authorizations that
+      // arrive in the documents folder are confirmed on Authorizations.
       { label: "Export", href: "/billing/export", roles: BILLS, area: "billing" },
     ],
   },
   {
-    key: "insights",
-    label: "Insights",
-    // The owner's alone, in full (14 Sept 2026). Client progress reports and
-    // USOR forms stay with staff on the client record and Billing → Forms.
+    // A person's own work and papers (was "My work"), and for Admin the
+    // people and contractors behind them (owner, 21 Sept 2026).
+    key: "hr",
+    label: "HR",
     items: [
+      { label: "Hours", href: "/hours", roles: EVERYONE },
+      { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
+      { label: "Paperwork", href: "/paperwork", roles: EVERYONE },
+      { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
+      { label: "SOPs", href: "/sops", roles: EVERYONE },
+      { label: "People", href: "/admin/people", roles: ADMIN },
+      { label: "Contractors", href: "/admin/people?tab=contractors", roles: ADMIN },
+    ],
+  },
+  {
+    key: "admin",
+    label: "Admin",
+    // Admin's alone (owner, 19 Sept 2026), the document inbox included, and
+    // the Insights reports with it (21 Sept 2026). Billing confirms the
+    // authorizations from the inbox on Billing → Authorizations.
+    items: [
+      { label: "Documents", href: "/admin/documents", roles: ADMIN },
+      { label: "System", href: "/admin/system", roles: ADMIN },
       { label: "Money", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },
@@ -191,35 +207,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "KPIs", href: "/insights/reports", roles: ADMIN, area: "insights" },
     ],
   },
-  {
-    key: "my-work",
-    label: "My work",
-    items: [
-      { label: "Hours", href: "/hours", roles: EVERYONE },
-      // Was a row of tabs inside Hours, under My work's own tabs.
-      { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
-      { label: "Paperwork", href: "/paperwork", roles: EVERYONE },
-      { label: "SOPs", href: "/sops", roles: EVERYONE },
-    ],
-  },
-  {
-    key: "admin",
-    label: "Admin",
-    // Admin's alone (owner, 19 Sept 2026), the document inbox included.
-    // Billing confirms the authorizations from it on Billing → Authorizations,
-    // with the agent's status; the monthly export and the rate schedule are
-    // Billing → Export.
-    items: [
-      { label: "People", href: "/admin/people", roles: ADMIN },
-      { label: "Documents", href: "/admin/documents", roles: ADMIN },
-      { label: "System", href: "/admin/system", roles: ADMIN },
-    ],
-  },
 ];
 
-/** The path part of an href, with any ?tab= dropped. */
+/** The path part of an href, with any ?tab= or #section dropped. */
 export function navPath(href: string): string {
-  return href.split("?")[0];
+  return href.split(/[?#]/)[0];
 }
 
 /**
@@ -252,7 +244,10 @@ export function currentItemHref(
     const match = tabbed.find((i) => i.href.split("?tab=")[1] === tab);
     if (match) return match.href;
   }
-  return (tabbed[0] ?? best[0]).href;
+  // No tab asked for: the screen that has none (Hours rather than Statement
+  // approvals, Paperwork rather than Certifications), else the first tab.
+  const plain = best.find((i) => !i.href.includes("?tab="));
+  return (plain ?? tabbed[0] ?? best[0]).href;
 }
 
 /** What a person sees: what their role sees, and what a grant opens. Never less. */

@@ -38,13 +38,13 @@ const nextConfig = {
       "/outcomes": "/insights/outcomes",
       "/capacity": "/insights/capacity",
       "/staff": "/admin/people",
-      "/contractors": "/admin/people#contractors",
+      "/contractors": "/admin/people?tab=contractors",
       "/exports": "/billing/export",
       "/referrals": "/insights/referrals",
       "/billing/revenue": "/insights/money",
       "/billing/position": "/billing?tab=invoices#paid-and-outstanding",
       "/admin/staff": "/admin/people",
-      "/admin/contractors": "/admin/people#contractors",
+      "/admin/contractors": "/admin/people?tab=contractors",
       "/admin/inbox": "/admin/documents",
       "/admin/retention": "/admin/documents#retention",
       "/admin/records-request": "/admin/documents#records-requests",
@@ -59,6 +59,20 @@ const nextConfig = {
       "/admin": "/admin/people",
       "/documents": "/admin/documents",
       "/billing/admin": "/admin/documents",
+      // The second consolidation (21 Sept 2026): six groups. The screens kept
+      // their addresses; the groups' own names, and the words people use for
+      // them, go to each group's first screen.
+      "/inbox": "/mail",
+      "/chat": "/messages",
+      "/texts": "/messages/texts?tab=texts",
+      "/website-chat": "/messages/texts?tab=web",
+      "/web-chat": "/messages/texts?tab=web",
+      "/hr": "/hours",
+      "/my-work": "/hours",
+      "/certifications": "/paperwork?tab=certifications",
+      "/people": "/admin/people",
+      "/insights": "/insights/money",
+      "/dashboard/tasks": "/tasks",
     };
     return Object.entries(moved).map(([source, destination]) => ({
       source,

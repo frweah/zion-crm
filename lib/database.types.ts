@@ -3165,6 +3165,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_alert_snoozes: {
+        Row: {
+          staff_id: string;
+          notification_id: string;
+          until: string;
+        };
+        Insert: {
+          staff_id: string;
+          notification_id: string;
+          until: string;
+        };
+        Update: {
+          staff_id?: string;
+          notification_id?: string;
+          until?: string;
+        };
+        Relationships: [];
+      };
       staff_checklist_items: {
         Row: {
           staff_id: string;
