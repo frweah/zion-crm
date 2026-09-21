@@ -62,17 +62,19 @@ begin
   end;
 
   -- Written for the next window, which is what somebody is offered at night.
+  -- Tomorrow night, not a fixed date: a date written into the check went
+  -- into the past on 21 Sept 2026 and the send was rightly refused.
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, send_after, created_by)
   values (v_client, 'Outgoing', '801-555-0142', 'ZZ in the morning', 'Manual', 'Scheduled',
-          public.next_text_window(timestamptz '2026-09-20 22:30:00-06'), v_staff);
+          public.next_text_window(((public.practice_today() + 1) + time '22:30') at time zone 'America/Denver'), v_staff);
   begin
     insert into public.sms_messages (client_id, direction, phone, body, kind, status, send_after, created_by)
     values (v_client, 'Outgoing', '801-555-0142', 'ZZ at midnight', 'Manual', 'Scheduled',
-            timestamptz '2026-09-21 00:30:00-06', v_staff);
+            ((public.practice_today() + 2) + time '00:30') at time zone 'America/Denver', v_staff);
     failures := failures || 'FAILED: a text was scheduled for the middle of the night'::text;
   exception when check_violation then null;
   end;
-  if not public.sms_within_sending_hours(public.next_text_window(timestamptz '2026-09-20 22:30:00-06')) then
+  if not public.sms_within_sending_hours(public.next_text_window(((public.practice_today() + 1) + time '22:30') at time zone 'America/Denver')) then
     failures := failures || 'FAILED: the next window offered is outside sending hours'::text;
   else
     raise notice 'ok  no consent, the wrong number and the middle of the night are all still refused; the next window is offered instead';

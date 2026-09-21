@@ -15,6 +15,8 @@ import { NEEDS, countNeeds } from "@/lib/needs";
 import { PageHead } from "../page-head";
 import { mailWaiting } from "../inbox-mail";
 import { markConversationRead, snoozeAlert } from "./day-actions";
+import { loadCaseload } from "@/lib/caseload";
+import { CaseloadSummary } from "../caseload-summary";
 
 /**
  * The dashboard: the person's day, top to bottom (owner, 21 Sept 2026).
@@ -117,6 +119,7 @@ export default async function DashboardPage({
     supabase.from("staff_alert_snoozes").select("notification_id, until").gte("until", day),
     myMailAccess(),
   ]);
+  const caseload = await loadCaseload(supabase, me);
 
   refreshAlertsIfStale(runResult.data?.last_run_at);
 
@@ -504,6 +507,9 @@ export default async function DashboardPage({
           </ul>
         )}
       </section>
+
+      {/* ── the caseload, for everyone, in their own scope ───── */}
+      <CaseloadSummary caseload={caseload} />
 
       {/* ── Admin: the business ──────────────────────────────── */}
       {business && (

@@ -53,6 +53,10 @@ export type ClientFilters = {
   hasImportReview: boolean;
   /** Looking for work: an application still going, or one made in the last 30 days (0117). */
   jobSearch: boolean;
+  /** Clients with an open authorization - what Billing works across (caseload summary). */
+  openAuth: boolean;
+  /** Referred on or after this date, "YYYY-MM-DD" - "new this month". */
+  since: string;
   inactiveDays: number | null;
   sort: ClientSort;
   dir: SortDir;
@@ -69,6 +73,8 @@ export const EMPTY_FILTERS: ClientFilters = {
   billingOffice: [],
   hasImportReview: false,
   jobSearch: false,
+  openAuth: false,
+  since: "",
   inactiveDays: null,
   sort: "name",
   dir: "asc",
@@ -97,6 +103,8 @@ export function parseFilters(raw: Record<string, unknown>): ClientFilters {
   const dir = String(first(r.dir) ?? "asc");
   const review = first(r.hasImportReview);
   const jobSearch = first(r.jobSearch);
+  const openAuth = first(r.openAuth);
+  const since = String(first(r.since) ?? "");
 
   return {
     q: String(first(r.q) ?? ""),
@@ -109,6 +117,8 @@ export function parseFilters(raw: Record<string, unknown>): ClientFilters {
     billingOffice: asArray(r.billingOffice),
     hasImportReview: review === true || review === "true" || review === "on",
     jobSearch: jobSearch === true || jobSearch === "true" || jobSearch === "on",
+    openAuth: openAuth === true || openAuth === "true" || openAuth === "on",
+    since: /^\d{4}-\d{2}-\d{2}$/.test(since) ? since : "",
     inactiveDays: Number.isFinite(days) && days > 0 ? days : null,
     sort: (CLIENT_SORTS as readonly string[]).includes(sort) ? (sort as ClientSort) : "name",
     dir: dir === "desc" ? "desc" : "asc",
@@ -124,6 +134,8 @@ export function toQuery(f: ClientFilters): string {
   }
   if (f.hasImportReview) p.set("hasImportReview", "true");
   if (f.jobSearch) p.set("jobSearch", "true");
+  if (f.openAuth) p.set("openAuth", "true");
+  if (f.since) p.set("since", f.since);
   if (f.inactiveDays) p.set("inactiveDays", String(f.inactiveDays));
   if (f.sort !== "name") p.set("sort", f.sort);
   if (f.dir !== "asc") p.set("dir", f.dir);
@@ -139,6 +151,8 @@ export function toParams(f: ClientFilters): Record<string, unknown> {
   }
   if (f.hasImportReview) out.hasImportReview = true;
   if (f.jobSearch) out.jobSearch = true;
+  if (f.openAuth) out.openAuth = true;
+  if (f.since) out.since = f.since;
   if (f.inactiveDays) out.inactiveDays = f.inactiveDays;
   out.sort = f.sort;
   out.dir = f.dir;
@@ -157,6 +171,8 @@ export function isFiltered(f: ClientFilters): boolean {
       f.billingOffice.length ||
       f.hasImportReview ||
       f.jobSearch ||
+      f.openAuth ||
+      f.since ||
       f.inactiveDays,
   );
 }
