@@ -34,7 +34,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
 
   const { data: person } = await supabase
     .from("staff")
-    .select("id, name, email, role, active, user_id, invited_at, accepted_at, deactivated_at")
+    .select("id, name, email, role, active, user_id, invited_at, accepted_at, deactivated_at, is_system")
     .eq("id", id)
     .maybeSingle();
 
@@ -125,6 +125,13 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         identity={[person.email, ROLE_LABEL[person.role as Role] ?? person.role]}
         standing={
           <>
+            {person.is_system && (
+              <>
+                <span className="chip" title="Not a person: the deploy check (0120). Read-only, Job Search, never given more.">
+                  System account
+                </span>{" "}
+              </>
+            )}
             Account{" "}
             <span className={"chip " + (account === "Active" ? "ok" : "warn")}>{account}</span>
           </>

@@ -63,7 +63,7 @@ async function handle(request: NextRequest) {
     supabase
       .from("staff")
       .select("id, name, email, role")
-      .eq("active", true)
+      .eq("active", true).eq("is_system", false)
       .not("accepted_at", "is", null),
   ]);
 

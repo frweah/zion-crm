@@ -72,7 +72,7 @@ export async function addClient(
     .from("staff")
     .select("id")
     .eq("role", "Job Search")
-    .eq("active", true)
+    .eq("active", true).eq("is_system", false)
     .limit(1)
     .maybeSingle();
 
