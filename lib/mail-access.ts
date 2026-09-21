@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff, type CurrentStaff } from "@/lib/session";
 import { ownAccess } from "@/lib/sync-callers";
 import { ensureFreshToken } from "@/lib/graph";
-import { hasScope, MAIL_SEND_SCOPE, MAIL_WRITE_SCOPE, SHARED_MAILBOX_SCOPE, SHARED_WRITE_SCOPE } from "@/lib/microsoft";
+import { hasScope, MAIL_SEND_SCOPE, MAIL_WRITE_SCOPE, SHARED_MAILBOX_SCOPE } from "@/lib/microsoft";
 
 /**
  * What the signed-in person can do with Outlook from the CRM (Messaging brief, M).
@@ -29,13 +29,6 @@ export type MailAccess =
       canSend: boolean;
       /** Can move a message in their own mailbox to Deleted Items. */
       canDelete: boolean;
-      /**
-       * The same in a shared mailbox they are offered (owner, 19 Sept 2026).
-       * Separate from canDelete because it is a separate permission and a
-       * separate mailbox: somebody may have one without the other, and the
-       * screen should offer exactly what they have.
-       */
-      canDeleteShared: boolean;
       sharedMailboxes: { address: string; label: string }[];
     };
 
@@ -82,7 +75,6 @@ export async function myMailAccess(): Promise<MailAccess> {
     email: conn.microsoft_email,
     canSend: hasScope(scopes, MAIL_SEND_SCOPE),
     canDelete: hasScope(scopes, MAIL_WRITE_SCOPE),
-    canDeleteShared: SHARED_MAILBOX_ROLES.includes(me.role) && hasScope(scopes, SHARED_WRITE_SCOPE),
     sharedMailboxes:
       SHARED_MAILBOX_ROLES.includes(me.role) && hasScope(scopes, SHARED_MAILBOX_SCOPE) ? (shared ?? []) : [],
   };

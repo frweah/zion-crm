@@ -115,15 +115,8 @@ export function RespondForms({ messageId, box, canSend }: { messageId: string; b
 }
 
 /** Delete - to the person's own Deleted Items, after a second press. */
-/**
- * Delete, with a second press before it happens.
- *
- * `box` is the mailbox being read, so a message in the shared mailbox goes to
- * that mailbox's Deleted Items rather than to the reader's own - and the
- * confirmation says which, because "Delete" over somebody else's mail should
- * never be ambiguous about whose it is.
- */
-export function DeleteMessage({ messageId, back, box = "me" }: { messageId: string; back: string; box?: string }) {
+/** Delete, with a second press before it happens. The reader's own mailbox. */
+export function DeleteMessage({ messageId, back }: { messageId: string; back: string }) {
   const [sure, setSure] = useState(false);
   const [state, action, pending] = useActionState(deleteMessage, initial);
   if (!sure) {
@@ -136,10 +129,10 @@ export function DeleteMessage({ messageId, back, box = "me" }: { messageId: stri
   return (
     <form action={action} style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
       <input type="hidden" name="message_id" value={messageId} />
-      <input type="hidden" name="box" value={box} />
+      <input type="hidden" name="box" value="me" />
       <input type="hidden" name="back" value={back} />
       <button className="btn danger" type="submit" disabled={pending}>
-        {pending ? "Deleting…" : box === "me" ? "Move to Deleted Items" : `Move to ${box}'s Deleted Items`}
+        {pending ? "Deleting…" : "Move to Deleted Items"}
       </button>
       <button className="btn ghost" type="button" onClick={() => setSure(false)}>
         Keep it
