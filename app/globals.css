@@ -2263,3 +2263,11 @@ button.attach-chip:hover {
 .caseload-stages b {
   font-variant-numeric: tabular-nums;
 }
+/* All · Mine, at the end of the card's heading and the start of the strip. */
+.caseload-toggle {
+  margin-left: auto;
+  font-weight: 400;
+}
+.caseload-strip .caseload-toggle {
+  margin-left: 0;
+}

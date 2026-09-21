@@ -1,25 +1,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { can, type Access } from "@/lib/roles";
+import type { Access } from "@/lib/roles";
 import { STAGES, today } from "@/lib/constants";
 
 /**
  * The caseload in four numbers: every client, the active ones, the new ones
  * this month, and the active ones by stage (owner, 21 Sept 2026).
  *
- * Whose caseload follows the person asking:
+ * Everybody starts on the whole practice, with a "Mine" toggle they can
+ * turn on and that is remembered for them (owner, 21 Sept 2026):
  *
- *   Admin, or anyone given Insights - the whole practice.
- *   Job Search, and Intake & Client Reports - the clients assigned to them,
- *     the same caseload "My clients today" works from.
- *   Billing - the clients with an open authorization, which is what they
- *     bill against; they carry no caseload of their own.
+ *   Mine, for most people - the clients assigned to them, the same caseload
+ *     "My clients today" works from.
+ *   Mine, for Billing - the clients with an open authorization, which is
+ *     what they bill against; they carry no caseload of their own.
  *
  * Every number is also a link to the Clients list showing exactly those
  * clients, built from the list's own filters, so a count and the list it
  * opens are the same question asked twice.
  */
 export type Caseload = {
+  /** Whether "Mine" is on, and what it means for this person. */
+  mine: boolean;
+  mineLabel: string;
   scope: "practice" | "mine" | "billable";
   scopeLabel: string;
   total: number;
@@ -32,8 +35,14 @@ export type Caseload = {
 type Me = Access & { id: string };
 
 export async function loadCaseload(supabase: SupabaseClient<Database>, me: Me): Promise<Caseload> {
-  const scope: Caseload["scope"] =
-    me.role === "Admin" || can(me, "insights") ? "practice" : me.role === "Billing" ? "billable" : "mine";
+  const { data: pref } = await supabase
+    .from("staff_prefs")
+    .select("key")
+    .eq("staff_id", me.id)
+    .eq("key", "caseload:mine")
+    .maybeSingle();
+  const mine = Boolean(pref);
+  const scope: Caseload["scope"] = !mine ? "practice" : me.role === "Billing" ? "billable" : "mine";
 
   let q = supabase.from("clients").select("id, status, stage, created_at, assigned_staff_id");
   if (scope === "mine") q = q.eq("assigned_staff_id", me.id);
@@ -65,6 +74,8 @@ export async function loadCaseload(supabase: SupabaseClient<Database>, me: Me): 
   };
 
   return {
+    mine,
+    mineLabel: me.role === "Billing" ? "open authorizations" : "assigned to me",
     scope,
     scopeLabel:
       scope === "practice" ? "The whole caseload" : scope === "mine" ? "Your caseload" : "Clients with an open authorization",
