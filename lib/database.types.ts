@@ -155,6 +155,11 @@ export type Database = {
           created_at: string;
           updated_at: string;
           dates_from_ocr: boolean;
+          followup_owner: string | null;
+          followup_action: string;
+          followup_due: string | null;
+          followup_set_at: string | null;
+          followup_set_by: string | null;
         };
         Insert: {
           id?: string;
@@ -175,6 +180,11 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           dates_from_ocr?: boolean;
+          followup_owner?: string | null;
+          followup_action?: string;
+          followup_due?: string | null;
+          followup_set_at?: string | null;
+          followup_set_by?: string | null;
         };
         Update: {
           id?: string;
@@ -195,6 +205,11 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           dates_from_ocr?: boolean;
+          followup_owner?: string | null;
+          followup_action?: string;
+          followup_due?: string | null;
+          followup_set_at?: string | null;
+          followup_set_by?: string | null;
         };
         Relationships: [];
       };
@@ -477,6 +492,7 @@ export type Database = {
           import_review: string;
           created_at: string;
           updated_at: string;
+          merged_into: string | null;
         };
         Insert: {
           id?: string;
@@ -507,6 +523,7 @@ export type Database = {
           import_review?: string;
           created_at?: string;
           updated_at?: string;
+          merged_into?: string | null;
         };
         Update: {
           id?: string;
@@ -537,6 +554,7 @@ export type Database = {
           import_review?: string;
           created_at?: string;
           updated_at?: string;
+          merged_into?: string | null;
         };
         Relationships: [];
       };
@@ -4567,6 +4585,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      client_merged_into: {
+        Args: { p_client: string | null };
+        Returns: string;
+      };
       client_next_actions: {
         Args: { p_client: string | null };
         Returns: { kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
@@ -4730,6 +4752,10 @@ export type Database = {
       match_inbox_folder: {
         Args: { p_folder: string | null };
         Returns: string;
+      };
+      merge_clients: {
+        Args: { p_from: string | null; p_into: string | null };
+        Returns: { moved: string | null }[];
       };
       message_inbox: {
         Args: { p_show?: string | null };

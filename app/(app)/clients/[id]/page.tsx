@@ -98,7 +98,13 @@ export default async function ClientPage({
     supabase.from("staff").select("id, name").eq("active", true).order("name"),
   ]);
 
-  if (!client) notFound();
+  if (!client) {
+    // A record merged into another (0115) is out of sight; its old link goes
+    // to the record it became part of.
+    const { data: into } = await supabase.rpc("client_merged_into", { p_client: id });
+    if (into) redirect(`/clients/${into}`);
+    notFound();
+  }
 
   const detail = client as ClientDetail;
 

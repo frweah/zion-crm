@@ -6,6 +6,7 @@ import { money, today, daysBetween } from "@/lib/constants";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 import { Kpi as Stat, lastTwelveMonths } from "../kpi";
+import { FollowupForm } from "./followup-form";
 
 /**
  * Revenue.
@@ -57,7 +58,7 @@ export default async function RevenuePage() {
   const supabase = await createClient();
   const canBill = can(me, "billing", "edit");
 
-  const [econResult, clientsResult, invoicesResult, paperworkResult] = await Promise.all([
+  const [econResult, clientsResult, invoicesResult, paperworkResult, followupResult, staffResult] = await Promise.all([
     supabase
       .from("authorization_economics")
       .select("*")
@@ -65,7 +66,15 @@ export default async function RevenuePage() {
     supabase.from("clients").select("id, name, counselor_id, status"),
     supabase.from("invoices").select("date, amount, status, paid_date, service_type"),
     supabase.from("client_paperwork").select("client_id, auth_id, usor").eq("state", "Missing"),
+    supabase
+      .from("authorizations")
+      .select("id, followup_owner, followup_action, followup_due, followup_set_at")
+      .eq("status", "Open"),
+    supabase.from("staff").select("id, name").eq("active", true).order("name"),
   ]);
+  const followup = new Map((followupResult.data ?? []).map((f) => [f.id, f]));
+  const staff = staffResult.data ?? [];
+  const staffName = new Map(staff.map((s) => [s.id, s.name]));
 
   const econ = (econResult.data ?? []) as unknown as Econ[];
   const clients = clientsResult.data ?? [];
@@ -80,6 +89,17 @@ export default async function RevenuePage() {
   const unbilled = open.reduce((s, e) => s + n(e.unbilled), 0);
   const outstanding = econ.reduce((s, e) => s + n(e.outstanding), 0);
   const receivedAll = econ.reduce((s, e) => s + n(e.received), 0);
+
+  // ── not yet invoiced: who is moving each one (punch list #5) ──
+  // Authorized and not invoiced - the work still to do as well as the work
+  // done and not asked for - each with the person who owns getting it
+  // invoiced and what they do next. Nothing here invoices anything.
+  const notInvoiced = open
+    .map((e) => ({ e, left: Math.max(0, n(e.authorized) - n(e.invoiced)), f: followup.get(e.auth_id) }))
+    .filter((r) => r.left > 0)
+    .sort((a, b) => b.left - a.left);
+  const notInvoicedTotal = notInvoiced.reduce((s, r) => s + r.left, 0);
+  const unowned = notInvoiced.filter((r) => !r.f?.followup_owner || !r.f?.followup_action);
 
   // ── the months ────────────────────────────────────────────
   const months = lastTwelveMonths(today().slice(0, 7));
@@ -322,6 +342,84 @@ export default async function RevenuePage() {
           </ul>
         </div>
       )}
+
+      <section id="not-invoiced" style={{ marginBottom: 24 }}>
+        <h2 className="h2">Not yet invoiced — who is moving it</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          {money(notInvoicedTotal)} authorized and not invoiced across {notInvoiced.length} open authorization
+          {notInvoiced.length === 1 ? "" : "s"}.{" "}
+          {unowned.length === 0
+            ? "Every one has an owner and a next action."
+            : `${unowned.length} ${unowned.length === 1 ? "has" : "have"} no owner or no next action yet.`}{" "}
+          Only what the work supports is ever invoiced — this says who is getting it there.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="authorizations not yet invoiced"
+            columns={[
+              { key: "client", label: "Authorization" },
+              { key: "left", label: "Not invoiced", align: "right" },
+              { key: "followup", label: "Owner · next action · due" },
+            ]}
+            rows={notInvoiced.map(({ e, left, f }) => {
+              const client = clientName.get(e.client_id) ?? "—";
+              const overdue = Boolean(f?.followup_due && f.followup_due < now);
+              const ownerName = f?.followup_owner ? (staffName.get(f.followup_owner) ?? "former staff") : "";
+              return {
+                key: e.auth_id,
+                cells: {
+                  client: (
+                    <>
+                      <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
+                        <b>{client}</b>
+                      </Link>
+                      <div className="lock">
+                        {e.auth_number || "(no number)"} · {e.service_type}
+                      </div>
+                    </>
+                  ),
+                  left: (
+                    <>
+                      <b>{money(left)}</b>
+                      {n(e.unbilled) > 0 && (
+                        <div className="lock" style={{ color: "var(--bad)" }}>
+                          {money(n(e.unbilled))} earned
+                        </div>
+                      )}
+                    </>
+                  ),
+                  followup: canBill ? (
+                    <>
+                      <FollowupForm
+                        authId={e.auth_id}
+                        owner={f?.followup_owner ?? null}
+                        action={f?.followup_action ?? ""}
+                        due={f?.followup_due ?? null}
+                        staff={staff}
+                      />
+                      {overdue && (
+                        <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>Due {f?.followup_due} — overdue</div>
+                      )}
+                    </>
+                  ) : ownerName ? (
+                    <>
+                      <b>{ownerName}</b> · {f?.followup_action}
+                      {f?.followup_due && (
+                        <span style={{ color: overdue ? "var(--bad)" : undefined }}> · due {f.followup_due}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span style={{ color: "var(--bad)" }}>No owner yet</span>
+                  ),
+                },
+                sort: { client, left, followup: ownerName || null },
+                text: [client, e.auth_number, e.service_type, ownerName, f?.followup_action].filter(Boolean).join(" "),
+              };
+            })}
+            empty="Every open authorization has been invoiced in full."
+          />
+        </div>
+      </section>
 
       <section style={{ marginBottom: 24 }}>
         <h2 className="h2">Money in, by month</h2>

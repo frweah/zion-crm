@@ -6,6 +6,7 @@ import { INBOX_BUCKET } from "@/lib/inbox-storage";
 import { DataTable } from "../data-table";
 import { AuthorizationProposal, type PendingRow, type Placeholder } from "../admin/inbox/inbox-view";
 import { AgentStatus } from "../admin/inbox/agent-status";
+import { PdfFrame } from "./pdf-frame";
 
 /**
  * Authorizations from the documents folder, confirmed by Billing here rather
@@ -67,12 +68,9 @@ export default async function PendingAuthorizations({
           style={{ gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", alignItems: "start", marginBottom: 14 }}
         >
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                title={`The PDF: ${doc.filename}`}
-                style={{ width: "100%", height: 720, border: 0, display: "block" }}
-              />
+            {storagePath ? (
+              // Keyed by the document so opening another starts the viewer afresh.
+              <PdfFrame key={doc.id} docId={doc.id} initialUrl={pdfUrl} title={`The PDF: ${doc.filename}`} />
             ) : (
               <p className="empty" style={{ padding: 20 }}>
                 The file could not be opened. It may still be uploading from the office PC.

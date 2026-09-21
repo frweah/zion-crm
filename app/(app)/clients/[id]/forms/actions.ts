@@ -167,7 +167,7 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
 
   const { data: form } = await supabase
     .from("forms")
-    .select("id, template_id, data, status, auth_id, completed_by_name, completed_at")
+    .select("id, template_id, data, status, auth_id, completed_by, completed_by_name, completed_at")
     .eq("id", formId)
     .maybeSingle();
 
@@ -220,7 +220,11 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
   const attachments: Attachment[] = [];
   let pdfSha = "";
 
-  const signature = await signatureFor(me.id, admin);
+  // The signer's own signature, beside the signer's name - not the image of
+  // whoever happens to press Send (punch list #7). A form signed by one
+  // person and sent by another carried the sender's picture over the
+  // signer's name.
+  const signature = await signatureFor(form.completed_by ?? me.id, admin);
   const pdf = await signedFormPdf({
     templateId: form.template_id,
     data: form.data as Record<string, unknown>,

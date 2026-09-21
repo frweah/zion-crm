@@ -29,6 +29,7 @@ import PendingAuthorizations from "./pending-authorizations";
  * and the order live with the navigation, so the two cannot disagree.
  */
 const TABS = ["authorizations", "log", "invoices"];
+const LOG_ALIASES = ["service-log", "service_log", "servicelog", "service", "hours"];
 
 export default async function BillingPage({
   searchParams,
@@ -42,6 +43,9 @@ export default async function BillingPage({
   // Authorizations now; the rate schedule is on Billing → Export.
   if (rawTab === "rates") redirect("/billing/export#rates");
   if (rawTab === "completions") redirect("/billing?tab=authorizations#completions");
+  // The Service log tab is "log". Other spellings of it were typed and shared
+  // (punch list #15) - they land on the log rather than on Authorizations.
+  if (rawTab && LOG_ALIASES.includes(rawTab)) redirect("/billing?tab=log");
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
 
   const supabase = await createClient();

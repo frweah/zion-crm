@@ -239,21 +239,34 @@ p = plan({ filename: "Resume.pdf" });
 if (p.action !== "note" || !p.text.startsWith("Resume on file") || p.category !== "Other") fail("a resume did not become a \"Resume on file\" note with the file");
 if (p.action === "note" && (p.datedFrom !== "File date (fallback)" || !/file's saved date/.test(p.text))) fail("a note dated by the file's saved date does not say so");
 
+// Only filename V + PDF V + on file puts a document on an authorization with
+// nobody looking (punch list #1). Anything weaker is offered, not applied.
 p = plan({ filename: "job coach invoice.pdf" });
-if (p.action !== "link" || p.category !== "Invoice" || p.authId !== "j" || p.start !== null) fail("an invoice was not put on its authorization as billed, without touching its dates");
+if (p.action !== "propose" || p.named !== "Invoice" || p.choices.length !== 1 || p.choices[0].id !== "j" || !/a person confirms it/.test(p.why)) {
+  fail(`an invoice with no V-number was put on an authorization without a person (${p.action})`);
+}
+
+p = plan({ filename: "V0000400 job coach invoice.pdf", text: "Authorization V0000400 - Job coaching 10 hrs" });
+if (p.action !== "link" || p.category !== "Invoice" || p.authId !== "j" || p.start !== null) fail("an invoice whose name and PDF both show its authorization was not put on it as billed, without touching its dates");
+
+p = plan({ filename: "V0000400 job coach invoice.pdf", text: "Job coaching 10 hrs" });
+if (p.action !== "propose" || !/no V-number could be read in the PDF/.test(p.why)) fail("an invoice was filed on its name's V-number alone, with none in the PDF");
+
+p = plan({ filename: "V0000400 job coach invoice.pdf", text: "Authorization V0000401" });
+if (p.action !== "propose" || !/the PDF shows V0000401/.test(p.why)) fail("an invoice was filed although its PDF shows a different number from its name");
 
 p = plan({ filename: "placement auth.pdf", textKind: "Other", text: "01/31/2026 Job placement 2250\nTotal 01/31/2026" });
-if (p.action !== "link" || p.category !== "Invoice" || p.authId !== "p") fail("a readable invoice named \"auth\" was filed as the authorization, not as its invoice");
+if (p.action !== "propose" || p.named !== "Invoice" || p.choices[0]?.id !== "p") fail("a readable invoice named \"auth\" was not offered as the authorization's invoice");
 
 p = plan({ filename: "placement auth.pdf", textKind: "Other", text: "AUTHOR1ZATI0N F0R SERV1CES garbled by a scanner 2250", ocr: { confidence: 61 } });
-if (p.action !== "link" || p.category !== "Authorization" || !p.fromOcr) fail("OCR text that failed to read as an authorization turned a scanned authorization into an invoice");
+if (p.action !== "propose" || p.named !== "Authorization") fail("OCR text that failed to read as an authorization turned a scanned authorization into an invoice");
 
 p = plan({ filename: "19 V0000401 PL.pdf", parsedAuth: { start: "2026-01-01", end: "2026-06-30" }, ocr: { confidence: 93 }, text: "A U T H N U M V 0 0 0 0 4 0 1\nBegin: 01/01/2026 End: 06/30/2026" });
 if (p.action !== "link" || p.start !== "2026-01-01" || !p.fromOcr) fail("OCR dates were not used for a scan that shows its own authorization's number");
 
 p = plan({ filename: "19 V0000401 PL.pdf", parsedAuth: { start: "2026-01-01", end: "2026-06-30" }, ocr: { confidence: 93 }, text: "Begin: 01/01/2026 End: 06/30/2026" });
-if (p.action !== "link" || p.start !== null || p.end !== null || !/OCR dates were not used/.test(p.outcome)) {
-  fail("OCR dates were put on an authorization whose number the scan does not show");
+if (p.action !== "propose" || !/no V-number could be read in the PDF/.test(p.why)) {
+  fail("a scan that does not show its authorization's number was put on it without a person");
 }
 
 p = plan({ filename: "Resume.pdf", text: "Jordan Sample\nExperience\nShelving and stocking, 2019 to 2024", ocr: { confidence: 88 } });
@@ -263,9 +276,9 @@ p = plan({ filename: "Resume.pdf", text: "Jordan Sample\nExperience\nShelving an
 if (p.action !== "note" || p.fromOcr || /Read by OCR/.test(p.text)) fail("a note from a text layer claims to be OCR");
 
 p = plan({ filename: "placement auth.pdf", textKind: "Unreadable" });
-if (p.action !== "link" || p.category !== "Authorization") fail("a scan named \"auth\" stopped being taken at its name");
+if (p.action !== "propose" || p.named !== "Authorization" || p.choices[0]?.id !== "p") fail("a scan named \"auth\" stopped being offered as that authorization");
 
-p = plan({ filename: "19 V0000401 PL.pdf", parsedAuth: { start: "2026-01-01", end: "2026-06-30" } });
+p = plan({ filename: "19 V0000401 PL.pdf", text: "Authorization V0000401", parsedAuth: { start: "2026-01-01", end: "2026-06-30" } });
 if (p.action !== "link" || p.category !== "Authorization" || p.start !== "2026-01-01") fail("an authorization on file did not get its PDF and the dates read off it");
 
 p = plan({ filename: "19 V0000402 JC.pdf" });
