@@ -70,7 +70,7 @@ export default async function RevenuePage() {
       .from("authorizations")
       .select("id, followup_owner, followup_action, followup_due, followup_set_at")
       .eq("status", "Open"),
-    supabase.from("staff").select("id, name").eq("active", true).order("name"),
+    supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
   ]);
   const followup = new Map((followupResult.data ?? []).map((f) => [f.id, f]));
   const staff = staffResult.data ?? [];

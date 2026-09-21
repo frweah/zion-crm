@@ -43,7 +43,7 @@ export default async function LeadsPage({
       .select("id, employer_id, title, wage_range, hours_week, shift, status, posted_date, owner_staff_id")
       .order("posted_date", { ascending: false, nullsFirst: false }),
     supabase.from("lead_matches").select("id, lead_id, status"),
-    supabase.from("staff").select("id, name").eq("active", true).order("name"),
+    supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
     // Every client's applications and interviews, for the two lists that
     // replace the job-search spreadsheet (0117). What each person may see is
     // the database's decision, as everywhere else.

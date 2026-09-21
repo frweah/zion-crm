@@ -43,7 +43,7 @@ export default async function StaffPage({
   const [{ data }, activityResult, readinessResult, offboardedResult] = await Promise.all([
     supabase
       .from("staff")
-      .select("id, name, email, role, active, user_id, invited_at, accepted_at")
+      .select("id, name, email, role, active, user_id, invited_at, accepted_at, is_system")
       .order("active", { ascending: false })
       .order("name"),
     supabase.rpc("staff_activity", { p_from: from, p_to: to }),
@@ -51,7 +51,11 @@ export default async function StaffPage({
     supabase.from("staff_offboarding").select("*"),
   ]);
 
-  const staff = (data ?? []) as StaffRow[];
+  // The people, and apart from them the accounts that are not people (0120) -
+  // the deploy check - so nobody reads it as a colleague.
+  const all = (data ?? []) as (StaffRow & { is_system: boolean })[];
+  const staff = all.filter((s) => !s.is_system) as StaffRow[];
+  const systemAccounts = all.filter((s) => s.is_system);
 
   const statusOf = (s: StaffRow) =>
     !s.active ? "Inactive" : s.accepted_at ? "Active" : s.invited_at ? "Invited" : "Not invited";
@@ -136,6 +140,34 @@ export default async function StaffPage({
             Pay rates, onboarding and offboarding checklists, certifications and documents are on
             each person&apos;s record — open it from their name.
           </p>
+
+          {systemAccounts.length > 0 && (
+            <section style={{ marginTop: 18 }} aria-labelledby="system-accounts">
+              <h3 id="system-accounts" style={{ marginTop: 0 }}>
+                System accounts
+              </h3>
+              <p className="lock" style={{ marginTop: 0 }}>
+                Not people. The automated check signs in after every deploy and opens every screen Job Search can reach,
+                so a screen that fails is caught before anybody meets it. It reads and cannot change anything, is never
+                given more than Job Search, and its reads are logged like anybody&apos;s. Its password is held only in
+                GitHub&apos;s secrets.
+              </p>
+              <ul className="day-list">
+                {systemAccounts.map((s) => (
+                  <li key={s.id}>
+                    <span className="chip">System account</span>
+                    <span className="day-main">
+                      <Link href={`/admin/people/${s.id}`}>
+                        <b>{s.name}</b>
+                      </Link>
+                      <span className="lock"> {s.email} · {ROLE_LABEL[s.role]}, read-only</span>
+                    </span>
+                    <span className={"chip " + (s.active ? "ok" : "")}>{s.active ? "Active" : "Inactive"}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
 
         <div className="card">

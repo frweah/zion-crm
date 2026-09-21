@@ -15,7 +15,7 @@ export async function finishIfDone(staffId: string, name: string): Promise<boole
   if (!finished) return false;
 
   if (emailConfigured()) {
-    const { data: admins } = await supabase.from("staff").select("email").eq("role", "Admin").eq("active", true);
+    const { data: admins } = await supabase.from("staff").select("email").eq("role", "Admin").eq("active", true).eq("is_system", false);
     const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
     const { data: i9 } = await supabase
       .from("staff_documents")

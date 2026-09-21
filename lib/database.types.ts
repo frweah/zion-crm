@@ -3087,6 +3087,7 @@ export type Database = {
           deactivated_at: string | null;
           created_at: string;
           updated_at: string;
+          is_system: boolean;
         };
         Insert: {
           id?: string;
@@ -3102,6 +3103,7 @@ export type Database = {
           deactivated_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          is_system?: boolean;
         };
         Update: {
           id?: string;
@@ -3117,6 +3119,7 @@ export type Database = {
           deactivated_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          is_system?: boolean;
         };
         Relationships: [];
       };

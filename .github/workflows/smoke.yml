@@ -1,0 +1,51 @@
+# The deploy check (scripts/smoke.mjs): after every production deploy, sign in
+# as the automated-check system account and open every screen it can reach.
+# Any server error fails this job.
+#
+# For the job to hold a deploy back rather than only report on it, Vercel's
+# Deployment Checks must list it: Project → Settings → Deployment Checks →
+# add "smoke". Vercel then builds, waits for this job to pass on the new
+# deployment, and only then moves production to it.
+#
+# Secrets (Settings → Secrets and variables → Actions), held nowhere else:
+#   SMOKE_EMAIL, SMOKE_PASSWORD   the automated-check account
+#   SUPABASE_URL, SUPABASE_ANON_KEY   the project's public URL and anon key
+#   VERCEL_AUTOMATION_BYPASS_SECRET   only if Deployment Protection is on
+name: smoke
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Deployment to check"
+        required: true
+        default: "https://zion-crm-red.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Open every screen as the automated check
+        env:
+          SMOKE_BASE_URL: ${{ github.event.deployment_status.target_url || inputs.url }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node --experimental-strip-types scripts/smoke.mjs

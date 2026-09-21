@@ -17,6 +17,8 @@ export type CurrentStaff = {
    * False for everybody who joined before it, and once it is done.
    */
   onboardingOpen: boolean;
+  /** Not a person: the deploy check (0120). Reads only; never onboarded. */
+  isSystem: boolean;
 };
 
 /**
@@ -44,13 +46,14 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
   const { data } = (await supabase
     .from("staff")
     .select(
-      "id, name, email, role, active, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at), onboarding:staff_onboarding(completed_at)",
+      "id, name, email, role, active, is_system, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at), onboarding:staff_onboarding(completed_at)",
     )
     .eq("user_id", userId)
     .eq("active", true)
     .maybeSingle()) as unknown as {
     data:
-      | (Omit<CurrentStaff, "grants" | "onboardingOpen"> & {
+      | (Omit<CurrentStaff, "grants" | "onboardingOpen" | "isSystem"> & {
+          is_system: boolean;
           grants: (Grant & { revoked_at: string | null })[] | null;
           onboarding: { completed_at: string | null } | { completed_at: string | null }[] | null;
         })
@@ -69,6 +72,7 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
     active: data.active,
     grants,
     onboardingOpen: onboarding !== null && onboarding.completed_at === null,
+    isSystem: Boolean(data.is_system),
   };
 });
 

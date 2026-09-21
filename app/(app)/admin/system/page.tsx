@@ -40,7 +40,7 @@ export default async function SystemPage({
           .order("address")
       : Promise.resolve({ data: [] }),
     isAdmin ? supabase.from("tax_years").select("*").order("year", { ascending: false }) : Promise.resolve({ data: [] }),
-    isAdmin ? supabase.from("staff").select("id, name").eq("active", true).order("name") : Promise.resolve({ data: [] }),
+    isAdmin ? supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name") : Promise.resolve({ data: [] }),
     supabase
       .from("org_settings")
       .select("web_chat_enabled, web_chat_takers, web_chat_open, web_chat_close, web_chat_days, web_chat_greeting, web_chat_promise")

@@ -49,7 +49,7 @@ export default async function ReportsPage({
     supabase.from("service_entries").select("auth_id, date, hours, non_billable"),
     supabase.from("invoices").select("date, amount, status, paid_date"),
     supabase.from("placements").select("start_date, check90, wage"),
-    supabase.from("staff").select("id, name, role").eq("active", true),
+    supabase.from("staff").select("id, name, role").eq("active", true).eq("is_system", false),
     supabase.from("completions").select("auth_id, completion"),
   ]);
 

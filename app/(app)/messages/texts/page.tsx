@@ -43,7 +43,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const supabase = await createClient();
   const [{ data: rows }, { data: staff }, { data: clients }] = await Promise.all([
     supabase.rpc("message_inbox", { p_show: show }),
-    supabase.from("staff").select("id, name").eq("active", true).order("name"),
+    supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
     supabase.from("clients").select("id, name").neq("status", "Closed").order("name"),
   ]);
 

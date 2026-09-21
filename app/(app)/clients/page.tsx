@@ -79,7 +79,7 @@ export default async function ClientsPage({
       readBillingOffices(supabase),
       query,
       supabase.from("counselors").select("id, name").order("name"),
-      supabase.from("staff").select("id, name").eq("active", true).order("name"),
+      supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
       supabase.from("offices").select("name").order("name"),
       supabase.from("client_last_activity").select("client_id, last_activity_at"),
       supabase

@@ -48,14 +48,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // system, and the rest comes with it. Paperwork stays open - the walkthrough
   // lives under it, and so do their own forms and documents. It can be left
   // and resumed; signing in again lands them back on it.
-  if (staff.onboardingOpen && pathname && !pathname.startsWith("/paperwork")) {
+  // A system account (0120) is not a person: it has no onboarding to do and
+  // no policy to sign, and the deploy check it runs has to reach every screen.
+  if (staff.onboardingOpen && !staff.isSystem && pathname && !pathname.startsWith("/paperwork")) {
     redirect("/paperwork/onboarding");
   }
 
   // A new version of a staff policy is signed before anything else, on the
   // next sign-in and every screen after until it is (owner, 19 Sept 2026).
   // The onboarding walkthrough has its own policy step, so it goes first.
-  if (policyDue === true && !staff.onboardingOpen && pathname && !pathname.startsWith("/paperwork")) {
+  if (policyDue === true && !staff.onboardingOpen && !staff.isSystem && pathname && !pathname.startsWith("/paperwork")) {
     redirect("/paperwork/policy");
   }
 

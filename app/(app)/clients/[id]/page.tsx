@@ -95,7 +95,7 @@ export default async function ClientPage({
       .select("counselor:counselors!clients_counselor_id_fkey(name, email)")
       .eq("id", id)
       .maybeSingle() as unknown as Promise<{ data: { counselor: { name: string; email: string | null } | null } | null }>,
-    supabase.from("staff").select("id, name").eq("active", true).order("name"),
+    supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
   ]);
 
   if (!client) {

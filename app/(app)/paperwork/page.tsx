@@ -48,7 +48,7 @@ export default async function PaperworkPage({ searchParams }: { searchParams: Pr
         .select("id, staff_id, form_type, status, signed_at, signer_name, tin_last4, created_at, pdf_path, pdf_sha256")
         .order("created_at", { ascending: false }),
       me.role === "Admin"
-        ? supabase.from("staff").select("id, name").eq("active", true)
+        ? supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false)
         : Promise.resolve({ data: [] }),
       supabase
         .from("staff_credential_status")

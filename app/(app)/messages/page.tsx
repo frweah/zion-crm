@@ -64,7 +64,7 @@ export default async function MessagesPage({
         .is("left_at", null),
       supabase.rpc("my_unread"),
       supabase.rpc("staff_presence_status"),
-      supabase.from("staff").select("id, name, email").eq("active", true).order("name"),
+      supabase.from("staff").select("id, name, email").eq("active", true).eq("is_system", false).order("name"),
       supabase.from("staff_prefs").select("key").eq("key", "messages:email_digest").maybeSingle(),
       search ? supabase.rpc("search_messages", { p_query: search }) : Promise.resolve({ data: null }),
     ]);
