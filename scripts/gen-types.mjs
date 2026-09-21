@@ -200,6 +200,8 @@ const RPC_FUNCTIONS = [
   "hqi_for_placement",
   "hqi_total",
   "invoice_date_for",
+  "client_merged_into",
+  "merge_clients",
 ];
 
 const { rows: fns } = await client.query(

@@ -777,6 +777,22 @@ export type Plan =
     }
   | { action: "leave"; reading: NameReading; why: string };
 
+/**
+ * Whether a document may go on an authorization with nobody looking: the
+ * filename's V-number, the PDF's V-number and the authorization on file all
+ * the same number. `true`, or the part that does not agree, in words.
+ */
+export function threeWayAgreement(reading: NameReading, pdfText: string, auth: AuthLite): true | string {
+  const onFile = vKey(auth.number);
+  const named = reading.vNumbers.map(vKey);
+  if (named.length === 0) return "the filename gives no V-number";
+  if (!named.includes(onFile)) return `the filename says ${reading.vNumbers[0]}`;
+  const shown = vNumbersIn(pdfText);
+  if (shown.length === 0) return "no V-number could be read in the PDF";
+  if (!shown.includes(onFile)) return `the PDF shows V${shown[0]}`;
+  return true;
+}
+
 export function planDocument(input: PlanInput): Plan {
   let reading = readFilename(input.filename, input.clientName);
   const content = { text: input.text, fields: input.fields };
@@ -861,6 +877,26 @@ export function planDocument(input: PlanInput): Plan {
       });
 
       if (choice.kind === "linked") {
+        // Put on an authorization without a person only when three things
+        // agree (owner, punch list #1, 20 Sept 2026): the V-number in the
+        // filename, the V-number printed in the PDF, and an authorization on
+        // file for this client with that number. Every weaker reason - the
+        // only one for the service, the one whose dates cover it, a number in
+        // the text alone - is still worked out and offered, but a person
+        // confirms it.
+        const pdfText = [input.text, ...Object.values(input.fields)].join("\n");
+        const agreement = threeWayAgreement(reading, pdfText, choice.auth);
+        if (agreement !== true) {
+          return {
+            action: "propose",
+            reading,
+            named,
+            number: null,
+            serviceType: proposedService(reading, input.text, input.fields),
+            choices: [choice.auth],
+            why: `looks like ${choice.auth.number} (${choice.how}), but ${agreement}, so a person confirms it`,
+          };
+        }
         // Dates read by OCR go on an authorization only when the scan shows that
         // authorization's own number. The dates OCR reads are reliable (20 of
         // 20 in the first sample); which authorization a scan is, is not.

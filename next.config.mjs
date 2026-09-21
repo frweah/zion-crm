@@ -53,6 +53,12 @@ const nextConfig = {
       "/admin/note-templates": "/admin/system#note-headings",
       "/admin/access": "/admin/system#access-log",
       "/admin/exports": "/billing/export",
+      // Paths that never had a page but were typed or linked anyway (punch
+      // list #14, 20 Sept 2026): Admin opens on People, and the documents
+      // inbox is Admin -> Documents wherever somebody went looking for it.
+      "/admin": "/admin/people",
+      "/documents": "/admin/documents",
+      "/billing/admin": "/admin/documents",
     };
     return Object.entries(moved).map(([source, destination]) => ({
       source,

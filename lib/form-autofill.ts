@@ -4,6 +4,20 @@ import { ORG } from "@/lib/roles";
 import { today } from "@/lib/constants";
 
 /**
+ * The first day of the month after `month` ("2026-09" -> "2026-10-01").
+ *
+ * The month's end used to be written as its 31st, which is not a date in
+ * September, April, June, November or February: the database refused the
+ * query, nothing said so, and USOR 95 came up with no coaching log and 0
+ * hours in five months of the year (punch list #7, found by the end-to-end
+ * test). "Before the first of next month" is right in every month.
+ */
+function nextMonth(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+}
+
+/**
  * Pre-populates a new form from what the CRM already knows.
  *
  * This is the point of keeping the service log and notes: staff should not
@@ -75,7 +89,7 @@ export async function autofillForm(
           .eq("auth_id", authId ?? "")
           .eq("non_billable", false)
           .gte("date", `${month}-01`)
-          .lte("date", `${month}-31`)
+          .lt("date", nextMonth(month))
           .order("date"),
         supabase
           .from("service_entries")
@@ -119,7 +133,7 @@ export async function autofillForm(
         .select("at, ts, type, text")
         .eq("client_id", clientId)
         .gte("at", `${month}-01`)
-        .lte("at", `${month}-31`)
+        .lt("at", nextMonth(month))
         .in("type", activityTypes)
         .order("at");
 
