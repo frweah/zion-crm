@@ -69,7 +69,7 @@ export async function jobsForClient(
     .order("status_rank", { ascending: false });
 
   return (data ?? [])
-    .filter((j) => j.status !== "Hired" && j.status !== "Not selected")
+    .filter((j) => j.status !== "Hired" && j.status !== "Not selected" && j.status !== "Withdrawn")
     .map((j) => ({
       id: j.match_id as string,
       label: `${j.employer_name}${j.title ? " — " + j.title : ""} (${j.status})`,

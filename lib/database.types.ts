@@ -493,6 +493,8 @@ export type Database = {
           created_at: string;
           updated_at: string;
           merged_into: string | null;
+          preferred_locations: string;
+          job_search_email: string;
         };
         Insert: {
           id?: string;
@@ -524,6 +526,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           merged_into?: string | null;
+          preferred_locations?: string;
+          job_search_email?: string;
         };
         Update: {
           id?: string;
@@ -555,6 +559,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           merged_into?: string | null;
+          preferred_locations?: string;
+          job_search_email?: string;
         };
         Relationships: [];
       };
@@ -1631,6 +1637,9 @@ export type Database = {
           created_at: string;
           updated_at: string;
           location: string;
+          requisition: string;
+          posting_url: string;
+          apply_url: string;
         };
         Insert: {
           id?: string;
@@ -1648,6 +1657,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           location?: string;
+          requisition?: string;
+          posting_url?: string;
+          apply_url?: string;
         };
         Update: {
           id?: string;
@@ -1665,6 +1677,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           location?: string;
+          requisition?: string;
+          posting_url?: string;
+          apply_url?: string;
         };
         Relationships: [];
       };
@@ -1702,6 +1717,11 @@ export type Database = {
           updated_at: string;
           follow_up_on: string | null;
           outcome: string;
+          interview_time: string | null;
+          interview_kind: string;
+          interview_location: string;
+          interview_confirmed: string;
+          interview_result: string;
         };
         Insert: {
           id?: string;
@@ -1718,6 +1738,11 @@ export type Database = {
           updated_at?: string;
           follow_up_on?: string | null;
           outcome?: string;
+          interview_time?: string | null;
+          interview_kind?: string;
+          interview_location?: string;
+          interview_confirmed?: string;
+          interview_result?: string;
         };
         Update: {
           id?: string;
@@ -1734,6 +1759,11 @@ export type Database = {
           updated_at?: string;
           follow_up_on?: string | null;
           outcome?: string;
+          interview_time?: string | null;
+          interview_kind?: string;
+          interview_location?: string;
+          interview_confirmed?: string;
+          interview_result?: string;
         };
         Relationships: [];
       };
@@ -4184,6 +4214,16 @@ export type Database = {
           contact_name: string | null;
           contact_phone: string | null;
           contact_email: string | null;
+          interview_time: string | null;
+          interview_kind: string | null;
+          interview_location: string | null;
+          interview_confirmed: string | null;
+          interview_result: string | null;
+          requisition: string | null;
+          posting_url: string | null;
+          apply_url: string | null;
+          hours_week: string | null;
+          industry: string | null;
         };
         Relationships: [];
       };

@@ -152,6 +152,16 @@ export function FilterBar({
           Flagged for review
         </label>
 
+        <label style={{ fontSize: "var(--text-md)" }}>
+          <input
+            type="checkbox"
+            name="jobSearch"
+            defaultChecked={filters.jobSearch}
+            style={{ width: "auto", marginRight: 6 }}
+          />
+          Looking for work
+        </label>
+
         <label className="field" style={{ maxWidth: 210, marginBottom: 0 }}>
           No activity in (days)
           <input

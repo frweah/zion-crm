@@ -246,14 +246,24 @@ export const JOB_STATUSES = [
   "Offer",
   "Hired",
   "Not selected",
+  // The client stepped away - declined an offer, backed out (0117).
+  "Withdrawn",
 ] as const;
+
+/** A job that is over, one way or the other. */
+export const JOB_DONE = ["Hired", "Not selected", "Withdrawn"] as const;
+
+/** How an interview happens, whether the client said they will go, and what came of it (0117). */
+export const INTERVIEW_KINDS = ["In person", "Video", "Phone"] as const;
+export const INTERVIEW_CONFIRMED = ["Confirmed", "Unconfirmed"] as const;
+export const INTERVIEW_RESULTS = ["Done", "Rescheduled", "Cancelled", "Backed out", "No-show", "Unscheduled"] as const;
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
 /** Where a job has got to, for a chip: good, over, or still going. */
 export function jobStatusTone(status: string): "ok" | "warn" | "" {
   if (status === "Hired") return "ok";
-  if (status === "Not selected") return "";
+  if (status === "Not selected" || status === "Withdrawn") return "";
   return "warn";
 }
 

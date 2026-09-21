@@ -172,7 +172,7 @@ export async function setMatchStatus(_prev: LeadState, formData: FormData): Prom
   if (status === "Follow-up") patch.follow_up_on = today();
   // "Declined" was renamed to "Not selected" in 0034. Left as it was, a
   // rejection would have stopped recording the day it happened.
-  if (status === "Hired" || status === "Not selected") patch.decided_on = today();
+  if (status === "Hired" || status === "Not selected" || status === "Withdrawn") patch.decided_on = today();
 
   const supabase = await createClient();
   const { error } = await supabase

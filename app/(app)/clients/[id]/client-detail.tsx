@@ -23,6 +23,8 @@ export type ClientDetail = {
   unit: string;
   schedule: string;
   target_jobs: string;
+  preferred_locations: string;
+  job_search_email: string;
   assigned_staff_id: string | null;
   status: string;
   stage: string;
@@ -197,6 +199,7 @@ export function DetailsForm({
               <option>FT</option>
               <option>PT</option>
               <option>FT / PT</option>
+              <option>Flexible</option>
             </select>
           </label>
         </div>
@@ -226,6 +229,31 @@ export function DetailsForm({
           <label className="field" style={{ flex: 2 }}>
             Target jobs / employers
             <input name="target_jobs" defaultValue={client.target_jobs} disabled={!canEdit} />
+          </label>
+        </div>
+
+        {/* From the job-search spreadsheet (0117). The alias's password is not kept in the CRM. */}
+        <div className="row2" style={{ marginTop: 10 }}>
+          <label className="field" style={{ flex: 2 }} htmlFor="client-preferred-locations">
+            Will work in
+            <input
+              id="client-preferred-locations"
+              name="preferred_locations"
+              defaultValue={client.preferred_locations}
+              placeholder="Towns or areas"
+              disabled={!canEdit}
+            />
+          </label>
+          <label className="field" style={{ flex: 2 }} htmlFor="client-job-search-email">
+            Job-search email
+            <input
+              id="client-job-search-email"
+              name="job_search_email"
+              type="email"
+              defaultValue={client.job_search_email}
+              placeholder="The alias they apply from"
+              disabled={!canEdit}
+            />
           </label>
         </div>
 

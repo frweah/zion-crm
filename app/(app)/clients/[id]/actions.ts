@@ -58,6 +58,8 @@ export async function updateClient(_prev: DetailState, formData: FormData): Prom
     unit: str("unit"),
     schedule: str("schedule"),
     target_jobs: str("target_jobs"),
+    preferred_locations: str("preferred_locations"),
+    job_search_email: str("job_search_email"),
     assigned_staff_id: orNull(str("assigned_staff_id")),
     wsa_tier: str("wsa_tier") ? Number(str("wsa_tier")) : null,
     wsa_completed: orNull(str("wsa_completed")),
