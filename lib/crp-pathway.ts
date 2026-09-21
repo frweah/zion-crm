@@ -94,7 +94,10 @@ export const CRP_STAGES: CrpStage[] = [
     label: "Life Skills and Job Readiness",
     services: ["Life Skills", "Job Readiness", "CRP Group Training", "Supported Employment"],
     forms: ["usor148"],
-    invoiceDate: "the first day of the month being reported",
+    // Neither pathway document gives one. The CRM uses the first service day
+    // not yet invoiced and says, wherever it shows the date, that this is its
+    // own rule (0113) - not USOR's.
+    invoiceDate: "not given by the pathway - the CRM uses the first service day not yet invoiced",
     billsWhen: "the month is over — it is completed and emailed monthly",
     dueBy: "30 days",
     fees: [],

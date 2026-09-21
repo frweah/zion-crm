@@ -140,10 +140,16 @@ export async function createInvoice(
   if (!str("amount")) return { error: "An amount is required.", ok: null };
 
   const supabase = await createClient();
+  // Left blank, the date is the pathway's for the service (0113), not today.
+  let date = str("date");
+  if (!date) {
+    const { data } = await supabase.rpc("invoice_date_for", { p_auth: str("auth_id") });
+    date = data?.[0]?.on_date ?? "";
+  }
   const { error } = await supabase.from("invoices").insert({
     auth_id: str("auth_id"),
     number: str("number"),
-    date: str("date") || undefined,
+    date: date || undefined,
     amount: Number(str("amount")),
     status: "Draft",
   });
@@ -152,6 +158,21 @@ export async function createInvoice(
 
   revalidatePath("/billing");
   return { error: null, ok: `Invoice ${str("number")} saved as a draft.` };
+}
+
+/**
+ * The date an invoice against this authorization should carry, and the rule
+ * that gave it (0113) - for the form to fill in and show, so whoever raises
+ * the invoice can see why and change it when the rule does not fit.
+ */
+export async function invoiceDateFor(authId: string): Promise<{ date: string; basis: string } | null> {
+  const me = await getCurrentStaff();
+  if (!me || !can(me, "billing", "edit") || !authId) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("invoice_date_for", { p_auth: authId });
+  const row = data?.[0];
+  if (error || !row?.on_date) return null;
+  return { date: row.on_date, basis: row.basis ?? "" };
 }
 
 /**
