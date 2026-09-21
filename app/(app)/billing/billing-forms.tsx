@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useRef, useState, useActionState } from "react";
 import {
   addAuthorization,
   logServiceEntry,
   updateCompletion,
   createInvoice,
+  invoiceDateFor,
   setInvoiceStatus,
   type BillingState,
 } from "./actions";
@@ -280,6 +281,20 @@ export function CompletionDates({
 export function NewInvoiceForm({ auths }: { auths: AuthOption[] }) {
   const [state, action, pending] = useActionState(createInvoice, initial);
   const [authId, setAuthId] = useState("");
+  // The pathway's date for the chosen service, and the rule behind it.
+  const [dated, setDated] = useState<{ date: string; basis: string } | null>(null);
+
+  const latest = useRef("");
+
+  async function choose(id: string) {
+    setAuthId(id);
+    setDated(null);
+    latest.current = id;
+    if (!id) return;
+    const found = await invoiceDateFor(id);
+    // A later choice may have overtaken this one while it was asked for.
+    if (latest.current === id) setDated(found);
+  }
 
   const auth = auths.find((a) => a.id === authId);
   const authorized =
@@ -299,7 +314,7 @@ export function NewInvoiceForm({ auths }: { auths: AuthOption[] }) {
         <div className="row2">
           <label className="field" style={{ flex: 2 }}>
             Authorization
-            <select name="auth_id" required value={authId} onChange={(e) => setAuthId(e.target.value)}>
+            <select name="auth_id" required value={authId} onChange={(e) => void choose(e.target.value)}>
               <option value="">— choose —</option>
               {auths.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -314,7 +329,8 @@ export function NewInvoiceForm({ auths }: { auths: AuthOption[] }) {
           </label>
           <label className="field" style={{ maxWidth: 170 }}>
             Date
-            <input name="date" type="date" defaultValue={today()} />
+            {/* Keyed so the pathway's date replaces the field when it arrives. */}
+            <input name="date" type="date" key={`${authId}:${dated?.date ?? ""}`} defaultValue={dated?.date ?? today()} />
           </label>
           <label className="field" style={{ maxWidth: 140 }}>
             Amount
@@ -338,6 +354,11 @@ export function NewInvoiceForm({ auths }: { auths: AuthOption[] }) {
               ? `Flat fee ${money(auth.rate)}.`
               : `${auth?.used ?? 0} hrs logged at ${money(auth?.rate)} — ${money(authorized)} authorized in total.`}{" "}
             The database refuses anything above the authorized amount.
+          </p>
+        )}
+        {dated && (
+          <p className="lock" style={{ margin: "6px 0 0" }}>
+            Dated {dated.date}: {dated.basis}.
           </p>
         )}
       </form>

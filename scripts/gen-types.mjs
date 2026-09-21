@@ -199,6 +199,7 @@ const RPC_FUNCTIONS = [
   // The High Quality Indicator schedule (0112).
   "hqi_for_placement",
   "hqi_total",
+  "invoice_date_for",
 ];
 
 const { rows: fns } = await client.query(

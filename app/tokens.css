@@ -109,10 +109,9 @@
   --sand: var(--line-strong);
   --gold: var(--warn-ink);
 
-  /* The screen behind everything (owner, 20 Sept 2026: trying white).
-     Separate from --bone, which stays the warm recessed surface inside a
-     card - a field, a panel, a key cap. Changing this one value changes the
-     backdrop and nothing else; put it back to var(--bone) for the cream. */
+  /* The screen behind everything: white (owner, 20 Sept 2026). Separate
+     from --bone, which stays the warm recessed surface inside a card - a
+     field, a panel, a key cap - and from --paper, the cards themselves. */
   --bg: #ffffff;
 }
 

@@ -4675,6 +4675,10 @@ export type Database = {
         Args: { p_hashes: string[] | null };
         Returns: { sha256: string | null; known: boolean | null }[];
       };
+      invoice_date_for: {
+        Args: { p_auth: string | null };
+        Returns: { on_date: string | null; basis: string | null }[];
+      };
       is_active_staff: {
         Args: Record<string, never>;
         Returns: boolean;
