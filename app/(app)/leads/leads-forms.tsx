@@ -1,5 +1,7 @@
 "use client";
 
+import { LEAD_STATUSES } from "@/lib/constants";
+
 import { useState, useActionState } from "react";
 import Link from "next/link";
 import {
@@ -16,7 +18,9 @@ import { today, JOB_STATUSES } from "@/lib/constants";
 
 const initial: LeadState = { error: null, ok: null };
 
-export const LEAD_STATUSES = ["Open", "Submitted", "Interviewing", "Filled", "Closed"];
+// LEAD_STATUSES lives in lib/constants.ts, not here: a list exported from a
+// "use client" file reaches a server page as a reference, not an array (the
+// Jobs crash of 21 Sept 2026).
 // One list, in lib/constants.ts — see the note there about the four copies.
 export const MATCH_STATUSES = JOB_STATUSES;
 export const EMPLOYER_STATUSES = ["Prospect", "Active partner", "Do not use"];
