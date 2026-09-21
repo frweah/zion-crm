@@ -126,35 +126,26 @@ export async function forwardMessage(_prev: SendState, formData: FormData): Prom
 }
 
 /**
- * Delete (owner, 19 Sept 2026): moves a message to Deleted Items, as
- * Outlook's Delete does - it can be got back there, and a message already
- * logged on a record stays logged.
+ * Delete (owner, 19 Sept 2026): moves a message in the person's own mailbox
+ * to their Deleted Items, as Outlook's Delete does - it can be got back
+ * there, and a message already logged on a record stays logged.
  *
- * The person's own mailbox, or the shared one if they work it and their
- * connection carries the permission for it (owner, 19 Sept 2026: Billing
- * clears service@ here rather than switching to Outlook). A message in the
- * shared mailbox goes to that mailbox's Deleted Items, not to theirs.
+ * Not offered for a shared mailbox. It was for a day (20 Sept 2026), until
+ * service@ turned out to be the owner's own mailbox, shared with nobody.
  */
 export async function deleteMessage(_prev: SendState, formData: FormData): Promise<SendState> {
   const access = await myMailAccess();
   if (!access.ok) return { error: access.message, ok: null };
-  const mailbox = resolveMailbox(access, String(formData.get("box") ?? ""));
-  if (mailbox === false) return { error: "That mailbox is not yours to delete from.", ok: null };
-  if (mailbox === null && !access.canDelete) {
+  if (!access.canDelete) {
     return { error: "Deleting is not turned on for your Outlook yet. Use “Turn sending on” on the Mail screen.", ok: null };
   }
-  if (mailbox !== null && !access.canDeleteShared) {
-    return {
-      error:
-        "Deleting from the shared mailbox is not turned on for your Outlook yet. Use “Turn sending on” on the Mail screen and reconnect once.",
-      ok: null,
-    };
-  }
+  const mailbox = resolveMailbox(access, String(formData.get("box") ?? ""));
+  if (mailbox !== null) return { error: "Messages in a shared mailbox are deleted in Outlook, not here.", ok: null };
   const id = String(formData.get("message_id") ?? "");
   if (!id) return { error: "Which message?", ok: null };
 
   try {
-    await moveToDeletedItems(access.token, id, mailbox);
+    await moveToDeletedItems(access.token, id);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "It was not deleted.", ok: null };
   }
