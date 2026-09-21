@@ -8,8 +8,8 @@ import {
   AddEmployerForm,
   AddLeadForm,
   EmployerStatusControl,
-  LEAD_STATUSES,
 } from "./leads-forms";
+import { LEAD_STATUSES } from "@/lib/constants";
 
 const CAN_EDIT = ["Admin", "Job Search"];
 

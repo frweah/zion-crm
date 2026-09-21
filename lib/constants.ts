@@ -260,6 +260,9 @@ export const INTERVIEW_RESULTS = ["Done", "Rescheduled", "Cancelled", "Backed ou
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
+/** Where an opening is, on the Jobs screen. Server and client both read it. */
+export const LEAD_STATUSES = ["Open", "Submitted", "Interviewing", "Filled", "Closed"] as const;
+
 /** Where a job has got to, for a chip: good, over, or still going. */
 export function jobStatusTone(status: string): "ok" | "warn" | "" {
   if (status === "Hired") return "ok";
