@@ -80,7 +80,7 @@ export async function WarrantsToReview({
       </div>
 
       {review.length === 0 && (
-        <p className="sub" style={{ margin: "8px 0 0" }}>
+        <p className="empty" style={{ margin: "8px 0 0" }}>
           Nothing waiting. Every line read from the warrants so far was proved and recorded, or has
           been dealt with.
         </p>

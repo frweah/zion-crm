@@ -47,11 +47,28 @@ export default async function CounselorsPage({
   const counselorName = new Map(counselors.map((k) => [k.id, k.name]));
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
 
+  // Counselors is one tab of Clients now (21 Sept 2026), so its own three
+  // views are chosen here rather than from the tab strip above.
   const header = (
-    <PageHead
-      title="Counselors"
-      context="Counselor directory, every contact with them, and additional-hours requests"
-    />
+    <>
+      <PageHead
+        title="Counselors"
+        context="Counselor directory, every contact with them, and additional-hours requests"
+      />
+      <div className="segmented" role="group" aria-label="Counselors" style={{ marginBottom: 14 }}>
+        {(
+          [
+            ["directory", "Directory"],
+            ["contact", "Contact log"],
+            ["hours", "Hours requests"],
+          ] as const
+        ).map(([key, label]) => (
+          <Link key={key} href={`/counselors?tab=${key}`} className={tab === key ? "on" : undefined} aria-current={tab === key ? "page" : undefined}>
+            {label}
+          </Link>
+        ))}
+      </div>
+    </>
   );
 
   if (tab === "directory") {

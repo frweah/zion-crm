@@ -134,7 +134,7 @@ export default async function SystemPage({
           <h2 className="h2">Tax years</h2>
           <p className="sub">
             The federal 1099-NEC threshold and the Utah state copy for each year. A 1099 run on{" "}
-            <Link href="/admin/people#contractors">Admin → People</Link> will not build on a year
+            <Link href="/admin/people?tab=contractors">HR → Contractors</Link> will not build on a year
             whose threshold nobody has confirmed.
           </p>
           {yearRows.length === 0 ? (

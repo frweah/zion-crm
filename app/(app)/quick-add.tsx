@@ -197,7 +197,7 @@ export function QuickAdd({
                     Due
                     <input type="date" name="due" defaultValue={today} />
                   </label>
-                  <p className="lock">Assigned to you unless you move it on the Tasks screen.</p>
+                  <p className="lock">Assigned to you unless you move it on Dashboard → Tasks.</p>
                 </>
               )}
 

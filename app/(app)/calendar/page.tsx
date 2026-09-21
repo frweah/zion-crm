@@ -235,7 +235,7 @@ export default async function CalendarPage({
                 {d === today() && <span className="chip gold">Today</span>}
               </h3>
               {todays.length === 0 ? (
-                <p className="lock" style={{ margin: 0 }}>Nothing.</p>
+                <p className="empty" style={{ margin: 0 }}>Nothing.</p>
               ) : (
                 todays.map((e) => {
                   const client = e.clientId ? clientById.get(e.clientId) : null;

@@ -31,6 +31,7 @@ export async function createTask(_prev: TaskState, formData: FormData): Promise<
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/tasks");
+  revalidatePath("/dashboard");
   return { error: null, ok: "Task added." };
 }
 
@@ -65,5 +66,6 @@ export async function setTaskStatus(_prev: TaskState, formData: FormData): Promi
   }
 
   revalidatePath("/tasks");
+  revalidatePath("/dashboard");
   return { error: null, ok: null };
 }

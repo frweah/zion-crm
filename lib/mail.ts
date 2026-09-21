@@ -123,6 +123,32 @@ export async function listMessages(
   return (data.value ?? []).map(summary);
 }
 
+/**
+ * What in the inbox has not been read: how many, and the ones waiting longest
+ * (the dashboard's "needs a reply", oldest first, and the Inbox badge -
+ * 21 Sept 2026). Read only; nothing is marked read by being counted.
+ *
+ * Graph orders by a property only when the filter names it first, hence the
+ * date condition that every message meets.
+ */
+export async function unreadInInbox(
+  token: string,
+  opts: { mailbox: string | null; top?: number },
+): Promise<{ count: number; oldest: MessageSummary[] }> {
+  const root = rootOf(opts.mailbox);
+  const folder = await get<{ unreadItemCount?: number }>(token, `${root}/mailFolders/inbox?$select=unreadItemCount`);
+  const count = folder.unreadItemCount ?? 0;
+  if (!opts.top || count === 0) return { count, oldest: [] };
+  const params = new URLSearchParams({
+    $select: LIST_FIELDS,
+    $top: String(opts.top),
+    $filter: "receivedDateTime ge 1900-01-01T00:00:00Z and isRead eq false",
+    $orderby: "receivedDateTime asc",
+  });
+  const data = await get<{ value: GraphMessage[] }>(token, `${root}/mailFolders/inbox/messages?${params}`);
+  return { count, oldest: (data.value ?? []).map(summary) };
+}
+
 export type MessageDetail = MessageSummary & { bodyText: string };
 
 /** One message, its body as text. Shown, never kept. */

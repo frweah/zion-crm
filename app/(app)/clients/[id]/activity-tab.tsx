@@ -174,7 +174,7 @@ export function ActivityTab({
 
       {rows.length === 0 ? (
         <div className="card">
-          <p className="sub" style={{ margin: 0 }}>
+          <p className="empty" style={{ margin: 0 }}>
             Nothing in this window.{" "}
             {days > 0 && (
               <Link href={keep(kind, 0)}>Look at everything instead</Link>

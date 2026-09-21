@@ -34,7 +34,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "See who is waiting at the front and how long they have waited",
-        where: "Insights → Referrals — the pipeline, with days in stage",
+        where: "Admin → Referrals — the pipeline, with days in stage",
         href: "/insights/referrals",
         roles: ["Admin"],
       },
@@ -115,23 +115,23 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "Give a counselor or a funder a page of outcomes",
-        where: "Insights → Outcomes — pick a period and print it",
+        where: "Admin → Outcomes — pick a period and print it",
         href: "/insights/outcomes",
         roles: ["Admin"],
       },
       {
         ask: "See one counselor's whole caseload",
-        where: "Counselors → Directory → their name",
+        where: "Clients → Counselors → Directory → their name",
         href: "/counselors?tab=directory",
       },
       {
         ask: "Record a call or email with a counselor",
-        where: "Counselors → Contact log — this is what the monthly reporting counts",
+        where: "Clients → Counselors → Contact log — this is what the monthly reporting counts",
         href: "/counselors",
       },
       {
         ask: "See which reports have already gone to a counselor",
-        where: "Counselors → Contact log — what was sent and when",
+        where: "Clients → Counselors → Contact log — what was sent and when",
         href: "/counselors",
       },
       {
@@ -151,59 +151,74 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "Claim mileage or something I paid for",
-        where: "Hours — claimed with the period and paid with it",
+        where: "HR → Hours — claimed with the period and paid with it",
         href: "/hours",
       },
       {
         ask: "Send in a copy of my licence, insurance or a certificate",
-        where: "Paperwork — add it to your own documents",
+        where: "HR → Paperwork — add it to your own documents",
         href: "/paperwork",
       },
       {
         ask: "Log training I have done, or check when my CPR card runs out",
-        where: "Paperwork — your certifications are under your tax form",
+        where: "HR → Certifications",
         href: "/paperwork",
       },
       {
         ask: "Decide who the next referral should go to",
-        where: "Insights → Capacity — caseload, work owed, hours delivered",
+        where: "Admin → Capacity — caseload, work owed, hours delivered",
         href: "/insights/capacity",
         roles: ["Admin"],
       },
       {
         ask: "See where my hours went",
-        where: "Hours — the split by kind of time, for the period",
+        where: "HR → Hours — the split by kind of time, for the period",
         href: "/hours",
       },
       {
         ask: "See what needs me today",
-        where: "Dashboard — each counter opens its list",
+        where: "Dashboard — your day, top to bottom; Admin's counters at the foot each open their list",
         href: "/dashboard/needs",
       },
       {
         ask: "Log the hours I worked",
-        where: "Hours — or start the timer and end it when you are done",
+        where: "The Dashboard's work session, or HR → Hours",
         href: "/hours",
       },
       {
         ask: "Correct hours I logged wrongly",
-        where: "Hours — a correction adds a replacement with the reason, never an edit",
+        where: "HR → Hours — a correction adds a replacement with the reason, never an edit",
         href: "/hours",
       },
       {
         ask: "Submit my statement for the period",
-        where: "Hours",
+        where: "HR → Hours",
         href: "/hours",
       },
       {
         ask: "See what I have to do today",
-        where: "Dashboard, and Tasks for the full list",
+        where: "Dashboard — your tasks due today or overdue; everybody's are on Dashboard → Tasks",
         href: "/dashboard",
       },
       {
         ask: "Sign my tax form",
-        where: "Paperwork",
+        where: "HR → Paperwork",
         href: "/paperwork",
+      },
+      {
+        ask: "Reply to a text, a chat or an email",
+        where: "Dashboard — everything waiting for your reply, oldest first; or Inbox",
+        href: "/dashboard",
+      },
+      {
+        ask: "See my calendar",
+        where: "Inbox → Calendar",
+        href: "/calendar",
+      },
+      {
+        ask: "Answer the website chat",
+        where: "Inbox → Website chat",
+        href: "/messages/texts?tab=web",
       },
       {
         ask: "Connect my Outlook calendar and mail",
@@ -217,7 +232,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
     items: [
       {
         ask: "See whose certifications are about to run out",
-        where: "Admin → People — every credential, with what is missing or expiring",
+        where: "HR → People — every credential, with what is missing or expiring",
         href: "/admin/people",
         roles: ["Admin"],
       },
@@ -259,7 +274,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "See what is authorized, earned and still owed to us",
-        where: "Insights → Money",
+        where: "Admin → Money",
         href: "/insights/money",
         roles: ["Admin", "Billing"],
       },
@@ -311,37 +326,37 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "Approve somebody's statement",
-        where: "My work → Statement approvals",
+        where: "HR → Statement approvals",
         href: "/hours?tab=approvals",
         roles: ["Admin"],
       },
       {
         ask: "Record a payment to a contractor",
-        where: "Admin → People → Contractors",
-        href: "/admin/people#contractors",
+        where: "HR → Contractors",
+        href: "/admin/people?tab=contractors",
         roles: ["Admin"],
       },
       {
         ask: "Set a pay rate",
-        where: "Admin → People — rates are dated, so past work keeps the rate it was done under",
+        where: "HR → People — rates are dated, so past work keeps the rate it was done under",
         href: "/admin/people",
         roles: ["Admin"],
       },
       {
         ask: "Invite somebody, or remove their access",
-        where: "Admin → People — deactivating removes access the same moment",
+        where: "HR → People — deactivating removes access the same moment",
         href: "/admin/people",
         roles: ["Admin"],
       },
       {
         ask: "Generate the 1099s",
-        where: "Admin → People → Contractors — the threshold has to be confirmed first",
-        href: "/admin/people#contractors",
+        where: "HR → Contractors — the threshold has to be confirmed first",
+        href: "/admin/people?tab=contractors",
         roles: ["Admin"],
       },
       {
         ask: "See the numbers for the month",
-        where: "Insights → KPIs",
+        where: "Admin → KPIs",
         href: "/insights/reports",
         roles: ["Admin"],
       },

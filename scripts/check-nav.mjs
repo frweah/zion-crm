@@ -122,6 +122,29 @@ for (const [role, paths] of Object.entries(STILL_REACHED)) {
 }
 if (!problems.length) ok("each role reaches exactly the screens it should, and the screens under them");
 
+// ── the six groups (owner, 21 Sept 2026) ─────────────────────
+// Dashboard · Clients · Inbox · Billing · HR · Admin, in that order, and
+// nothing else: Tasks is under Dashboard, Counselors under Clients, Insights
+// under Admin, and everything that arrives - mail, texts, chat, the website
+// chat, the calendar - is Inbox.
+const SIX = ["Dashboard", "Clients", "Inbox", "Billing", "HR", "Admin"];
+const labels = NAV_GROUPS.map((g) => g.label);
+if (labels.join("|") !== SIX.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${SIX.join(" · ")}`);
+const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
+const HOMES = {
+  "/tasks": "Dashboard", "/counselors": "Clients", "/mail": "Inbox", "/messages": "Inbox", "/messages/texts": "Inbox",
+  "/calendar": "Inbox", "/hours": "HR", "/paperwork": "HR", "/sops": "HR", "/admin/people": "HR",
+  "/insights/money": "Admin", "/insights/reports": "Admin", "/admin/documents": "Admin", "/admin/system": "Admin",
+};
+const misplaced = Object.entries(HOMES).filter(([href, home]) => groupOf(href) !== home);
+if (misplaced.length) fail(`in the wrong group: ${misplaced.map(([h, g]) => `${h} (should be ${g}, is ${groupOf(h)})`).join(", ")}`);
+const hrFor = (role) => navFor(role).find((g) => g.group.key === "hr")?.items.map((i) => i.label) ?? [];
+if (!hrFor("Admin").includes("People") || !hrFor("Admin").includes("Contractors")) fail("Admin does not see People and Contractors under HR");
+if (["Job Search", "Reports", "Billing"].some((r) => hrFor(r).includes("People") || hrFor(r).includes("Contractors"))) {
+  fail("somebody other than Admin sees People or Contractors under HR");
+}
+if (!problems.length) ok("six groups, in order; every screen in its home; People and Contractors under HR for Admin only");
+
 // Nobody sees a group with nothing in it.
 for (const role of ["Admin", "Job Search", "Reports", "Billing"]) {
   for (const { group, items } of navFor(role)) {
@@ -219,6 +242,16 @@ const MOVED = [
   "/admin/note-templates",
   "/admin/access",
   "/admin/exports",
+  // the second consolidation, 21 September 2026: the new group names
+  "/inbox",
+  "/chat",
+  "/texts",
+  "/website-chat",
+  "/hr",
+  "/my-work",
+  "/certifications",
+  "/insights",
+  "/dashboard/tasks",
 ];
 const missing = MOVED.filter((old) => !config.includes(`"${old}"`));
 if (missing.length) {

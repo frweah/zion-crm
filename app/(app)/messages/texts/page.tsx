@@ -31,10 +31,13 @@ const VIEWS = [
   { key: "spam", label: "Spam" },
 ] as const;
 
-export default async function InboxPage({ searchParams }: { searchParams: Promise<{ show?: string; c?: string }> }) {
+export default async function InboxPage({ searchParams }: { searchParams: Promise<{ show?: string; c?: string; tab?: string }> }) {
   const me = await requireStaff();
-  const { show: rawShow, c: openId } = await searchParams;
-  const show = VIEWS.some((v) => v.key === rawShow) ? rawShow! : "open";
+  const { show: rawShow, c: openId, tab } = await searchParams;
+  // Inbox → Texts and Inbox → Website chat are this screen, shown two ways
+  // (21 Sept 2026). The finer views below still narrow either.
+  const asked = rawShow ?? (tab === "web" ? "web" : tab === "texts" ? "texts" : undefined);
+  const show = VIEWS.some((v) => v.key === asked) ? asked! : "open";
   const canWork = CAN_EDIT_CLIENTS.includes(me.role);
 
   const supabase = await createClient();

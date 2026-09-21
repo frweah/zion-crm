@@ -154,7 +154,7 @@ export function ClientSearch() {
             </ul>
 
             {rows.length === 0 && (
-              <p className="lock" style={{ margin: "10px 0 0" }}>
+              <p className="empty" style={{ margin: "10px 0 0" }}>
                 {loading
                   ? "Looking…"
                   : query

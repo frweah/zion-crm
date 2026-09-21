@@ -7,7 +7,7 @@ import { NavIcon } from "./nav-icons";
 import { useUnreadMessages } from "./live-messaging";
 
 /**
- * The sidebar: the eight groups, and nothing under them.
+ * The sidebar: the six groups, and nothing under them.
  *
  * Each group's screens are already the tab strip across the top of every
  * screen in it (GroupTabs), so listing them again down the side was the same
@@ -51,7 +51,7 @@ export function NavLinks({
           >
             <NavIcon name={group.key} />
             <span className="side-label">{group.label}</span>
-            {group.key === "messages" && unread > 0 && (
+            {group.key === "inbox" && unread > 0 && (
               <span className="nav-badge">
                 {unread > 99 ? "99+" : unread}
                 <span className="side-label"> unread</span>

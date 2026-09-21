@@ -103,6 +103,10 @@ const PATHS: Record<string, React.ReactNode> = {
   ),
 };
 
+// The six groups (21 Sept 2026): Inbox takes the envelope, HR the case.
+PATHS.inbox = PATHS.mail;
+PATHS.hr = PATHS["my-work"];
+
 export function NavIcon({ name }: { name: string }) {
   return (
     <svg
