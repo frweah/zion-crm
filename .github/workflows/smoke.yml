@@ -34,13 +34,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Until the automated-check account exists and its secrets are set, the
+      # check steps aside with a notice instead of failing every deploy
+      # (owner, 21 Sept 2026). Once SMOKE_EMAIL is set it runs, and fails.
+      - name: Is the check set up?
+        id: ready
+        env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then
+            echo "::notice title=Deploy check not set up::No SMOKE_EMAIL / SMOKE_PASSWORD secret yet, so no screens were opened. Run scripts/create-check-account.mjs and add the secrets to turn it on."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.ready.outputs.ready == 'true'
+        uses: actions/checkout@v4
+      - if: steps.ready.outputs.ready == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci --ignore-scripts
+      - if: steps.ready.outputs.ready == 'true'
+        run: npm ci --ignore-scripts
       - name: Open every screen as the automated check
+        if: steps.ready.outputs.ready == 'true'
         env:
           SMOKE_BASE_URL: ${{ github.event.deployment_status.target_url || inputs.url }}
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
