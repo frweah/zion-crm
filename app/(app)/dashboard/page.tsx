@@ -82,7 +82,7 @@ export default async function DashboardPage({
   ] = await Promise.all([
     getAlerts(),
     supabase.from("job_runs").select("last_run_at").eq("job", "notifications").maybeSingle(),
-    supabase.from("clients").select("id, name, client_no, status, assigned_staff_id, stage").order("name"),
+    supabase.from("clients").select("id, name, client_no, status, assigned_staff_id, billing_staff_id, stage").order("name"),
     supabase.from("work_categories").select("key, label").eq("active", true).order("sort_order"),
     supabase
       .from("staff_checklist")
@@ -238,7 +238,10 @@ export default async function DashboardPage({
   const nowWall = dateToPracticeWall(new Date());
 
   // ── my clients today ────────────────────────────────────────
-  const mine = hasCaseload ? clients.filter((c) => c.status === "Active" && c.assigned_staff_id === me.id) : [];
+  // Either assignment makes a client theirs (0121).
+  const mine = hasCaseload
+    ? clients.filter((c) => c.status === "Active" && (c.assigned_staff_id === me.id || c.billing_staff_id === me.id))
+    : [];
   const due = await Promise.all(
     mine.map(async (c) => {
       const { data } = await supabase.rpc("client_next_actions", { p_client: c.id });

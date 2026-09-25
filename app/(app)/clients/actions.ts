@@ -45,6 +45,7 @@ export async function addClient(
       unit: str("unit"),
       referring_office: str("referring_office"),
       assigned_staff_id: orNull(str("assigned_staff_id")),
+      billing_staff_id: orNull(str("billing_staff_id")),
       stage: "Referral",
       status: "Active",
     })

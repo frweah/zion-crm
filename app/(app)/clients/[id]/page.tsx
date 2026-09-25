@@ -86,7 +86,7 @@ export default async function ClientPage({
     supabase
     .from("clients")
     .select(
-      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, counselor_contact, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
+      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, counselor_contact, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, billing_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
     )
     .eq("id", id)
     .maybeSingle(),
@@ -187,6 +187,10 @@ export default async function ClientPage({
     }))
     .filter((b) => b.templates.length > 0);
   const canEdit = CAN_EDIT_CLIENTS.includes(me.role);
+  // The client's own fields - who they are, who bills for them - are Billing's
+  // to edit as well, on any client, whoever it is assigned to (0121). Casework
+  // (texting, intake, the stage) stays with the roles that do it.
+  const canEditDetails = canEdit || can(me, "billing", "edit");
   const canBill = can(me, "billing", "edit");
   const isAdmin = me.role === "Admin";
   const canSeeRestricted =
@@ -196,7 +200,9 @@ export default async function ClientPage({
   const counselor = counselorLink?.counselor ?? null;
   const staff = staffRows ?? [];
   const staffName = new Map(staff.map((s) => [s.id, s.name]));
+  // Two people on a client (0121): who works the job search, and who bills.
   const assignedName = client.assigned_staff_id ? staffName.get(client.assigned_staff_id) : undefined;
+  const billingName = client.billing_staff_id ? staffName.get(client.billing_staff_id) : undefined;
 
   // The record's own tabs sit directly under its header; they are the only
   // tabs on this screen.
@@ -216,6 +222,7 @@ export default async function ClientPage({
             <StatusLine
               stage={detail.stage}
               assignedName={assignedName ?? null}
+              billingName={billingName ?? null}
               counselorName={counselor?.name ?? null}
               billingOffice={billingOfficeRow?.billing_office ?? null}
               canText={Boolean(consentRow?.can_text)}
@@ -945,7 +952,7 @@ export default async function ClientPage({
             counselors={counselorsResult.data ?? []}
             staff={staff}
             offices={(officesResult.data ?? []).map((o) => o.name)}
-            canEdit={canEdit}
+            canEdit={canEditDetails}
             isAdmin={isAdmin}
           />
           <RestrictedPanel

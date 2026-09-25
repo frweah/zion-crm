@@ -61,6 +61,7 @@ export function WhatsNext({ items }: { items: NextAction[] }) {
 export function StatusLine({
   stage,
   assignedName,
+  billingName,
   counselorName,
   billingOffice,
   canText,
@@ -70,6 +71,7 @@ export function StatusLine({
 }: {
   stage: string;
   assignedName: string | null;
+  billingName: string | null;
   counselorName: string | null;
   billingOffice: string | null;
   canText: boolean;
@@ -81,7 +83,9 @@ export function StatusLine({
   return (
     <p className="sub status-line" style={{ marginTop: 4 }}>
       <span className="chip gold">{stage}</span>{" "}
-      <span>Assigned to {assignedName ?? "nobody"}</span>
+      <span>Job search {assignedName ?? "nobody"}</span>
+      {" · "}
+      <span>Billing {billingName ?? "nobody"}</span>
       {" · "}
       <span>Counselor {counselorName || "not set"}</span>
       {billingOffice && (

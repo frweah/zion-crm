@@ -44,8 +44,15 @@ declare
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff
    where role = 'Admin' and active order by created_at limit 1;
-  select id, user_id into v_js, v_js_uid from public.staff
-   where active and role not in ('Admin', 'Billing') order by created_at limit 1;
+  -- Somebody whose role does not bill and who has not been given billing
+  -- either: a billing edit grant is a real way in (0092), so a person holding
+  -- one would pass this refusal honestly and the check would read as a bug.
+  select id, user_id into v_js, v_js_uid from public.staff s
+   where s.active and s.role not in ('Admin', 'Billing')
+     and not exists (
+       select 1 from public.staff_access_grants g
+        where g.staff_id = s.id and g.area = 'billing' and g.revoked_at is null)
+   order by s.created_at limit 1;
 
   -- Two clients, an authorization each, with numbers no real authorization
   -- has: every real one is a letter and six or seven digits.
