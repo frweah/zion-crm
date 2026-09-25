@@ -33,10 +33,16 @@ export async function setStage(_prev: DetailState, formData: FormData): Promise<
   return { error: null, ok: `Moved to ${stage}.` };
 }
 
-/** Edit the client's own fields. Date of birth and address are handled apart. */
+/**
+ * Edit the client's own fields. Date of birth and address are handled apart.
+ *
+ * Billing edits these too, on any client (0121): who a client is assigned to
+ * decides nothing about what Billing may change, and no Billing seat is ever
+ * the assigned one. The database says the same (clients_update).
+ */
 export async function updateClient(_prev: DetailState, formData: FormData): Promise<DetailState> {
   const me = await getCurrentStaff();
-  if (!me || !CAN_EDIT.includes(me.role)) {
+  if (!me || !(CAN_EDIT.includes(me.role) || can(me, "billing", "edit"))) {
     return { error: "Your role cannot edit client details.", ok: null };
   }
 
@@ -61,6 +67,7 @@ export async function updateClient(_prev: DetailState, formData: FormData): Prom
     preferred_locations: str("preferred_locations"),
     job_search_email: str("job_search_email"),
     assigned_staff_id: orNull(str("assigned_staff_id")),
+    billing_staff_id: orNull(str("billing_staff_id")),
     wsa_tier: str("wsa_tier") ? Number(str("wsa_tier")) : null,
     wsa_completed: orNull(str("wsa_completed")),
   };

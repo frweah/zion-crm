@@ -44,8 +44,9 @@ export async function loadCaseload(supabase: SupabaseClient<Database>, me: Me): 
   const mine = Boolean(pref);
   const scope: Caseload["scope"] = !mine ? "practice" : me.role === "Billing" ? "billable" : "mine";
 
-  let q = supabase.from("clients").select("id, status, stage, created_at, assigned_staff_id");
-  if (scope === "mine") q = q.eq("assigned_staff_id", me.id);
+  let q = supabase.from("clients").select("id, status, stage, created_at, assigned_staff_id, billing_staff_id");
+  // Mine is either assignment: the job search, or the billing (0121).
+  if (scope === "mine") q = q.or(`assigned_staff_id.eq.${me.id},billing_staff_id.eq.${me.id}`);
   const [{ data: clients }, open] = await Promise.all([
     q,
     scope === "billable"
@@ -64,7 +65,7 @@ export async function loadCaseload(supabase: SupabaseClient<Database>, me: Me): 
 
   // The list's own filters, so each link opens what its number counted.
   const base = new URLSearchParams();
-  if (scope === "mine") base.set("assignedStaffId", me.id);
+  if (scope === "mine") base.set("mineStaffId", me.id);
   if (scope === "billable") base.set("openAuth", "true");
   const href = (extra: Record<string, string>) => {
     const p = new URLSearchParams(base);

@@ -40,6 +40,7 @@ type Row = {
   applied7: number;
   next_interview: string | null;
   searching: boolean;
+  billing_name: string;
 };
 
 export default async function ClientsPage({
@@ -61,7 +62,7 @@ export default async function ClientsPage({
   let query = supabase
     .from("clients")
     .select(
-      "id, name, client_no, stage, status, agency_id, referring_office, import_review, funding_source, created_at, counselor_id, assigned_staff_id, schedule, preferred_locations",
+      "id, name, client_no, stage, status, agency_id, referring_office, import_review, funding_source, created_at, counselor_id, assigned_staff_id, billing_staff_id, schedule, preferred_locations",
     );
 
   if (filters.status.length) query = query.in("status", filters.status);
@@ -69,6 +70,10 @@ export default async function ClientsPage({
   if (filters.counselorId.length) query = query.in("counselor_id", filters.counselorId);
   if (filters.assignedStaffId.length)
     query = query.in("assigned_staff_id", filters.assignedStaffId);
+  // Theirs under either assignment (0121), which is what the caseload counts.
+  if (filters.mineStaffId) {
+    query = query.or(`assigned_staff_id.eq.${filters.mineStaffId},billing_staff_id.eq.${filters.mineStaffId}`);
+  }
   if (filters.fundingSource.length) query = query.in("funding_source", filters.fundingSource);
   if (filters.office.length) query = query.in("referring_office", filters.office);
   if (filters.hasImportReview) query = query.neq("import_review", "");
@@ -137,6 +142,7 @@ export default async function ClientsPage({
     created_at: c.created_at,
     counselor_name: c.counselor_id ? (counselorName.get(c.counselor_id) ?? "") : "",
     assigned_name: c.assigned_staff_id ? (staffName.get(c.assigned_staff_id) ?? "") : "",
+    billing_name: c.billing_staff_id ? (staffName.get(c.billing_staff_id) ?? "") : "",
     last_activity: activity.get(c.id) ?? null,
     schedule: c.schedule ?? "",
     preferred_locations: c.preferred_locations ?? "",
@@ -282,7 +288,12 @@ export default async function ClientsPage({
         office: c.referring_office,
         billingOffice: c.billing_office || <span className="lock">None</span>,
         stage: <span className="chip gold">{c.stage}</span>,
-        assigned: c.assigned_name || "—",
+        assigned: (
+          <>
+            {c.assigned_name || "—"}
+            {c.billing_name && <div className="lock">billing {c.billing_name}</div>}
+          </>
+        ),
         createdAt: <span style={{ whiteSpace: "nowrap" }}>{c.created_at}</span>,
         lastActivity:
           d === null ? (

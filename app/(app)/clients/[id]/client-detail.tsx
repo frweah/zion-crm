@@ -26,6 +26,7 @@ export type ClientDetail = {
   preferred_locations: string;
   job_search_email: string;
   assigned_staff_id: string | null;
+  billing_staff_id: string | null;
   status: string;
   stage: string;
   wsa_tier: number | null;
@@ -128,12 +129,24 @@ export function DetailsForm({
             <input name="email" type="email" defaultValue={client.email} disabled={!canEdit} />
           </label>
           <label className="field">
-            Assigned staff
+            {/* Two assignments (0121): the job search, and the billing. */}
+            Job search staff
             <select
               name="assigned_staff_id"
               defaultValue={client.assigned_staff_id ?? ""}
               disabled={!canEdit}
             >
+              <option value="">—</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Billing staff
+            <select name="billing_staff_id" defaultValue={client.billing_staff_id ?? ""} disabled={!canEdit}>
               <option value="">—</option>
               {staff.map((s) => (
                 <option key={s.id} value={s.id}>

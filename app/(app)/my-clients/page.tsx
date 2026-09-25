@@ -26,10 +26,11 @@ export default async function MyClientsPage() {
   const mine = me.role !== "Admin";
   let q = supabase
     .from("clients")
-    .select("id, name, client_no, stage, assigned_staff_id")
+    .select("id, name, client_no, stage, assigned_staff_id, billing_staff_id")
     .eq("status", "Active")
     .order("name");
-  if (mine) q = q.eq("assigned_staff_id", me.id);
+  // Either of a client's two people counts as theirs (0121).
+  if (mine) q = q.or(`assigned_staff_id.eq.${me.id},billing_staff_id.eq.${me.id}`);
   const { data: clients } = await q;
 
   const list = clients ?? [];

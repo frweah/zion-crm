@@ -495,6 +495,7 @@ export type Database = {
           merged_into: string | null;
           preferred_locations: string;
           job_search_email: string;
+          billing_staff_id: string | null;
         };
         Insert: {
           id?: string;
@@ -528,6 +529,7 @@ export type Database = {
           merged_into?: string | null;
           preferred_locations?: string;
           job_search_email?: string;
+          billing_staff_id?: string | null;
         };
         Update: {
           id?: string;
@@ -561,6 +563,7 @@ export type Database = {
           merged_into?: string | null;
           preferred_locations?: string;
           job_search_email?: string;
+          billing_staff_id?: string | null;
         };
         Relationships: [];
       };

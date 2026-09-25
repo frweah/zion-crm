@@ -58,7 +58,7 @@ export function FilterBar({
         </label>
 
         <label className="field">
-          Assigned to
+          Job search staff
           <select name="assignedStaffId" defaultValue={filters.assignedStaffId[0] ?? ""}>
             <option value="">Anyone</option>
             {staff.map((s) => (

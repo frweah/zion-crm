@@ -49,6 +49,9 @@ export async function loadNeed(
 ): Promise<NeedRow[]> {
   const now = today();
   const mine = me.role !== "Admin";
+  // A client is theirs under either assignment: job search, or billing (0121).
+  const isMine = (c: { assigned_staff_id?: string | null; billing_staff_id?: string | null } | undefined) =>
+    Boolean(c && (c.assigned_staff_id === me.id || c.billing_staff_id === me.id));
 
   if (key === "tasks") {
     let q = supabase
@@ -89,12 +92,12 @@ export async function loadNeed(
     const clientIds = [...new Set(rows.map((r) => r.client_id))];
     const { data: clients } = await supabase
       .from("clients")
-      .select("id, name, assigned_staff_id")
+      .select("id, name, assigned_staff_id, billing_staff_id")
       .in("id", clientIds.length > 0 ? clientIds : ["00000000-0000-0000-0000-000000000000"]);
     const byId = new Map((clients ?? []).map((c) => [c.id, c]));
 
     return rows
-      .filter((r) => !mine || byId.get(r.client_id)?.assigned_staff_id === me.id)
+      .filter((r) => !mine || isMine(byId.get(r.client_id)))
       .map((r) => ({
         id: r.match_id,
         title: `${byId.get(r.client_id)?.name ?? "A client"} — ${r.employer_name}`,
@@ -108,9 +111,9 @@ export async function loadNeed(
     const cutoff = addDays(now, -INACTIVE_DAYS);
     let q = supabase
       .from("clients")
-      .select("id, name, stage, assigned_staff_id")
+      .select("id, name, stage, assigned_staff_id, billing_staff_id")
       .eq("status", "Active");
-    if (mine) q = q.eq("assigned_staff_id", me.id);
+    if (mine) q = q.or(`assigned_staff_id.eq.${me.id},billing_staff_id.eq.${me.id}`);
 
     const { data: clients } = await q;
     const ids = (clients ?? []).map((c) => c.id);
@@ -152,8 +155,8 @@ export async function loadNeed(
   const clientIds = [...new Set(rows.map((r) => r.client_id))].filter(Boolean) as string[];
   if (clientIds.length === 0) return [];
 
-  let cq = supabase.from("clients").select("id, name, assigned_staff_id").in("id", clientIds);
-  if (mine) cq = cq.eq("assigned_staff_id", me.id);
+  let cq = supabase.from("clients").select("id, name, assigned_staff_id, billing_staff_id").in("id", clientIds);
+  if (mine) cq = cq.or(`assigned_staff_id.eq.${me.id},billing_staff_id.eq.${me.id}`);
   const { data: clients } = await cq;
   const byId = new Map((clients ?? []).map((c) => [c.id, c]));
 

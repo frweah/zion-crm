@@ -95,8 +95,19 @@ export function AddClientPanel({
                 <input name="unit" />
               </label>
               <label className="field">
-                Assigned staff
+                Job search staff
                 <select name="assigned_staff_id" defaultValue="">
+                  <option value="">—</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Billing staff
+                <select name="billing_staff_id" defaultValue="">
                   <option value="">—</option>
                   {staff.map((s) => (
                     <option key={s.id} value={s.id}>

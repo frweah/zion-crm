@@ -210,7 +210,7 @@ export default async function CounselorCaseloadPage({
             columns={[
               { key: "client", label: "Client" },
               { key: "stage", label: "Stage" },
-              { key: "assigned", label: "Assigned to" },
+              { key: "assigned", label: "Job search" },
               { key: "last", label: "Last activity" },
               { key: "next", label: "Next" },
             ]}
