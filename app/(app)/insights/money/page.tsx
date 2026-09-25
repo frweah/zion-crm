@@ -300,7 +300,7 @@ export default async function RevenuePage() {
           tone={unbilled > 0 ? "bad" : undefined}
           detail={
             unbilled > 0
-              ? "Work already done that nobody has asked for yet."
+              ? "Work already done that nobody has asked for yet. The section below counts a wider thing: everything authorized and not invoiced, earned or not."
               : "Everything earned has been invoiced."
           }
         />
@@ -344,7 +344,7 @@ export default async function RevenuePage() {
       )}
 
       <section id="not-invoiced" style={{ marginBottom: 24 }}>
-        <h2 className="h2">Not yet invoiced — who is moving it</h2>
+        <h2 className="h2">Authorized and not yet invoiced — who is moving it</h2>
         <p className="sub" style={{ marginBottom: 12 }}>
           {money(notInvoicedTotal)} authorized and not invoiced across {notInvoiced.length} open authorization
           {notInvoiced.length === 1 ? "" : "s"}.{" "}

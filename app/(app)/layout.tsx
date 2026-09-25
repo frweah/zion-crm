@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: policyDue }, { data: unreadRows }] = await Promise.all([
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: policyDue }] = await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
     supabase.from("staff_prefs").select("key").like("key", "hint:%"),
@@ -29,10 +29,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("staff_prefs").select("key").eq("key", "sidebar:narrow").maybeSingle(),
     // A policy version in force they have not signed (0103).
     supabase.rpc("policy_signature_due"),
-    // Unread staff messages, for the sidebar's badge (0104).
-    supabase.rpc("my_unread"),
   ]);
-  const unread = (unreadRows ?? []).reduce((s, r) => s + (r.unread ?? 0), 0);
+  // The badge is worked out in one place, in the browser (live-messaging.tsx):
+  // the conversations waiting for this person, and their unread mail.
   const narrow = Boolean(narrowPref);
   const nav = navFor(staff);
 
@@ -146,7 +145,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {hint && <HintBar hintKey={hint.key} title={hint.title} body={hint.body} />}
         {children}
       </main>
-      <LiveMessaging myId={staff.id} initialUnread={unread} />
+      <LiveMessaging myId={staff.id} />
     </div>
   );
 }

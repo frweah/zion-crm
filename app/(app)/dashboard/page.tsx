@@ -324,7 +324,9 @@ export default async function DashboardPage({
       {/* ── waiting for a reply ──────────────────────────────── */}
       <section className="card day-section" aria-labelledby="day-replies">
         <h2 className="h2" id="day-replies">
-          Waiting for your reply {waiting.length > 0 && <span className="chip warn">{waiting.length + mailMore}</span>}
+          Waiting for your reply{" "}
+          {waiting.length + mailMore > 0 && <span className="chip warn">{waiting.length + mailMore}</span>}
+          <span className="day-total">the number on Inbox</span>
         </h2>
         {waiting.length === 0 ? (
           <p className="empty">
@@ -525,7 +527,8 @@ export default async function DashboardPage({
               <Link key={n.key} href={`/dashboard/needs?list=${n.key}`} className="card" style={{ textDecoration: "none", color: "inherit" }}>
                 <div className="stat" style={business!.needs[n.key] > 0 ? { color: "var(--bad)" } : undefined}>
                   {business!.needs[n.key]}
-                  <small>{n.label.toLowerCase()}</small>
+                  {/* Everybody's, where the day above is this person's own. */}
+                  <small>{n.label.toLowerCase()}, everybody</small>
                 </div>
               </Link>
             ))}
