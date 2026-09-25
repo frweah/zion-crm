@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { outsideUnread } from "./inbox-count-actions";
+import { waitingConversations } from "./inbox-count-actions";
 import { mailWaiting } from "./inbox-mail";
 
 /**
@@ -26,18 +26,14 @@ import { mailWaiting } from "./inbox-mail";
  */
 
 // ── the unread count, shared with the sidebar ────────────────
-// One Inbox badge (21 Sept 2026): staff chat, live; texts and website chats,
-// and the person's own unread mail, asked for every two minutes and whenever
-// a message arrives.
-let unreadTotal = 0;
-let outsideTotal = 0;
+// One Inbox badge: the conversations waiting for this person to answer, and
+// their unread mail - the same number the dashboard shows, from the same
+// question (audit, 25 Sept 2026). Refreshed when a message arrives and every
+// two minutes.
+let waitingTotal = 0;
 const listeners = new Set<() => void>();
-function setUnread(n: number) {
-  unreadTotal = n;
-  listeners.forEach((l) => l());
-}
-function setOutside(n: number) {
-  outsideTotal = n;
+function setWaiting(n: number) {
+  waitingTotal = n;
   listeners.forEach((l) => l());
 }
 export function useUnreadMessages(): number {
@@ -46,7 +42,7 @@ export function useUnreadMessages(): number {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    () => unreadTotal + outsideTotal,
+    () => waitingTotal,
     () => 0,
   );
 }
@@ -57,13 +53,9 @@ const BEAT_MS = 60 * 1000;
 
 type Toast = { id: string; who: string; conversationId: string };
 
-export function LiveMessaging({ myId, initialUnread }: { myId: string; initialUnread: number }) {
+export function LiveMessaging({ myId }: { myId: string }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const lastInput = useRef(Date.now());
-
-  useEffect(() => {
-    setUnread(initialUnread);
-  }, [initialUnread]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -84,18 +76,19 @@ export function LiveMessaging({ myId, initialUnread }: { myId: string; initialUn
     const timer = window.setInterval(beat, BEAT_MS);
 
     // ── unread and toasts ────────────────────────────────────
-    const refreshUnread = async () => {
-      const { data } = await supabase.rpc("my_unread");
-      setUnread((data ?? []).reduce((s, r) => s + (r.unread ?? 0), 0));
-    };
+    // One number, worked out in one place (waitingConversations below), so
+    // chat is never counted twice on its way to the badge.
     const refreshOutside = async () => {
       try {
-        const [outside, mail] = await Promise.all([outsideUnread(), mailWaiting(0)]);
-        setOutside(outside + mail.count);
+        // waitingConversations already counts this person's chat as well, so
+        // the live half above is replaced rather than added to.
+        const [waiting, mail] = await Promise.all([waitingConversations(), mailWaiting(0)]);
+        setWaiting(waiting + mail.count);
       } catch {
         // A badge that cannot be worked out keeps its last number.
       }
     };
+    const refreshUnread = () => void refreshOutside();
     void refreshOutside();
     const outsideTimer = window.setInterval(() => void refreshOutside(), OUTSIDE_MS);
     const channel = supabase
