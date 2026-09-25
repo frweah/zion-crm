@@ -54,3 +54,8 @@ agent/*.log
 # Runtime pause switch for the document agent; state, not source.
 agent/PAUSED
 agent/ocr-failed.json
+
+# Session scratch: the desktop app's worktrees and launch config, and the
+# .probe folder used for one-off patch scripts. Neither is source.
+.claude/
+.probe/

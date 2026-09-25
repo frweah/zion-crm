@@ -1443,6 +1443,26 @@ table.t tbody tr[aria-selected="true"] td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ── on a phone (audit, 25 Sept 2026) ─────────────────────────
+   A wide table scrolls inside its own card rather than pushing the whole page
+   sideways, and anything meant to be tapped is at least 40px tall. */
+@media (max-width: 760px) {
+  .card > table.t,
+  .page-section > table.t {
+    display: block;
+    overflow-x: auto;
+  }
+  .day-actions .btn,
+  .segmented a,
+  .segmented button,
+  .tabs a,
+  .caseload-stages a {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
 @media (max-width: 760px) {
   .cal-month {
     grid-template-columns: 1fr;
