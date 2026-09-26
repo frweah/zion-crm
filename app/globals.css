@@ -838,6 +838,7 @@ tr.row {
 }
 
 .data-table .table-wrap {
+  position: relative;
   overflow-x: auto;
 }
 .filter-bar {
@@ -1460,6 +1461,18 @@ table.t tbody tr[aria-selected="true"] td {
     min-height: 40px;
     display: inline-flex;
     align-items: center;
+  }
+  /* A column heading is a button; at its text size it was 16px of target. */
+  table.t th .sort {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* A 13px checkbox is a thumb's width of miss. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
   }
 }
 
