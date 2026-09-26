@@ -124,7 +124,7 @@ export default async function SystemPage({
             settings={chat}
             staff={staff ?? []}
             live={Boolean(webLive)}
-            embed={`<script src="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://zion-crm-red.vercel.app"}/widget.js" async></script>`}
+            embed={`<script src="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://crm.zionvocrehab.com"}/widget.js" async></script>`}
           />
         </section>
       )}

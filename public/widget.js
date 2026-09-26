@@ -3,7 +3,7 @@
  *
  * One line on zionrehabcenter.com:
  *
- *   <script src="https://zion-crm-red.vercel.app/widget.js" async></script>
+ *   <script src="https://crm.zionvocrehab.com/widget.js" async></script>
  *
  * It asks for nothing until somebody clicks it: no framework, no fonts, no
  * network call on page load beyond this file, and everything it draws lives

@@ -17,7 +17,7 @@ $ScriptPath  = Join-Path $PSScriptRoot 'zion-agent.ps1'
 $ConfigPath  = Join-Path $PSScriptRoot 'zion-agent.config.json'
 
 $DefaultFolder = 'C:\Users\FrancisWeah\OneDrive - Francis Weah Insurance Agency\Office\Zion Healing\Clients'
-$DefaultUrl    = 'https://zion-crm-red.vercel.app'
+$DefaultUrl    = 'https://crm.zionvocrehab.com'
 
 function Ask {
     param([string] $Prompt, [string] $Default)

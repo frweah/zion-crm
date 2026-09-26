@@ -11,7 +11,7 @@
 -- the digest described yesterday.
 --
 -- Before running, replace both placeholders:
---   YOUR-APP-URL       e.g. https://zion-crm-red.vercel.app
+--   YOUR-APP-URL       e.g. https://crm.zionvocrehab.com
 --   YOUR-CRON-SECRET   the CRON_SECRET from .env.local, which must also be set
 --                      in Vercel's environment variables
 --
