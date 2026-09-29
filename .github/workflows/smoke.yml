@@ -136,6 +136,11 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PROJECT: zion-crm
+          # The team this project is under. An identifier, not a credential:
+          # it opens nothing without the token, and looking it up was one more
+          # call to get wrong (drill, 28 Sept - it was, and nothing rolled
+          # back because of it).
+          TEAM: team_oEki7sUFpleifVjGvPVMZNGq
           SITE: https://crm.zionvocrehab.com
         run: |
           exec > >(tee -a rollback.log) 2>&1
@@ -146,17 +151,18 @@ jobs:
             exit 0
           fi
           api() { curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" "$@"; }
-          team="$(api "https://api.vercel.com/v2/teams?slug=$PROJECT" | jq -r '.id // .teams[0].id // empty')"
-          if [ -z "$team" ]; then echo "could not find the team"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
 
-          now="$(api "https://api.vercel.com/v9/projects/$PROJECT?teamId=$team" | jq -r '.targets.production.id // empty')"
-          prev="$(api "https://api.vercel.com/v6/deployments?app=$PROJECT&target=production&state=READY&limit=10&teamId=$team" \
-                  | jq -r --arg now "$now" '[.deployments[] | select(.uid != $now)] | first | .uid // empty')"
-          prevsha="$(api "https://api.vercel.com/v13/deployments/$prev?teamId=$team" | jq -r '.meta.githubCommitSha // empty' | cut -c1-7)"
+          project="$(api "https://api.vercel.com/v9/projects/$PROJECT?teamId=$TEAM")"
+          now="$(echo "$project" | jq -r '.targets.production.id // empty')"
+          if [ -z "$now" ]; then echo "could not read the project: $(echo "$project" | head -c 300)"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
+
+          list="$(api "https://api.vercel.com/v6/deployments?app=$PROJECT&target=production&state=READY&limit=10&teamId=$TEAM")"
+          prev="$(echo "$list" | jq -r --arg now "$now" '[.deployments[] | select(.uid != $now)] | first | .uid // empty')"
+          if [ -z "$prev" ]; then echo "nothing earlier to go back to: $(echo "$list" | head -c 300)"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
+          prevsha="$(echo "$list" | jq -r --arg p "$prev" '.deployments[] | select(.uid == $p) | .meta.githubCommitSha // empty' | cut -c1-7)"
           echo "production is $now; putting it back on $prev ($prevsha)"
-          if [ -z "$prev" ]; then echo "there is no earlier production deployment to go back to"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
 
-          api -X POST "https://api.vercel.com/v10/projects/$PROJECT/promote/$prev?teamId=$team" | head -c 400
+          api -X POST "https://api.vercel.com/v10/projects/$PROJECT/promote/$prev?teamId=$TEAM" | head -c 300
           echo ""
           for i in $(seq 1 18); do
             live="$(curl -fsS "$SITE/api/version" | jq -r '.commit // empty' || true)"
