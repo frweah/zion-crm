@@ -27,6 +27,7 @@ const PUBLIC_PATHS = [
   "/no-access",
   "/api/cron",
   "/api/health",
+  "/api/version",
   "/api/sms",
   "/api/agent",
   "/api/widget",
@@ -45,6 +46,11 @@ const PUBLIC_PATHS = [
 //
 // /api/agent is the document agent on the owner's machine. Same shape: no
 // session, its own shared secret, checked by both routes behind it.
+//
+// /api/version answers one question - which commit is serving this address -
+// and holds nothing to protect. The deploy check asks it before opening a
+// screen, so that it checks the deployment that went out rather than the one
+// production had a moment earlier.
 //
 // /api/widget and /widget.js are the website chat (Messaging brief, C). These
 // two are different from the others above: there is no secret, because the

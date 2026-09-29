@@ -15,7 +15,9 @@
 #   VERCEL_TOKEN                      only for the rollback; without it the
 #                                     check still fails and still opens the
 #                                     issue, it just cannot move production
-#   VERCEL_AUTOMATION_BYPASS_SECRET   only if Deployment Protection is on
+#   VERCEL_AUTOMATION_BYPASS_SECRET   only for a hand-run check pointed at
+#                                     a per-deployment address, which is
+#                                     protected; the address staff use is not
 name: smoke
 
 on:
@@ -65,11 +67,35 @@ jobs:
       - if: steps.ready.outputs.ready == 'true'
         run: npm ci --ignore-scripts
 
+      # Vercel's per-deployment address is behind Deployment Protection, and
+      # answers an automated caller with Vercel's own sign-in page - which the
+      # check read as "every screen is broken" (28 Sept 2026). So it opens the
+      # address staff use, and first waits for production to be moved onto the
+      # commit that just went out.
+      - name: Wait for production to be this commit
+        id: live
+        if: steps.ready.outputs.ready == 'true' && github.event_name == 'deployment_status'
+        env:
+          SITE: https://crm.zionvocrehab.com
+        run: |
+          want="$(echo "${{ github.sha }}" | cut -c1-7)"
+          for i in $(seq 1 30); do
+            live="$(curl -fsS "$SITE/api/version" | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p' || true)"
+            if [ "$live" = "$want" ]; then
+              echo "ready=true" >> "$GITHUB_OUTPUT"
+              echo "production is serving $want"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::notice title=Nothing to check::Production never moved to $want within five minutes - a later deploy has probably taken its place. No screens were opened."
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+
       - name: Open every screen as the automated check
         id: screens
-        if: steps.ready.outputs.ready == 'true'
+        if: steps.ready.outputs.ready == 'true' && steps.live.outputs.ready != 'false'
         env:
-          SMOKE_BASE_URL: ${{ github.event.deployment_status.target_url || inputs.url }}
+          SMOKE_BASE_URL: ${{ github.event_name == 'deployment_status' && 'https://crm.zionvocrehab.com' || inputs.url }}
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -80,7 +106,7 @@ jobs:
           node --experimental-strip-types scripts/smoke.mjs 2>&1 | tee smoke.log
 
       - name: What the check saw
-        if: always() && steps.ready.outputs.ready == 'true'
+        if: always() && steps.ready.outputs.ready == 'true' && steps.live.outputs.ready != 'false'
         run: |
           {
             echo "### Deploy check"
