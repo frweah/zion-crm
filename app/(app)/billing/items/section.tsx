@@ -35,6 +35,13 @@ async function readItems(): Promise<ItemRow[]> {
 
 export async function BillingOverview({ hrefFor }: { hrefFor: (status: string | null) => string }) {
   const items = await readItems();
+  // Open coaching authorizations with no dates: no month could be opened for
+  // them, and no date was invented for them either (0127).
+  const supabase = await createClient();
+  const { data: undated } = await supabase
+    .from("billing_items_undated")
+    .select("auth_id, number, client_id, client_name, service_type")
+    .order("client_name");
   const count = (s: string) => items.filter((i) => i.status === s).length;
   const valueOf = (list: ItemRow[]) => list.reduce((sum, i) => sum + (i.value ?? 0), 0);
 
@@ -98,6 +105,32 @@ export async function BillingOverview({ hrefFor }: { hrefFor: (status: string | 
           </Link>
         </div>
       </section>
+
+      {(undated ?? []).length > 0 && (
+        <section className="page-section">
+          <h2 className="h2">Authorizations with no dates</h2>
+          <p className="lock">
+            {(undated ?? []).length} open {(undated ?? []).length === 1 ? "authorization has" : "authorizations have"} no
+            start or end date, so no month could be opened for {(undated ?? []).length === 1 ? "it" : "them"}. Nothing
+            was guessed: add the dates and the months open by themselves.
+          </p>
+          <div className="card" style={{ padding: 0 }}>
+            <table className="t" data-layout="authorizations waiting for their dates: client, number and service">
+              <tbody>
+                {(undated ?? []).map((a) => (
+                  <tr key={a.auth_id as string}>
+                    <td>
+                      <Link href={`/clients/${a.client_id}?tab=billing`}>{a.client_name as string}</Link>
+                    </td>
+                    <td>{(a.number as string) ?? "no number"}</td>
+                    <td className="lock">{a.service_type as string}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {(flagged.length > 0 || overdue.length > 0 || count("Closed") > 0) && (
         <section className="page-section">

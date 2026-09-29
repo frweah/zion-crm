@@ -4390,6 +4390,20 @@ export type Database = {
         };
         Relationships: [];
       };
+      billing_items_undated: {
+        Row: {
+          auth_id: string | null;
+          number: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          service_type: string | null;
+          rate_type: string | null;
+          rate: number | null;
+          total_hours: number | null;
+          billing_staff_id: string | null;
+        };
+        Relationships: [];
+      };
       billing_position: {
         Row: {
           auth_id: string | null;
