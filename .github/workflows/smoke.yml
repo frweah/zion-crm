@@ -120,41 +120,82 @@ jobs:
       # Production goes back to whatever was serving before this deployment.
       # Only for a real deploy: a hand-run check may be pointed at anything,
       # and pointing it at a preview is not a reason to move production.
+      #
+      # Vercel's API rather than its CLI (drill, 28 Sept 2026: `vercel link`
+      # failed in the runner and took the step down with it, before anything
+      # had been rolled back). Every answer is written to rollback.log, which
+      # the issue below carries, because the one place this runs is the one
+      # place nobody is watching.
+      #
+      # It is not finished when the promote is accepted - it is finished when
+      # the address staff use says the older commit. Anything less is a
+      # rollback that reported success and left them on the broken one.
       - name: Put production back
         id: rollback
         if: failure() && github.event_name == 'deployment_status'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROJECT: zion-crm
+          SITE: https://crm.zionvocrehab.com
         run: |
+          exec > >(tee -a rollback.log) 2>&1
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error title=Could not roll back::A screen is broken on the deployment that just went live, and there is no VERCEL_TOKEN secret, so production was left on it. Roll back by hand: Vercel → Deployments → the last good one → Promote to Production."
+            echo "There is no VERCEL_TOKEN secret, so production was left on the broken deployment."
+            echo "::error title=Could not roll back::Roll back by hand: Vercel → Deployments → the last good one → Promote to Production."
             echo "rolled=no-token" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          npx --yes vercel@latest link --yes --project zion-crm --scope zion-crm --token "$VERCEL_TOKEN"
-          if npx --yes vercel@latest rollback --yes --token "$VERCEL_TOKEN" --scope zion-crm; then
-            echo "rolled=yes" >> "$GITHUB_OUTPUT"
-          else
-            echo "rolled=failed" >> "$GITHUB_OUTPUT"
-          fi
+          api() { curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" "$@"; }
+          team="$(api "https://api.vercel.com/v2/teams?slug=$PROJECT" | jq -r '.id // .teams[0].id // empty')"
+          if [ -z "$team" ]; then echo "could not find the team"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
+
+          now="$(api "https://api.vercel.com/v9/projects/$PROJECT?teamId=$team" | jq -r '.targets.production.id // empty')"
+          prev="$(api "https://api.vercel.com/v6/deployments?app=$PROJECT&target=production&state=READY&limit=10&teamId=$team" \
+                  | jq -r --arg now "$now" '[.deployments[] | select(.uid != $now)] | first | .uid // empty')"
+          prevsha="$(api "https://api.vercel.com/v13/deployments/$prev?teamId=$team" | jq -r '.meta.githubCommitSha // empty' | cut -c1-7)"
+          echo "production is $now; putting it back on $prev ($prevsha)"
+          if [ -z "$prev" ]; then echo "there is no earlier production deployment to go back to"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
+
+          api -X POST "https://api.vercel.com/v10/projects/$PROJECT/promote/$prev?teamId=$team" | head -c 400
+          echo ""
+          for i in $(seq 1 18); do
+            live="$(curl -fsS "$SITE/api/version" | jq -r '.commit // empty' || true)"
+            if [ "$live" = "$prevsha" ]; then
+              echo "$SITE is serving $live"
+              echo "rolled=yes" >> "$GITHUB_OUTPUT"
+              echo "rolled_to=$prevsha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "the promote was sent but $SITE is still serving $live"
+          echo "rolled=failed" >> "$GITHUB_OUTPUT"
 
       - name: Say so
         if: failure()
         uses: actions/github-script@v7
         env:
           ROLLED: ${{ steps.rollback.outputs.rolled }}
-          CHECKED: ${{ github.event.deployment_status.target_url || inputs.url }}
+          ROLLED_TO: ${{ steps.rollback.outputs.rolled_to }}
+          OUTCOME: ${{ steps.rollback.outcome }}
+          CHECKED: ${{ github.event_name == 'deployment_status' && 'https://crm.zionvocrehab.com' || inputs.url }}
         with:
           script: |
             const fs = require("fs");
-            let log = "";
-            try { log = fs.readFileSync("smoke.log", "utf8"); } catch { log = "(the check did not get as far as opening a screen)"; }
+            const read = (f, fallback) => { try { return fs.readFileSync(f, "utf8"); } catch { return fallback; } };
+            const log = read("smoke.log", "(the check did not get as far as opening a screen)");
             const failed = log.split("\n").filter((l) => l.includes("FAILED")).join("\n") || log.trim().split("\n").slice(-20).join("\n");
-            const rolled = {
-              yes: "Production has been put back on the deployment that was serving before this one.",
-              "no-token": "**Production is still on the broken deployment** - there is no `VERCEL_TOKEN` secret to roll it back with. Vercel → Deployments → the last good one → Promote to Production.",
-              failed: "**Rolling back did not work**, so production may still be on the broken deployment. Vercel → Deployments → the last good one → Promote to Production.",
-            }[process.env.ROLLED] ?? "This was a hand-run check, so production was left alone.";
+            const by_hand = "Vercel → Deployments → the last good one → Promote to Production.";
+            // outcome is what the step did; rolled is what it managed. A step
+            // that fell over sets no output at all, and saying nothing about
+            // production then would be the worst of the three (drill, 28 Sept).
+            const rolled = process.env.OUTCOME === "skipped"
+              ? "This was a hand-run check, so production was left alone."
+              : ({
+                  yes: `Production has been put back on ${process.env.ROLLED_TO}, the deployment that was serving before this one.`,
+                  "no-token": `**Production is still on the broken deployment** - there is no \`VERCEL_TOKEN\` secret to roll it back with. ${by_hand}`,
+                  failed: `**Rolling back did not work**, so production is probably still on the broken deployment. ${by_hand}`,
+                }[process.env.ROLLED] ?? `**The rollback itself fell over**, so production is probably still on the broken deployment. ${by_hand}`);
             const sha = context.sha.slice(0, 7);
             await github.rest.issues.create({
               owner: context.repo.owner,
@@ -169,6 +210,11 @@ jobs:
                 "What failed:",
                 "```",
                 failed,
+                "```",
+                "",
+                "What the rollback did:",
+                "```",
+                read("rollback.log", "(the rollback did not run)").trim(),
                 "```",
                 "",
                 `[The run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
