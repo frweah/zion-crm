@@ -153,6 +153,10 @@ jobs:
           api() { curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" "$@"; }
 
           project="$(api "https://api.vercel.com/v9/projects/$PROJECT?teamId=$TEAM")"
+          # Reading a project by name works; promoting one does not (drill,
+          # 28 Sept: "Project not found" from the promote, with the same name
+          # that had just been read). Its id is in the answer either way.
+          pid="$(echo "$project" | jq -r '.id // empty')"
           now="$(echo "$project" | jq -r '.targets.production.id // empty')"
           if [ -z "$now" ]; then echo "could not read the project: $(echo "$project" | head -c 300)"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
 
@@ -162,8 +166,12 @@ jobs:
           prevsha="$(echo "$list" | jq -r --arg p "$prev" '.deployments[] | select(.uid == $p) | .meta.githubCommitSha // empty' | cut -c1-7)"
           echo "production is $now; putting it back on $prev ($prevsha)"
 
-          api -X POST "https://api.vercel.com/v10/projects/$PROJECT/promote/$prev?teamId=$TEAM" | head -c 300
-          echo ""
+          said="$(api -X POST "https://api.vercel.com/v10/projects/$pid/promote/$prev?teamId=$TEAM")"
+          echo "promote: $(echo "$said" | head -c 300)"
+          if echo "$said" | jq -e '.error' >/dev/null 2>&1; then
+            said="$(api -X POST "https://api.vercel.com/v9/projects/$pid/rollback/$prev?teamId=$TEAM")"
+            echo "rollback: $(echo "$said" | head -c 300)"
+          fi
           for i in $(seq 1 18); do
             live="$(curl -fsS "$SITE/api/version" | jq -r '.commit // empty' || true)"
             if [ "$live" = "$prevsha" ]; then
