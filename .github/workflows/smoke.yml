@@ -2,14 +2,19 @@
 # as the automated-check system account and open every screen it can reach.
 # Any server error fails this job.
 #
-# For the job to hold a deploy back rather than only report on it, Vercel's
-# Deployment Checks must list it: Project → Settings → Deployment Checks →
-# add "smoke". Vercel then builds, waits for this job to pass on the new
-# deployment, and only then moves production to it.
+# Vercel's Deployment Checks would hold a deploy back until this passes, but
+# that setting is not on this plan's project (owner, 28 Sept 2026), so the
+# deploy goes out first and this check runs after it. When it fails, the job
+# puts production back on the deployment that was serving before and says so
+# in an issue - a broken screen is live for the length of one check, not until
+# somebody notices.
 #
 # Secrets (Settings → Secrets and variables → Actions), held nowhere else:
-#   SMOKE_EMAIL, SMOKE_PASSWORD   the automated-check account
+#   SMOKE_EMAIL, SMOKE_PASSWORD       the automated-check account
 #   SUPABASE_URL, SUPABASE_ANON_KEY   the project's public URL and anon key
+#   VERCEL_TOKEN                      only for the rollback; without it the
+#                                     check still fails and still opens the
+#                                     issue, it just cannot move production
 #   VERCEL_AUTOMATION_BYPASS_SECRET   only if Deployment Protection is on
 name: smoke
 
@@ -20,10 +25,11 @@ on:
       url:
         description: "Deployment to check"
         required: true
-        default: "https://zion-crm-red.vercel.app"
+        default: "https://crm.zionvocrehab.com"
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   smoke:
@@ -58,7 +64,9 @@ jobs:
           cache: npm
       - if: steps.ready.outputs.ready == 'true'
         run: npm ci --ignore-scripts
+
       - name: Open every screen as the automated check
+        id: screens
         if: steps.ready.outputs.ready == 'true'
         env:
           SMOKE_BASE_URL: ${{ github.event.deployment_status.target_url || inputs.url }}
@@ -67,4 +75,76 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: node --experimental-strip-types scripts/smoke.mjs
+        run: |
+          set -o pipefail
+          node --experimental-strip-types scripts/smoke.mjs 2>&1 | tee smoke.log
+
+      - name: What the check saw
+        if: always() && steps.ready.outputs.ready == 'true'
+        run: |
+          {
+            echo "### Deploy check"
+            echo ""
+            echo '```'
+            tail -60 smoke.log 2>/dev/null || echo "the check did not get as far as opening a screen"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── when a screen is broken ─────────────────────────────
+      # Production goes back to whatever was serving before this deployment.
+      # Only for a real deploy: a hand-run check may be pointed at anything,
+      # and pointing it at a preview is not a reason to move production.
+      - name: Put production back
+        id: rollback
+        if: failure() && github.event_name == 'deployment_status'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error title=Could not roll back::A screen is broken on the deployment that just went live, and there is no VERCEL_TOKEN secret, so production was left on it. Roll back by hand: Vercel → Deployments → the last good one → Promote to Production."
+            echo "rolled=no-token" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          npx --yes vercel@latest link --yes --project zion-crm --scope zion-crm --token "$VERCEL_TOKEN"
+          if npx --yes vercel@latest rollback --yes --token "$VERCEL_TOKEN" --scope zion-crm; then
+            echo "rolled=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "rolled=failed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Say so
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          ROLLED: ${{ steps.rollback.outputs.rolled }}
+          CHECKED: ${{ github.event.deployment_status.target_url || inputs.url }}
+        with:
+          script: |
+            const fs = require("fs");
+            let log = "";
+            try { log = fs.readFileSync("smoke.log", "utf8"); } catch { log = "(the check did not get as far as opening a screen)"; }
+            const failed = log.split("\n").filter((l) => l.includes("FAILED")).join("\n") || log.trim().split("\n").slice(-20).join("\n");
+            const rolled = {
+              yes: "Production has been put back on the deployment that was serving before this one.",
+              "no-token": "**Production is still on the broken deployment** - there is no `VERCEL_TOKEN` secret to roll it back with. Vercel → Deployments → the last good one → Promote to Production.",
+              failed: "**Rolling back did not work**, so production may still be on the broken deployment. Vercel → Deployments → the last good one → Promote to Production.",
+            }[process.env.ROLLED] ?? "This was a hand-run check, so production was left alone.";
+            const sha = context.sha.slice(0, 7);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Deploy check failed on ${sha}`,
+              assignees: ["frweah"],
+              body: [
+                `A screen threw a server error on ${process.env.CHECKED} after ${sha} went out.`,
+                "",
+                rolled,
+                "",
+                "What failed:",
+                "```",
+                failed,
+                "```",
+                "",
+                `[The run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              ].join("\n"),
+            });
