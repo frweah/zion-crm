@@ -101,10 +101,6 @@ const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf
 paths.push(...needs.map((k) => `/dashboard/needs?list=${k}`));
 // Screens with tabs of their own, not in the navigation.
 paths.push("/counselors?tab=contact", "/counselors?tab=hours", "/sops/where");
-// DRILL, 28 Sept 2026: a screen that is not there, to make this check fail on
-// purpose and prove that a failure puts production back. The app is untouched
-// - only this list is - and the next commit takes this line out again.
-paths.push("/drill-a-screen-that-is-not-there");
 
 const results = [];
 for (const p of paths) results.push(await open(p));
