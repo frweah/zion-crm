@@ -131,7 +131,10 @@ begin
   for r in
     select s.role, s.name, u.id as uid
       from public.staff s join auth.users u on u.id = s.user_id
-     where s.active and u.email is not null
+     -- Not the deploy check's account: it is Job Search and can write
+     -- nothing at all by design (0120), so "what a Job Search person may do"
+     -- is not a question about it.
+     where s.active and not s.is_system and u.email is not null
      order by s.role
   loop
     perform set_config('role', 'authenticated', true);

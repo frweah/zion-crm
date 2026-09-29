@@ -18,6 +18,7 @@ import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
+import { formsLabel, periodLabel, type ItemRow } from "@/lib/billing-items";
 import { WhatsNext, StatusLine, type NextAction } from "./whats-next";
 import { COACHING_CODES, CAN_LOG_HOURS } from "@/lib/constants";
 import type { BillOption, VisitAuth } from "./record-actions";
@@ -545,6 +546,7 @@ export default async function ClientPage({
       { data: invoiceRows },
       { data: paperworkRows },
       payments,
+      { data: itemRows },
     ] = await Promise.all([
       supabase.from("service_entries").select("auth_id, hours, non_billable").in("auth_id", idsOrNone),
       // The PDFs: every file on this client's record, and what the inbox read
@@ -573,6 +575,13 @@ export default async function ClientPage({
         .order("state")
         .order("usor"),
       readPayments(supabase, authIds),
+      // The client's own billing items (0123): the spine of what is owed for
+      // them and where each piece has got to.
+      supabase
+        .from("billing_item_rows")
+        .select("*")
+        .eq("client_id", id)
+        .order("period", { ascending: false, nullsFirst: false }),
     ]);
 
     const readingByPath = new Map(
@@ -636,6 +645,46 @@ export default async function ClientPage({
             )}
           </div>
         </div>
+
+        <h2 className="h2" style={{ margin: "0 0 8px" }}>Billing items</h2>
+        {(itemRows ?? []).length === 0 ? (
+          <div className="empty">
+            Nothing is being billed for this client yet. An item opens when an authorization is confirmed, and each
+            month for Job Coaching.
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 0, marginBottom: 18 }}>
+            <DataTable
+              label="billing items"
+              columns={[
+                { key: "service", label: "Service" },
+                { key: "period", label: "Period" },
+                { key: "status", label: "Billing status" },
+                { key: "form", label: "USOR form" },
+                { key: "value", label: "Amount", align: "right" },
+                { key: "who", label: "Assigned" },
+              ]}
+              rows={((itemRows ?? []) as unknown as ItemRow[]).map((it) => ({
+                key: it.id,
+                cells: {
+                  service: <Link href={`/billing/items/${it.id}`}>{it.service}</Link>,
+                  period: periodLabel(it.period),
+                  status: (
+                    <>
+                      {it.status}
+                      {it.zero_hours_flagged && <span className="chip warn">no hours</span>}
+                    </>
+                  ),
+                  form: formsLabel(it.usor_forms),
+                  value: money(it.value),
+                  who: it.assigned_staff ?? "—",
+                },
+                sort: { period: it.period ?? "", value: it.value ?? 0, status: it.status },
+              }))}
+              empty="Nothing yet."
+            />
+          </div>
+        )}
 
         {/*
           The authorizations as the one table, so they sort by number, service,

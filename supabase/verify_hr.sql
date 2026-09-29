@@ -157,7 +157,8 @@ begin
   for r in
     select s.id, s.name, s.role, u.id as uid
       from public.staff s join auth.users u on u.id = s.user_id
-     where s.active order by s.legacy_id
+     -- The deploy check's account is not employed and not paid (0120).
+     where s.active and not s.is_system order by s.legacy_id
   loop
     -- What they should see is every rate of their own, whatever that number is
     -- today. Asserting a literal 1 was fine while the table was empty and broke

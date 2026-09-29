@@ -22,13 +22,14 @@ import { buildReconciliation, ENDING_WITHIN_DAYS } from "@/lib/reconcile";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { ReconcilePanel } from "./reconcile-panel";
 import PendingAuthorizations from "./pending-authorizations";
+import { BillingOverview, BillingItems } from "./items/section";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
  * This list is only what the page needs to know to pick a view — the labels
  * and the order live with the navigation, so the two cannot disagree.
  */
-const TABS = ["authorizations", "log", "invoices"];
+const TABS = ["overview", "items", "authorizations", "log", "invoices"];
 const LOG_ALIASES = ["service-log", "service_log", "servicelog", "service", "hours"];
 
 export default async function BillingPage({
@@ -115,6 +116,34 @@ export default async function BillingPage({
 
   // One header on every Billing tab. Reading an authorization off the PDF is
   // the one thing Billing starts from, so it sits on the right wherever you are.
+  // Overview and Items are the spine (0123): one view, read once, and none of
+  // the older queries below are needed for either.
+  if (tab === "overview" || tab === "items") {
+    const head = (
+      <PageHead
+        title="Billing"
+        context="Every piece of work, from authorization to payment"
+        actions={
+          canBill ? (
+            <Link href="/billing/import" className="btn" style={{ textDecoration: "none" }}>
+              Read an authorization
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+    return (
+      <>
+        {head}
+        {tab === "overview" ? (
+          <BillingOverview hrefFor={(status) => `/billing?tab=items${status ? `&filter=${encodeURIComponent(status)}` : ""}`} />
+        ) : (
+          <BillingItems filter={filter ?? null} />
+        )}
+      </>
+    );
+  }
+
   const header = (
     <PageHead
       title="Billing"

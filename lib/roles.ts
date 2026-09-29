@@ -162,6 +162,11 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "billing",
     label: "Billing",
     items: [
+      // The spine of Margaret's process (0123): a piece of work for one
+      // client in one period, from authorization to payment. Overview is
+      // where the day starts - what is waiting, and on whom.
+      { label: "Overview", href: "/billing?tab=overview", roles: BILLS, area: "billing" },
+      { label: "Items", href: "/billing?tab=items", roles: BILLS, area: "billing" },
       { label: "Authorizations", href: "/billing?tab=authorizations", roles: BILLS, area: "billing" },
       { label: "Service log", href: "/billing?tab=log", roles: BILLS, area: "billing" },
       { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS, area: "billing" },

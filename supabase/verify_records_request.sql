@@ -53,6 +53,7 @@ declare
     'tasks=tasks',
     'authorizations=authorizations',
     'invoices=invoices',
+    'billing_items=billing',
     'work_sessions=service_hours',
     'forms=forms',
     'placements=placements',

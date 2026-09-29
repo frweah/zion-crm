@@ -67,6 +67,10 @@ const { rows } = await client.query(`
 // than swept up wholesale: trigger functions and internal helpers are not part
 // of the client API and should not be typed as if they were.
 const RPC_FUNCTIONS = [
+  "billing_item_gate",
+  "billing_item_ready",
+  "billing_followups_on",
+  "open_coaching_items_for",
   "current_staff_id",
   "current_staff_role",
   "is_active_staff",

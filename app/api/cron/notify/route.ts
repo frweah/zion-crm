@@ -49,6 +49,17 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: genError.message }, { status: 500 });
   }
 
+  // The billing month, and the chasing (0124). On the 1st every open Job
+  // Coaching authorization gets that month's item and the month before it is
+  // closed off; every night, anything sent 14 days ago with no answer raises
+  // a task for whoever bills it. Both are counted in the answer so a night
+  // that did nothing is distinguishable from a night that did not run.
+  const practiceToday = new Date().toISOString().slice(0, 10);
+  const { data: itemsOpened } = practiceToday.endsWith("-01")
+    ? await supabase.rpc("open_coaching_items_for", { p_month: practiceToday })
+    : { data: 0 };
+  const { data: chased } = await supabase.rpc("billing_followups_on", { p_today: practiceToday });
+
   // Onboarding reminders go every night a step is open, unlike the digest's
   // once-per-item: the person asked to finish is the one who has to act.
   const onboardingReminders = emailConfigured() ? await remindOnboarding(supabase) : 0;
@@ -76,7 +87,7 @@ async function handle(request: NextRequest) {
   );
 
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, note: "nothing new" });
+    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, note: "nothing new" });
   }
   if (!emailConfigured()) {
     return NextResponse.json(
@@ -141,6 +152,8 @@ async function handle(request: NextRequest) {
     notifications: rows.length,
     emails: sent.length,
     onboardingReminders,
+    itemsOpened,
+    chased,
     ...(failed.length ? { failed } : {}),
   });
 }
