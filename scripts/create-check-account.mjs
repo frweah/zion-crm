@@ -1,7 +1,13 @@
 /**
- * Makes the "Automated check" system account (0120) - run once, by the owner.
+ * Makes an "Automated check" system account (0120, 0129) - run by the owner.
  *
  *   node --env-file=.env.local scripts/create-check-account.mjs [email]
+ *   node --env-file=.env.local scripts/create-check-account.mjs --billing
+ *
+ * There are two, because a role only sees its own screens: the Job Search one
+ * opens what Job Search reaches, and the Billing one opens Invoices,
+ * Authorizations, the Service log, Export, Overview and Items - none of which
+ * the first has ever been able to see (0129). Neither can write anything.
  *
  * It adds the staff row (Job Search, is_system - read-only, never given more)
  * and then the sign-in, with a long random password it prints once, to be
@@ -17,7 +23,12 @@ import { createClient } from "@supabase/supabase-js";
 
 const args = process.argv.slice(2);
 const reset = args.includes("--reset");
-const email = (args.find((a) => a.includes("@")) ?? "automated-check@zionvocrehab.com").toLowerCase();
+const billing = args.includes("--billing");
+const role = billing ? "Billing" : "Job Search";
+const email = (
+  args.find((a) => a.includes("@")) ??
+  (billing ? "automated-check-billing@zionvocrehab.com" : "automated-check@zionvocrehab.com")
+).toLowerCase();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) {
@@ -45,7 +56,7 @@ if (existing?.user_id) {
     // Staff first: an account can only be made for somebody already on staff.
     const { error } = await admin
       .from("staff")
-      .insert({ name: "Automated check", email, role: "Job Search", active: true, is_system: true });
+      .insert({ name: billing ? "Automated check (billing)" : "Automated check", email, role, active: true, is_system: true });
     if (error) throw error;
   }
   const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -61,8 +72,8 @@ if (!linked?.user_id) {
 console.log("");
 console.log("Paste these into GitHub → Settings → Secrets and variables → Actions:");
 console.log("");
-console.log(`  SMOKE_EMAIL     ${email}`);
-console.log(`  SMOKE_PASSWORD  ${password}`);
+console.log(`  ${billing ? "SMOKE_BILLING_EMAIL" : "SMOKE_EMAIL"}     ${email}`);
+console.log(`  ${billing ? "SMOKE_BILLING_PASSWORD" : "SMOKE_PASSWORD"}  ${password}`);
 console.log(`  SUPABASE_URL    ${url}`);
 console.log("  SUPABASE_ANON_KEY  (NEXT_PUBLIC_SUPABASE_ANON_KEY from .env.local)");
 console.log("");

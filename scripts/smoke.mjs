@@ -39,22 +39,27 @@ const BASE = env("SMOKE_BASE_URL").replace(/\/$/, "");
 const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
 
 // ── sign in, keeping the session in a jar the requests carry ──
-const jar = new Map();
-const supabase = createServerClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
-  cookies: {
-    getAll: () => [...jar].map(([name, value]) => ({ name, value })),
-    setAll: (list) => list.forEach(({ name, value }) => (value ? jar.set(name, value) : jar.delete(name))),
-  },
-});
-const { error: signInError } = await supabase.auth.signInWithPassword({
-  email: env("SMOKE_EMAIL"),
-  password: env("SMOKE_PASSWORD"),
-});
-if (signInError) {
-  console.error(`  FAILED  the automated-check account could not sign in: ${signInError.message}`);
-  process.exit(1);
+// One of these per account. A role only ever sees its own screens, so
+// Billing's - Invoices, Authorizations, the Service log, Export, Overview,
+// Items - are opened by the Billing account and by nothing else (0129).
+let cookie = () => "";
+let supabase = null;
+
+async function signIn(email, password, who) {
+  const jar = new Map();
+  supabase = createServerClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
+    cookies: {
+      getAll: () => [...jar].map(([name, value]) => ({ name, value })),
+      setAll: (list) => list.forEach(({ name, value }) => (value ? jar.set(name, value) : jar.delete(name))),
+    },
+  });
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+  if (signInError) {
+    console.error(`  FAILED  the ${who} account could not sign in: ${signInError.message}`);
+    process.exit(1);
+  }
+  cookie = () => [...jar].map(([n, v]) => `${n}=${v}`).join("; ");
 }
-const cookie = () => [...jar].map(([n, v]) => `${n}=${v}`).join("; ");
 
 // ── what a failed screen looks like ───────────────────────────
 // A render error is folded into a 200: Next leaves its digest in the page.
@@ -96,36 +101,62 @@ async function open(path) {
 }
 
 // ── the screens ───────────────────────────────────────────────
-const paths = [...new Set(reachableFor("Job Search").map((i) => i.href))];
 const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf8").matchAll(/\{ key: "([a-z]+)", label:/g)].map((m) => m[1]);
-paths.push(...needs.map((k) => `/dashboard/needs?list=${k}`));
-// Screens with tabs of their own, not in the navigation.
-paths.push("/counselors?tab=contact", "/counselors?tab=hours", "/sops/where");
-
-const results = [];
-for (const p of paths) results.push(await open(p));
-
-// One of each record, found on the list that links to it.
-const firstLink = (path, re) => {
-  const r = results.find((x) => x.path === path);
-  return r?.body?.match(re)?.[0] ?? null;
-};
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-const client = firstLink("/clients", new RegExp(`/clients/${uuid}`));
-const job = firstLink("/leads", new RegExp(`/leads/${uuid}`));
-const counselor = results.find((x) => x.path.startsWith("/counselors"))?.body?.match(new RegExp(`/counselors/${uuid}`))?.[0] ?? null;
-if (client) for (const t of CLIENT_TABS) results.push(await open(`${client}?tab=${t.key}`));
-if (job) results.push(await open(job));
-if (counselor) results.push(await open(counselor));
+const firstLink = (results, path, re) => results.find((x) => x.path === path)?.body?.match(re)?.[0] ?? null;
+
+async function pass(role) {
+  const paths = [...new Set(reachableFor(role).map((i) => i.href))];
+  if (role === "Job Search") {
+    paths.push(...needs.map((k) => `/dashboard/needs?list=${k}`));
+    // Screens with tabs of their own, not in the navigation.
+    paths.push("/counselors?tab=contact", "/counselors?tab=hours", "/sops/where");
+  }
+
+  const results = [];
+  for (const p of paths) results.push(await open(p));
+
+  // One of each record, found on the list that links to it.
+  const client = firstLink(results, "/clients", new RegExp(`/clients/${uuid}`));
+  const job = firstLink(results, "/leads", new RegExp(`/leads/${uuid}`));
+  const counselor = results.find((x) => x.path.startsWith("/counselors"))?.body?.match(new RegExp(`/counselors/${uuid}`))?.[0] ?? null;
+  if (client) for (const t of CLIENT_TABS) results.push(await open(`${client}?tab=${t.key}`));
+  if (job) results.push(await open(job));
+  if (counselor) results.push(await open(counselor));
+
+  // A billing item's own record, which is only reachable as Billing.
+  const item = firstLink(results, "/billing?tab=items", new RegExp(`/billing/items/${uuid}`));
+  if (item) results.push(await open(item));
+
+  await supabase.auth.signOut().catch(() => {});
+  return { results, client, item };
+}
 
 // ── the verdict ───────────────────────────────────────────────
-await supabase.auth.signOut().catch(() => {});
-const failed = results.filter((r) => !r.ok);
-for (const r of results) console.log(`  ${r.ok ? "ok    " : "FAILED"}  ${r.path}${r.ok ? "" : `  - ${r.why}`}`);
+const all = [];
+await signIn(env("SMOKE_EMAIL"), env("SMOKE_PASSWORD"), "automated-check");
+const jobSearch = await pass("Job Search");
+all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
+
+// The Billing account is optional: until it exists the check runs as it
+// always has, and says which screens nobody is opening (0129).
+if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {
+  await signIn(process.env.SMOKE_BILLING_EMAIL, process.env.SMOKE_BILLING_PASSWORD, "automated-check (billing)");
+  const billing = await pass("Billing");
+  all.push(...billing.results.map((r) => ({ ...r, role: "Billing" })));
+  if (!billing.item) console.log("  note  no billing item was listed, so no item record was opened");
+} else {
+  const unseen = [...new Set(reachableFor("Billing").map((i) => i.href))]
+    .filter((h) => !jobSearch.results.some((r) => r.path === h));
+  console.log(`  note  no SMOKE_BILLING_EMAIL, so ${unseen.length} Billing screens were opened by nobody: ${unseen.join(", ")}`);
+}
+
+const failed = all.filter((r) => !r.ok);
+for (const r of all) console.log(`  ${r.ok ? "ok    " : "FAILED"}  ${r.role.padEnd(10)} ${r.path}${r.ok ? "" : `  - ${r.why}`}`);
 console.log("");
-if (!client) console.log("  note  no client record was listed, so no record tabs were opened");
+if (!jobSearch.client) console.log("  note  no client record was listed, so no record tabs were opened");
 if (failed.length) {
-  console.error(`${failed.length} of ${results.length} screens failed on ${BASE}.`);
+  console.error(`${failed.length} of ${all.length} screens failed on ${BASE}.`);
   process.exit(1);
 }
-console.log(`--- ALL ${results.length} SCREENS OPENED WITHOUT A SERVER ERROR (${BASE}) ---`);
+console.log(`--- ALL ${all.length} SCREENS OPENED WITHOUT A SERVER ERROR (${BASE}) ---`);

@@ -11,6 +11,11 @@
 #
 # Secrets (Settings → Secrets and variables → Actions), held nowhere else:
 #   SMOKE_EMAIL, SMOKE_PASSWORD       the automated-check account
+#   SMOKE_BILLING_EMAIL,              the second one, which is Billing: a role
+#   SMOKE_BILLING_PASSWORD            only sees its own screens, and without
+#                                     these six Billing screens are opened by
+#                                     nobody. The run says so when they are
+#                                     missing rather than passing quietly.
 #   SUPABASE_URL, SUPABASE_ANON_KEY   the project's public URL and anon key
 #   VERCEL_TOKEN                      only for the rollback; without it the
 #                                     check still fails and still opens the
@@ -98,6 +103,8 @@ jobs:
           SMOKE_BASE_URL: ${{ github.event_name == 'deployment_status' && 'https://crm.zionvocrehab.com' || inputs.url }}
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          SMOKE_BILLING_EMAIL: ${{ secrets.SMOKE_BILLING_EMAIL }}
+          SMOKE_BILLING_PASSWORD: ${{ secrets.SMOKE_BILLING_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}

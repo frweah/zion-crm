@@ -79,13 +79,36 @@ begin
     raise notice 'ok  the system account reads and cannot write; a person with the same role still can';
   end if;
 
-  -- ── Job Search and nothing more ───────────────────────────
+  -- ── Job Search or Billing, and nothing more ───────────────
   perform set_config('role', 'postgres', true);
   begin
     update public.staff set role = 'Admin' where id = v_bot;
     failures := failures || 'FAILED: a system account was made Admin'::text;
   exception when check_violation then null;
   end;
+  begin
+    update public.staff set role = 'Reports' where id = v_bot;
+    failures := failures || 'FAILED: a system account was made Intake & Reports'::text;
+  exception when check_violation then null;
+  end;
+  -- Billing is allowed (0129), because the deploy check cannot see Billing's
+  -- screens as Job Search - and an account that writes nothing is no more
+  -- dangerous as one role than as the other.
+  begin
+    update public.staff set role = 'Billing' where id = v_bot;
+  exception when check_violation then
+    failures := failures || 'FAILED: a system account cannot be Billing, so the deploy check cannot open Billing''s screens'::text;
+  end;
+  -- Whatever role it holds, it still writes nothing.
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_bot_uid, 'role', 'authenticated')::text, true);
+  update public.clients set caseload = 'ZZ by the billing bot' where id = v_client;
+  get diagnostics v_n = row_count;
+  if v_n > 0 then
+    failures := failures || 'FAILED: a Billing system account changed a client'::text;
+  end if;
+  perform set_config('role', 'postgres', true);
+  update public.staff set role = 'Job Search' where id = v_bot;
   begin
     insert into public.staff_access_grants (staff_id, area, level) values (v_bot, 'billing', 'view');
     failures := failures || 'FAILED: a system account was given an area beyond its role'::text;
@@ -102,7 +125,7 @@ begin
   if v_missing is not null then
     failures := failures || format('FAILED: these tables do not refuse the system account''s writes - call apply_system_read_only on them: %s', v_missing);
   else
-    raise notice 'ok  it is Job Search and nothing more, and every table refuses its writes';
+    raise notice 'ok  it is Job Search or Billing and nothing more, and every table refuses its writes whichever it is';
   end if;
 
   if has_function_privilege('anon', 'public.current_staff_is_system()', 'execute') then
