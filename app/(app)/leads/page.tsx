@@ -346,6 +346,11 @@ export default async function LeadsPage({
         <div className="card" style={{ padding: 0 }}>
           <DataTable
             label="employers"
+            // Fifty at a time, as everywhere else. This was the one table on
+            // the page with no page size, and it drew every employer into the
+            // page: 254 rows and 4,886 nodes on /leads, against 50 and 1,500
+            // on /clients (measured 30 Sept 2026).
+            pageSize={50}
             columns={[
               { key: "name", label: "Employer" },
               { key: "contact", label: "Contact" },
