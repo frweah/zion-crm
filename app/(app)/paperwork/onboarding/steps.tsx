@@ -10,6 +10,7 @@ import {
   savePayment,
   type OnboardingState,
 } from "./actions";
+import { readyDocument, tooBig } from "../ready-for-upload";
 import { W9Form } from "../w9-form";
 import { W8BenForm } from "../w8ben-form";
 
@@ -105,19 +106,64 @@ export function PersonalForm({ personal, today }: { personal: Personal; today: s
   );
 }
 
+/**
+ * A file form that gets the photograph ready before it goes.
+ *
+ * Both of the uploads below are "scan or photo", and both are reached most
+ * often on a phone. A phone camera's JPEG is two to five megabytes, and a
+ * server action refuses a request body over one - so the upload died before
+ * any of our code ran, and the person saw a crash rather than the 25 MB limit
+ * the screen promised them (30 Sept 2026).
+ *
+ * Shrinking happens here, in the browser: it is faster over a phone's
+ * connection, it costs the server nothing, and what is stored is the size of
+ * the thing being read rather than the size of the camera that read it.
+ */
+function usePreparedUpload(action: (formData: FormData) => void) {
+  const [preparing, setPreparing] = useState(false);
+  const [trouble, setTrouble] = useState<string | null>(null);
+
+  async function submit(formData: FormData) {
+    setTrouble(null);
+    const chosen = formData.get("file");
+    if (!(chosen instanceof File) || chosen.size === 0) {
+      setTrouble("Choose a scan or a photograph first.");
+      return;
+    }
+    setPreparing(true);
+    let ready: File;
+    try {
+      ready = await readyDocument(chosen);
+    } finally {
+      setPreparing(false);
+    }
+    const complaint = tooBig(ready);
+    if (complaint) {
+      setTrouble(complaint);
+      return;
+    }
+    formData.set("file", ready);
+    action(formData);
+  }
+
+  return { submit, preparing, trouble };
+}
+
 // ── 2 ───────────────────────────────────────────────────────
 export function IdentityUpload({ employee }: { employee: boolean }) {
   const [state, action, pending] = useActionState(uploadIdentityDocument, initial);
+  const { submit, preparing, trouble } = usePreparedUpload(action);
   return (
-    <form action={action} style={{ marginTop: 12 }}>
+    <form action={submit} style={{ marginTop: 12 }}>
       <Message state={state} />
+      {trouble && <div className="alert bad">{trouble}</div>}
       <div className="row2" style={{ alignItems: "flex-end" }}>
         <label className="field">
           {employee ? "Scan or photo of one document" : "Scan or photo"}
           <input id="ob-id-file" name="file" type="file" required accept="application/pdf,image/*" />
         </label>
-        <button className="btn gold" type="submit" disabled={pending}>
-          {pending ? "Uploading…" : "Upload"}
+        <button className="btn gold" type="submit" disabled={pending || preparing}>
+          {preparing ? "Preparing…" : pending ? "Uploading…" : "Upload"}
         </button>
       </div>
     </form>
@@ -127,6 +173,7 @@ export function IdentityUpload({ employee }: { employee: boolean }) {
 // ── 3 ───────────────────────────────────────────────────────
 export function CredentialForm({ typeKey, label, expires }: { typeKey: string; label: string; expires: boolean }) {
   const [state, action, pending] = useActionState(submitCredential, initial);
+  const { submit, preparing, trouble } = usePreparedUpload(action);
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
@@ -138,8 +185,9 @@ export function CredentialForm({ typeKey, label, expires }: { typeKey: string; l
     );
   }
   return (
-    <form action={action}>
+    <form action={submit}>
       <Message state={state} />
+      {trouble && <div className="alert bad">{trouble}</div>}
       <input type="hidden" name="type_key" value={typeKey} />
       <div className="row2" style={{ alignItems: "flex-end" }}>
         <label className="field">
@@ -158,8 +206,8 @@ export function CredentialForm({ typeKey, label, expires }: { typeKey: string; l
           Scan or photo of the card
           <input id={`ob-cred-file-${typeKey}`} name="file" type="file" required accept="application/pdf,image/*" />
         </label>
-        <button className="btn gold" type="submit" disabled={pending}>
-          {pending ? "Sending…" : "Put forward"}
+        <button className="btn gold" type="submit" disabled={pending || preparing}>
+          {preparing ? "Preparing…" : pending ? "Sending…" : "Put forward"}
         </button>
       </div>
     </form>
