@@ -5329,6 +5329,10 @@ export type Database = {
         Args: { p_name: string | null; p_contact: string | null; p_consent: string | null; p_token_hash: string | null; p_ip_hash?: string | null };
         Returns: { conversation_id: string | null; live: boolean | null; promise: string | null; assigned_name: string | null }[];
       };
+      submit_item_for_form: {
+        Args: { p_auth: string | null; p_month: string | null; p_recipient: string | null; p_staff: string | null };
+        Returns: string;
+      };
       submit_own_credential: {
         Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };
         Returns: string;

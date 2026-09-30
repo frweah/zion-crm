@@ -244,8 +244,12 @@ begin
 
   -- ── the attention list is ordered by urgency ───────────────
   if exists (
+    -- 'Awaiting check' is on the list by the view's own definition (0100):
+    -- a credential somebody has put forward and nobody has verified is
+    -- exactly a thing needing attention. This list had not caught up, and
+    -- nothing was in that state until somebody onboarded (30 Sept 2026).
     select 1 from public.credential_attention where state not in
-      ('Expired', 'Missing', 'Expiring', 'Outstanding')
+      ('Expired', 'Missing', 'Expiring', 'Outstanding', 'Awaiting check')
   ) then
     failures := failures || 'FAILED: something valid is on the list of things needing attention'::text;
   else

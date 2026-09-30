@@ -241,7 +241,7 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
 
   const { data: form } = await supabase
     .from("forms")
-    .select("id, template_id, data, status, auth_id, completed_by, completed_by_name, completed_at")
+    .select("id, template_id, data, status, auth_id, month, completed_by, completed_by_name, completed_at")
     .eq("id", formId)
     .maybeSingle();
 
@@ -403,6 +403,24 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
   if (form.auth_id) {
     const { data: invoiceId } = await supabase.rpc("draft_invoice_for_authorization", { p_auth: form.auth_id });
     if (invoiceId) billed = " A draft invoice is waiting in Billing.";
+
+    // The item this packet was for is now Submitted (0128). It is opened if
+    // there was not one: claims went out for years before anything was called
+    // an item, and a send that left no record would be the worst of both.
+    // A failure here is never a failed send - the email has gone - so it is
+    // reported to the server's log and the person is told what did happen.
+    const { data: itemId, error: itemError } = await supabase.rpc("submit_item_for_form", {
+      p_auth: form.auth_id,
+      p_month: form.month ?? "",
+      p_recipient: sentTo,
+      p_staff: me.id,
+    });
+    if (itemError) {
+      console.error("[billing] the packet was sent but its item did not move", itemError.message);
+    } else if (itemId) {
+      billed += " The billing item is marked sent.";
+      revalidatePath(`/billing/items/${itemId}`);
+    }
   }
 
   revalidatePath(`/clients/${clientId}/forms/${formId}`);

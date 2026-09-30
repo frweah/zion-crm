@@ -70,6 +70,7 @@ const RPC_FUNCTIONS = [
   "billing_item_gate",
   "billing_item_ready",
   "billing_followups_on",
+  "submit_item_for_form",
   "open_coaching_items_for",
   "current_staff_id",
   "current_staff_role",
