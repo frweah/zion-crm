@@ -19,6 +19,22 @@ const nextConfig = {
   // node_modules where it can find its own pieces.
   serverExternalPackages: ["pdfjs-dist"],
   /**
+   * How big a form sent to a server action may be.
+   *
+   * The default is 1 MB, and the onboarding screens promise 25 MB - so an ID
+   * photographed on a phone was refused by the framework before any of our
+   * code ran, and the person saw "Application error: a server-side exception
+   * has occurred" (Melanie, 30 Sept 2026, three times from an Android). The
+   * number here is the same 25 MB the screens and the upload actions already
+   * use, because two limits that disagree means the smaller one is a trap.
+   *
+   * Photographs are shrunk in the browser first (paperwork/ready-for-upload),
+   * so this is the ceiling for a large PDF rather than the everyday case.
+   */
+  experimental: {
+    serverActions: { bodySizeLimit: "25mb" },
+  },
+  /**
    * Screens that moved. Anything anybody bookmarked, linked in an email, or
    * wrote into a note still lands in the right place. Two rounds: the screens
    * moved into groups, then the consolidation (September 2026) put Admin's nine
