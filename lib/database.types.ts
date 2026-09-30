@@ -3862,6 +3862,7 @@ export type Database = {
           updated_at: string;
           source_match_id: string | null;
           source_kind: string | null;
+          source_ref: string | null;
         };
         Insert: {
           id?: string;
@@ -3878,6 +3879,7 @@ export type Database = {
           updated_at?: string;
           source_match_id?: string | null;
           source_kind?: string | null;
+          source_ref?: string | null;
         };
         Update: {
           id?: string;
@@ -3894,6 +3896,7 @@ export type Database = {
           updated_at?: string;
           source_match_id?: string | null;
           source_kind?: string | null;
+          source_ref?: string | null;
         };
         Relationships: [];
       };
@@ -4802,6 +4805,17 @@ export type Database = {
         };
         Relationships: [];
       };
+      texts_unanswered: {
+        Row: {
+          conversation_id: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          owed_by: string | null;
+          waiting_since: string | null;
+          business_days: number | null;
+        };
+        Relationships: [];
+      };
       work_hours_by_category: {
         Row: {
           staff_id: string | null;
@@ -4936,6 +4950,10 @@ export type Database = {
       edit_message: {
         Args: { p_message: string | null; p_body: string | null };
         Returns: undefined;
+      };
+      escalate_unanswered_texts: {
+        Args: { p_today: string | null };
+        Returns: number;
       };
       exclude_mail_thread: {
         Args: { p_conversation_id: string | null; p_reason?: string | null };

@@ -101,8 +101,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="side-label">Copilot</span>
         </a>
 
-        <SidebarToggle initial={narrow} />
-
         <div className="roleblock">
           <div className="who side-label">{staff.name}</div>
           <div className="side-label">{ROLE_LABEL[staff.role]}</div>
@@ -121,6 +119,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </button>
           </form>
         </div>
+
+        {/* Last thing in the sidebar, and not one of the screens. */}
+        <SidebarToggle initial={narrow} />
       </nav>
 
       <main className="main">

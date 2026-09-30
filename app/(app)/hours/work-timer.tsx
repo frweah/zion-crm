@@ -106,12 +106,10 @@ export function WorkTimer({
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h3 style={{ margin: 0 }}>Time it as you go</h3>
-          <p className="sub" style={{ margin: "4px 0 0" }}>
-            For work happening now. Nothing is logged until you end it and save.
-          </p>
-        </div>
+        {/* One line. What it is for is said once, in the hint somebody
+            sees on their first visit, and not every morning after that
+            (owner, 30 Sept 2026). */}
+        <h3 style={{ margin: 0 }}>Time it as you go</h3>
 
         {!running ? (
           <form action={startAction}>

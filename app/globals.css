@@ -1030,14 +1030,56 @@ table.t tbody tr[aria-selected="true"] td {
   flex-shrink: 0;
 }
 
-.side-toggle {
-  margin-top: 8px;
-  color: var(--side-muted);
-  font-weight: 400;
+/* A row's second and third actions. One gold button says what to do; the
+   rest are links, because three buttons of equal weight is a decision before
+   an action (owner, 30 Sept 2026). */
+.row-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
 }
 
-.side-toggle:hover {
+.row-link:hover {
+  color: var(--ink);
+}
+
+.row-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* The sidebar's own control, at its foot: a chevron pointing the way the
+   sidebar will move. Quiet, because it is not one of the screens. */
+.side-chevron {
+  margin-top: auto;
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--side-muted);
+  cursor: pointer;
+}
+
+.side-chevron:hover {
   color: var(--side-ink);
+  background: var(--side-hover);
+}
+
+.side-narrow .side-chevron {
+  align-self: center;
 }
 
 .signout {

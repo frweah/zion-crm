@@ -130,9 +130,25 @@ export default async function DashboardPage({
   // ── waiting for a reply ─────────────────────────────────────
   const isId = (v: string | null | undefined): v is string => typeof v === "string" && v.length > 0;
   const chatIds = (chatUnread.data ?? []).filter((r) => (r.unread ?? 0) > 0).map((r) => r.conversation_id).filter(isId);
-  const outsideRows = (outside.data ?? [])
+  // A message about somebody else's client is not this person's to answer,
+  // and a list of them is a list somebody scrolls past (owner, 30 Sept 2026).
+  // Mine is: a client I work or bill, a conversation assigned to me, or one
+  // assigned to nobody - which includes every unknown number, because those
+  // belong to whoever picks them up.
+  const myClientIds = new Set(
+    clients.filter((c) => c.assigned_staff_id === me.id || c.billing_staff_id === me.id).map((c) => c.id),
+  );
+  const isMine = (r: { client_id?: string | null; assigned_staff_id?: string | null }) =>
+    r.assigned_staff_id === me.id || (isId(r.client_id) ? myClientIds.has(r.client_id) : !r.assigned_staff_id);
+
+  const allOutside = (outside.data ?? [])
     .filter((r) => (r.unread ?? 0) > 0 && (isAdmin || !r.assigned_staff_id || r.assigned_staff_id === me.id))
     .flatMap((r) => (isId(r.conversation_id) ? [{ ...r, conversation_id: r.conversation_id }] : []));
+  const outsideRows = allOutside.filter(isMine);
+  // Admin can see everybody's, and is told how many rather than shown them:
+  // the practice's whole unanswered pile on one person's morning screen is
+  // how a dashboard stops being read.
+  const elsewhere = allOutside.length - outsideRows.length;
   const convIds = [...chatIds, ...outsideRows.map((r) => r.conversation_id)];
   const { data: convs } = convIds.length
     ? await supabase.from("conversations").select("id, title, last_seq, last_message_at").in("id", convIds)
@@ -159,6 +175,8 @@ export default async function DashboardPage({
     open: string;
     openLabel: string;
     read?: { conversationId: string; seq: number };
+    /** A text from a number on nobody's record: there is nobody to reply to yet. */
+    unknown?: { conversationId: string };
   };
   const waiting: Waiting[] = [
     ...chatIds.map((id) => {
@@ -178,10 +196,14 @@ export default async function DashboardPage({
     ...outsideRows.map((r) => {
       const c = convById.get(r.conversation_id);
       const web = r.kind === "web";
+      // Nobody knows whose this is yet, so "Reply" is the wrong thing to
+      // offer: the work is to find out who is texting (owner, 30 Sept 2026).
+      const unknownNumber = !web && !isId(r.client_id);
       return {
         key: `${r.kind}-${r.conversation_id}`,
         kind: web ? ("Website" as const) : ("Text" as const),
         who: r.client_name || r.who || (web ? "A visitor" : "Unknown number"),
+        unknown: unknownNumber ? { conversationId: r.conversation_id } : undefined,
         what: (r.last_body ?? "").slice(0, 120),
         since: r.last_message_at ?? new Date().toISOString(),
         // A text is answered on the client's record, where consent and the
@@ -293,7 +315,16 @@ export default async function DashboardPage({
 
   return (
     <>
-      <PageHead title="Today" context={`${ROLE_LABEL[me.role]} · ${me.name}`} />
+      {/* The date, because "Today" on a screen somebody left open yesterday
+          is not a heading, it is a claim (owner, 30 Sept 2026). */}
+      <PageHead
+        title={`Today · ${new Date(`${day}T12:00:00`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}`}
+        context={`${ROLE_LABEL[me.role]} · ${me.name}`}
+      />
 
       {microsoftNeedsAction && microsoft}
 
@@ -314,6 +345,10 @@ export default async function DashboardPage({
       {/* ── the work session ─────────────────────────────────── */}
       {logsHours && (
         <section className="day-section" aria-labelledby="day-work">
+          {/* One line: what it is, and today's figure. What it is *for*
+              is said once, in the hint, and then never again - a sentence of
+              explanation on a card somebody reads every morning is a sentence
+              they stop seeing by the second week (owner, 30 Sept 2026). */}
           <h2 className="h2" id="day-work">
             Work session <span className="day-total">{Number(summaryResult.data?.today_hours ?? 0).toFixed(2)} h today</span>
           </h2>
@@ -328,9 +363,18 @@ export default async function DashboardPage({
           {waiting.length + mailMore > 0 && <span className="chip warn">{waiting.length + mailMore}</span>}
           <span className="day-total">the number on Inbox</span>
         </h2>
+        {isAdmin && elsewhere > 0 && (
+          <p className="lock" style={{ margin: "0 0 10px" }}>
+            {elsewhere} more {elsewhere === 1 ? "conversation is" : "conversations are"} waiting on other people.{" "}
+            <Link className="row-link" href="/messages/texts?tab=texts">
+              See all
+            </Link>
+          </p>
+        )}
         {waiting.length === 0 ? (
           <p className="empty">
-            Nothing is waiting for you: no unread text, chat or website message{mail.connected ? ", and no unread mail" : ""}.
+            Nothing is waiting for you: no unread text, chat or website message about your clients
+            {mail.connected ? ", and no unread mail" : ""}.
             {!mail.connected && " Connect Outlook to see your mail here too."}
           </p>
         ) : (
@@ -340,18 +384,36 @@ export default async function DashboardPage({
                 <span className="chip">{w.kind}</span>
                 <span className="day-main">
                   <b>{w.who}</b>
+                  {w.unknown && <span className="lock"> · not on any record</span>}
                   {w.what && <span className="lock"> {w.what}</span>}
                 </span>
                 <span className="lock day-when">{ago(w.since)}</span>
+                {/* One thing to do, and it looks like it; everything else
+                    is a link. Identical grey buttons on a row make the person
+                    choose before they can act (owner, 30 Sept 2026). */}
                 <span className="day-actions">
-                  <Link className="btn ghost" href={w.open}>
-                    {w.openLabel}
-                  </Link>
+                  {w.unknown ? (
+                    <>
+                      <Link className="btn gold" href={`/messages/texts?tab=texts&c=${w.unknown.conversationId}&do=match`}>
+                        Match to client
+                      </Link>
+                      <Link className="row-link" href={`/messages/texts?tab=texts&c=${w.unknown.conversationId}&do=referral`}>
+                        Create referral
+                      </Link>
+                      <Link className="row-link" href={`/messages/texts?tab=texts&c=${w.unknown.conversationId}&do=spam`}>
+                        Spam
+                      </Link>
+                    </>
+                  ) : (
+                    <Link className="btn gold" href={w.open}>
+                      {w.openLabel}
+                    </Link>
+                  )}
                   {w.read && (
                     <form action={markConversationRead}>
                       <input type="hidden" name="conversation_id" value={w.read.conversationId} />
                       <input type="hidden" name="seq" value={w.read.seq} />
-                      <button className="btn ghost" type="submit">
+                      <button className="row-link" type="submit">
                         Mark read
                       </button>
                     </form>
