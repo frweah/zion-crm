@@ -9,6 +9,7 @@ import { listCalendar, type CalendarItem } from "@/lib/calendar-view";
 import { clientNoFromSubject } from "@/lib/graph";
 import { practiceWallToDate, dateToPracticeWall } from "@/lib/practice-time";
 import { DashboardTask } from "./dashboard-task";
+import { HomeTiles } from "./home-tiles";
 import { MicrosoftCard } from "./microsoft-card";
 import { WorkTimer } from "../hours/work-timer";
 import { NEEDS, countNeeds } from "@/lib/needs";
@@ -362,6 +363,61 @@ export default async function DashboardPage({
           <WorkTimer running={timerResult.data ?? null} clients={clients.filter((c) => c.status === "Active")} categories={(categoriesResult.data ?? []).map((c) => ({ key: c.key!, label: c.label! }))} today={day} />
         </section>
       )}
+
+      {/* ── the tiles (Design language, §1) ──────────────────── */}
+      {/* One number each, and a tap to the thing itself. What cannot be
+          counted without being read is in the sections below, which is the
+          "needs your attention" feed. */}
+      <HomeTiles
+        tiles={[
+          {
+            key: "clock",
+            label: timerResult.data ? "Clocked in" : "Work session",
+            value: timerResult.data ? "running" : `${Number(summaryResult.data?.today_hours ?? 0).toFixed(2)} h`,
+            note: timerResult.data ? "since you started" : "logged today",
+            href: "/hours",
+            lead: true,
+          },
+          {
+            key: "inbox",
+            label: "Waiting for your reply",
+            value: String(waiting.length + mailMore),
+            note: "texts, chat and mail",
+            href: "/mail",
+            bad: waiting.length + mailMore > 0,
+          },
+          {
+            key: "tasks",
+            label: "Your tasks",
+            value: String(tasks.length),
+            note: "due today or overdue",
+            href: "/tasks",
+            bad: tasks.some((t) => t.due && t.due < day),
+          },
+          {
+            key: "appointments",
+            label: "Today's appointments",
+            value: String(appointments.length),
+            note: appointments.length === 1 ? "on your calendar" : "on your calendar",
+            href: "/calendar",
+          },
+          {
+            key: "clients",
+            label: "My clients",
+            value: String(caseload?.active ?? 0),
+            note: caseload?.mineLabel ?? "active clients",
+            href: "/my-clients",
+          },
+          {
+            key: "alerts",
+            label: "Alerts for you",
+            value: String(shownAlerts.length),
+            note: "raised by the practice",
+            href: "/dashboard#alerts",
+            bad: shownAlerts.some((a) => a.level === "bad"),
+          },
+        ]}
+      />
 
       {/* ── waiting for a reply ──────────────────────────────── */}
       <section className="card day-section" aria-labelledby="day-replies">

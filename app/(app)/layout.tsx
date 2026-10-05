@@ -9,6 +9,7 @@ import { HintBar } from "./hint-bar";
 import { QuickAdd } from "./quick-add";
 import { GroupTabs } from "./group-tabs";
 import { SidebarToggle } from "./sidebar-toggle";
+import { HeaderBar } from "./header-bar";
 import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
 import { ClientSearch } from "./client-search";
@@ -136,7 +137,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               first in the tab order because it is the commonest thing anybody
               does: the work is against a person, not against a screen. */}
           <ClientSearch />
-          <QuickAdd />
+          <div className="row2" style={{ gap: 10, alignItems: "center" }}>
+            <QuickAdd />
+            {/* What is waiting, and who you are (Design language, §1). */}
+            <HeaderBar
+              name={staff.name}
+              role={ROLE_LABEL[staff.role]}
+              extra={
+                staff.grants.length > 0
+                  ? `Also ${staff.grants.map((g) => `${AREA_LABEL[g.area]} (${LEVEL_LABEL[g.level]})`).join(", ")}`
+                  : undefined
+              }
+            />
+          </div>
         </div>
 
         <Suspense fallback={null}>
