@@ -83,7 +83,7 @@ export default async function DashboardPage({
     getAlerts(),
     supabase.from("job_runs").select("last_run_at").eq("job", "notifications").maybeSingle(),
     supabase.from("clients").select("id, name, client_no, status, assigned_staff_id, billing_staff_id, stage").order("name"),
-    supabase.from("work_categories").select("key, label").eq("active", true).order("sort_order"),
+    supabase.rpc("work_categories_for", { p_role: me.role }),
     supabase
       .from("staff_checklist")
       .select("task_id, label, detail, auto_key, auto_done, done_on, required, phase")
@@ -120,6 +120,13 @@ export default async function DashboardPage({
     myMailAccess(),
   ]);
   const caseload = await loadCaseload(supabase, me);
+
+  // Who a task can be handed to. Only Admin is offered the list, so only
+  // Admin's dashboard pays for the query.
+  const { data: colleaguesRows } = isAdmin
+    ? await supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name")
+    : { data: [] as { id: string; name: string }[] };
+  const colleagues = colleaguesRows ?? [];
 
   refreshAlertsIfStale(runResult.data?.last_run_at);
 
@@ -352,7 +359,7 @@ export default async function DashboardPage({
           <h2 className="h2" id="day-work">
             Work session <span className="day-total">{Number(summaryResult.data?.today_hours ?? 0).toFixed(2)} h today</span>
           </h2>
-          <WorkTimer running={timerResult.data ?? null} clients={clients.filter((c) => c.status === "Active")} categories={categoriesResult.data ?? []} today={day} />
+          <WorkTimer running={timerResult.data ?? null} clients={clients.filter((c) => c.status === "Active")} categories={(categoriesResult.data ?? []).map((c) => ({ key: c.key!, label: c.label! }))} today={day} />
         </section>
       )}
 
@@ -442,7 +449,18 @@ export default async function DashboardPage({
           </p>
         ) : (
           tasks.slice(0, 12).map((t) => (
-            <DashboardTask key={t.id} id={t.id} title={t.title} due={t.due} clientId={t.client_id} overdue={Boolean(t.due && t.due < day)} />
+            <DashboardTask
+              key={t.id}
+              id={t.id}
+              title={t.title}
+              due={t.due}
+              clientId={t.client_id}
+              overdue={Boolean(t.due && t.due < day)}
+              assignedStaffId={me.id}
+              // Reassigning somebody else's work is Admin's; everybody else
+              // sees the date and not the name.
+              staff={isAdmin ? colleagues : []}
+            />
           ))
         )}
         {tasks.length > 12 && (

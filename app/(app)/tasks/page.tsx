@@ -36,6 +36,7 @@ export default async function TasksPage() {
     source_kind: t.source_kind,
     client_name: t.client_id ? (clientName.get(t.client_id) ?? "—") : "",
     assigned_name: t.assigned_staff_id ? (staffName.get(t.assigned_staff_id) ?? "") : "",
+    assigned_staff_id: t.assigned_staff_id,
   }));
 
   return (

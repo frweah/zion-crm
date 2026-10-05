@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git branch:*)",
+      "Bash(git merge:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git ls-files:*)",
+
+      "Bash(npm run build:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx playwright:*)",
+      "Bash(node scripts/:*)",
+      "Bash(node --experimental-strip-types scripts/:*)",
+      "Bash(node --env-file=.env.local scripts/:*)",
+      "Bash(node --check:*)",
+      "Bash(node -e:*)",
+
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(sed -n:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(mkdir:*)",
+      "Bash(hostname:*)",
+      "Bash(for:*)",
+      "Bash(rm -rf .next:*)",
+      "Bash(rm -rf .probe:*)",
+
+      "Read",
+      "Edit",
+      "Glob",
+      "Grep",
+
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:crm.zionvocrehab.com)",
+      "WebFetch(domain:api.vercel.com)",
+      "WebFetch(domain:vercel.com)"
+    ],
+    "ask": [
+      "Bash(git push:* --force*)",
+      "Bash(git push:* -f*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git branch:* -D*)",
+      "Bash(gh secret:*)",
+      "Bash(node --env-file=.env.local scripts/create-check-account.mjs:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf ..:*)"
+    ]
+  }
+}

@@ -634,12 +634,23 @@ tr.row {
   margin: 0 0 6px;
 }
 
+/* The tab strip stays put while the screen scrolls (Rei, Oct 2026): on a long
+   client record or a long list, the way back to another tab was a scroll to
+   the top. It sticks to the top of .main, which is the thing that scrolls,
+   and carries the page's own background so rows pass behind it rather than
+   through it. */
 .tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 24px;
   margin: 0 0 24px;
   border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: -32px;
+  z-index: 20;
+  background: var(--bg);
+  padding-top: 32px;
+  margin-top: -32px;
 }
 
 .tabs a {
@@ -1028,6 +1039,45 @@ table.t tbody tr[aria-selected="true"] td {
 
 .navicon {
   flex-shrink: 0;
+}
+
+/* A field edited where it is listed: it reads as the value until somebody
+   means to change it, rather than as a form sitting in a table (Rei, Oct
+   2026). */
+.inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-edit input,
+.inline-edit select {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  font: inherit;
+  color: inherit;
+  border-radius: 4px;
+  max-width: 100%;
+}
+
+.inline-edit input:hover,
+.inline-edit select:hover,
+.inline-edit input:focus,
+.inline-edit select:focus {
+  border-color: var(--field-line);
+  background: var(--paper);
+}
+
+.inline-edit .overdue {
+  color: var(--bad);
+  font-weight: 500;
+}
+
+.inline-edit-error {
+  color: var(--bad);
+  font-size: var(--text-xs);
+  max-width: 220px;
 }
 
 /* A row's second and third actions. One gold button says what to do; the

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { setStage, updateClient, updateRestricted, type DetailState } from "./actions";
 import { STAGES, CLIENT_STATUSES } from "@/lib/constants";
 
@@ -91,6 +91,8 @@ export function DetailsForm({
   const [state, action, pending] = useActionState(updateClient, initial);
 
   const officeChoices = [...new Set([...offices, client.referring_office].filter(Boolean))];
+
+  const [more, setMore] = useState(false);
 
   return (
     <div className="card">
@@ -196,79 +198,91 @@ export function DetailsForm({
           </label>
         </div>
 
-        <div className="row2" style={{ marginTop: 10 }}>
-          <label className="field">
-            Caseload
-            <input name="caseload" defaultValue={client.caseload} disabled={!canEdit} />
-          </label>
-          <label className="field">
-            Unit
-            <input name="unit" defaultValue={client.unit} disabled={!canEdit} />
-          </label>
-          <label className="field">
-            Schedule
-            <select name="schedule" defaultValue={client.schedule} disabled={!canEdit}>
-              <option value="">—</option>
-              <option>FT</option>
-              <option>PT</option>
-              <option>FT / PT</option>
-              <option>Flexible</option>
-            </select>
-          </label>
-        </div>
+        {/* Essentials first (Rei, Oct 2026): the fields somebody opens a
+            record to see are the ones on the screen, and the rest are a
+            click away rather than a scroll. Open it and it stays open
+            while this record is. */}
+        {more ? (
+          <>
+          <div className="row2" style={{ marginTop: 10 }}>
+            <label className="field">
+              Caseload
+              <input name="caseload" defaultValue={client.caseload} disabled={!canEdit} />
+            </label>
+            <label className="field">
+              Unit
+              <input name="unit" defaultValue={client.unit} disabled={!canEdit} />
+            </label>
+            <label className="field">
+              Schedule
+              <select name="schedule" defaultValue={client.schedule} disabled={!canEdit}>
+                <option value="">—</option>
+                <option>FT</option>
+                <option>PT</option>
+                <option>FT / PT</option>
+                <option>Flexible</option>
+              </select>
+            </label>
+          </div>
 
-        <div className="row2" style={{ marginTop: 10 }}>
-          <label className="field">
-            WSA tier
-            <select
-              name="wsa_tier"
-              defaultValue={client.wsa_tier ? String(client.wsa_tier) : ""}
-              disabled={!canEdit}
-            >
-              <option value="">—</option>
-              <option value="1">Tier 1</option>
-              <option value="2">Tier 2</option>
-            </select>
-          </label>
-          <label className="field">
-            WSA completed
-            <input
-              name="wsa_completed"
-              type="date"
-              defaultValue={client.wsa_completed ?? ""}
-              disabled={!canEdit}
-            />
-          </label>
-          <label className="field" style={{ flex: 2 }}>
-            Target jobs / employers
-            <input name="target_jobs" defaultValue={client.target_jobs} disabled={!canEdit} />
-          </label>
-        </div>
+          <div className="row2" style={{ marginTop: 10 }}>
+            <label className="field">
+              WSA tier
+              <select
+                name="wsa_tier"
+                defaultValue={client.wsa_tier ? String(client.wsa_tier) : ""}
+                disabled={!canEdit}
+              >
+                <option value="">—</option>
+                <option value="1">Tier 1</option>
+                <option value="2">Tier 2</option>
+              </select>
+            </label>
+            <label className="field">
+              WSA completed
+              <input
+                name="wsa_completed"
+                type="date"
+                defaultValue={client.wsa_completed ?? ""}
+                disabled={!canEdit}
+              />
+            </label>
+            <label className="field" style={{ flex: 2 }}>
+              Target jobs / employers
+              <input name="target_jobs" defaultValue={client.target_jobs} disabled={!canEdit} />
+            </label>
+          </div>
 
-        {/* From the job-search spreadsheet (0117). The alias's password is not kept in the CRM. */}
-        <div className="row2" style={{ marginTop: 10 }}>
-          <label className="field" style={{ flex: 2 }} htmlFor="client-preferred-locations">
-            Will work in
-            <input
-              id="client-preferred-locations"
-              name="preferred_locations"
-              defaultValue={client.preferred_locations}
-              placeholder="Towns or areas"
-              disabled={!canEdit}
-            />
-          </label>
-          <label className="field" style={{ flex: 2 }} htmlFor="client-job-search-email">
-            Job-search email
-            <input
-              id="client-job-search-email"
-              name="job_search_email"
-              type="email"
-              defaultValue={client.job_search_email}
-              placeholder="The alias they apply from"
-              disabled={!canEdit}
-            />
-          </label>
-        </div>
+          {/* From the job-search spreadsheet (0117). The alias's password is not kept in the CRM. */}
+          <div className="row2" style={{ marginTop: 10 }}>
+            <label className="field" style={{ flex: 2 }} htmlFor="client-preferred-locations">
+              Will work in
+              <input
+                id="client-preferred-locations"
+                name="preferred_locations"
+                defaultValue={client.preferred_locations}
+                placeholder="Towns or areas"
+                disabled={!canEdit}
+              />
+            </label>
+            <label className="field" style={{ flex: 2 }} htmlFor="client-job-search-email">
+              Job-search email
+              <input
+                id="client-job-search-email"
+                name="job_search_email"
+                type="email"
+                defaultValue={client.job_search_email}
+                placeholder="The alias they apply from"
+                disabled={!canEdit}
+              />
+            </label>
+          </div>
+          </>
+        ) : (
+          <button className="row-link" type="button" onClick={() => setMore(true)} style={{ marginTop: 12 }}>
+            Show more details
+          </button>
+        )}
 
         {canEdit && (
           <div style={{ marginTop: 12 }}>

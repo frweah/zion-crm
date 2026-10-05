@@ -7,6 +7,7 @@ import { answerReminder, type ReminderState } from "./reminder-actions";
 import { today, JOB_STATUSES } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
+import { TaskDue, TaskWho } from "../task-inline";
 
 const initial: TaskState = { error: null, ok: null };
 
@@ -18,6 +19,7 @@ export type TaskListRow = {
   client_id: string | null;
   client_name: string;
   assigned_name: string;
+  assigned_staff_id: string | null;
   system_generated: boolean;
   /** Set when this task was raised by a job, which is what makes it askable. */
   source_match_id: string | null;
@@ -245,8 +247,8 @@ export function TasksView({
                 ) : (
                   "—"
                 ),
-                assigned: t.assigned_name || "—",
-                due: <span className={"chip " + (overdue ? "bad" : "")}>{t.due ?? "—"}</span>,
+                assigned: <TaskWho taskId={t.id} staffId={t.assigned_staff_id ?? null} staff={staff} />,
+                due: <TaskDue taskId={t.id} due={t.due} overdue={Boolean(overdue)} />,
               },
             };
           })}

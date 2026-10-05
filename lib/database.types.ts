@@ -4235,6 +4235,7 @@ export type Database = {
           billable: boolean;
           sort_order: number;
           active: boolean;
+          roles: string[];
         };
         Insert: {
           key: string;
@@ -4243,6 +4244,7 @@ export type Database = {
           billable?: boolean;
           sort_order?: number;
           active?: boolean;
+          roles?: string[];
         };
         Update: {
           key?: string;
@@ -4251,6 +4253,7 @@ export type Database = {
           billable?: boolean;
           sort_order?: number;
           active?: boolean;
+          roles?: string[];
         };
         Relationships: [];
       };
@@ -5378,6 +5381,10 @@ export type Database = {
       web_chat_thread: {
         Args: { p_conversation: string | null; p_since?: number | null };
         Returns: { seq: number | null; who: string | null; sender_label: string | null; body: string | null; created_at: string | null }[];
+      };
+      work_categories_for: {
+        Args: { p_role: string | null };
+        Returns: { key: string | null; label: string | null; detail: string | null; billable: boolean | null; sort_order: number | null }[];
       };
     };
     Enums: { [_ in never]: never };

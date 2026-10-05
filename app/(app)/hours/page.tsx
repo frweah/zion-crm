@@ -16,6 +16,7 @@ import { Expenses, type ExpenseCategory, type ExpenseRow } from "./expenses";
 import { WorkTimer, HoursSummary } from "./work-timer";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
+import { StatementCard } from "./statement-card";
 
 /**
  * Hours, and - for Admin - statement approvals.
@@ -189,6 +190,7 @@ export default async function HoursPage({
     summaryResult,
     rateResult,
     categoriesResult,
+    colleaguesResult,
     expenseResult,
     expenseCategoryResult,
     currentRateResult,
@@ -224,11 +226,11 @@ export default async function HoursPage({
     // invoker over an own-row policy, so passing somebody else's returns
     // nothing — checked in verify_pay before it was put on a screen.
     supabase.rpc("pay_rate_on", { p_staff_id: me.id, p_date: today() }),
-    supabase
-      .from("work_categories")
-      .select("key, label, detail, billable")
-      .eq("active", true)
-      .order("sort_order"),
+    supabase.rpc("work_categories_for", { p_role: me.role }),
+    // Only Admin is offered other people, so only Admin's screen asks.
+    isAdmin
+      ? supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name")
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     supabase
       .from("expense_values")
       .select("*")
@@ -246,7 +248,7 @@ export default async function HoursPage({
   ]);
 
   const clients = clientsResult.data ?? [];
-  const categories = (categoriesResult.data ?? []) as CategoryOption[];
+  const categories = (categoriesResult.data ?? []) as unknown as CategoryOption[];
   const categoryLabel = new Map(categories.map((c) => [c.key, c.label]));
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
   const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
@@ -345,6 +347,9 @@ export default async function HoursPage({
           currentRateResult.data === null ? null : Number(currentRateResult.data)
         }
       />
+
+      {/* The piece of paper somebody signs (Rei, Oct 2026). */}
+      <StatementCard staff={isAdmin ? (colleaguesResult.data ?? []) : []} />
 
       <CategoryBreakdown sessions={sessions} categories={categories} />
 

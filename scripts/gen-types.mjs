@@ -72,6 +72,7 @@ const RPC_FUNCTIONS = [
   "billing_followups_on",
   "submit_item_for_form",
   "escalate_unanswered_texts",
+  "work_categories_for",
   "open_coaching_items_for",
   "current_staff_id",
   "current_staff_role",

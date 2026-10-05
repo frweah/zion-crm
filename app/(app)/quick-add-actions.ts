@@ -38,13 +38,13 @@ export async function quickAddOptions(): Promise<{
   const [{ data: clients }, { data: employers }, { data: categories }] = await Promise.all([
     supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
     supabase.from("employers").select("id, name").order("name"),
-    supabase.from("work_categories").select("key, label").eq("active", true).order("sort_order"),
+    supabase.rpc("work_categories_for", { p_role: me.role }),
   ]);
 
   return {
     clients: clients ?? [],
     employers: employers ?? [],
-    categories: categories ?? [],
+    categories: (categories ?? []).map((c) => ({ key: c.key!, label: c.label! })),
     kinds: kindsForRole(me.role),
     today: today(),
   };
