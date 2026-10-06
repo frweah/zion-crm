@@ -762,36 +762,46 @@ column the database no longer has.
 
 ---
 
-## Nobody has opened the books
+## Who opens the books, settled
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `5c84d7d`, 6 Oct 2026.
 
-**This is the one thing worth reading in this file.**
+I had this the wrong way round for an hour and the correction is the useful
+part, so it stays written down.
 
-The deploy check signs in as the automated-check account and opens every
-screen that account can reach. That account is Job Search, and the books are
-Billing's, so **not one of the fourteen screens built today has been opened
-by anything** - not by the deploy check, not by a person. The database
-underneath is held to 82 verification scripts and every rule in the brief;
-the screens are built, typed, linted against the project's own checks and
-built for production, and that is not the same as somebody having loaded one.
+The deploy check signs in as the automated-check account, which is Job
+Search, and the books are Billing's - so I concluded that none of the
+fourteen new screens had been opened by anything, and said so here in those
+words. It was a reasonable inference and it was wrong: the second account's
+secrets **are** set, the Billing pass does run, and the books were opened on
+this deploy like every other screen.
 
-The second account exists. What it is missing is two secrets.
+What settled it was the annotation that went in with this change. It fires
+only when `SMOKE_BILLING_EMAIL` is missing, and on `a3029b3` it did not
+fire, while the run's other annotations came back normally - so the branch
+that reports the gap never ran. Writing the check to say something out loud
+is what made its own silence informative.
 
-**Needs the owner — two secrets, and then this closes itself**
+**What this change is worth keeping for**
 
-Add `SMOKE_BILLING_EMAIL` and `SMOKE_BILLING_PASSWORD` to the repository's
-Actions secrets, for the "Automated check (billing)" account that already
-exists. On the next deploy the check opens every Billing screen, follows each
-hub's own cards, and fails the deploy - rolling production back - if any of
-them carries a server error.
+- The deploy check follows each hub's own cards. The navigation lists hubs,
+  not the screens inside them, so without this the eleven screens under
+  Books would have been reachable only through a list somebody maintained by
+  hand - which is the fault this check exists for, from the day Clients to
+  Jobs crashed on production after a route moved.
+- It opens a bank statement's own screen the way it already opens a client
+  and a billing item, so the moment a statement is imported that screen is
+  covered too.
+- If those secrets are ever removed, the gap is now a warning annotation on
+  the commit naming every screen nobody opened, counting the ones inside a
+  hub rather than naming the hub and meaning eleven things.
 
-Until then the check says so out loud rather than in a log: it now reports
-the screens nobody opened as a warning annotation on the commit, and counts
-the screens inside a hub rather than naming the hub and meaning eleven
-things. Today that is 21 screens: the eleven of the books, and the ten
-Billing screens that were already in the same position before any of this
-was built.
+**And the timings.** Design language step 8 asked for the clicks to be
+re-measured. On `a3029b3` the idle check raised no slow-screen warning at
+all, which means every screen went quiet inside the two-second target rather
+than merely inside the eight-second ceiling it fails on.
+
+**Needs the owner** — nothing.
 
 ---
 
