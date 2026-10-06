@@ -233,6 +233,12 @@ const RPC_FUNCTIONS = [
   "ledger_revenue_by",
   "ledger_contractor_cost",
   "ledger_1099_tie_out",
+  // Budget and forecast (0146).
+  "ledger_budget_variance",
+  "ledger_revenue_forecast",
+  "ledger_cost_forecast",
+  "ledger_payment_lag",
+  "ledger_cash_forecast",
 ];
 
 const { rows: fns } = await client.query(

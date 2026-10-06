@@ -330,3 +330,86 @@ export async function setBooksSettings(_prev: BooksState, formData: FormData): P
     ok: opened ? "Basis saved. The start date is settled: entries are already posted." : "Saved.",
   };
 }
+
+// ── the budget, and when to warn (E2) ──────────────────────
+/**
+ * One account's twelve months.
+ *
+ * An empty month is no budget at all, which is not the same as a budget of
+ * zero: an account nobody budgeted is never reported as over budget, and an
+ * account budgeted at zero is over the moment it costs anything. Clearing a
+ * month therefore deletes the row rather than writing a nought into it.
+ */
+export async function setBudget(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const account = uuid(formData.get("account_id"));
+  const year = Number(formData.get("year"));
+  if (!account) return { error: "Say which account.", ok: null };
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return { error: "Say which year.", ok: null };
+  }
+
+  const amount = (v: FormDataEntryValue | null) => {
+    const text = String(v ?? "").replace(/[$,\s]/g, "");
+    if (text === "") return null;
+    const n = Number(text);
+    return Number.isFinite(n) ? n : null;
+  };
+  const even = amount(formData.get("even"));
+
+  const entity = await entityId(supabase);
+  const keep: { entity_id: string; account_id: string; month: string; amount: number }[] = [];
+  const clear: string[] = [];
+  for (let m = 1; m <= 12; m++) {
+    const month = `${year}-${String(m).padStart(2, "0")}-01`;
+    const value = even ?? amount(formData.get(`month_${m}`));
+    if (value === null) clear.push(month);
+    else keep.push({ entity_id: entity, account_id: account, month, amount: value });
+  }
+
+  if (keep.length > 0) {
+    const { error } = await supabase.from("ledger_budgets").upsert(keep);
+    if (error) return { error: error.message, ok: null };
+  }
+  if (clear.length > 0) {
+    const { error } = await supabase
+      .from("ledger_budgets")
+      .delete()
+      .eq("entity_id", entity)
+      .eq("account_id", account)
+      .in("month", clear);
+    if (error) return { error: error.message, ok: null };
+  }
+
+  revalidatePath("/books/budget");
+  return { error: null, ok: `${keep.length} month(s) budgeted for ${year}.` };
+}
+
+/** The cash floor and the budget tolerance: both off until somebody sets them. */
+export async function setAlertThresholds(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const floorText = String(formData.get("cash_floor") ?? "").replace(/[$,\s]/g, "");
+  const floor = floorText === "" ? null : Number(floorText);
+  if (floor !== null && !Number.isFinite(floor)) return { error: "A cash floor is a number.", ok: null };
+
+  const tolerance = Number(String(formData.get("budget_tolerance") ?? "").replace(/[%\s]/g, ""));
+  if (!Number.isFinite(tolerance) || tolerance < 0 || tolerance > 999) {
+    return { error: "A tolerance is a percentage between 0 and 999.", ok: null };
+  }
+
+  const { error } = await supabase
+    .from("ledger_settings")
+    .update({ cash_floor: floor, budget_tolerance: tolerance })
+    .eq("entity_id", await entityId(supabase));
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/forecast");
+  return {
+    error: null,
+    ok: floor === null ? "Saved. No cash warning while the floor is empty." : "Saved.",
+  };
+}

@@ -2199,6 +2199,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      ledger_budgets: {
+        Row: {
+          entity_id: string;
+          account_id: string;
+          month: string;
+          amount: number;
+          note: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          entity_id: string;
+          account_id: string;
+          month: string;
+          amount: number;
+          note?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          entity_id?: string;
+          account_id?: string;
+          month?: string;
+          amount?: number;
+          note?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       ledger_entities: {
         Row: {
           id: string;
@@ -2286,18 +2316,24 @@ export type Database = {
           books_start: string;
           basis: string;
           updated_at: string;
+          cash_floor: number | null;
+          budget_tolerance: number;
         };
         Insert: {
           entity_id: string;
           books_start: string;
           basis?: string;
           updated_at?: string;
+          cash_floor?: number | null;
+          budget_tolerance?: number;
         };
         Update: {
           entity_id?: string;
           books_start?: string;
           basis?: string;
           updated_at?: string;
+          cash_floor?: number | null;
+          budget_tolerance?: number;
         };
         Relationships: [];
       };
@@ -5628,17 +5664,33 @@ export type Database = {
         Args: { p_as_of: string | null };
         Returns: { code: string | null; name: string | null; kind: string | null; balance: number | null }[];
       };
+      ledger_budget_variance: {
+        Args: { p_from: string | null; p_to: string | null };
+        Returns: { account_id: string | null; code: string | null; name: string | null; kind: string | null; budget: number | null; actual: number | null; variance: number | null; over: boolean | null }[];
+      };
       ledger_cash_flow: {
         Args: { p_from: string | null; p_to: string | null };
         Returns: { month: string | null; money_in: number | null; money_out: number | null; net: number | null; closing: number | null }[];
+      };
+      ledger_cash_forecast: {
+        Args: { p_days?: number | null };
+        Returns: { week: string | null; opening: number | null; expected_in: number | null; expected_out: number | null; closing: number | null }[];
       };
       ledger_contractor_cost: {
         Args: { p_from: string | null; p_to: string | null };
         Returns: { staff_id: string | null; person: string | null; amount: number | null }[];
       };
+      ledger_cost_forecast: {
+        Args: { p_months?: number | null };
+        Returns: { month: string | null; band: string | null; amount: number | null; note: string | null }[];
+      };
       ledger_general_ledger: {
         Args: { p_account: string | null; p_from: string | null; p_to: string | null };
         Returns: { journal_id: string | null; entry_date: string | null; memo: string | null; source_kind: string | null; source_id: string | null; debit: number | null; credit: number | null; running: number | null; client: string | null; person: string | null }[];
+      };
+      ledger_payment_lag: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       ledger_profit_and_loss: {
         Args: { p_from: string | null; p_to: string | null; p_basis?: string | null };
@@ -5647,6 +5699,10 @@ export type Database = {
       ledger_revenue_by: {
         Args: { p_from: string | null; p_to: string | null; p_dimension?: string | null };
         Returns: { label: string | null; amount: number | null }[];
+      };
+      ledger_revenue_forecast: {
+        Args: { p_months?: number | null };
+        Returns: { month: string | null; band: string | null; amount: number | null; note: string | null }[];
       };
       ledger_trial_balance: {
         Args: { p_as_of: string | null };

@@ -19,6 +19,16 @@ const PAGES: { href: string; label: string; note: string }[] = [
     note: "Profit & Loss, balance sheet, cash flow, trial balance, aging, revenue, the ledger.",
   },
   {
+    href: "/books/budget",
+    label: "Budget",
+    note: "What the practice meant to earn and spend, against what it did.",
+  },
+  {
+    href: "/books/forecast",
+    note: "Ninety days of cash, and what is expected in and out.",
+    label: "Forecast",
+  },
+  {
     href: "/books/bank",
     label: "Bank statements",
     note: "Import a statement, match what it shows, reconcile it.",

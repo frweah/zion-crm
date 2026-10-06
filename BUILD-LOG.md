@@ -423,3 +423,67 @@ and verified in October without touching the operational year still running.
   add the real ones and their last four digits on Books, Bank statements.
 - Opening balances are zero, as agreed. If that changes, they are entered
   once, on the day the books open.
+
+---
+
+## ERP E2 — budget and forecast
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Migrations 0146-0147, one verification script, two screens.
+
+**Shipped**
+
+- **A budget by account and month** (0146), typed by a person, against
+  actuals that come from the ledger. The variance is signed so positive is
+  good either way: revenue above budget and cost below it both read as a
+  gain. A column that means "more", leaving the reader to work out whether
+  more is good, is a column misread every month by everybody.
+- **A forecast in three bands, never summed into one number by the
+  database.** Committed work (an item in the pipeline, placed in the month
+  its service bills), authorized and not yet earned (spread to the
+  authorization's end date), and an estimate from the referral trend. Those
+  are three different degrees of certainty, and the month a forecast matters
+  is the month somebody needs to know which part was which.
+- **A cost forecast** of what is already owed, which is a fact, kept separate
+  from the average of the last three finished months, which is a guess.
+- **Ninety days of cash by week**, carrying the balance forward, using the
+  lag the practice actually experiences - the median days from submitting an
+  item to being paid for it, measured from its own history rather than
+  assumed. Thirty days until there is history.
+- **Two nightly alerts**: an account past its budget by more than a
+  tolerance the owner sets, and the cash forecast dropping below a floor the
+  owner sets. Both are off until somebody sets a number.
+- `verify_budget_forecast.sql`, 13 assertions. The suite is 79 scripts, 0
+  failed, and `verify_notifications.sql` still trips all eleven older rules.
+
+**Chosen against**
+
+- **An account nobody budgeted is never over budget.** A zero somebody never
+  typed is not a promise, and treating it as one would fill the alert list
+  with accounts that are "over" by whatever they happen to cost.
+- **A tolerance, not a threshold in dollars.** An account a few dollars over
+  on the second of the month is noise, and an alert that is noise is one
+  people learn to click past - which costs exactly the alert that mattered.
+- **One cash alert naming the first week it happens**, not one per week.
+  Thirteen alerts saying the same thing is the same thing said thirteen
+  times.
+- **Nothing about the forecast is stored.** Every figure is recomputed when
+  the screen opens, so a forecast cannot go stale in a table somebody forgot
+  to refresh. A budget is stored, because somebody typed it.
+- **The budget form is one account and its twelve months**, with a "the same
+  every month" box, rather than a thirty-by-twelve grid of six hundred
+  fields with one save button and no way to tell what changed.
+- **The whole notification generator was recreated to add two rules**, as
+  0121 did, because a function body cannot be amended in place. That is only
+  safe because `verify_notifications.sql` builds a situation that trips every
+  rule and asserts each kind by name: a rule lost in the copy fails a script
+  rather than going quietly missing from somebody's evening. The eleven
+  existing rules were read out of the live database rather than retyped.
+
+**Needs the owner**
+
+- **The cash floor**, on Books, Forecast. Empty means no warning.
+- **The budget itself**, when the CPA has confirmed the chart. Nothing here
+  needs the budget to exist: the variance report simply shows actuals with no
+  budget beside them.

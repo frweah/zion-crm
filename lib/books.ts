@@ -287,10 +287,19 @@ export async function readChart(supabase: Supabase) {
   }[];
 }
 
-/** How the books are kept: when they open, and on which basis. */
+/** How the books are kept, and when the owner wants to be warned. */
 export async function readSettings(supabase: Supabase) {
-  const { data } = await supabase.from("ledger_settings").select("books_start, basis").limit(1).single();
-  return (data ?? null) as { books_start: string; basis: string } | null;
+  const { data } = await supabase
+    .from("ledger_settings")
+    .select("books_start, basis, cash_floor, budget_tolerance")
+    .limit(1)
+    .single();
+  return (data ?? null) as {
+    books_start: string;
+    basis: string;
+    cash_floor: number | null;
+    budget_tolerance: number;
+  } | null;
 }
 
 /** One row per line, quoted the way a spreadsheet expects. */
