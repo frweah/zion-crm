@@ -116,6 +116,30 @@ async function pass(role) {
   const results = [];
   for (const p of paths) results.push(await open(p));
 
+  /**
+   * And whatever a hub's own cards point at.
+   *
+   * The navigation lists hubs, not the screens inside them, so ten screens
+   * under Books could have shipped with a server error and nothing would
+   * have said so - which is exactly the fault this check was written for,
+   * when Clients to Jobs crashed on production after a route moved. A hub
+   * draws its screens as cards, so following those needs no list anybody
+   * has to maintain.
+   */
+  const inside = new Set();
+  for (const r of results) {
+    if (!r.body) continue;
+    // A hub card, and nothing else: following every link on every page would
+    // chase filters and anchors and report 404s that are not faults.
+    for (const tag of r.body.matchAll(/<a[^>]*class="hub-card"[^>]*>/g)) {
+      const href = (tag[0].match(/href="([^"]+)"/) ?? [])[1];
+      if (href && href.startsWith("/") && !href.includes("#") && !paths.includes(href)) {
+        inside.add(href);
+      }
+    }
+  }
+  for (const p of inside) results.push(await open(p));
+
   // One of each record, found on the list that links to it.
   const client = firstLink(results, "/clients", new RegExp(`/clients/${uuid}`));
   const job = firstLink(results, "/leads", new RegExp(`/leads/${uuid}`));

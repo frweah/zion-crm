@@ -317,7 +317,7 @@ screens are re-timed on every deploy from here.
 
 ## ERP E1 — the ledger and the books
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `922c645`, 6 Oct 2026, live with `70d70c8` (below).
 
 Migrations 0141-0145, two verification scripts, nine screens. The books open
 on **1 January 2027** and every posting below is live from this deploy and
@@ -428,7 +428,7 @@ and verified in October without touching the operational year still running.
 
 ## ERP E2 — budget and forecast
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `dfcd915`, 6 Oct 2026, live with `70d70c8` (below).
 
 Migrations 0146-0147, one verification script, two screens.
 
@@ -492,7 +492,15 @@ Migrations 0146-0147, one verification script, two screens.
 
 ## ERP E3 — vendors, bills and purchasing
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `70d70c8`, 6 Oct 2026.
+
+Vercel's build failed on E1 and again on E2, and succeeded on this one with
+no change to the cause. Both commits build clean from a fresh clone with
+`npm ci`, which was checked rather than assumed, so the fault was not in the
+code; the most likely explanation is Vercel's build cache. Worth knowing the
+shape of it: production sat two commits behind for half an hour and the only
+sign was the deployment status, because a failed build never reaches the
+smoke test at all.
 
 Migrations 0148-0149, one verification script, three screens and two tiles on
 the owner's Home.
@@ -563,7 +571,7 @@ invisible to the history until something like this trips over it.
 
 ## ERP E4 — the asset register
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `1c5a397`, 6 Oct 2026.
 
 Migrations 0150-0151, one verification script, one screen, one column on the
 offboarding checklist.
@@ -613,7 +621,7 @@ until the books open.
 
 ## ERP E5 — more than one set of books
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `1c5a397`, 6 Oct 2026.
 
 Migration 0152, one verification script. **Nothing here changes a single
 figure while there is one entity.** That is the point: it is the groundwork,
