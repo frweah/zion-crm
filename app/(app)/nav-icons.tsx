@@ -105,6 +105,9 @@ const PATHS: Record<string, React.ReactNode> = {
 
 // The six groups (21 Sept 2026): Inbox takes the envelope, HR the case.
 PATHS.inbox = PATHS.mail;
+// The hubs kept the icons their old groups had (Design language, §1): the
+// grouping changed, the thing each one holds did not.
+PATHS.work = PATHS.clients;
 PATHS.hr = PATHS["my-work"];
 
 export function NavIcon({ name }: { name: string }) {

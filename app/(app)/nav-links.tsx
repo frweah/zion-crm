@@ -31,7 +31,8 @@ export function NavLinks({
   const pathname = usePathname();
   const unread = useUnreadMessages();
 
-  const inGroup = (items: NavItem[]) =>
+  const inGroup = (group: NavGroup, items: NavItem[]) =>
+    (group.hub ? pathname === group.hub : false) ||
     items.some((item) => {
       const path = navPath(item.href);
       return pathname === path || pathname.startsWith(path + "/");
@@ -40,11 +41,13 @@ export function NavLinks({
   return (
     <>
       {groups.map(({ group, items }) => {
-        const open = inGroup(items);
+        const open = inGroup(group, items);
         return (
           <Link
             key={group.key}
-            href={items[0].href}
+            // A hub opens on its own page of cards; a group without one goes
+            // straight to its first screen (Design language, §1).
+            href={group.hub ?? items[0].href}
             className={"navb" + (open ? " on" : "")}
             aria-current={open ? "true" : undefined}
             title={group.label}

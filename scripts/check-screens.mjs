@@ -54,8 +54,11 @@ const byPath = new Map(all.map((f) => [f.path, f.src]));
 const drawsHeader = (f) => {
   if (/\b(PageHead|RecordHeader)\b/.test(f.src)) return true;
   const dir = f.path.slice(0, f.path.lastIndexOf("/") + 1);
-  for (const m of f.src.matchAll(/from\s+"\.\/([^"]+)"/g)) {
-    const src = byPath.get(`${dir}${m[1]}.tsx`);
+  // A component beside it, or one directory up - which is where a hub page's
+  // shared body lives (Design language, §1).
+  for (const m of f.src.matchAll(/from\s+"\.(\.?)\/([^"]+)"/g)) {
+    const base = m[1] ? dir.slice(0, dir.lastIndexOf("/", dir.length - 2) + 1) : dir;
+    const src = byPath.get(`${base}${m[2]}.tsx`);
     if (src && /\b(PageHead|RecordHeader)\b/.test(src)) return true;
   }
   return false;

@@ -83,8 +83,8 @@ const nextConfig = {
       "/texts": "/messages/texts?tab=texts",
       "/website-chat": "/messages/texts?tab=web",
       "/web-chat": "/messages/texts?tab=web",
-      "/hr": "/hours",
-      "/my-work": "/hours",
+      // "/hr" is a hub page of its own now (Design language, §1).
+      "/my-work": "/hr",
       "/certifications": "/paperwork?tab=certifications",
       "/people": "/admin/people",
       "/insights": "/insights/money",

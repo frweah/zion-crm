@@ -1041,6 +1041,106 @@ table.t tbody tr[aria-selected="true"] td {
   flex-shrink: 0;
 }
 
+/* ── hubs (Design language, §1) ─────────────────────────────
+   A hub opens on its own screens as cards: a person who knows what they want
+   clicks past in a second, and a person who does not can see what the hub
+   holds without opening six screens to find out. */
+.hub-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  min-height: 84px;
+}
+
+.hub-card:hover {
+  border-color: var(--accent);
+}
+
+.hub-card-label {
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+
+.hub-card-note {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* ── the hubs on a phone ────────────────────────────────────
+   Hidden where the sidebar does this job. */
+.bottom-bar {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .bottom-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: var(--side-bg);
+    border-top: 1px solid var(--side-line);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .bottom-item {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px;
+    min-height: 48px;
+    border-radius: 8px;
+    color: var(--side-muted);
+    text-decoration: none;
+    font-size: var(--text-xs);
+  }
+
+  .bottom-item.on {
+    color: var(--side-active-ink);
+    background: var(--side-active-bg);
+  }
+
+  .bottom-badge {
+    position: absolute;
+    top: 2px;
+    right: 50%;
+    transform: translateX(18px);
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--text-xs);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Room for the bar, so the last row of a list is not under it. */
+  .main {
+    padding-bottom: 92px;
+  }
+}
+
 /* ── Home as tiles (Design language, §1) ────────────────────
    One number and one place to go. Two columns on a phone, as many as fit on
    a desk. The first tile is the day's one action and carries the accent. */

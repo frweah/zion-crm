@@ -10,6 +10,7 @@ import { QuickAdd } from "./quick-add";
 import { GroupTabs } from "./group-tabs";
 import { SidebarToggle } from "./sidebar-toggle";
 import { HeaderBar } from "./header-bar";
+import { BottomBar } from "./bottom-bar";
 import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
 import { ClientSearch } from "./client-search";
@@ -159,6 +160,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {hint && <HintBar hintKey={hint.key} title={hint.title} body={hint.body} />}
         {children}
       </main>
+      {/* The hubs where a thumb is, on a phone (Design language, §1). */}
+      <Suspense fallback={null}>
+        <BottomBar groups={nav} />
+      </Suspense>
       <LiveMessaging myId={staff.id} />
     </div>
   );

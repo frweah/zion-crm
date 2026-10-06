@@ -80,12 +80,16 @@ export type NavItem = {
   roles?: Role[];
   /** The area a grant opens it in, for somebody whose role does not include it. */
   area?: Area;
+  /** One line on the hub card saying what the screen is for. */
+  note?: string;
 };
 
 export type NavGroup = {
   key: string;
   label: string;
   items: NavItem[];
+  /** A hub opens on a page of its own feature cards (Design language, §1). */
+  hub?: string;
 };
 
 /**
@@ -121,23 +125,27 @@ const CASEWORK: Role[] = ["Admin", "Job Search", "Reports"];
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: "dashboard",
-    label: "Dashboard",
+    label: "Home",
     items: [
       // The person's day (owner, 21 Sept 2026). The counters open their lists
       // at /dashboard/needs.
       { label: "Today", href: "/dashboard", roles: EVERYONE },
-      // Every task, not only one's own - off the sidebar, under the day.
-      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks" },
     ],
   },
   {
-    key: "clients",
-    label: "Clients",
+    // Connecteam's shape (Design language, §1): three hubs, each opening on a
+    // page of feature cards. The screens did not move - what moved is how
+    // they are grouped, so that somebody looking for "the work" finds all of
+    // it in one place rather than guessing which of six headings it is under.
+    key: "work",
+    label: "Work",
+    hub: "/work",
     items: [
       // Where somebody with a caseload starts the day: their own clients and
       // what is due against each (Workflow brief, 20 Sept 2026).
       { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"] },
       { label: "Clients", href: "/clients", roles: EVERYONE },
+      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks" },
       { label: "Jobs", href: "/leads", roles: EVERYONE },
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
@@ -149,7 +157,8 @@ export const NAV_GROUPS: NavGroup[] = [
     // 21 Sept 2026). Mail is each person's own Outlook, read live; texts and
     // the website chat are one screen shown two ways.
     key: "inbox",
-    label: "Inbox",
+    label: "Communication",
+    hub: "/communication",
     items: [
       { label: "Mail", href: "/mail", roles: EVERYONE },
       { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE },
@@ -184,6 +193,7 @@ export const NAV_GROUPS: NavGroup[] = [
     // people and contractors behind them (owner, 21 Sept 2026).
     key: "hr",
     label: "HR",
+    hub: "/hr",
     items: [
       { label: "Hours", href: "/hours", roles: EVERYONE },
       { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },

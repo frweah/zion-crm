@@ -57,7 +57,8 @@ if (!problems.length) ok(`all ${linked.length} navigation links resolve to a rea
 const covered = (route) =>
   linked.some((href) => route === href || route.startsWith(href + "/"));
 
-const orphans = [...stat].filter((r) => !covered(r) && r !== "/");
+const hubs = new Set(NAV_GROUPS.map((g) => g.hub).filter(Boolean));
+const orphans = [...stat].filter((r) => !covered(r) && r !== "/" && !hubs.has(r));
 if (orphans.length) {
   fail(`no navigation reaches: ${orphans.join(", ")}`);
 } else {
@@ -122,18 +123,24 @@ for (const [role, paths] of Object.entries(STILL_REACHED)) {
 }
 if (!problems.length) ok("each role reaches exactly the screens it should, and the screens under them");
 
-// ── the six groups (owner, 21 Sept 2026) ─────────────────────
-// Dashboard · Clients · Inbox · Billing · HR · Admin, in that order, and
-// nothing else: Tasks is under Dashboard, Counselors under Clients, Insights
-// under Admin, and everything that arrives - mail, texts, chat, the website
-// chat, the calendar - is Inbox.
-const SIX = ["Dashboard", "Clients", "Inbox", "Billing", "HR", "Admin"];
+// ── the hubs (Design language, §1) ───────────────────────────
+// Home · Work · Communication · Billing · HR · Admin, in that order, and
+// nothing else. The work of the practice is one hub - clients, their tasks,
+// the jobs and the counselors - and everything that arrives is another.
+const HUBS = ["Home", "Work", "Communication", "Billing", "HR", "Admin"];
 const labels = NAV_GROUPS.map((g) => g.label);
-if (labels.join("|") !== SIX.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${SIX.join(" · ")}`);
+if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${HUBS.join(" · ")}`);
+
+// A hub opens on its own page of cards, and that page has to exist.
+for (const g of NAV_GROUPS) {
+  if (g.hub && !stat.has(g.hub)) fail(`${g.label} says its hub is ${g.hub}, and there is no page there`);
+}
+
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {
-  "/tasks": "Dashboard", "/counselors": "Clients", "/mail": "Inbox", "/messages": "Inbox", "/messages/texts": "Inbox",
-  "/calendar": "Inbox", "/hours": "HR", "/paperwork": "HR", "/sops": "HR", "/admin/people": "HR",
+  "/tasks": "Work", "/clients": "Work", "/leads": "Work", "/counselors": "Work",
+  "/mail": "Communication", "/messages": "Communication", "/messages/texts": "Communication",
+  "/calendar": "Communication", "/hours": "HR", "/paperwork": "HR", "/sops": "HR", "/admin/people": "HR",
   "/insights/money": "Admin", "/insights/reports": "Admin", "/admin/documents": "Admin", "/admin/system": "Admin",
 };
 const misplaced = Object.entries(HOMES).filter(([href, home]) => groupOf(href) !== home);
@@ -247,7 +254,8 @@ const MOVED = [
   "/chat",
   "/texts",
   "/website-chat",
-  "/hr",
+  // "/hr" was a redirect to /hours and is a hub page of its own now
+  // (Design language, §1), so it is no longer in this list.
   "/my-work",
   "/certifications",
   "/insights",
