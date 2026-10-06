@@ -36,6 +36,9 @@ if (!EMAIL || !PASSWORD) {
   process.exit(0);
 }
 
+/** The first line of an error, which is the part that says what happened. */
+const firstLine = (text) => String(text).split("\n")[0].slice(0, 200);
+
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const failures = [];
@@ -70,6 +73,7 @@ try {
     // when the real answer is usually "the password in the secret is stale".
     const said = (await page.locator(".alert").first().textContent().catch(() => null))?.trim();
     console.error(`  FAILED  the check account could not sign in${said ? `: ${said}` : ""}`);
+    console.log(`::error title=Click to quiet::The check account could not sign in${said ? `: ${said}` : ""}`);
     await browser.close();
     process.exit(1);
   }
@@ -85,6 +89,7 @@ try {
   // a check that silently measures nothing is worse than no check.
   if (links.length === 0) {
     console.error("  FAILED  signed in, but the sidebar offered no links to follow");
+    console.log("::error title=Click to quiet::Signed in, but the sidebar offered no links to follow");
     await browser.close();
     process.exit(1);
   }
@@ -102,7 +107,9 @@ try {
     await quiet(15000);
     const warm = await page.$(`nav.side a[href="${href}"]`);
     if (!warm) continue;
-    await warm.click();
+    await warm.click({ timeout: CEILING_MS }).catch((e) => {
+      throw new Error(`${href} could not be clicked: ${firstLine(String(e))}`);
+    });
     await quiet(CEILING_MS + 2000);
 
     await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
@@ -112,7 +119,9 @@ try {
     if (!target) continue;
 
     const started = Date.now();
-    await target.click();
+    await target.click({ timeout: CEILING_MS }).catch((e) => {
+      throw new Error(`${href} could not be clicked: ${firstLine(String(e))}`);
+    });
     const settled = await quiet(CEILING_MS + 2000);
     const took = settled === null ? null : Date.now() - started - QUIET_MS;
 
@@ -129,6 +138,12 @@ try {
       console.log(`  ok      ${href.padEnd(34)} ${took}ms`);
     }
   }
+} catch (err) {
+  // Anything the walk did not expect - a link that moved, a click that never
+  // landed - becomes a finding like any other, because a bare stack trace in
+  // a log says less than one line saying what it was doing.
+  const said = err instanceof Error ? firstLine(err.message) : String(err);
+  failures.push(`the walk stopped: ${said}`);
 } finally {
   await browser.close();
 }
@@ -139,6 +154,14 @@ if (slow.length) {
 }
 if (failures.length) {
   for (const f of failures) console.error(`  FAILED  ${f}`);
+  // Said as an annotation, not only in the log.
+  //
+  // On 6 Oct 2026 this check failed on step 7 and the finding was in the
+  // job log, which needs a token to read: the deploy knew which screen was
+  // stuck and nobody else could. An annotation shows on the commit and in
+  // the pull request, so what the check found is readable where the failure
+  // is seen.
+  console.log(`::error title=Click to quiet::${failures.join(" %0A ")}`);
   process.exit(1);
 }
 console.log(`--- EVERY SCREEN WENT QUIET WITHIN ${CEILING_MS}ms (${BASE}) ---`);

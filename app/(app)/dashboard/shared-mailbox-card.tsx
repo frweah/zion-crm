@@ -46,9 +46,7 @@ export function SharedMailboxCard({ mailboxes }: { mailboxes: SharedMailboxRow[]
     <div className="card" style={{ marginBottom: 18 }}>
       <h3>Shared mailbox</h3>
       <p className="sub" style={{ marginTop: 0 }}>
-        Counselor correspondence that arrives at a practice address rather than in somebody&apos;s
-        own mailbox. The same rules apply: subject, date, direction and a link, only where the
-        address is already on a client or counselor record.
+        Practice addresses, read under the same rules as anybody&apos;s own mailbox.
       </p>
 
       {state.error && <div className="alert bad">{state.error}</div>}

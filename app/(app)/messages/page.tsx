@@ -272,7 +272,7 @@ export default async function MessagesPage({
               </h2>
               {(found ?? []).length === 0 ? (
                 <p className="empty" style={{ margin: 0 }}>
-                  Nothing said that you can read. Search reaches the conversations you are in, and no further.
+                  Nothing said that you can read — search reaches the conversations you are in, and no further.
                 </p>
               ) : (
                 <ul className="mail-list">

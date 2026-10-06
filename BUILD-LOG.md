@@ -225,7 +225,7 @@ Deployed `ffb5a24`, 5 Oct 2026.
 
 ## Design language, step 7 — settings, one feature at a time
 
-Deployed `<pending>`, 5 Oct 2026.
+Deployed `f7f62fa`, 5 Oct 2026.
 
 **Shipped**
 
@@ -246,3 +246,61 @@ Deployed `<pending>`, 5 Oct 2026.
   something changed twice a year is one nobody remembers how to use.
 
 **Needs the owner** — nothing.
+
+---
+
+## Design language, step 8 — label, number, button
+
+Deployed `<pending>`, 6 Oct 2026.
+
+**Shipped**
+
+- `scripts/check-words.mjs`, in `prebuild`: an empty state is one sentence,
+  and no working screen carries more than 200 characters of explanation. The
+  rule was already agreed and already being lost, so it is checked rather
+  than remembered.
+- Fifteen screens rewritten to meet it. Empty states became one sentence by
+  joining the second clause on rather than deleting it — "Nothing yet — add
+  the first job this client has applied for" says what the two sentences
+  said. Four paragraphs of explanation on working screens were cut to the
+  one fact somebody acts on: the staff-invite screen now says people are
+  emailed an invitation and the CRM opens when they finish, instead of
+  listing the seven onboarding steps they are about to be walked through.
+- The timing check now reports what it found as a commit annotation, not only
+  in its log.
+
+**Chosen against**
+
+- Billing, authorizations, forms and warrants are exempt from the check, as
+  the brief exempts them (§4). Judging screens by a rule the brief tells us
+  to leave alone would be rewriting what was asked to stay put.
+- The hint bar, the knowledge base, onboarding and the policy screens are
+  exempt too: they exist to explain things, and a word limit on them is a
+  limit on the place the explanations were moved to.
+- The check reads only static prose. Anything assembled from an expression at
+  runtime is skipped, because what a text extractor pulls out of one is a
+  fragment of code, not a sentence worth judging.
+
+**Needs the owner** — nothing.
+
+---
+
+## The timing check, read without a token
+
+Deployed with step 8.
+
+Step 7 went live and its timing job failed, and the finding was in a GitHub
+job log, which needs a token to read: the check knew which screen was stuck
+and nobody else could. Three changes, so the next failure says what it is
+where the failure is seen:
+
+- Every finding — a slow screen, a sign-in that did not work, a sidebar with
+  no links, an error the walk did not expect — is now emitted as an `::error`
+  annotation, which shows on the commit and in the Checks list.
+- An unexpected error is collected as a finding instead of ending the run as
+  a stack trace.
+- A click waits the ceiling (8 s), not Playwright's default half-minute, and
+  names the link it was waiting on.
+
+**Needs the owner** — nothing. The step 7 finding itself is not recoverable
+without the log; the next deploy's run will state it.

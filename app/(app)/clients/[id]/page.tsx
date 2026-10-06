@@ -649,7 +649,7 @@ export default async function ClientPage({
         <h2 className="h2" style={{ margin: "0 0 8px" }}>Billing items</h2>
         {(itemRows ?? []).length === 0 ? (
           <div className="empty">
-            Nothing is being billed for this client yet. An item opens when an authorization is confirmed, and each
+            Nothing is being billed for this client yet — an item opens when an authorization is confirmed, and each
             month for Job Coaching.
           </div>
         ) : (
@@ -692,7 +692,7 @@ export default async function ClientPage({
           its row.
         */}
         <h2 className="h2" style={{ margin: "0 0 8px" }}>Authorizations</h2>
-        {(auths ?? []).length === 0 && <div className="empty">No authorizations on file. Add them from Billing.</div>}
+        {(auths ?? []).length === 0 && <div className="empty">No authorizations on file — they are added from Billing.</div>}
         {(auths ?? []).length > 0 && (
         <div className="card" style={{ padding: 0 }}>
         <DataTable
@@ -772,7 +772,7 @@ export default async function ClientPage({
             },
           };
         })}
-          empty="No authorizations on file. Add them from Billing."
+          empty="No authorizations on file — they are added from Billing."
         />
         </div>
         )}

@@ -16,9 +16,7 @@ export function PayrollService({ current }: { current: string }) {
     <div className="card" style={{ marginTop: 14 }}>
       <h3>Payroll service</h3>
       <p className="sub" style={{ marginTop: 0 }}>
-        Named to new staff in the last onboarding step, where they confirm how they are paid. Their
-        bank details go to this service directly, never to the CRM. The payer of record they see is
-        the legal name above.
+        Bank details go to this service directly, never to the CRM.
       </p>
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}

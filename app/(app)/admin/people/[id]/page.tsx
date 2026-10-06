@@ -239,7 +239,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         <div className="card">
           <h3>Policies signed</h3>
           {(signatureResult.data ?? []).length === 0 ? (
-            <p className="empty">None signed in the app. A policy signed on paper is ticked on the checklist.</p>
+            <p className="empty">None signed in the app, where a policy signed on paper is ticked on the checklist.</p>
           ) : (
             (signatureResult.data ?? []).map((g) => (
               <p key={`${g.policy_key}-${g.policy_version}`} style={{ margin: "0 0 4px" }}>

@@ -500,7 +500,7 @@ export default async function DashboardPage({
         </h2>
         {tasks.length === 0 ? (
           <p className="empty">
-            Nothing due today and nothing overdue. Everything later is on{" "}
+            Nothing due today and nothing overdue — everything later is on{" "}
             {hasCaseload ? <Link href="/tasks">Dashboard → Tasks</Link> : "your clients' records"}.
           </p>
         ) : (

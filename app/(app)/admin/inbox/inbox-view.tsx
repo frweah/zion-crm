@@ -174,8 +174,8 @@ function ReplacePlaceholder({
       <p className="sub" style={{ margin: "0 0 6px" }}>
         Or: this is the real authorization for the placeholder <b>{placeholder.number}</b> (
         {placeholder.service_type}, {Number(placeholder.carried_used)} hrs carried
-        {placeholder.total_hours ? ` of ${Number(placeholder.total_hours)}` : ""}). Replacing gives the
-        placeholder this number, so its hours, entries and invoices stay with it and nothing is duplicated.
+        {placeholder.total_hours ? ` of ${Number(placeholder.total_hours)}` : ""}). Replacing keeps its
+        hours, entries and invoices.
       </p>
       <input type="hidden" name="document_id" value={doc.id} />
       <input type="hidden" name="placeholder_id" value={placeholder.id} />
@@ -492,11 +492,8 @@ function DocumentRow({
 
       {doc.kind === "Warrant" && (
         <p className="sub" style={{ margin: "8px 0 0" }}>
-          Read as a USOR warrant stub, so nothing is settled here. The agent reads it page by page on
-          its next run, through the same checks as the _Warrants folder: both copies of each
-          V-number agree, the page adds up, the authorization is on file. Lines that pass are paid,
-          and the rest wait for review, on <Link href="/billing?tab=invoices#warrant-review">Billing → Invoices</Link>.
-          This entry closes by itself once every page is in.
+          A warrant stub: the agent reads it page by page and anything needing a person waits on{" "}
+          <Link href="/billing?tab=invoices#warrant-review">Billing → Invoices</Link>.
         </p>
       )}
 
@@ -649,7 +646,7 @@ export function InboxView({
       )}
 
       {pending.length === 0 && (
-        <p className="empty">Nothing is waiting. Everything the agent has sent has been filed or set aside.</p>
+        <p className="empty">Nothing is waiting — everything the agent has sent is filed or set aside.</p>
       )}
     </>
   );

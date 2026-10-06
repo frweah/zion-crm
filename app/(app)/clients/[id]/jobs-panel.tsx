@@ -464,7 +464,7 @@ export function JobsPanel({
       </p>
 
       {jobs.length === 0 ? (
-        <div className="empty">Nothing yet. Add the first job this client has applied for.</div>
+        <div className="empty">Nothing yet — add the first job this client has applied for.</div>
       ) : (
         // A table so the jobs sort by status, employer or date; each keeps its
         // own editor in its row. Still going first, then finished, until sorted.
@@ -497,7 +497,7 @@ export function JobsPanel({
                 ),
               },
             }))}
-            empty="Nothing yet. Add the first job this client has applied for."
+            empty="Nothing yet — add the first job this client has applied for."
           />
         </div>
       )}

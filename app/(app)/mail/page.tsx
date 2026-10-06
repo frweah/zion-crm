@@ -203,7 +203,7 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
           {!open && !openError && (
             <div className="card">
               <p className="empty" style={{ margin: 0 }}>
-                Choose a message to read it. It is read from Outlook each time and never kept in the CRM.
+                Choose a message to read it, live from Outlook and never kept in the CRM.
               </p>
             </div>
           )}

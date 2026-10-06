@@ -56,10 +56,7 @@ export function InviteForm() {
         </button>
       </form>
       <p className="sub" style={{ fontSize: "var(--text-sm)", marginTop: 10, marginBottom: 0 }}>
-        They receive an email asking them to complete onboarding, choose their own password, and
-        are taken through it on first sign-in: personal details, identity documents,
-        certifications, tax form, the data-handling policy, and payment. The rest of the CRM
-        opens when they finish.
+        They are emailed an invitation, and the CRM opens when they finish onboarding.
       </p>
     </>
   );
