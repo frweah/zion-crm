@@ -55,6 +55,9 @@ declare
     'invoices=invoices',
     'billing_items=billing',
     'practice_form_entries=practice_forms',
+    -- The ledger postings that name the person (0145), in words rather than
+    -- in debits and credits.
+    'journal_lines=books',
     'work_sessions=service_hours',
     'forms=forms',
     'placements=placements',

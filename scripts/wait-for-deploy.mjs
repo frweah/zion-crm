@@ -37,6 +37,19 @@ async function live() {
 async function run() {
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=6`, { headers });
+    // Unauthenticated, GitHub allows sixty requests an hour for the whole
+    // machine. Spending them elsewhere used to read here as "checks not
+    // started", which on 6 Oct 2026 reported a deploy as failed when its
+    // checks had simply never been asked about. Not knowing is its own
+    // answer and is said as one.
+    if (res.status === 403 || res.status === 429) {
+      const reset = Number(res.headers.get("x-ratelimit-reset"));
+      return {
+        unknown: `GitHub is rate-limiting this machine${
+          Number.isFinite(reset) ? ` until ${new Date(reset * 1000).toISOString().slice(11, 19)} UTC` : ""
+        }`,
+      };
+    }
     const body = await res.json();
     // A preview deployment's run is skipped by design; it says nothing about
     // production and should not be reported as the answer.
@@ -51,7 +64,12 @@ while (Date.now() < DEADLINE) {
   serving = await live();
   const r = await run();
   const where = serving === sha ? "live" : `live=${serving ?? "?"}`;
-  console.log(`  ${where}  checks ${r ? `${r.status}/${r.conclusion ?? "running"}` : "not started"}`);
+  const said = r?.unknown ? r.unknown : r ? `checks ${r.status}/${r.conclusion ?? "running"}` : "checks not started";
+  console.log(`  ${where}  ${said}`);
+  if (serving === sha && r?.unknown) {
+    console.error(`  UNKNOWN  ${sha} is live; ${r.unknown}, so its checks were not read`);
+    process.exit(3);
+  }
   if (serving === sha && r && r.status === "completed") {
     if (r.conclusion === "success") {
       console.log("");
@@ -64,5 +82,9 @@ while (Date.now() < DEADLINE) {
   await sleep(20000);
 }
 
+if (serving === sha) {
+  console.error(`  UNKNOWN  ${sha} is live, and no check run for it appeared within twenty minutes`);
+  process.exit(3);
+}
 console.error(`  FAILED  ${sha} did not go live within twenty minutes (serving ${serving ?? "unknown"})`);
 process.exit(2);

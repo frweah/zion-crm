@@ -312,3 +312,114 @@ screen instead of four.
 
 **Needs the owner** — nothing. Step 7's own finding is not recoverable; its
 screens are re-timed on every deploy from here.
+
+---
+
+## ERP E1 — the ledger and the books
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Migrations 0141-0145, two verification scripts, nine screens. The books open
+on **1 January 2027** and every posting below is live from this deploy and
+does nothing at all until then, which is what lets the whole module be built
+and verified in October without touching the operational year still running.
+
+**Shipped**
+
+- **Chart of accounts** (0141), seeded from the brief: bank, undeposited
+  funds, receivables, payables, contractor payables, equity, one revenue
+  account per service the practice actually bills, and the cost lines. Rows,
+  not code - the practice and its CPA change these without a deploy. An
+  account that holds postings is retired, never deleted. What the CRM posts
+  to automatically is a *role* on the account rather than a name, so renaming
+  "Accounts receivable (USOR)" cannot quietly break a posting.
+- **Double-entry journals** with three rules the database keeps rather than
+  trusts: debits equal credits (a deferred constraint, so no route commits an
+  unbalanced entry), the ledger is append-only (a mistake is reversed with a
+  reason, never edited), and a closed month refuses postings.
+- **Postings made automatically** from what the practice already records: an
+  item submitted is receivable against its service's revenue; an item paid is
+  cash in hand; a statement approved is contractor cost owed; each claim on
+  it is its own expense, mileage at the rate on the day driven; a payout
+  clears what was owed and leaves the bank. Each carries a link to the event
+  that caused it, and source-plus-event is unique, so "every source event
+  posts exactly once" is a rule and not a hope.
+- **Manual journals** (Admin, with a reason, optionally an attachment) and
+  **opening balances**, entered once and dated the day the books open. The
+  owner's answer is that they are zero, which makes this a mechanism used
+  once that has to be right anyway.
+- **Bank statements** (0143): CSV or OFX, parsed by name rather than by
+  column position; importing the same file twice adds nothing; each line is
+  matched to a posting, posted as one, or set aside with a reason; and a
+  statement **cannot be marked reconciled while a difference remains** -
+  refused, not warned about.
+- **Eleven reports** (0144) on one screen with one period picker: Profit &
+  Loss on either basis, balance sheet, cash flow, trial balance, payables
+  aging, revenue by service, office and counselor, contractor cost, the
+  general ledger, and the 1099 tie-out. Every figure is a sum of postings,
+  asked for when the screen opens: nothing stored, so no report can drift
+  from the ledger and there is no totals table to rebuild.
+- **Period close**, Admin only, with reopening written into the access log,
+  and a **year-end package**: every report for the year as a CSV plus a
+  covering note, in one zip for the CPA.
+- `verify_ledger.sql` (19 assertions) and `verify_bank_import.sql` (10). The
+  suite is 78 scripts, 0 failed.
+
+**Chosen against**
+
+- **A warrant is paid into Undeposited funds, not straight into Bank.** A
+  warrant is a cheque: it exists before it is at the bank, and the deposit is
+  a separate event the statement will show. Posting it straight to Bank would
+  make the ledger disagree with the statement by however many days the cheque
+  sat in a drawer, and bank reconciliation is the one report that cannot be
+  allowed to be approximately right.
+- **Cash comes from the billing item, not from `payments`.** `payments` is
+  what the warrant-stub reader writes when a warrant PDF is uploaded -
+  useful, optional, not always there. The billing item is what Margaret
+  always touches. Posting from both would count the same money twice.
+- **Cash basis is carried on the posting, not inferred.** A payment credits
+  receivables, not revenue, so a cash-basis Profit & Loss cannot be read off
+  the accounts. Each cash posting names the revenue or expense account it
+  belongs to, and both bases then come from one ledger rather than two.
+- **An automatic posting into a closed month moves to the next open month and
+  says on its face what day it happened.** A warrant that arrives after the
+  month was closed is still money that arrived; breaking the billing action
+  that caused it would be worse, and losing it worse still. A journal
+  somebody writes by hand into a closed month is refused outright.
+- **Eleven reports on one screen, not eleven screens.** A report is chosen
+  and a period is chosen, the same two controls every time; eleven pages
+  would be eleven places to fix the date picker.
+- **`/books`, not `/insights/books`.** check-nav holds Insights to Admin
+  alone (owner, 14 Sept 2026) and the people who read the books are the two
+  already in the Billing group all day. The sidebar entry is Billing's, with
+  posting and closing still Admin's wherever somebody arrives from.
+- **A sixty-line zip writer instead of a dependency.** The year-end package
+  is the only thing the app will ever zip. Stored entries only; a CPA's
+  unzipper does not care that CSVs were not deflated.
+- **The entity dimension is here from the start**, defaulting to Zion Voc
+  Rehab, though consolidated reporting is E5's. Retro-fitting a dimension
+  onto a year of postings is exactly the rebuild the brief says to avoid.
+- **PDF is the browser's print**, not a generated document. Every report
+  screen is already laid out for printing, and a second rendering path for
+  the same table is a second thing to keep in step.
+
+**Two things the verification suite caught that would have shipped**
+
+- `journal_lines` carries a client_id, so `verify_records_request` refused the
+  ledger the moment it existed. The answer was to include it (0145) rather
+  than to add a reason to a skipped list - the same argument that settled
+  `updates.text`: a privacy rule with a list of exceptions is one somebody
+  will add to without thinking. A records request now returns the postings
+  that name the person, in words rather than in debits and credits.
+- The eleven new tables did not refuse writes from the automated accounts.
+  `verify_system_account` named all eleven; 0143 now sweeps them.
+
+**Needs the owner**
+
+- **The CPA confirms the chart and the basis before 1 January 2027.** Cash is
+  the default, as agreed, and the toggle is on the report. Nothing here needs
+  a deploy to change.
+- **The bank account.** One ledger account is seeded as "Operating account";
+  add the real ones and their last four digits on Books, Bank statements.
+- Opening balances are zero, as agreed. If that changes, they are entered
+  once, on the day the books open.

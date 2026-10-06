@@ -192,6 +192,18 @@ export const NAV_GROUPS: NavGroup[] = [
       // The month as files, and the rate schedule. The authorizations that
       // arrive in the documents folder are confirmed on Authorizations.
       { label: "Export", href: "/billing/export", roles: BILLS, area: "billing" },
+      // The books (ERP brief, E1). Not under /insights: that is Admin's
+      // alone and the people who read the books are the two already in this
+      // group all day. The area is Billing's, which is also how a CPA is let
+      // in - a billing grant, read-only by role and logged like everything
+      // else. Posting and closing are Admin's wherever somebody comes from.
+      {
+        label: "Books",
+        href: "/books",
+        roles: BILLS,
+        area: "billing",
+        note: "The ledger, the bank, and the reports the year is closed with.",
+      },
     ],
   },
   {

@@ -213,6 +213,120 @@ export type Database = {
         };
         Relationships: [];
       };
+      bank_accounts: {
+        Row: {
+          id: string;
+          entity_id: string;
+          account_id: string;
+          name: string;
+          last4: string;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          account_id: string;
+          name: string;
+          last4?: string;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          account_id?: string;
+          name?: string;
+          last4?: string;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      bank_statements: {
+        Row: {
+          id: string;
+          bank_account_id: string;
+          period_start: string;
+          period_end: string;
+          opening_balance: number;
+          closing_balance: number;
+          imported_at: string;
+          imported_by: string | null;
+          reconciled_at: string | null;
+          reconciled_by: string | null;
+          note: string;
+        };
+        Insert: {
+          id?: string;
+          bank_account_id: string;
+          period_start: string;
+          period_end: string;
+          opening_balance: number;
+          closing_balance: number;
+          imported_at?: string;
+          imported_by?: string | null;
+          reconciled_at?: string | null;
+          reconciled_by?: string | null;
+          note?: string;
+        };
+        Update: {
+          id?: string;
+          bank_account_id?: string;
+          period_start?: string;
+          period_end?: string;
+          opening_balance?: number;
+          closing_balance?: number;
+          imported_at?: string;
+          imported_by?: string | null;
+          reconciled_at?: string | null;
+          reconciled_by?: string | null;
+          note?: string;
+        };
+        Relationships: [];
+      };
+      bank_transactions: {
+        Row: {
+          id: string;
+          statement_id: string;
+          posted_on: string;
+          description: string;
+          amount: number;
+          external_id: string;
+          journal_id: string | null;
+          status: string;
+          ignored_reason: string;
+          decided_by: string | null;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          statement_id: string;
+          posted_on: string;
+          description?: string;
+          amount: number;
+          external_id?: string;
+          journal_id?: string | null;
+          status?: string;
+          ignored_reason?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          statement_id?: string;
+          posted_on?: string;
+          description?: string;
+          amount?: number;
+          external_id?: string;
+          journal_id?: string | null;
+          status?: string;
+          ignored_reason?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+        };
+        Relationships: [];
+      };
       billing_item_events: {
         Row: {
           id: string;
@@ -1887,6 +2001,99 @@ export type Database = {
         };
         Relationships: [];
       };
+      journal_lines: {
+        Row: {
+          id: string;
+          journal_id: string;
+          account_id: string;
+          debit: number;
+          credit: number;
+          memo: string;
+          client_id: string | null;
+          staff_id: string | null;
+          counselor_id: string | null;
+          office: string;
+          service: string;
+        };
+        Insert: {
+          id?: string;
+          journal_id: string;
+          account_id: string;
+          debit?: number;
+          credit?: number;
+          memo?: string;
+          client_id?: string | null;
+          staff_id?: string | null;
+          counselor_id?: string | null;
+          office?: string;
+          service?: string;
+        };
+        Update: {
+          id?: string;
+          journal_id?: string;
+          account_id?: string;
+          debit?: number;
+          credit?: number;
+          memo?: string;
+          client_id?: string | null;
+          staff_id?: string | null;
+          counselor_id?: string | null;
+          office?: string;
+          service?: string;
+        };
+        Relationships: [];
+      };
+      journals: {
+        Row: {
+          id: string;
+          entity_id: string;
+          entry_date: string;
+          memo: string;
+          source_kind: string;
+          source_id: string | null;
+          source_event: string;
+          reverses_id: string | null;
+          reason: string;
+          attachment_path: string | null;
+          cash_class_account_id: string | null;
+          created_by: string | null;
+          created_by_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          entry_date: string;
+          memo?: string;
+          source_kind: string;
+          source_id?: string | null;
+          source_event?: string;
+          reverses_id?: string | null;
+          reason?: string;
+          attachment_path?: string | null;
+          cash_class_account_id?: string | null;
+          created_by?: string | null;
+          created_by_name?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          entry_date?: string;
+          memo?: string;
+          source_kind?: string;
+          source_id?: string | null;
+          source_event?: string;
+          reverses_id?: string | null;
+          reason?: string;
+          attachment_path?: string | null;
+          cash_class_account_id?: string | null;
+          created_by?: string | null;
+          created_by_name?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       lead_matches: {
         Row: {
           id: string;
@@ -1950,6 +2157,147 @@ export type Database = {
           interview_location?: string;
           interview_confirmed?: string;
           interview_result?: string;
+        };
+        Relationships: [];
+      };
+      ledger_accounts: {
+        Row: {
+          id: string;
+          entity_id: string;
+          code: string;
+          name: string;
+          kind: string;
+          role: string | null;
+          active: boolean;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          code: string;
+          name: string;
+          kind: string;
+          role?: string | null;
+          active?: boolean;
+          note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          code?: string;
+          name?: string;
+          kind?: string;
+          role?: string | null;
+          active?: boolean;
+          note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ledger_entities: {
+        Row: {
+          id: string;
+          name: string;
+          is_default: boolean;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          is_default?: boolean;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          is_default?: boolean;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      ledger_expense_map: {
+        Row: {
+          category: string;
+          account_id: string;
+        };
+        Insert: {
+          category: string;
+          account_id: string;
+        };
+        Update: {
+          category?: string;
+          account_id?: string;
+        };
+        Relationships: [];
+      };
+      ledger_periods: {
+        Row: {
+          entity_id: string;
+          month: string;
+          closed_at: string;
+          closed_by: string | null;
+          closed_by_name: string;
+          note: string;
+        };
+        Insert: {
+          entity_id: string;
+          month: string;
+          closed_at?: string;
+          closed_by?: string | null;
+          closed_by_name?: string;
+          note?: string;
+        };
+        Update: {
+          entity_id?: string;
+          month?: string;
+          closed_at?: string;
+          closed_by?: string | null;
+          closed_by_name?: string;
+          note?: string;
+        };
+        Relationships: [];
+      };
+      ledger_revenue_map: {
+        Row: {
+          service: string;
+          account_id: string;
+        };
+        Insert: {
+          service: string;
+          account_id: string;
+        };
+        Update: {
+          service?: string;
+          account_id?: string;
+        };
+        Relationships: [];
+      };
+      ledger_settings: {
+        Row: {
+          entity_id: string;
+          books_start: string;
+          basis: string;
+          updated_at: string;
+        };
+        Insert: {
+          entity_id: string;
+          books_start: string;
+          basis?: string;
+          updated_at?: string;
+        };
+        Update: {
+          entity_id?: string;
+          books_start?: string;
+          basis?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -5076,6 +5424,14 @@ export type Database = {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
       };
+      bank_reconciliation: {
+        Args: { p_statement: string | null };
+        Returns: { statement_total: number | null; statement_closing: number | null; ledger_closing: number | null; unsettled: number | null; difference: number | null }[];
+      };
+      bank_suggestions: {
+        Args: { p_statement: string | null };
+        Returns: { transaction_id: string | null; kind: string | null; why: string | null; account_id: string | null; journal_id: string | null }[];
+      };
       billing_followups_on: {
         Args: { p_today: string | null };
         Returns: number;
@@ -5115,6 +5471,10 @@ export type Database = {
       client_next_actions: {
         Args: { p_client: string | null };
         Returns: { kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
+      };
+      close_ledger_month: {
+        Args: { p_month: string | null; p_note?: string | null };
+        Returns: undefined;
       };
       confirm_authorization_document: {
         Args: { p_attachment?: string | null; p_doc?: string | null; p_auth?: string | null; p_number?: string | null; p_service_type?: string | null; p_rate_type?: string | null; p_rate?: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null };
@@ -5216,6 +5576,14 @@ export type Database = {
         Args: { p_placement: string | null };
         Returns: { met: number | null; unanswered: number | null; total: number | null }[];
       };
+      ignore_bank_transaction: {
+        Args: { p_transaction: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
+      import_bank_statement: {
+        Args: { p_bank_account: string | null; p_period_start: string | null; p_period_end: string | null; p_opening: number | null; p_closing: number | null; p_rows: Json | null };
+        Returns: string;
+      };
       inbox_document_open_to_me: {
         Args: { p_doc: string | null };
         Returns: boolean;
@@ -5248,6 +5616,42 @@ export type Database = {
         Args: { p_conversation: string | null };
         Returns: undefined;
       };
+      ledger_1099_tie_out: {
+        Args: { p_year: number | null };
+        Returns: { staff_id: string | null; person: string | null; recorded: number | null; posted: number | null; on_the_1099: number | null; difference: number | null }[];
+      };
+      ledger_ap_aging: {
+        Args: { p_as_of: string | null };
+        Returns: { staff_id: string | null; person: string | null; bucket: string | null; amount: number | null }[];
+      };
+      ledger_balance_sheet: {
+        Args: { p_as_of: string | null };
+        Returns: { code: string | null; name: string | null; kind: string | null; balance: number | null }[];
+      };
+      ledger_cash_flow: {
+        Args: { p_from: string | null; p_to: string | null };
+        Returns: { month: string | null; money_in: number | null; money_out: number | null; net: number | null; closing: number | null }[];
+      };
+      ledger_contractor_cost: {
+        Args: { p_from: string | null; p_to: string | null };
+        Returns: { staff_id: string | null; person: string | null; amount: number | null }[];
+      };
+      ledger_general_ledger: {
+        Args: { p_account: string | null; p_from: string | null; p_to: string | null };
+        Returns: { journal_id: string | null; entry_date: string | null; memo: string | null; source_kind: string | null; source_id: string | null; debit: number | null; credit: number | null; running: number | null; client: string | null; person: string | null }[];
+      };
+      ledger_profit_and_loss: {
+        Args: { p_from: string | null; p_to: string | null; p_basis?: string | null };
+        Returns: { code: string | null; name: string | null; kind: string | null; amount: number | null }[];
+      };
+      ledger_revenue_by: {
+        Args: { p_from: string | null; p_to: string | null; p_dimension?: string | null };
+        Returns: { label: string | null; amount: number | null }[];
+      };
+      ledger_trial_balance: {
+        Args: { p_as_of: string | null };
+        Returns: { code: string | null; name: string | null; kind: string | null; debits: number | null; credits: number | null; balance: number | null }[];
+      };
       link_document_to_authorization: {
         Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start?: string | null; p_end?: string | null; p_outcome?: string | null; p_ocr?: boolean | null };
         Returns: { attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
@@ -5270,6 +5674,10 @@ export type Database = {
       };
       mark_read: {
         Args: { p_conversation: string | null; p_seq: number | null };
+        Returns: undefined;
+      };
+      match_bank_transaction: {
+        Args: { p_transaction: string | null; p_journal: string | null };
         Returns: undefined;
       };
       match_conversation: {
@@ -5368,6 +5776,14 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      post_bank_transaction: {
+        Args: { p_transaction: string | null; p_account: string | null; p_memo?: string | null };
+        Returns: string;
+      };
+      post_manual_journal: {
+        Args: { p_entry_date: string | null; p_memo: string | null; p_reason: string | null; p_lines: Json | null; p_attachment?: string | null };
+        Returns: string;
+      };
       post_message: {
         Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null };
         Returns: string;
@@ -5399,6 +5815,10 @@ export type Database = {
       read_client_private: {
         Args: { p_client_id: string | null; p_purpose?: string | null };
         Returns: { dob: string | null; address: string | null; allowed: boolean | null }[];
+      };
+      reconcile_bank_statement: {
+        Args: { p_statement: string | null };
+        Returns: undefined;
       };
       reconcile_warrant_line: {
         Args: { p_line: string | null; p_by_hand?: boolean | null; p_auth?: string | null; p_amount?: number | null };
@@ -5444,9 +5864,17 @@ export type Database = {
         Args: { p_message: string | null };
         Returns: undefined;
       };
+      reopen_ledger_month: {
+        Args: { p_month: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
       replace_placeholder_authorization: {
         Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
+      reverse_journal: {
+        Args: { p_journal: string | null; p_reason: string | null };
+        Returns: string;
       };
       revoke_staff_access: {
         Args: { p_grant: string | null; p_reason: string | null };
@@ -5503,6 +5931,10 @@ export type Database = {
       set_my_signature: {
         Args: { p_path: string | null };
         Returns: undefined;
+      };
+      set_opening_balances: {
+        Args: { p_lines: Json | null };
+        Returns: string;
       };
       set_sms_consent: {
         Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note?: string | null };

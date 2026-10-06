@@ -209,6 +209,30 @@ const RPC_FUNCTIONS = [
   "invoice_date_for",
   "client_merged_into",
   "merge_clients",
+  // The books (0141-0144). post_journal is not here on purpose: it is the
+  // posting engine the triggers call, and nothing outside the database is
+  // meant to reach it.
+  "post_manual_journal",
+  "reverse_journal",
+  "set_opening_balances",
+  "close_ledger_month",
+  "reopen_ledger_month",
+  "import_bank_statement",
+  "bank_suggestions",
+  "match_bank_transaction",
+  "post_bank_transaction",
+  "ignore_bank_transaction",
+  "bank_reconciliation",
+  "reconcile_bank_statement",
+  "ledger_trial_balance",
+  "ledger_profit_and_loss",
+  "ledger_balance_sheet",
+  "ledger_cash_flow",
+  "ledger_ap_aging",
+  "ledger_general_ledger",
+  "ledger_revenue_by",
+  "ledger_contractor_cost",
+  "ledger_1099_tie_out",
 ];
 
 const { rows: fns } = await client.query(
