@@ -50,6 +50,87 @@ export async function createTask(_prev: TaskState, formData: FormData): Promise<
  * screen, which is why both of these end by asking what the database actually
  * changed.
  */
+/**
+ * A step of a task, a word about one, and how often it comes round
+ * (Design language, §2/§3).
+ *
+ * A step is a task, so it goes through the same rules and shows the same
+ * history; what makes it a step is its parent, and the database refuses a
+ * step of a step because a tree nobody can read is worse than a flat list.
+ */
+export async function addStep(_prev: TaskState, formData: FormData): Promise<TaskState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const parent = String(formData.get("parent_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) return { error: "Say what the step is.", ok: null };
+
+  const supabase = await createClient();
+  const { data: owner } = await supabase
+    .from("tasks")
+    .select("client_id, assigned_staff_id, due")
+    .eq("id", parent)
+    .maybeSingle();
+  if (!owner) return { error: "That task is not yours to add to.", ok: null };
+
+  const { error } = await supabase.from("tasks").insert({
+    parent_id: parent,
+    title,
+    client_id: owner.client_id,
+    assigned_staff_id: owner.assigned_staff_id,
+    due: owner.due,
+    status: "Open",
+    created_by: me.id,
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+  return { error: null, ok: null };
+}
+
+export async function commentOnTask(_prev: TaskState, formData: FormData): Promise<TaskState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const taskId = String(formData.get("task_id") ?? "");
+  const said = String(formData.get("said") ?? "").trim();
+  if (!said) return { error: "Nothing to add.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("task_comments")
+    .insert({ task_id: taskId, staff_id: me.id, staff_name: me.name, said });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/tasks");
+  return { error: null, ok: null };
+}
+
+/** How often it comes round. Finishing one opens the next (0138). */
+export async function setTaskRepeat(_prev: TaskState, formData: FormData): Promise<TaskState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const taskId = String(formData.get("task_id") ?? "");
+  const every = String(formData.get("repeat_every") ?? "").trim();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ repeat_every: every || null })
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message, ok: null };
+  if (!data) return { error: "Only the person a task is assigned to, whoever raised it, or Admin can change it.", ok: null };
+
+  revalidatePath("/tasks");
+  return { error: null, ok: null };
+}
+
 export async function setTaskDue(_prev: TaskState, formData: FormData): Promise<TaskState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };

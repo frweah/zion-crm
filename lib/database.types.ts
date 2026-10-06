@@ -3846,6 +3846,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      task_comments: {
+        Row: {
+          id: string;
+          task_id: string;
+          staff_id: string | null;
+          staff_name: string | null;
+          said: string;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          staff_id?: string | null;
+          staff_name?: string | null;
+          said: string;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          staff_id?: string | null;
+          staff_name?: string | null;
+          said?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
       tasks: {
         Row: {
           id: string;
@@ -3863,6 +3890,9 @@ export type Database = {
           source_match_id: string | null;
           source_kind: string | null;
           source_ref: string | null;
+          parent_id: string | null;
+          repeat_every: string | null;
+          repeat_until: string | null;
         };
         Insert: {
           id?: string;
@@ -3880,6 +3910,9 @@ export type Database = {
           source_match_id?: string | null;
           source_kind?: string | null;
           source_ref?: string | null;
+          parent_id?: string | null;
+          repeat_every?: string | null;
+          repeat_until?: string | null;
         };
         Update: {
           id?: string;
@@ -3897,6 +3930,9 @@ export type Database = {
           source_match_id?: string | null;
           source_kind?: string | null;
           source_ref?: string | null;
+          parent_id?: string | null;
+          repeat_every?: string | null;
+          repeat_until?: string | null;
         };
         Relationships: [];
       };

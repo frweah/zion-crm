@@ -11,7 +11,9 @@ export default async function TasksPage() {
   // draws the same line.
   let query = supabase
     .from("tasks")
-    .select("id, title, due, status, client_id, assigned_staff_id, system_generated, source_match_id, source_kind");
+    .select(
+      "id, title, due, status, client_id, assigned_staff_id, system_generated, source_match_id, source_kind, parent_id, repeat_every",
+    );
   if (!isAdmin) query = query.eq("assigned_staff_id", me.id);
 
   const [tasksResult, clientsResult, staffResult] = await Promise.all([
@@ -37,6 +39,8 @@ export default async function TasksPage() {
     client_name: t.client_id ? (clientName.get(t.client_id) ?? "—") : "",
     assigned_name: t.assigned_staff_id ? (staffName.get(t.assigned_staff_id) ?? "") : "",
     assigned_staff_id: t.assigned_staff_id,
+    parent_id: t.parent_id,
+    repeat_every: t.repeat_every,
   }));
 
   return (

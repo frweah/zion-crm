@@ -98,7 +98,7 @@ Deployed `8e3dd0c`, 5 Oct 2026.
 
 ## Design language, step 4 — Updates, Directory, and the two-pane Inbox
 
-Deployed `<pending>`, 5 Oct 2026.
+Deployed `8e07116`, 5 Oct 2026.
 
 **Shipped**
 
@@ -135,5 +135,37 @@ announcement written in the CRM rather than a copy of anybody's message, but
 the column was renamed to `text` (what `notifications` already uses) rather
 than given an exception: a privacy rule with a list of exceptions is one
 somebody will add to without thinking.
+
+**Needs the owner** — nothing.
+
+---
+
+## Design language, step 5 — tasks as checklists
+
+Deployed `<pending>`, 5 Oct 2026.
+
+**Shipped**
+
+- **Steps.** A task can have steps, and a step is a task: same rules, same
+  inline editing, same history. The database refuses a step of a step and
+  refuses to let a step repeat — the task it belongs to does that.
+- **Notes.** A word about why something slipped or what to try next, which
+  was going in the title. A note cannot be edited afterwards: one somebody can
+  rewrite is not a record of what was said.
+- **Repeating.** Week, month, quarter, 90 days, year. Finishing one opens the
+  next, **dated from the one just finished**, so a report sent a fortnight
+  late does not push every future month a fortnight late — and the new one
+  carries the steps, unfinished.
+- The list is a checklist: a finished row strikes, goes grey and drops to the
+  bottom; steps sit under their task rather than loose among the others.
+- `verify_task_checklists.sql` covers all of it, including that a one-off
+  opens nothing and a repeat stops when told to.
+
+**Chosen against**
+
+- Repeating is a database trigger rather than a nightly job, because a task is
+  finished from four different screens and all four should behave the same.
+- Attachments on a task are not built. The file plumbing arrives with E3's
+  `_Bills` folder, and doing it once is better than twice.
 
 **Needs the owner** — nothing.
