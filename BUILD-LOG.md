@@ -792,3 +792,30 @@ the screens inside a hub rather than naming the hub and meaning eleven
 things. Today that is 21 screens: the eleven of the books, and the ten
 Billing screens that were already in the same position before any of this
 was built.
+
+---
+
+## Closing a paid item is not undoing it
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Found by reading the posting trigger back against Margaret's statuses rather
+than against the test that passes. It reversed the cash whenever an item left
+Paid for anything else, which is right for every status but one: **Closed**
+is an ending, not a correction. An item that was paid and is then closed off
+has still been paid, and the money is still in the practice's hands.
+
+Left alone, closing a paid item would have taken a real receipt off the
+books, with a reversal nobody would read until a month would not reconcile -
+and the month it first mattered would be a month somebody had already
+reported on.
+
+The reversal now happens only for the statuses that mean the payment came
+undone: back to Submitted, Pending, Correction needed, Billing review or
+Ready for billing. **Submitted** is deliberately unchanged - an item
+submitted and then closed has been refused or abandoned, and what was owed
+should come off.
+
+`verify_ledger.sql` gained the assertion, and is now 26.
+
+**Needs the owner** — nothing.

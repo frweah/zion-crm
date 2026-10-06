@@ -247,6 +247,32 @@ begin
     raise notice 'ok  a payment undone is reversed, not erased';
   end if;
 
+  -- ── but closing a paid item is not undoing it ─────────────
+  --
+  -- Closed is an ending, not a correction. An item that was paid and is then
+  -- closed off has still been paid, and reversing it would take real money
+  -- off the books with a reversal nobody would read until the month would
+  -- not reconcile.
+  update public.billing_items
+     set status = 'Paid', paid_on = date '2026-04-20', paid_amount = 400 where id = v_item;
+  select count(*) into v_n from public.journals j
+   where j.source_kind = 'Reversal'
+     and j.reverses_id in (select id from public.journals
+                            where source_kind = 'Billing item' and source_id = v_item
+                              and source_event like 'Paid%');
+  update public.billing_items
+     set status = 'Closed', closed_reason = 'ZZ finished with' where id = v_item;
+  select count(*) - v_n into v_n from public.journals j
+   where j.source_kind = 'Reversal'
+     and j.reverses_id in (select id from public.journals
+                            where source_kind = 'Billing item' and source_id = v_item
+                              and source_event like 'Paid%');
+  if v_n <> 0 then
+    failures := failures || 'FAILED: closing a paid item reversed the money it had been paid'::text;
+  else
+    raise notice 'ok  closing a paid item leaves the money where it is';
+  end if;
+
   -- ── a statement approved, and the claims on it ────────────
   insert into public.mileage_rates (effective_from, cents_per_mile)
   values (date '2026-01-01', 67) on conflict do nothing;
