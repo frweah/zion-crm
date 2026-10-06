@@ -829,3 +829,42 @@ should come off.
 `verify_ledger.sql` gained the assertion, and is now 26.
 
 **Needs the owner** — nothing.
+
+---
+
+## Tidying: the old branches, and the token slot
+
+6 Oct 2026. No deploy; neither of these touches the app.
+
+**Thirteen merged branches deleted.** Every one was fully merged into main,
+so nothing unique went with them. Their heads, for the record, in case a name
+is ever wanted again: audit-passes `2eff812`, dashboard-refinements
+`92804f3`, design-step-1 `e4603ec`, design-step-2 `4cdf2ff`, design-step-3
+`8e3dd0c`, design-step-4 `8e07116`, design-step-5 `42af989`, design-step-6
+`ffb5a24`, design-step-7 `531ace3`, fix-signature-upload `97aded9`,
+idle-warm `b4da89b`, page-timings `79dac28`, rei-items `55c7f9b`.
+
+**Two branches kept, deliberately.**
+
+- `portal` is not merged into main. It is the client-portal work, which the
+  owner put on hold, and this branch is the only place it exists - locally
+  and on the remote. Deleting it would throw the work away rather than tidy
+  up.
+- `claude/competent-darwin-de263d` is fully merged and holds nothing main
+  does not, but it is checked out in a session worktree under
+  `.claude/worktrees/`, which belongs to another session rather than to this
+  one. Git will not delete a branch somebody has checked out, and removing
+  another session's worktree is not tidying. It comes away with Settings,
+  Storage, "Clean up inactive sessions" once that session has been quiet
+  thirty days.
+
+**The token slot is documented, not filled.** `.env.example` now carries
+`GITHUB_TOKEN` with the exact scopes - fine-grained, this repository only,
+read-only Actions and Deployments, nothing else. The value is the owner's to
+generate and paste into `.env.local`, which is git-ignored; issuing secrets
+is not something this session does, and a token pasted into a chat would be a
+token that then lives in a transcript.
+
+**Needs the owner** — generate that token if the deploy watcher is worth
+five thousand requests an hour to them, and paste it into `.env.local`.
+Nothing breaks without it.
