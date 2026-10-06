@@ -247,6 +247,16 @@ const RPC_FUNCTIONS = [
   // Called by the nightly job as the service role, typed so that call is
   // checked like any other.
   "create_due_recurring_bills",
+  // The asset register (0150). post_depreciation_for is the nightly job's.
+  "assign_asset",
+  "assets_held_by",
+  "dispose_asset",
+  "asset_register",
+  "post_depreciation_for",
+  // More than one set of books (0152).
+  "my_entities",
+  "create_entity",
+  "post_inter_entity_transfer",
 ];
 
 const { rows: fns } = await client.query(

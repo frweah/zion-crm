@@ -42,6 +42,162 @@ export type Database = {
         };
         Relationships: [];
       };
+      asset_assignments: {
+        Row: {
+          id: string;
+          asset_id: string;
+          staff_id: string | null;
+          staff_name: string;
+          from_date: string;
+          to_date: string | null;
+          note: string;
+          recorded_by: string | null;
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          asset_id: string;
+          staff_id?: string | null;
+          staff_name?: string;
+          from_date: string;
+          to_date?: string | null;
+          note?: string;
+          recorded_by?: string | null;
+          recorded_at?: string;
+        };
+        Update: {
+          id?: string;
+          asset_id?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+          from_date?: string;
+          to_date?: string | null;
+          note?: string;
+          recorded_by?: string | null;
+          recorded_at?: string;
+        };
+        Relationships: [];
+      };
+      asset_classes: {
+        Row: {
+          key: string;
+          label: string;
+          life_months: number | null;
+          capitalise_over: number;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          life_months?: number | null;
+          capitalise_over?: number;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          life_months?: number | null;
+          capitalise_over?: number;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      asset_depreciation: {
+        Row: {
+          asset_id: string;
+          month: string;
+          amount: number;
+          journal_id: string | null;
+          posted_at: string;
+        };
+        Insert: {
+          asset_id: string;
+          month: string;
+          amount: number;
+          journal_id?: string | null;
+          posted_at?: string;
+        };
+        Update: {
+          asset_id?: string;
+          month?: string;
+          amount?: number;
+          journal_id?: string | null;
+          posted_at?: string;
+        };
+        Relationships: [];
+      };
+      assets: {
+        Row: {
+          id: string;
+          entity_id: string;
+          tag: string;
+          name: string;
+          class_key: string;
+          serial: string;
+          cost: number;
+          acquired_on: string;
+          warranty_end: string | null;
+          photo_path: string | null;
+          status: string;
+          assigned_staff_id: string | null;
+          bill_id: string | null;
+          disposed_on: string | null;
+          disposal_reason: string;
+          proceeds: number | null;
+          note: string;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          tag: string;
+          name: string;
+          class_key: string;
+          serial?: string;
+          cost: number;
+          acquired_on: string;
+          warranty_end?: string | null;
+          photo_path?: string | null;
+          status?: string;
+          assigned_staff_id?: string | null;
+          bill_id?: string | null;
+          disposed_on?: string | null;
+          disposal_reason?: string;
+          proceeds?: number | null;
+          note?: string;
+          created_at?: string;
+          created_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          tag?: string;
+          name?: string;
+          class_key?: string;
+          serial?: string;
+          cost?: number;
+          acquired_on?: string;
+          warranty_end?: string | null;
+          photo_path?: string | null;
+          status?: string;
+          assigned_staff_id?: string | null;
+          bill_id?: string | null;
+          disposed_on?: string | null;
+          disposal_reason?: string;
+          proceeds?: number | null;
+          note?: string;
+          created_at?: string;
+          created_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       attachments: {
         Row: {
           id: string;
@@ -3984,6 +4140,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_entities: {
+        Row: {
+          staff_id: string;
+          entity_id: string;
+          granted_at: string;
+          granted_by: string | null;
+        };
+        Insert: {
+          staff_id: string;
+          entity_id: string;
+          granted_at?: string;
+          granted_by?: string | null;
+        };
+        Update: {
+          staff_id?: string;
+          entity_id?: string;
+          granted_at?: string;
+          granted_by?: string | null;
+        };
+        Relationships: [];
+      };
       staff_file_categories: {
         Row: {
           key: string;
@@ -5515,6 +5692,7 @@ export type Database = {
           running_timers: number | null;
           documents_held: number | null;
           mailbox_connected: number | null;
+          assets_held: number | null;
         };
         Relationships: [];
       };
@@ -5703,6 +5881,18 @@ export type Database = {
         Args: { p_conversation: string | null; p_archived?: boolean | null };
         Returns: undefined;
       };
+      asset_register: {
+        Args: { p_as_of?: string | null };
+        Returns: { id: string | null; tag: string | null; name: string | null; class_label: string | null; serial: string | null; cost: number | null; written_off: number | null; book_value: number | null; acquired_on: string | null; warranty_end: string | null; status: string | null; held_by: string | null }[];
+      };
+      assets_held_by: {
+        Args: { p_staff: string | null };
+        Returns: { id: string | null; tag: string | null; name: string | null; class_label: string | null; since: string | null }[];
+      };
+      assign_asset: {
+        Args: { p_asset: string | null; p_staff: string | null; p_note?: string | null };
+        Returns: undefined;
+      };
       assign_conversation: {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
@@ -5779,6 +5969,10 @@ export type Database = {
         Args: { p_today?: string | null };
         Returns: number;
       };
+      create_entity: {
+        Args: { p_name: string | null; p_books_start?: string | null; p_copy_chart_from?: string | null };
+        Returns: string;
+      };
       current_staff_id: {
         Args: Record<string, never>;
         Returns: string;
@@ -5794,6 +5988,10 @@ export type Database = {
       dismiss_warrant_line: {
         Args: { p_line: string | null; p_reason: string | null };
         Returns: undefined;
+      };
+      dispose_asset: {
+        Args: { p_asset: string | null; p_on: string | null; p_reason: string | null; p_proceeds?: number | null };
+        Returns: string;
       };
       draft_invoice_for_authorization: {
         Args: { p_auth: string | null };
@@ -5912,19 +6110,19 @@ export type Database = {
         Returns: { staff_id: string | null; person: string | null; recorded: number | null; posted: number | null; on_the_1099: number | null; difference: number | null }[];
       };
       ledger_ap_aging: {
-        Args: { p_as_of: string | null };
+        Args: { p_as_of: string | null; p_entity?: string | null };
         Returns: { staff_id: string | null; person: string | null; bucket: string | null; amount: number | null }[];
       };
       ledger_balance_sheet: {
-        Args: { p_as_of: string | null };
+        Args: { p_as_of: string | null; p_entity?: string | null };
         Returns: { code: string | null; name: string | null; kind: string | null; balance: number | null }[];
       };
       ledger_budget_variance: {
-        Args: { p_from: string | null; p_to: string | null };
+        Args: { p_from: string | null; p_to: string | null; p_entity?: string | null };
         Returns: { account_id: string | null; code: string | null; name: string | null; kind: string | null; budget: number | null; actual: number | null; variance: number | null; over: boolean | null }[];
       };
       ledger_cash_flow: {
-        Args: { p_from: string | null; p_to: string | null };
+        Args: { p_from: string | null; p_to: string | null; p_entity?: string | null };
         Returns: { month: string | null; money_in: number | null; money_out: number | null; net: number | null; closing: number | null }[];
       };
       ledger_cash_forecast: {
@@ -5932,7 +6130,7 @@ export type Database = {
         Returns: { week: string | null; opening: number | null; expected_in: number | null; expected_out: number | null; closing: number | null }[];
       };
       ledger_contractor_cost: {
-        Args: { p_from: string | null; p_to: string | null };
+        Args: { p_from: string | null; p_to: string | null; p_entity?: string | null };
         Returns: { staff_id: string | null; person: string | null; amount: number | null }[];
       };
       ledger_cost_forecast: {
@@ -5948,11 +6146,11 @@ export type Database = {
         Returns: number;
       };
       ledger_profit_and_loss: {
-        Args: { p_from: string | null; p_to: string | null; p_basis?: string | null };
+        Args: { p_from: string | null; p_to: string | null; p_basis?: string | null; p_entity?: string | null };
         Returns: { code: string | null; name: string | null; kind: string | null; amount: number | null }[];
       };
       ledger_revenue_by: {
-        Args: { p_from: string | null; p_to: string | null; p_dimension?: string | null };
+        Args: { p_from: string | null; p_to: string | null; p_dimension?: string | null; p_entity?: string | null };
         Returns: { label: string | null; amount: number | null }[];
       };
       ledger_revenue_forecast: {
@@ -5960,7 +6158,7 @@ export type Database = {
         Returns: { month: string | null; band: string | null; amount: number | null; note: string | null }[];
       };
       ledger_trial_balance: {
-        Args: { p_as_of: string | null };
+        Args: { p_as_of: string | null; p_entity?: string | null };
         Returns: { code: string | null; name: string | null; kind: string | null; debits: number | null; credits: number | null; balance: number | null }[];
       };
       link_document_to_authorization: {
@@ -6026,6 +6224,10 @@ export type Database = {
       move_counselor_office: {
         Args: { p_counselor: string | null; p_office: string | null; p_reason: string | null };
         Returns: { from_office: string | null; to_office: string | null; from_billing: string | null; to_billing: string | null; clients: number | null }[];
+      };
+      my_entities: {
+        Args: Record<string, never>;
+        Returns: string;
       };
       my_unread: {
         Args: Record<string, never>;
@@ -6093,6 +6295,14 @@ export type Database = {
       };
       post_bank_transaction: {
         Args: { p_transaction: string | null; p_account: string | null; p_memo?: string | null };
+        Returns: string;
+      };
+      post_depreciation_for: {
+        Args: { p_month: string | null };
+        Returns: number;
+      };
+      post_inter_entity_transfer: {
+        Args: { p_from: string | null; p_to: string | null; p_amount: number | null; p_on: string | null; p_memo: string | null };
         Returns: string;
       };
       post_manual_journal: {

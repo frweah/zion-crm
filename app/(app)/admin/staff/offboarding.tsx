@@ -18,6 +18,8 @@ export type ReadinessRow = {
   running_timers: number;
   documents_held: number;
   mailbox_connected: number;
+  /** Equipment they still have (E4): a real list of real tags, not a line ticked. */
+  assets_held: number;
 };
 
 export type OffboardedRow = {
@@ -174,6 +176,14 @@ export function Offboarding({
                           <td>Outlook connected</td>
                           <td className="lock">
                             Access ends with the account; the mail already logged stays
+                          </td>
+                        </tr>
+                      )}
+                      {Number(p.assets_held) > 0 && (
+                        <tr>
+                          <td>Equipment to hand back</td>
+                          <td className="lock">
+                            {Number(p.assets_held)} on the register with their name on it
                           </td>
                         </tr>
                       )}

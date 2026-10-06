@@ -39,6 +39,11 @@ const PAGES: { href: string; label: string; note: string }[] = [
     note: "What has been billed, what is approved, and what is due.",
   },
   {
+    href: "/books/assets",
+    label: "Equipment",
+    note: "What the practice owns, who has it, and what it is worth now.",
+  },
+  {
     href: "/books/bank",
     label: "Bank statements",
     note: "Import a statement, match what it shows, reconcile it.",

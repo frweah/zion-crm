@@ -558,3 +558,102 @@ invisible to the history until something like this trips over it.
   `/requests`. Empty means Admin approves everything and nobody has to ask.
 - The vendors themselves: the landlord, the software, the insurance, the
   accountant, with the W-9 status for any that get a 1099.
+
+---
+
+## ERP E4 — the asset register
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Migrations 0150-0151, one verification script, one screen, one column on the
+offboarding checklist.
+
+**Shipped**
+
+- **The register** (`/books/assets`): tag, what it is, serial, cost, when it
+  was bought, warranty end, who has it, and what it is worth now. The book
+  value is not stored - it is the cost less what has been depreciated, and
+  the depreciation is postings, so this screen and the balance sheet cannot
+  disagree.
+- **Assignment history.** Handing a laptop from one person to another is a
+  return and an assignment in one act, because a screen that did them
+  separately would eventually do only one. One person holds a thing at a
+  time, and who had it before stays written down.
+- **The offboarding checklist reads the register.** "Equipment to hand back"
+  is a count of real things with real tags, on the same view that already
+  answers what else is still attached to somebody.
+- **Straight-line depreciation**, posted monthly by the nightly job on the
+  first, for the month that has just finished. The lives are the CPA's to
+  set. The last month takes the rounding, so nothing is left on the books
+  forever; a month already posted is never rewritten.
+- **Disposal**: the cost and the depreciation come off together, what was got
+  for it goes in, and what is left is a gain or a loss. One function, because
+  a disposal recorded on a screen and posted later is a disposal posted
+  wrongly.
+- `verify_assets.sql`, 15 assertions.
+
+**Chosen against**
+
+- **Depreciation calculated on the fly.** It is a real monthly expense, and a
+  report that worked it out each time would stop agreeing with the trial
+  balance the moment a life changed.
+- **A month that has not finished.** Refused outright, rather than
+  pro-rated: a part-month posting that gets topped up later is two entries
+  for one month and a reconciliation nobody can follow.
+- **Automatic capitalisation.** A bill posts to whichever account the person
+  choosing it picks; the register records what the practice owns. Wiring the
+  two together would mean the CRM deciding what is an asset, and the
+  threshold for that is the CPA's judgement, not a rule in code.
+
+**Needs the owner** — the lives, with the CPA, on Books, Equipment. The
+seeded ones are the usual 36, 24, 84, 60 and 36 months; they post nothing
+until the books open.
+
+---
+
+## ERP E5 — more than one set of books
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Migration 0152, one verification script. **Nothing here changes a single
+figure while there is one entity.** That is the point: it is the groundwork,
+verified now, so that adding the PCA is an afternoon rather than a quarter.
+
+**Shipped**
+
+- **Every report takes an entity**, or none, which means every set of books
+  the reader may see. Today that is one and every answer is identical. The
+  same account code in two charts consolidates to one line, which is what
+  "sum the entities" means to somebody reading a report.
+- **A second set of books with the first one's chart**: `create_entity` copies
+  the accounts, the roles and the settings, so the two can be read side by
+  side without mapping one onto the other.
+- **Transfers between entities post both sides in one transaction**, through
+  a "Due from related entity" account that nets to nothing when the two are
+  consolidated. A transfer from a set of books to itself is refused.
+- **A posting cannot mix entities.** A deferred constraint refuses an entry
+  whose lines reach into another entity's chart - the mistake that leaves
+  consolidated figures right and each entity's own figures wrong, and is
+  invisible until somebody files.
+- **Access is per entity.** An Admin sees all of them; everybody else sees
+  the entities named for them, and with none named, the default one - which
+  is what they saw before the table existed, so nobody is locked out by its
+  arrival. A CPA brought in for one entity is given one row.
+- `verify_entities.sql`, 14 assertions, including that one entity's report
+  shows one entity's money and a consolidated one sums both.
+
+**Chosen against**
+
+- **An Admin scoped to entities.** The brief says access is per entity, and
+  it is - but an Admin who adds the PCA's books and then cannot open them
+  until somebody grants access is a trap, and the person who would fall into
+  it is the owner.
+- **An entity picker on every screen.** It appears only when there is more
+  than one set of books. A choice with one option is a control that teaches
+  people to ignore controls.
+- **Consolidating by mapping charts.** The second chart is a copy of the
+  first, so consolidation is a sum rather than a translation table somebody
+  has to maintain.
+
+**Needs the owner** — nothing until the PCA exists. When it does: Books,
+add the entity, and the chart comes with it.

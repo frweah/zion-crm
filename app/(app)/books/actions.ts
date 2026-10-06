@@ -699,3 +699,130 @@ export async function setPurchaseThreshold(_prev: BooksState, formData: FormData
   revalidatePath("/books/bills");
   return { error: null, ok: over === null ? "Saved. Nobody has to ask." : "Saved." };
 }
+
+// ── the asset register (E4) ────────────────────────────────
+export async function addAsset(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const tag = String(formData.get("tag") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const classKey = String(formData.get("class_key") ?? "").trim();
+  const acquired = day(formData.get("acquired_on"));
+  if (!tag) return { error: "Everything on the register has a tag.", ok: null };
+  if (!name) return { error: "Say what it is.", ok: null };
+  if (!classKey) return { error: "Say what kind of thing it is.", ok: null };
+  if (!acquired) return { error: "Say when it was bought.", ok: null };
+
+  const costText = String(formData.get("cost") ?? "0").replace(/[$,\s]/g, "");
+  const cost = costText === "" ? 0 : Number(costText);
+  if (!Number.isFinite(cost) || cost < 0) return { error: "A cost, or nothing.", ok: null };
+
+  const assigned = uuid(formData.get("assigned_staff_id"));
+  const { data: asset, error } = await supabase
+    .from("assets")
+    .insert({
+      entity_id: await entityId(supabase),
+      tag,
+      name,
+      class_key: classKey,
+      serial: String(formData.get("serial") ?? "").trim(),
+      cost: Math.round(cost * 100) / 100,
+      acquired_on: acquired,
+      warranty_end: day(formData.get("warranty_end")),
+      note: String(formData.get("note") ?? "").trim(),
+      created_by: (await requireStaff()).id,
+      status: assigned ? "In use" : "Spare",
+    })
+    .select("id")
+    .single();
+  if (error) return { error: error.message, ok: null };
+
+  // Handing it over is its own act, so the history has a row from the start.
+  if (assigned && asset) {
+    const { error: handError } = await supabase.rpc("assign_asset", {
+      p_asset: asset.id,
+      p_staff: assigned,
+      p_note: "Added to the register",
+    });
+    if (handError) return { error: handError.message, ok: null };
+  }
+
+  revalidatePath("/books/assets");
+  return { error: null, ok: `${tag} added.` };
+}
+
+/** Handing a thing on, or taking it back when nobody is named. */
+export async function handAsset(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const asset = uuid(formData.get("asset_id"));
+  if (!asset) return { error: "No equipment was named.", ok: null };
+
+  const { error } = await supabase.rpc("assign_asset", {
+    p_asset: asset,
+    p_staff: uuid(formData.get("staff_id")),
+    p_note: String(formData.get("note") ?? ""),
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/assets");
+  return { error: null, ok: "Recorded." };
+}
+
+export async function disposeAsset(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const asset = uuid(formData.get("asset_id"));
+  const reason = String(formData.get("disposal_reason") ?? "").trim();
+  if (!asset) return { error: "No equipment was named.", ok: null };
+  if (!reason) return { error: "Say why it is going.", ok: null };
+
+  const proceedsText = String(formData.get("proceeds") ?? "0").replace(/[$,\s]/g, "");
+  const proceeds = proceedsText === "" ? 0 : Number(proceedsText);
+  if (!Number.isFinite(proceeds) || proceeds < 0) return { error: "What it was sold for, or nothing.", ok: null };
+
+  const { error } = await supabase.rpc("dispose_asset", {
+    p_asset: asset,
+    p_on: day(formData.get("disposed_on")),
+    p_reason: reason,
+    p_proceeds: Math.round(proceeds * 100) / 100,
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/assets");
+  return { error: null, ok: "Taken off the books." };
+}
+
+/** The lives the CPA sets, and what is worth capitalising. */
+export async function setAssetLife(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const key = String(formData.get("class_key") ?? "").trim();
+  if (!key) return { error: "Say which kind.", ok: null };
+
+  const monthsText = String(formData.get("life_months") ?? "").trim();
+  const months = monthsText === "" ? null : Number(monthsText);
+  if (months !== null && !(Number.isInteger(months) && months >= 1 && months <= 600)) {
+    return { error: "A life is between 1 and 600 months, or empty for not depreciated.", ok: null };
+  }
+
+  const overText = String(formData.get("capitalise_over") ?? "").replace(/[$,\s]/g, "");
+  const over = overText === "" ? 0 : Number(overText);
+  if (!Number.isFinite(over) || over < 0) return { error: "An amount, or nothing.", ok: null };
+
+  const { error } = await supabase
+    .from("asset_classes")
+    .update({ life_months: months, capitalise_over: Math.round(over * 100) / 100 })
+    .eq("key", key);
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/assets");
+  return {
+    error: null,
+    ok: months === null ? "Saved. This kind is not depreciated." : `Saved. ${months} months.`,
+  };
+}

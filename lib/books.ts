@@ -220,7 +220,7 @@ export async function runReport(
   supabase: Supabase,
   report: Report,
   period: Period,
-  options: { basis?: string; account?: string; year?: number } = {},
+  options: { basis?: string; account?: string; year?: number; entity?: string } = {},
 ): Promise<Row[]> {
   const asOf = period.to;
   const call = async (fn: Parameters<Supabase["rpc"]>[0], args: Record<string, unknown>) => {
@@ -237,23 +237,39 @@ export async function runReport(
         p_from: period.from,
         p_to: period.to,
         p_basis: options.basis ?? null,
+        p_entity: options.entity ?? null,
       });
     case "balance-sheet":
-      return call("ledger_balance_sheet", { p_as_of: asOf });
+      return call("ledger_balance_sheet", { p_as_of: asOf, p_entity: options.entity ?? null });
     case "cash-flow":
-      return call("ledger_cash_flow", { p_from: period.from, p_to: period.to });
+      return call("ledger_cash_flow", { p_from: period.from, p_to: period.to, p_entity: options.entity ?? null });
     case "trial-balance":
-      return call("ledger_trial_balance", { p_as_of: asOf });
+      return call("ledger_trial_balance", { p_as_of: asOf, p_entity: options.entity ?? null });
     case "payables":
-      return call("ledger_ap_aging", { p_as_of: asOf });
+      return call("ledger_ap_aging", { p_as_of: asOf, p_entity: options.entity ?? null });
     case "revenue-by-service":
-      return call("ledger_revenue_by", { p_from: period.from, p_to: period.to, p_dimension: "service" });
+      return call("ledger_revenue_by", {
+        p_from: period.from,
+        p_to: period.to,
+        p_dimension: "service",
+        p_entity: options.entity ?? null,
+      });
     case "revenue-by-office":
-      return call("ledger_revenue_by", { p_from: period.from, p_to: period.to, p_dimension: "office" });
+      return call("ledger_revenue_by", {
+        p_from: period.from,
+        p_to: period.to,
+        p_dimension: "office",
+        p_entity: options.entity ?? null,
+      });
     case "revenue-by-counselor":
-      return call("ledger_revenue_by", { p_from: period.from, p_to: period.to, p_dimension: "counselor" });
+      return call("ledger_revenue_by", {
+        p_from: period.from,
+        p_to: period.to,
+        p_dimension: "counselor",
+        p_entity: options.entity ?? null,
+      });
     case "contractor-cost":
-      return call("ledger_contractor_cost", { p_from: period.from, p_to: period.to });
+      return call("ledger_contractor_cost", { p_from: period.from, p_to: period.to, p_entity: options.entity ?? null });
     case "general-ledger":
       if (!options.account) return [];
       return call("ledger_general_ledger", {
@@ -268,6 +284,22 @@ export async function runReport(
     default:
       return [];
   }
+}
+
+/**
+ * The sets of books this person may read (E5).
+ *
+ * One today. The screens show a picker only when there is more than one,
+ * because a choice with one option is a control that teaches people to
+ * ignore controls.
+ */
+export async function readEntities(supabase: Supabase) {
+  const { data } = await supabase
+    .from("ledger_entities")
+    .select("id, name, is_default")
+    .eq("active", true)
+    .order("name");
+  return (data ?? []) as { id: string; name: string; is_default: boolean }[];
 }
 
 /** The chart, for a picker and for the chart screen itself. */

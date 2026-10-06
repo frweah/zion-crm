@@ -6,6 +6,7 @@ import {
   periodFrom,
   presets,
   readChart,
+  readEntities,
   readSettings,
   reportFor,
   requireBooks,
@@ -31,7 +32,14 @@ import { PageHead } from "../../page-head";
 export default async function BooksReports({
   searchParams,
 }: {
-  searchParams: Promise<{ report?: string; from?: string; to?: string; basis?: string; account?: string }>;
+  searchParams: Promise<{
+    report?: string;
+    from?: string;
+    to?: string;
+    basis?: string;
+    account?: string;
+    entity?: string;
+  }>;
 }) {
   await requireBooks();
   const params = await searchParams;
@@ -42,19 +50,22 @@ export default async function BooksReports({
   const basis = params.basis === "Accrual" || params.basis === "Cash" ? params.basis : settings?.basis ?? "Cash";
 
   const chart = report.key === "general-ledger" ? await readChart(supabase) : [];
+  // One set of books today (E5). The picker is here for the day there are two.
+  const entities = await readEntities(supabase);
+  const entity = entities.some((e) => e.id === params.entity) ? params.entity : undefined;
   const account = params.account ?? chart.find((a) => a.role === "bank")?.id;
 
   let rows: Row[] = [];
   let failed: string | null = null;
   try {
-    rows = await runReport(supabase, report, period, { basis, account });
+    rows = await runReport(supabase, report, period, { basis, account, entity });
   } catch (e) {
     failed = e instanceof Error ? e.message : "The report could not be run.";
   }
 
   const query = (over: Record<string, string | undefined>) => {
     const next = new URLSearchParams();
-    const all = { report: report.key, from: period.from, to: period.to, basis, account, ...over };
+    const all = { report: report.key, from: period.from, to: period.to, basis, account, entity, ...over };
     for (const [k, v] of Object.entries(all)) if (v) next.set(k, v);
     return `?${next.toString()}`;
   };
@@ -108,6 +119,19 @@ export default async function BooksReports({
           {report.asOf ? "As of" : "To"}
           <input type="date" name="to" defaultValue={period.to} />
         </label>
+        {entities.length > 1 && (
+          <label>
+            Books
+            <select name="entity" defaultValue={entity ?? ""}>
+              <option value="">All of them</option>
+              {entities.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {report.key === "profit-and-loss" && (
           <label>
             Basis

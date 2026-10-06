@@ -69,6 +69,14 @@ async function handle(request: NextRequest) {
   // somebody has to see.
   const { data: billsWritten } = await supabase.rpc("create_due_recurring_bills", { p_today: practiceToday });
 
+  // On the first, the month that has just finished is depreciated (E4). A
+  // month still running cannot be: post_depreciation_for refuses it.
+  const lastMonth = new Date(practiceToday + "T00:00:00Z");
+  lastMonth.setUTCDate(0);
+  const { data: depreciated } = practiceToday.endsWith("-01")
+    ? await supabase.rpc("post_depreciation_for", { p_month: lastMonth.toISOString().slice(0, 10) })
+    : { data: 0 };
+
   // Onboarding reminders go every night a step is open, unlike the digest's
   // once-per-item: the person asked to finish is the one who has to act.
   const onboardingReminders = emailConfigured() ? await remindOnboarding(supabase) : 0;
@@ -96,7 +104,7 @@ async function handle(request: NextRequest) {
   );
 
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, escalated, billsWritten, note: "nothing new" });
+    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, escalated, billsWritten, depreciated, note: "nothing new" });
   }
   if (!emailConfigured()) {
     return NextResponse.json(
@@ -165,6 +173,7 @@ async function handle(request: NextRequest) {
     chased,
     escalated,
     billsWritten,
+    depreciated,
     ...(failed.length ? { failed } : {}),
   });
 }
