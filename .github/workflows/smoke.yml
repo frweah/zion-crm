@@ -253,7 +253,7 @@ jobs:
       (github.event.deployment_status.state == 'success' &&
        github.event.deployment.environment == 'Production')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Is the check set up?
         id: ready

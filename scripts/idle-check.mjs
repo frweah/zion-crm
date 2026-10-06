@@ -90,6 +90,21 @@ try {
   }
 
   for (const href of links) {
+    // Warm it first, and time the second visit.
+    //
+    // The first request to a screen after a deploy wakes a serverless
+    // function, which is Vercel's cold start rather than the app's behaviour.
+    // Timing that fails this check on a slow morning for a reason nobody can
+    // act on - Communication failed once at 8s and measures half a second
+    // warm (5 Oct 2026) - and a check that cries wolf is one somebody turns
+    // off. What the owner asked for is about the app, so the app is timed.
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
+    await quiet(15000);
+    const warm = await page.$(`nav.side a[href="${href}"]`);
+    if (!warm) continue;
+    await warm.click();
+    await quiet(CEILING_MS + 2000);
+
     await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
     await quiet(15000);
 
