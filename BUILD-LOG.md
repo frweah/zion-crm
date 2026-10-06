@@ -402,6 +402,11 @@ and verified in October without touching the operational year still running.
 - **PDF is the browser's print**, not a generated document. Every report
   screen is already laid out for printing, and a second rendering path for
   the same table is a second thing to keep in step.
+- **The two-person rule is not built.** The brief makes it optional - Admin
+  posts, Billing drafts - and until somebody asks for it a draft is simply a
+  journal Admin has not posted yet. Building a draft state nobody uses would
+  mean a second shape for every entry screen to handle, for a control the
+  practice has not asked for. It is a setting to add, not a rewrite.
 
 **Two things the verification suite caught that would have shipped**
 
@@ -665,3 +670,29 @@ verified now, so that adding the PCA is an afternoon rather than a quarter.
 
 **Needs the owner** — nothing until the PCA exists. When it does: Books,
 add the entity, and the chart comes with it.
+
+---
+
+## The deploy watcher, and a token
+
+Deployed with the smoke change above.
+
+Three times today this session read "checks not started" for a deploy whose
+checks had passed. The cause was its own: unauthenticated, GitHub allows
+sixty API requests an hour for the whole machine, and the watcher asked
+every twenty seconds - sixty requests per watch, the entire budget.
+
+- The site's own `/api/version` is asked every twenty seconds, because it
+  costs nothing; GitHub is asked every two minutes, and only once the commit
+  is actually live, since there is nothing for the checks to say before then.
+- A rate limit now reports itself as not knowing, which exits 3, rather than
+  as a failure. "I could not find out" and "it failed" are different answers
+  and were being given the same way.
+- One line per change instead of one line every twenty seconds.
+- `GITHUB_TOKEN` or `GH_TOKEN` is used when either is set.
+
+**Needs the owner** — a read-only GitHub token in `.env.local`, as
+`GITHUB_TOKEN`. A fine-grained token with read access to this repository's
+Actions and Deployments is enough; it raises the limit from sixty requests
+an hour to five thousand, and the watcher stops guessing. Nothing breaks
+without it.

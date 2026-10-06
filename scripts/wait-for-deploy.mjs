@@ -21,7 +21,20 @@ if (!sha) {
 const SITE = process.env.SMOKE_BASE_URL ?? "https://crm.zionvocrehab.com";
 const REPO = process.env.ZION_REPO ?? "frweah/zion-crm";
 const DEADLINE = Date.now() + 1000 * 60 * 25;
-const headers = { "user-agent": "zion-crm-deploy-watch" };
+/**
+ * A token if there is one, and sixty requests an hour if there is not.
+ *
+ * Unauthenticated, GitHub allows sixty an hour for the whole machine, which
+ * two watches and a few questions exhaust - and the symptom is this script
+ * reporting that a deploy's checks never started when they had passed. With
+ * a read-only token in .env.local it is five thousand an hour and the
+ * question never comes up.
+ */
+const TOKEN = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? null;
+const headers = {
+  "user-agent": "zion-crm-deploy-watch",
+  ...(TOKEN ? { authorization: `Bearer ${TOKEN}` } : {}),
+};
 
 /**
  * How often each thing is asked.
