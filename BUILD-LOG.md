@@ -251,7 +251,7 @@ Deployed `f7f62fa`, 5 Oct 2026.
 
 ## Design language, step 8 — label, number, button
 
-Deployed `<pending>`, 6 Oct 2026.
+Deployed `531ace3`, 6 Oct 2026.
 
 **Shipped**
 
@@ -302,5 +302,13 @@ where the failure is seen:
 - A click waits the ceiling (8 s), not Playwright's default half-minute, and
   names the link it was waiting on.
 
-**Needs the owner** — nothing. The step 7 finding itself is not recoverable
-without the log; the next deploy's run will state it.
+It said it on the first try. Step 8's run reported `the walk stopped:
+page.goto: Timeout 30000ms exceeded` — the fault was the check's own: the
+warm pass returned to the dashboard between every link, which is 24 loads of
+the heaviest screen in the app, and one of them took longer than half a
+minute. The walk is now two laps of the sidebar, clicking on from wherever
+the last link left it, which is both how a person moves and one load per
+screen instead of four.
+
+**Needs the owner** — nothing. Step 7's own finding is not recoverable; its
+screens are re-timed on every deploy from here.

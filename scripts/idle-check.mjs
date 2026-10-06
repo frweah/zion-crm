@@ -94,50 +94,59 @@ try {
     process.exit(1);
   }
 
-  for (const href of links) {
-    // Warm it first, and time the second visit.
-    //
-    // The first request to a screen after a deploy wakes a serverless
-    // function, which is Vercel's cold start rather than the app's behaviour.
-    // Timing that fails this check on a slow morning for a reason nobody can
-    // act on - Communication failed once at 8s and measures half a second
-    // warm (5 Oct 2026) - and a check that cries wolf is one somebody turns
-    // off. What the owner asked for is about the app, so the app is timed.
-    await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
-    await quiet(15000);
-    const warm = await page.$(`nav.side a[href="${href}"]`);
-    if (!warm) continue;
-    await warm.click({ timeout: CEILING_MS }).catch((e) => {
-      throw new Error(`${href} could not be clicked: ${firstLine(String(e))}`);
-    });
-    await quiet(CEILING_MS + 2000);
+  /**
+   * One lap of the sidebar, clicking each link from wherever the last one
+   * left us. The sidebar is on every screen, so going back to the dashboard
+   * between links is a navigation nobody makes and one this check cannot
+   * afford: it was 24 loads of the heaviest screen in the app, and on
+   * 6 Oct 2026 one of them took longer than half a minute and stopped the
+   * walk (531ace3). A lap is one load per screen.
+   *
+   * Timed only on the second lap. The first request to a screen after a
+   * deploy wakes a serverless function, which is Vercel's cold start rather
+   * than the app's behaviour - Communication failed once at 8s and measures
+   * half a second warm - and a check that cries wolf is one somebody turns
+   * off within a fortnight.
+   */
+  async function lap(timed) {
+    for (const href of links) {
+      const target = await page.$(`nav.side a[href="${href}"]`);
+      if (!target) continue;
 
-    await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
-    await quiet(15000);
+      // Clicking the group you are already in goes nowhere, and timing a
+      // click that did not move is timing nothing. The order below means it
+      // only happens if the sidebar offers the same screen twice.
+      const from = page.url();
+      const started = Date.now();
+      await target.click({ timeout: CEILING_MS }).catch((e) => {
+        throw new Error(`${href} could not be clicked: ${firstLine(String(e))}`);
+      });
+      const settled = await quiet(CEILING_MS + 2000);
+      if (!timed) continue;
 
-    const target = await page.$(`nav.side a[href="${href}"]`);
-    if (!target) continue;
+      if (page.url() === from) {
+        console.log(`  --      ${href.padEnd(34)} already open`);
+        continue;
+      }
 
-    const started = Date.now();
-    await target.click({ timeout: CEILING_MS }).catch((e) => {
-      throw new Error(`${href} could not be clicked: ${firstLine(String(e))}`);
-    });
-    const settled = await quiet(CEILING_MS + 2000);
-    const took = settled === null ? null : Date.now() - started - QUIET_MS;
-
-    if (took === null) {
-      failures.push(`${href} never went quiet - still asking for things after ${CEILING_MS + 2000}ms`);
-      console.log(`  FAILED  ${href.padEnd(34)} never quiet`);
-    } else if (took > CEILING_MS) {
-      failures.push(`${href} took ${took}ms to go quiet, and the ceiling is ${CEILING_MS}ms`);
-      console.log(`  FAILED  ${href.padEnd(34)} ${took}ms`);
-    } else if (took > BUDGET_MS) {
-      slow.push(`${href} ${took}ms`);
-      console.log(`  slow    ${href.padEnd(34)} ${took}ms (over the ${BUDGET_MS}ms target)`);
-    } else {
-      console.log(`  ok      ${href.padEnd(34)} ${took}ms`);
+      const took = settled === null ? null : Date.now() - started - QUIET_MS;
+      if (took === null) {
+        failures.push(`${href} never went quiet - still asking for things after ${CEILING_MS + 2000}ms`);
+        console.log(`  FAILED  ${href.padEnd(34)} never quiet`);
+      } else if (took > CEILING_MS) {
+        failures.push(`${href} took ${took}ms to go quiet, and the ceiling is ${CEILING_MS}ms`);
+        console.log(`  FAILED  ${href.padEnd(34)} ${took}ms`);
+      } else if (took > BUDGET_MS) {
+        slow.push(`${href} ${took}ms`);
+        console.log(`  slow    ${href.padEnd(34)} ${took}ms (over the ${BUDGET_MS}ms target)`);
+      } else {
+        console.log(`  ok      ${href.padEnd(34)} ${took}ms`);
+      }
     }
   }
+
+  await lap(false);
+  await lap(true);
 } catch (err) {
   // Anything the walk did not expect - a link that moved, a click that never
   // landed - becomes a finding like any other, because a bare stack trace in
