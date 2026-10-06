@@ -224,7 +224,10 @@ export const NAV_GROUPS: NavGroup[] = [
     // authorizations from the inbox on Billing → Authorizations.
     items: [
       { label: "Documents", href: "/admin/documents", roles: ADMIN },
-      { label: "System", href: "/admin/system", roles: ADMIN },
+      // Each feature's settings on its own page (Design language, §3); what
+      // stays on System is the record the system keeps about itself.
+      { label: "Settings", href: "/admin/settings-hub", roles: ADMIN, note: "One page per feature." },
+      { label: "System", href: "/admin/system", roles: ADMIN, note: "The access log, and what the system records about itself." },
       { label: "Money", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },

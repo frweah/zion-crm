@@ -191,7 +191,7 @@ warm it and timed on the second visit. Ceiling stays at 8 s, target at 2 s.
 
 ## Design language, step 6 — the knowledge base, and the practice's own forms
 
-Deployed `<pending>`, 5 Oct 2026.
+Deployed `ffb5a24`, 5 Oct 2026.
 
 **Shipped**
 
@@ -218,5 +218,31 @@ Deployed `<pending>`, 5 Oct 2026.
 - The signature field records that the filer signed rather than drawing a
   second signature pad: the practice already holds each person's signature
   from Paperwork, and two places to keep one is one too many.
+
+**Needs the owner** — nothing.
+
+---
+
+## Design language, step 7 — settings, one feature at a time
+
+Deployed `<pending>`, 5 Oct 2026.
+
+**Shipped**
+
+- **Settings** (`/admin/settings-hub`, Admin hub): a card per feature — the
+  practice, website chat, work and hours, note headings, shared mailboxes,
+  tax years — each on its own page.
+- **System** keeps what it is actually for: the access log, and the records
+  the system keeps about itself. It points at Settings for the rest.
+- The work-and-hours page shows the categories with the roles each is offered
+  to, which was invisible until now.
+
+**Chosen against**
+
+- Nothing about billing moved. The brief leaves billing, authorizations,
+  forms and warrants alone, and so does this.
+- Categories are shown rather than edited on the settings page. They are rows
+  (0134), the practice has changed them twice in a year, and a form for
+  something changed twice a year is one nobody remembers how to use.
 
 **Needs the owner** — nothing.

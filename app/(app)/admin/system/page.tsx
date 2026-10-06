@@ -82,101 +82,24 @@ export default async function SystemPage({
 
   const webChatError = webChatFailure?.message ?? null;
 
-  const toc: [string, string][] = [
-    ["organization", "Organization"],
-    ["website-chat", "Website chat"],
-    ["tax-years", "Tax years"],
-    ["mileage", "Mileage rate"],
-    ["note-headings", "Note headings"],
-    ["integrations", "Shared mailboxes"],
-    ["access-log", "Access log"],
-  ];
+  const toc: [string, string][] = [["access-log", "Access log"]];
 
   return (
     <>
       <PageHead
         title="System"
-        context="How the practice is set up, and the records kept about the system itself"
+        context="The records the system keeps about itself"
         toc={toc}
       />
 
-      {isAdmin && (
-        <section id="organization" className="page-section">
-          <SettingsSection />
-        </section>
-      )}
-
-      {isAdmin && (
-        <section id="website-chat" className="page-section">
-          <h2 className="h2">Website chat</h2>
-          <p className="sub">
-            The bubble on zionrehabcenter.com. What somebody says there arrives in{" "}
-            <Link href="/messages/texts?show=web">Texts &amp; web</Link>, beside the texts, and joins a client&apos;s
-            record as soon as it is matched to one.
-          </p>
-          {webChatError && (
-            <div className="alert bad">
-              These settings could not be read ({webChatError}), so what is shown below is not what is saved. Do not
-              save over them until that is fixed.
-            </div>
-          )}
-          <WebChatSettingsForm
-            settings={chat}
-            staff={staff ?? []}
-            live={Boolean(webLive)}
-            embed={`<script src="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://crm.zionvocrehab.com"}/widget.js" async></script>`}
-          />
-        </section>
-      )}
-
-      {isAdmin && (
-        <section id="tax-years" className="page-section">
-          <h2 className="h2">Tax years</h2>
-          <p className="sub">
-            The federal 1099-NEC threshold and the Utah state copy for each year. A 1099 run on{" "}
-            <Link href="/admin/people?tab=contractors">HR → Contractors</Link> will not build on a year
-            whose threshold nobody has confirmed.
-          </p>
-          {yearRows.length === 0 ? (
-            <div className="empty">No tax years are set up.</div>
-          ) : (
-            // One list, a year to an item: each is its own form, not a card apiece.
-            <div className="list">
-              {yearRows.map((y) => (
-                <TaxYearEditor key={y.year} row={y} />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {isAdmin && (
-        <section id="mileage" className="page-section">
-          <h2 className="h2">Mileage rate</h2>
-          <p className="sub">
-            What a mile claimed on Hours is paid at. Rates are dated, so a claim is priced at the rate
-            that applied on the day it was driven.
-          </p>
-          <MileageRateForm rates={(mileageRates ?? []) as never} today={today()} />
-        </section>
-      )}
-
-      {isAdmin && (
-        <section id="note-headings" className="page-section">
-          <NoteTemplatesSection />
-        </section>
-      )}
-
-      {isAdmin && (
-        <section id="integrations" className="page-section">
-          <h2 className="h2">Shared mailboxes</h2>
-          <p className="sub">
-            Mailboxes read into client records. Each person connects their own Outlook from the
-            Dashboard.
-          </p>
-          <SharedMailboxCard mailboxes={(mailboxes ?? []) as SharedMailboxRow[]} />
-        </section>
-      )}
+      {/* Each feature's settings are their own page now (Design language,
+          §3). What is left here is the practice's record of itself. */}
+      <section className="page-section">
+        <p className="sub">
+          Settings moved to <Link href="/admin/settings-hub">Settings</Link>, a page per feature: the practice, the
+          website chat, work and hours, note headings, shared mailboxes and tax years.
+        </p>
+      </section>
 
       {isAdmin && (
         <section id="access-log" className="page-section">
