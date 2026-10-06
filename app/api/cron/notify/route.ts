@@ -64,6 +64,11 @@ async function handle(request: NextRequest) {
   // two business days, and the Admin's dashboard at five (0130).
   const { data: escalated } = await supabase.rpc("escalate_unanswered_texts", { p_today: practiceToday });
 
+  // The bills that fall due today, from their schedules (E3). Created
+  // awaiting approval, never posted: the month the rent changes is a month
+  // somebody has to see.
+  const { data: billsWritten } = await supabase.rpc("create_due_recurring_bills", { p_today: practiceToday });
+
   // Onboarding reminders go every night a step is open, unlike the digest's
   // once-per-item: the person asked to finish is the one who has to act.
   const onboardingReminders = emailConfigured() ? await remindOnboarding(supabase) : 0;
@@ -91,7 +96,7 @@ async function handle(request: NextRequest) {
   );
 
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, escalated, note: "nothing new" });
+    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, escalated, billsWritten, note: "nothing new" });
   }
   if (!emailConfigured()) {
     return NextResponse.json(
@@ -159,6 +164,7 @@ async function handle(request: NextRequest) {
     itemsOpened,
     chased,
     escalated,
+    billsWritten,
     ...(failed.length ? { failed } : {}),
   });
 }

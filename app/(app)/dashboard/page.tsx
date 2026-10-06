@@ -287,19 +287,36 @@ export default async function DashboardPage({
   const shownAlerts = alerts.filter((a) => !snoozed.has(a.id));
 
   // ── Admin's business counters ───────────────────────────────
-  let business: { needs: Record<string, number>; unbilled: number; outstanding: number; receivedMonth: number } | null = null;
+  let business: {
+    needs: Record<string, number>;
+    unbilled: number;
+    outstanding: number;
+    receivedMonth: number;
+    // What the practice owes, from the other side of the books (E3).
+    dueThisWeek: number;
+    dueThisWeekLate: number;
+    owed: number;
+  } | null = null;
   if (isAdmin) {
-    const [needs, { data: econ }, { data: paid }] = await Promise.all([
+    const week = new Date(day + "T00:00:00Z");
+    week.setUTCDate(week.getUTCDate() + 7);
+    const [needs, { data: econ }, { data: paid }, { data: due }, { data: aging }] = await Promise.all([
       countNeeds(supabase, me),
       supabase.from("authorization_economics").select("status, unbilled, outstanding"),
       supabase.from("invoices").select("amount").eq("status", "Paid").gte("paid_date", `${day.slice(0, 7)}-01`),
+      supabase.rpc("bills_due_by", { p_by: week.toISOString().slice(0, 10) }),
+      supabase.rpc("ledger_ap_aging", { p_as_of: day }),
     ]);
     const n = (v: unknown) => Number(v ?? 0);
+    const bills = (due ?? []) as { amount: number; late: boolean }[];
     business = {
       needs,
       unbilled: (econ ?? []).filter((e) => e.status === "Open").reduce((s, e) => s + n(e.unbilled), 0),
       outstanding: (econ ?? []).reduce((s, e) => s + n(e.outstanding), 0),
       receivedMonth: (paid ?? []).reduce((s, i) => s + n(i.amount), 0),
+      dueThisWeek: bills.reduce((s, b) => s + n(b.amount), 0),
+      dueThisWeekLate: bills.filter((b) => b.late).length,
+      owed: ((aging ?? []) as { amount: number }[]).reduce((s, a) => s + n(a.amount), 0),
     };
   }
 
@@ -684,6 +701,22 @@ export default async function DashboardPage({
               <div className="stat">
                 {money(business.receivedMonth)}
                 <small>received this month</small>
+              </div>
+            </Link>
+            {/* The other side of the books (E3): what the practice owes. */}
+            <Link href="/books/bills" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+              <div className="stat" style={business.dueThisWeekLate > 0 ? { color: "var(--bad)" } : undefined}>
+                {money(business.dueThisWeek)}
+                <small>
+                  bills due this week
+                  {business.dueThisWeekLate > 0 ? `, ${business.dueThisWeekLate} late` : ""}
+                </small>
+              </div>
+            </Link>
+            <Link href="/books/reports?report=payables" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+              <div className="stat">
+                {money(business.owed)}
+                <small>owed to contractors and vendors</small>
               </div>
             </Link>
           </div>

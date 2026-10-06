@@ -204,6 +204,11 @@ export const NAV_GROUPS: NavGroup[] = [
         area: "billing",
         note: "The ledger, the bank, and the reports the year is closed with.",
       },
+      // Everybody's, unlike the rest of this group: asking to buy a laptop
+      // is not a billing job, and a screen only Billing can open is one the
+      // person who needs it cannot reach (ERP brief, E3). Off until the
+      // owner sets an amount, and the screen says so.
+      { label: "Purchase requests", href: "/requests", roles: EVERYONE },
     ],
   },
   {

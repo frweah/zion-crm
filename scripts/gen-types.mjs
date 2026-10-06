@@ -239,6 +239,14 @@ const RPC_FUNCTIONS = [
   "ledger_cost_forecast",
   "ledger_payment_lag",
   "ledger_cash_forecast",
+  // Vendors, bills and their 1099s (0148, 0149).
+  "approve_vendor_bill",
+  "may_approve_bill",
+  "bills_due_by",
+  "vendor_1099_candidates",
+  // Called by the nightly job as the service role, typed so that call is
+  // checked like any other.
+  "create_due_recurring_bills",
 ];
 
 const { rows: fns } = await client.query(

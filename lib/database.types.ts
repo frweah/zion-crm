@@ -1444,7 +1444,7 @@ export type Database = {
         Row: {
           id: string;
           run_id: string;
-          staff_id: string;
+          staff_id: string | null;
           legal_name: string;
           business_name: string;
           address_snapshot: string;
@@ -1457,11 +1457,12 @@ export type Database = {
           delivery_method: string | null;
           consent_recorded: boolean;
           created_at: string;
+          vendor_id: string | null;
         };
         Insert: {
           id?: string;
           run_id: string;
-          staff_id: string;
+          staff_id?: string | null;
           legal_name: string;
           business_name?: string;
           address_snapshot?: string;
@@ -1474,11 +1475,12 @@ export type Database = {
           delivery_method?: string | null;
           consent_recorded?: boolean;
           created_at?: string;
+          vendor_id?: string | null;
         };
         Update: {
           id?: string;
           run_id?: string;
-          staff_id?: string;
+          staff_id?: string | null;
           legal_name?: string;
           business_name?: string;
           address_snapshot?: string;
@@ -1491,6 +1493,7 @@ export type Database = {
           delivery_method?: string | null;
           consent_recorded?: boolean;
           created_at?: string;
+          vendor_id?: string | null;
         };
         Relationships: [];
       };
@@ -2014,6 +2017,7 @@ export type Database = {
           counselor_id: string | null;
           office: string;
           service: string;
+          vendor_id: string | null;
         };
         Insert: {
           id?: string;
@@ -2027,6 +2031,7 @@ export type Database = {
           counselor_id?: string | null;
           office?: string;
           service?: string;
+          vendor_id?: string | null;
         };
         Update: {
           id?: string;
@@ -2040,6 +2045,7 @@ export type Database = {
           counselor_id?: string | null;
           office?: string;
           service?: string;
+          vendor_id?: string | null;
         };
         Relationships: [];
       };
@@ -2318,6 +2324,8 @@ export type Database = {
           updated_at: string;
           cash_floor: number | null;
           budget_tolerance: number;
+          bill_approval_limit: number | null;
+          purchase_request_over: number | null;
         };
         Insert: {
           entity_id: string;
@@ -2326,6 +2334,8 @@ export type Database = {
           updated_at?: string;
           cash_floor?: number | null;
           budget_tolerance?: number;
+          bill_approval_limit?: number | null;
+          purchase_request_over?: number | null;
         };
         Update: {
           entity_id?: string;
@@ -2334,6 +2344,8 @@ export type Database = {
           updated_at?: string;
           cash_floor?: number | null;
           budget_tolerance?: number;
+          bill_approval_limit?: number | null;
+          purchase_request_over?: number | null;
         };
         Relationships: [];
       };
@@ -3246,6 +3258,48 @@ export type Database = {
           active?: boolean;
           sort_order?: number;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      purchase_requests: {
+        Row: {
+          id: string;
+          staff_id: string;
+          what: string;
+          why: string;
+          amount: number;
+          vendor_id: string | null;
+          status: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_note: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          what: string;
+          why?: string;
+          amount: number;
+          vendor_id?: string | null;
+          status?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_note?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          what?: string;
+          why?: string;
+          amount?: number;
+          vendor_id?: string | null;
+          status?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_note?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -4587,6 +4641,195 @@ export type Database = {
         };
         Relationships: [];
       };
+      vendor_bill_schedules: {
+        Row: {
+          id: string;
+          entity_id: string;
+          vendor_id: string;
+          amount: number;
+          account_id: string;
+          description: string;
+          every_months: number;
+          day_of_month: number;
+          next_due: string;
+          until: string | null;
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          vendor_id: string;
+          amount: number;
+          account_id: string;
+          description?: string;
+          every_months?: number;
+          day_of_month?: number;
+          next_due: string;
+          until?: string | null;
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          vendor_id?: string;
+          amount?: number;
+          account_id?: string;
+          description?: string;
+          every_months?: number;
+          day_of_month?: number;
+          next_due?: string;
+          until?: string | null;
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
+      vendor_bills: {
+        Row: {
+          id: string;
+          entity_id: string;
+          vendor_id: string;
+          number: string;
+          bill_date: string;
+          due_date: string | null;
+          amount: number;
+          account_id: string;
+          description: string;
+          status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          scheduled_for: string | null;
+          paid_on: string | null;
+          method: string | null;
+          reference: string;
+          void_reason: string;
+          document_path: string | null;
+          schedule_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          vendor_id: string;
+          number?: string;
+          bill_date: string;
+          due_date?: string | null;
+          amount: number;
+          account_id: string;
+          description?: string;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          scheduled_for?: string | null;
+          paid_on?: string | null;
+          method?: string | null;
+          reference?: string;
+          void_reason?: string;
+          document_path?: string | null;
+          schedule_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          vendor_id?: string;
+          number?: string;
+          bill_date?: string;
+          due_date?: string | null;
+          amount?: number;
+          account_id?: string;
+          description?: string;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          scheduled_for?: string | null;
+          paid_on?: string | null;
+          method?: string | null;
+          reference?: string;
+          void_reason?: string;
+          document_path?: string | null;
+          schedule_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      vendors: {
+        Row: {
+          id: string;
+          entity_id: string;
+          name: string;
+          contact_name: string;
+          email: string;
+          phone: string;
+          address: string;
+          expense_account_id: string | null;
+          terms_days: number | null;
+          gets_1099: boolean;
+          w9_on_file: boolean;
+          w9_received_on: string | null;
+          tin_type: string | null;
+          tin_last4: string | null;
+          active: boolean;
+          note: string;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          name: string;
+          contact_name?: string;
+          email?: string;
+          phone?: string;
+          address?: string;
+          expense_account_id?: string | null;
+          terms_days?: number | null;
+          gets_1099?: boolean;
+          w9_on_file?: boolean;
+          w9_received_on?: string | null;
+          tin_type?: string | null;
+          tin_last4?: string | null;
+          active?: boolean;
+          note?: string;
+          created_at?: string;
+          created_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_id?: string;
+          name?: string;
+          contact_name?: string;
+          email?: string;
+          phone?: string;
+          address?: string;
+          expense_account_id?: string | null;
+          terms_days?: number | null;
+          gets_1099?: boolean;
+          w9_on_file?: boolean;
+          w9_received_on?: string | null;
+          tin_type?: string | null;
+          tin_last4?: string | null;
+          active?: boolean;
+          note?: string;
+          created_at?: string;
+          created_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       warrant_documents: {
         Row: {
           id: string;
@@ -5452,6 +5695,10 @@ export type Database = {
         Args: { p_task_id: string | null; p_status: string | null; p_outcome?: string | null };
         Returns: undefined;
       };
+      approve_vendor_bill: {
+        Args: { p_bill: string | null };
+        Returns: undefined;
+      };
       archive_conversation: {
         Args: { p_conversation: string | null; p_archived?: boolean | null };
         Returns: undefined;
@@ -5488,6 +5735,10 @@ export type Database = {
         Args: { p_billing_office: string | null; p_within_days?: number | null };
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; invoice_number: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
       };
+      bills_due_by: {
+        Args: { p_by: string | null };
+        Returns: { id: string | null; vendor: string | null; number: string | null; due_date: string | null; amount: number | null; status: string | null; late: boolean | null }[];
+      };
       can_see_restricted: {
         Args: { p_client_id: string | null };
         Returns: boolean;
@@ -5523,6 +5774,10 @@ export type Database = {
       correct_authorization: {
         Args: { p_auth: string | null; p_reason: string | null; p_service_type?: string | null; p_client?: string | null };
         Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
+      };
+      create_due_recurring_bills: {
+        Args: { p_today?: string | null };
+        Returns: number;
       };
       current_staff_id: {
         Args: Record<string, never>;
@@ -5743,6 +5998,10 @@ export type Database = {
       match_inbox_folder: {
         Args: { p_folder: string | null };
         Returns: string;
+      };
+      may_approve_bill: {
+        Args: { p_amount: number | null };
+        Returns: boolean;
       };
       merge_clients: {
         Args: { p_from: string | null; p_into: string | null };
@@ -6047,6 +6306,10 @@ export type Database = {
       timer_elapsed_hours: {
         Args: { p_started: string | null };
         Returns: number;
+      };
+      vendor_1099_candidates: {
+        Args: { p_year: number | null };
+        Returns: { vendor_id: string | null; vendor_name: string | null; legal_name: string | null; business_name: string | null; address_snapshot: string | null; tin_type: string | null; tin_last4: string | null; total_paid: number | null; w9_received_on: string | null; ready: boolean | null; problem: string | null }[];
       };
       verify_credential: {
         Args: { p_credential_id: string | null };

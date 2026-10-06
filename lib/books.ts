@@ -291,7 +291,7 @@ export async function readChart(supabase: Supabase) {
 export async function readSettings(supabase: Supabase) {
   const { data } = await supabase
     .from("ledger_settings")
-    .select("books_start, basis, cash_floor, budget_tolerance")
+    .select("books_start, basis, cash_floor, budget_tolerance, bill_approval_limit, purchase_request_over")
     .limit(1)
     .single();
   return (data ?? null) as {
@@ -299,6 +299,8 @@ export async function readSettings(supabase: Supabase) {
     basis: string;
     cash_floor: number | null;
     budget_tolerance: number;
+    bill_approval_limit: number | null;
+    purchase_request_over: number | null;
   } | null;
 }
 

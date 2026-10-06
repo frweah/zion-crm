@@ -487,3 +487,74 @@ Migrations 0146-0147, one verification script, two screens.
 - **The budget itself**, when the CPA has confirmed the chart. Nothing here
   needs the budget to exist: the variance report simply shows actuals with no
   budget beside them.
+
+---
+
+## ERP E3 — vendors, bills and purchasing
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Migrations 0148-0149, one verification script, three screens and two tiles on
+the owner's Home.
+
+**Shipped**
+
+- **Vendors** (`/books/vendors`): who the practice pays, their terms, the
+  account their bills usually land in, and whether they get a 1099.
+- **Bills with a life** (`/books/bills`): entered, approved, scheduled, paid.
+  Each step posts on its own - approved is money owed, paid has left the bank
+  - so what the books say the practice owes is what the bills say, always,
+  without anybody reconciling the two. Voiding reverses what was posted.
+- **Approval is a threshold, not a role.** Under the number the owner sets,
+  whoever does the billing approves a bill; over it, only an Admin. The
+  database decides it, not the screen.
+- **Recurring bills**: rent, software, insurance. The nightly job writes the
+  ones that fall due, awaiting approval like any other.
+- **Payables age by vendor** as well as by person, oldest cleared first, and
+  the owner's Home gained two tiles: bills due this week, with how many are
+  late, and the total owed to contractors and vendors.
+- **Purchase requests** (`/requests`): somebody asks, an Admin decides.
+  Everybody can reach it, unlike the rest of the books.
+- **Vendor 1099s join the existing run.** A recipient is a contractor or a
+  vendor, exactly one of the two; one run, one threshold, one list of what is
+  not ready, one tie-out.
+- `verify_vendors.sql`, 17 assertions. The suite is 80 scripts, 0 failed.
+
+**Chosen against**
+
+- **No vendor tax number is kept.** A 1099-able vendor has a W-9, the W-9 is
+  a document, and what the CRM stores is that it is on file and the last four
+  digits - which is exactly what a 1099 snapshot records anyway. A second
+  place to hold tax numbers is a second thing to protect, for no gain.
+- **A recurring bill is created, not posted.** The month the rent changes is
+  the month an automatic posting would be wrong and nobody would notice.
+- **A second 1099 pipeline for vendors.** Two pipelines would mean two places
+  to discover in February that a W-9 was missing.
+- **Purchase requests are not inside Books.** Books is for the two people who
+  keep them; asking to buy a laptop is everybody's, and a screen only Billing
+  can open is one the person who needs it cannot reach. Off until the owner
+  sets an amount, and the screen says so in a sentence.
+- **The document agent filing bills from a `_Bills` folder** is not in this
+  block. The bill table carries the document path it will need, and the
+  agent's folder rules are their own piece of work; a half-wired agent that
+  files some bills and not others would be worse than entering them by hand
+  for now.
+
+**One thing found on the way, and the owner should know**
+
+The migration history's copy of `generate_1099_run` named a column the
+database no longer has - `contractor_profiles.e_delivery_consent`, renamed to
+`e_delivery_consent_on`. The live function worked, so it had been changed in
+the database at some point without a migration, and the history alone could
+not have rebuilt it. The function is reconstructed and held to
+`verify_1099.sql`, which pins the threshold rules, the not-ready list, the
+freezing and the foreign-person rule, and all of them pass. It is worth
+knowing that this can happen: a change made in the Supabase SQL editor is
+invisible to the history until something like this trips over it.
+
+**Needs the owner**
+
+- **The bill approval limit** and **the amount people ask above**, both on
+  `/requests`. Empty means Admin approves everything and nobody has to ask.
+- The vendors themselves: the landlord, the software, the insurance, the
+  accountant, with the W-9 status for any that get a 1099.

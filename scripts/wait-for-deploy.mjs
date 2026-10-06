@@ -20,8 +20,21 @@ if (!sha) {
 
 const SITE = process.env.SMOKE_BASE_URL ?? "https://crm.zionvocrehab.com";
 const REPO = process.env.ZION_REPO ?? "frweah/zion-crm";
-const DEADLINE = Date.now() + 1000 * 60 * 20;
+const DEADLINE = Date.now() + 1000 * 60 * 25;
 const headers = { "user-agent": "zion-crm-deploy-watch" };
+
+/**
+ * How often each thing is asked.
+ *
+ * The site's own /api/version costs nothing, so it is asked every twenty
+ * seconds. GitHub, unauthenticated, allows sixty requests an hour for the
+ * whole machine - and asking every twenty seconds spends all sixty on one
+ * watch, which is why this reported "checks not started" three times on
+ * 6 Oct 2026 for deploys whose checks had passed. Once every two minutes
+ * costs a dozen a watch and tells us the same thing.
+ */
+const SITE_EVERY_MS = 20000;
+const GITHUB_EVERY_MS = 120000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -60,17 +73,27 @@ async function run() {
 }
 
 let serving = null;
+let asked = 0;
+let r = null;
+let lastSaid = "";
 while (Date.now() < DEADLINE) {
   serving = await live();
-  const r = await run();
+  // Asked only when it is worth asking, and never before the commit is live:
+  // there is nothing for the checks to say until the deploy has landed.
+  if (serving === sha && Date.now() - asked >= GITHUB_EVERY_MS) {
+    r = await run();
+    asked = Date.now();
+  }
   const where = serving === sha ? "live" : `live=${serving ?? "?"}`;
   const said = r?.unknown ? r.unknown : r ? `checks ${r.status}/${r.conclusion ?? "running"}` : "checks not started";
-  console.log(`  ${where}  ${said}`);
-  if (serving === sha && r?.unknown) {
-    console.error(`  UNKNOWN  ${sha} is live; ${r.unknown}, so its checks were not read`);
-    process.exit(3);
+  // One line per change, rather than the same line every twenty seconds.
+  if (`${where} ${said}` !== lastSaid) {
+    console.log(`  ${where}  ${said}`);
+    lastSaid = `${where} ${said}`;
   }
-  if (serving === sha && r && r.status === "completed") {
+  // A rate limit is worth saying at the end, not worth giving up over: it
+  // lifts within the hour and the watch may outlast it.
+  if (serving === sha && r && !r.unknown && r.status === "completed") {
     if (r.conclusion === "success") {
       console.log("");
       console.log(`--- ${sha} IS LIVE AND ITS CHECKS PASSED ---`);
@@ -79,12 +102,16 @@ while (Date.now() < DEADLINE) {
     console.error(`  FAILED  ${sha} is live and its checks ${r.conclusion}: ${r.html_url}`);
     process.exit(1);
   }
-  await sleep(20000);
+  await sleep(SITE_EVERY_MS);
 }
 
 if (serving === sha) {
-  console.error(`  UNKNOWN  ${sha} is live, and no check run for it appeared within twenty minutes`);
+  console.error(
+    r?.unknown
+      ? `  UNKNOWN  ${sha} is live; ${r.unknown}, so its checks were never read`
+      : `  UNKNOWN  ${sha} is live, and no check run for it appeared in time`,
+  );
   process.exit(3);
 }
-console.error(`  FAILED  ${sha} did not go live within twenty minutes (serving ${serving ?? "unknown"})`);
+console.error(`  FAILED  ${sha} did not go live in time (serving ${serving ?? "unknown"})`);
 process.exit(2);

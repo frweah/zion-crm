@@ -413,3 +413,289 @@ export async function setAlertThresholds(_prev: BooksState, formData: FormData):
     ok: floor === null ? "Saved. No cash warning while the floor is empty." : "Saved.",
   };
 }
+
+// ── vendors and bills (E3) ─────────────────────────────────
+/**
+ * These are not Admin's alone.
+ *
+ * Entering a bill and chasing it is the billing job; approving it is what the
+ * threshold decides, and that is decided in the database by
+ * approve_vendor_bill. So the gate here is "may read the books", and the one
+ * action with real authority asks the database rather than this file.
+ */
+async function books(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; error: string | null }> {
+  const me = await requireStaff();
+  const supabase = await createClient();
+  if (!canReach(me, "/books")) return { supabase, error: "Not yours." };
+  return { supabase, error: null };
+}
+
+const amountOf = (v: FormDataEntryValue | null) => {
+  const text = String(v ?? "").replace(/[$,\s]/g, "");
+  if (text === "") return null;
+  const n = Number(text);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+};
+
+export async function saveVendor(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await books();
+  if (denied) return { error: denied, ok: null };
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "A vendor needs a name.", ok: null };
+
+  const last4 = String(formData.get("tin_last4") ?? "").replace(/\D/g, "").slice(-4);
+  const tinType = String(formData.get("tin_type") ?? "");
+  const w9On = formData.get("w9_on_file") === "on";
+  const w9Date = day(formData.get("w9_received_on"));
+  if (w9On && !w9Date) {
+    return { error: "A W-9 on file has a day it arrived.", ok: null };
+  }
+
+  const row = {
+    name,
+    contact_name: String(formData.get("contact_name") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    phone: String(formData.get("phone") ?? "").trim(),
+    note: String(formData.get("note") ?? "").trim(),
+    expense_account_id: uuid(formData.get("expense_account_id")),
+    terms_days: formData.get("terms_days") ? Number(String(formData.get("terms_days"))) || null : null,
+    gets_1099: formData.get("gets_1099") === "on",
+    w9_on_file: w9On,
+    w9_received_on: w9Date,
+    tin_type: tinType === "EIN" || tinType === "SSN" ? tinType : null,
+    tin_last4: /^\d{4}$/.test(last4) ? last4 : null,
+  };
+
+  const id = uuid(formData.get("id"));
+  const { error } = id
+    ? await supabase
+        .from("vendors")
+        .update({ ...row, active: formData.get("active") === "on" })
+        .eq("id", id)
+    : await supabase.from("vendors").insert({ ...row, entity_id: await entityId(supabase) });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/vendors");
+  return { error: null, ok: `${name} saved.` };
+}
+
+export async function addBill(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await books();
+  if (denied) return { error: denied, ok: null };
+
+  const vendor = uuid(formData.get("vendor_id"));
+  const date = day(formData.get("bill_date"));
+  const amount = amountOf(formData.get("amount"));
+  if (!vendor) return { error: "Say which vendor.", ok: null };
+  if (!date) return { error: "Say the day the bill is dated.", ok: null };
+  if (!amount) return { error: "An amount, above zero.", ok: null };
+
+  const { data: v } = await supabase
+    .from("vendors")
+    .select("name, expense_account_id, terms_days")
+    .eq("id", vendor)
+    .single();
+  const account = uuid(formData.get("account_id")) ?? v?.expense_account_id ?? null;
+  if (!account) {
+    return { error: "Say which account this posts to; this vendor has no usual one.", ok: null };
+  }
+
+  // The due date the vendor's terms imply, where nobody typed one.
+  const due =
+    day(formData.get("due_date")) ??
+    (v?.terms_days === null || v?.terms_days === undefined
+      ? null
+      : new Date(new Date(date + "T00:00:00Z").getTime() + v.terms_days * 86400000)
+          .toISOString()
+          .slice(0, 10));
+
+  const { error } = await supabase.from("vendor_bills").insert({
+    entity_id: await entityId(supabase),
+    vendor_id: vendor,
+    number: String(formData.get("number") ?? "").trim(),
+    bill_date: date,
+    due_date: due,
+    amount,
+    account_id: account,
+    description: String(formData.get("description") ?? "").trim(),
+    created_by: (await requireStaff()).id,
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/bills");
+  return { error: null, ok: `${v?.name ?? "The bill"} entered, awaiting approval.` };
+}
+
+/** Approve, schedule, pay or void. One form per thing, one place that does it. */
+export async function settleBill(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await books();
+  if (denied) return { error: denied, ok: null };
+
+  const id = uuid(formData.get("bill_id"));
+  const how = String(formData.get("how") ?? "");
+  if (!id) return { error: "No bill was named.", ok: null };
+
+  if (how === "approve") {
+    const { error } = await supabase.rpc("approve_vendor_bill", { p_bill: id });
+    if (error) return { error: error.message, ok: null };
+    revalidatePath("/books/bills");
+    return { error: null, ok: "Approved." };
+  }
+
+  if (how === "schedule") {
+    const when = day(formData.get("scheduled_for"));
+    if (!when) return { error: "Say which day it will be paid.", ok: null };
+    const { error } = await supabase
+      .from("vendor_bills")
+      .update({ status: "Scheduled", scheduled_for: when })
+      .eq("id", id)
+      .in("status", ["Approved", "Scheduled"]);
+    if (error) return { error: error.message, ok: null };
+    revalidatePath("/books/bills");
+    return { error: null, ok: `Scheduled for ${when}.` };
+  }
+
+  if (how === "pay") {
+    const when = day(formData.get("paid_on"));
+    const method = String(formData.get("method") ?? "");
+    if (!when) return { error: "Say the day it was paid.", ok: null };
+    if (!["Check", "ACH", "Card", "Cash", "Other"].includes(method)) {
+      return { error: "Say how it was paid.", ok: null };
+    }
+    const { error } = await supabase
+      .from("vendor_bills")
+      .update({
+        status: "Paid",
+        paid_on: when,
+        method,
+        reference: String(formData.get("reference") ?? "").trim(),
+      })
+      .eq("id", id)
+      .in("status", ["Approved", "Scheduled"]);
+    if (error) return { error: error.message, ok: null };
+    revalidatePath("/books/bills");
+    return { error: null, ok: "Marked paid." };
+  }
+
+  if (how === "void") {
+    const reason = String(formData.get("void_reason") ?? "").trim();
+    if (!reason) return { error: "Say why it is being voided.", ok: null };
+    const { error } = await supabase
+      .from("vendor_bills")
+      .update({ status: "Void", void_reason: reason })
+      .eq("id", id)
+      .neq("status", "Void");
+    if (error) return { error: error.message, ok: null };
+    revalidatePath("/books/bills");
+    return { error: null, ok: "Voided, and whatever was posted is reversed." };
+  }
+
+  return { error: "Say what to do with it.", ok: null };
+}
+
+export async function addSchedule(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const vendor = uuid(formData.get("vendor_id"));
+  const account = uuid(formData.get("account_id"));
+  const amount = amountOf(formData.get("amount"));
+  const next = day(formData.get("next_due"));
+  const every = Number(formData.get("every_months")) || 1;
+  if (!vendor || !account) return { error: "A vendor and an account.", ok: null };
+  if (!amount) return { error: "An amount, above zero.", ok: null };
+  if (!next) return { error: "Say when the first one is due.", ok: null };
+
+  const { error } = await supabase.from("vendor_bill_schedules").insert({
+    entity_id: await entityId(supabase),
+    vendor_id: vendor,
+    account_id: account,
+    amount,
+    every_months: every,
+    day_of_month: Math.min(28, Number(next.slice(8, 10))),
+    next_due: next,
+    description: String(formData.get("description") ?? "").trim(),
+    created_by: (await requireStaff()).id,
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/books/bills");
+  return { error: null, ok: "Added. Each one arrives awaiting approval." };
+}
+
+// ── asking before spending (E3) ────────────────────────────
+export async function askToBuy(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const me = await requireStaff();
+  const supabase = await createClient();
+
+  const what = String(formData.get("what") ?? "").trim();
+  const amount = amountOf(formData.get("amount"));
+  if (!what) return { error: "Say what it is.", ok: null };
+  if (!amount) return { error: "Say roughly what it costs.", ok: null };
+
+  const { error } = await supabase.from("purchase_requests").insert({
+    staff_id: me.id,
+    what,
+    why: String(formData.get("why") ?? "").trim(),
+    amount,
+    status: "Requested",
+  });
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/requests");
+  return { error: null, ok: "Asked. An Admin will decide." };
+}
+
+export async function decideRequest(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const me = await requireStaff();
+  if (me.role !== "Admin") return { error: "Only an Admin decides these.", ok: null };
+  const supabase = await createClient();
+
+  const id = uuid(formData.get("request_id"));
+  const decision = String(formData.get("decision") ?? "");
+  if (!id) return { error: "No request was named.", ok: null };
+  if (!["Approved", "Declined"].includes(decision)) return { error: "Approve it or decline it.", ok: null };
+
+  const { error } = await supabase
+    .from("purchase_requests")
+    .update({
+      status: decision,
+      decided_by: me.id,
+      decided_at: new Date().toISOString(),
+      decision_note: String(formData.get("note") ?? "").trim(),
+    })
+    .eq("id", id)
+    .eq("status", "Requested");
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/requests");
+  return { error: null, ok: decision === "Approved" ? "Approved." : "Declined." };
+}
+
+/** The amount above which somebody asks first. Null switches it off. */
+export async function setPurchaseThreshold(_prev: BooksState, formData: FormData): Promise<BooksState> {
+  const { supabase, error: denied } = await admin();
+  if (denied) return { error: denied, ok: null };
+
+  const text = String(formData.get("purchase_request_over") ?? "").replace(/[$,\s]/g, "");
+  const over = text === "" ? null : Number(text);
+  if (over !== null && !(Number.isFinite(over) && over >= 0)) {
+    return { error: "An amount, or empty to switch it off.", ok: null };
+  }
+  const limitText = String(formData.get("bill_approval_limit") ?? "").replace(/[$,\s]/g, "");
+  const limit = limitText === "" ? null : Number(limitText);
+  if (limit !== null && !(Number.isFinite(limit) && limit >= 0)) {
+    return { error: "An approval limit is an amount, or empty for Admin only.", ok: null };
+  }
+
+  const { error } = await supabase
+    .from("ledger_settings")
+    .update({ purchase_request_over: over, bill_approval_limit: limit })
+    .eq("entity_id", await entityId(supabase));
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/requests");
+  revalidatePath("/books/bills");
+  return { error: null, ok: over === null ? "Saved. Nobody has to ask." : "Saved." };
+}

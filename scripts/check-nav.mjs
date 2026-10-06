@@ -84,23 +84,23 @@ const EXPECTED = {
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
-    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   "Job Search": [
     "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
-    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/sops",
+    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
     "/billing/forms", "/billing/report", "/calendar", "/clients", "/dashboard", "/directory", "/hours",
-    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
     "/billing", "/billing/export", "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors",
     "/dashboard", "/directory",
-    "/books", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/sops", "/time-clock", "/updates",
+    "/books", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
   ],
 };
 

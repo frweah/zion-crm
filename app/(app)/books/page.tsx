@@ -29,6 +29,16 @@ const PAGES: { href: string; label: string; note: string }[] = [
     label: "Forecast",
   },
   {
+    href: "/books/vendors",
+    label: "Vendors",
+    note: "Who the practice pays, and who gets a 1099.",
+  },
+  {
+    href: "/books/bills",
+    label: "Bills",
+    note: "What has been billed, what is approved, and what is due.",
+  },
+  {
     href: "/books/bank",
     label: "Bank statements",
     note: "Import a statement, match what it shows, reconcile it.",
