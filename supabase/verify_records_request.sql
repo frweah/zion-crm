@@ -54,6 +54,7 @@ declare
     'authorizations=authorizations',
     'invoices=invoices',
     'billing_items=billing',
+    'practice_form_entries=practice_forms',
     'work_sessions=service_hours',
     'forms=forms',
     'placements=placements',

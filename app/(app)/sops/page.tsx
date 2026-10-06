@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { SopEditor, NewSop, type Sop } from "./sop-editor";
+import { KnowledgeShelves } from "./knowledge-shelves";
 import { PageHead } from "../page-head";
 
 export default async function SopsPage({
@@ -18,7 +19,8 @@ export default async function SopsPage({
   // so there is nothing to filter here.
   const { data } = await supabase
     .from("sops")
-    .select("id, title, body, roles, screen")
+    .select("id, title, body, roles, screen, category, form_key")
+    .order("category")
     .order("sort_order")
     .order("title");
 
@@ -28,11 +30,11 @@ export default async function SopsPage({
   return (
     <>
       <PageHead
-        title="Standard operating procedures"
+        title="Knowledge base"
         context={
           isAdmin
-            ? "Everyone sees the procedures for their role. You can edit them here."
-            : "Procedures for your role"
+            ? "How the practice does things. Everyone sees their own role's articles; you can edit them here."
+            : "How the practice does things"
         }
       />
 
@@ -46,21 +48,9 @@ export default async function SopsPage({
         </p>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: "minmax(200px, 1fr) minmax(0, 2fr)" }}>
-        <div className="card" style={{ padding: 8, alignSelf: "start" }}>
-          {sops.length === 0 && <div className="empty">No procedures for this role yet.</div>}
-          {sops.map((s) => (
-            <Link
-              key={s.id}
-              href={`/sops?id=${s.id}`}
-              className={"navb" + (selected?.id === s.id ? " on" : "")}
-              style={{ color: selected?.id === s.id ? "var(--forest)" : "var(--ink)" }}
-            >
-              {s.title}
-            </Link>
-          ))}
-        </div>
+      <KnowledgeShelves sops={sops} selectedId={selected?.id ?? null} />
 
+      <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
         <div className="card">
           {!selected ? (
             <div className="empty">Choose a procedure to read it.</div>

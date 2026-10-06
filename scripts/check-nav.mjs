@@ -82,25 +82,25 @@ const EXPECTED = {
     "/admin/documents", "/admin/people", "/admin/system",
     "/billing", "/billing/export", "/billing/forms", "/billing/report",
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
-    "/directory", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
+    "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/insights/reports", "/updates",
-    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   "Job Search": [
     "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
-    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/paperwork", "/sops",
+    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
     "/billing/forms", "/billing/report", "/calendar", "/clients", "/dashboard", "/directory", "/hours",
-    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/paperwork", "/sops", "/tasks",
+    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
     "/billing", "/billing/export", "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors",
     "/dashboard", "/directory",
-    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-day", "/paperwork", "/sops", "/time-clock", "/updates",
+    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/sops", "/time-clock", "/updates",
   ],
 };
 

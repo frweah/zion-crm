@@ -208,7 +208,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
       { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
       { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
-      { label: "SOPs", href: "/sops", roles: EVERYONE, note: "How the practice does things." },
+      { label: "Knowledge base", href: "/sops", roles: EVERYONE, note: "How the practice does things, by shelf." },
+      // The practice's own forms, filled in where the work happens
+      // (Design language, §3). USOR's stay on Billing.
+      { label: "Forms and checklists", href: "/forms-and-checklists", roles: EVERYONE, note: "A visit, a worksite check, an incident." },
       { label: "People", href: "/admin/people", roles: ADMIN },
       { label: "Contractors", href: "/admin/people?tab=contractors", roles: ADMIN },
     ],

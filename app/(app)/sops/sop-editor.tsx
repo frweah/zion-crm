@@ -12,6 +12,10 @@ export type Sop = {
   body: string;
   roles: string[];
   screen: string | null;
+  /** Which shelf it is on (0139). */
+  category?: string | null;
+  /** A form or checklist the article hands you. */
+  form_key?: string | null;
 };
 
 function RoleBoxes({ selected }: { selected: string[] }) {

@@ -2796,6 +2796,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      practice_form_entries: {
+        Row: {
+          id: string;
+          form_key: string;
+          client_id: string | null;
+          staff_id: string | null;
+          staff_name: string | null;
+          answers: Json;
+          filled_at: string;
+          attachment_path: string | null;
+        };
+        Insert: {
+          id?: string;
+          form_key: string;
+          client_id?: string | null;
+          staff_id?: string | null;
+          staff_name?: string | null;
+          answers?: Json;
+          filled_at?: string;
+          attachment_path?: string | null;
+        };
+        Update: {
+          id?: string;
+          form_key?: string;
+          client_id?: string | null;
+          staff_id?: string | null;
+          staff_name?: string | null;
+          answers?: Json;
+          filled_at?: string;
+          attachment_path?: string | null;
+        };
+        Relationships: [];
+      };
+      practice_forms: {
+        Row: {
+          key: string;
+          name: string;
+          purpose: string | null;
+          fields: Json;
+          about_a_client: boolean;
+          roles: string[];
+          active: boolean;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          name: string;
+          purpose?: string | null;
+          fields?: Json;
+          about_a_client?: boolean;
+          roles?: string[];
+          active?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          name?: string;
+          purpose?: string | null;
+          fields?: Json;
+          about_a_client?: boolean;
+          roles?: string[];
+          active?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       rate_schedule: {
         Row: {
           id: string;
@@ -3233,6 +3302,8 @@ export type Database = {
           sort_order: number;
           created_at: string;
           updated_at: string;
+          category: string;
+          form_key: string | null;
         };
         Insert: {
           id?: string;
@@ -3244,6 +3315,8 @@ export type Database = {
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
+          category?: string;
+          form_key?: string | null;
         };
         Update: {
           id?: string;
@@ -3255,6 +3328,8 @@ export type Database = {
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
+          category?: string;
+          form_key?: string | null;
         };
         Relationships: [];
       };

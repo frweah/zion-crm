@@ -142,7 +142,7 @@ somebody will add to without thinking.
 
 ## Design language, step 5 — tasks as checklists
 
-Deployed `<pending>`, 5 Oct 2026.
+Deployed `42af989`, 5 Oct 2026.
 
 **Shipped**
 
@@ -167,5 +167,56 @@ Deployed `<pending>`, 5 Oct 2026.
   finished from four different screens and all four should behave the same.
 - Attachments on a task are not built. The file plumbing arrives with E3's
   `_Bills` folder, and doing it once is better than twice.
+
+**Needs the owner** — nothing.
+
+---
+
+## The timing check, corrected
+
+Deployed `b4da89b`, 5 Oct 2026.
+
+Step 5's deploy failed the timing check and the screens were fine — the smoke
+check passed and production stayed up, which is why the timing check runs as
+a job of its own. What it caught was Communication taking over eight seconds
+to go quiet on the **first** click after a deploy; measured again warm, same
+walk, same place: 548 ms.
+
+The first request to a screen after a deploy wakes a serverless function.
+That is Vercel's cold start, nobody can act on it, and a check that fails on a
+slow morning is one somebody turns off. Each screen is now clicked once to
+warm it and timed on the second visit. Ceiling stays at 8 s, target at 2 s.
+
+---
+
+## Design language, step 6 — the knowledge base, and the practice's own forms
+
+Deployed `<pending>`, 5 Oct 2026.
+
+**Shipped**
+
+- **Knowledge base** (the old SOPs screen): articles as cards on shelves, with
+  a search that reads the articles and not only their titles. "Where do I…?"
+  is the first shelf, because it is the question people arrive with — they
+  want a screen, not a procedure.
+- **Forms and checklists** (`/forms-and-checklists`, HR hub): the practice's
+  own three — a client visit, a worksite check, an incident — filled in on a
+  phone and saved against the client. One field per line, real keyboards for
+  numbers and dates, the camera for a photograph, and the photograph shrunk in
+  the browser by the same helper the paperwork uploads use.
+- A filled form is append-only, like a note. `verify_practice_forms.sql`
+  proves it cannot be rewritten, cannot be filed as somebody else, is offered
+  by role, and that a used template cannot be deleted out from under its
+  entries.
+- A client's filled forms join their records-request bundle (0140), which the
+  bundle check demanded the first time it ran.
+
+**Chosen against**
+
+- USOR's forms are untouched. They are somebody else's document with somebody
+  else's rules, they live on Billing, and they work.
+- The signature field records that the filer signed rather than drawing a
+  second signature pad: the practice already holds each person's signature
+  from Paperwork, and two places to keep one is one too many.
 
 **Needs the owner** — nothing.
