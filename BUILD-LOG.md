@@ -595,8 +595,12 @@ offboarding checklist.
 - **The offboarding checklist reads the register.** "Equipment to hand back"
   is a count of real things with real tags, on the same view that already
   answers what else is still attached to somebody.
-- **Straight-line depreciation**, posted monthly by the nightly job on the
-  first, for the month that has just finished. The lives are the CPA's to
+- **Straight-line depreciation**, posted by the nightly job for each of the
+  last three finished months, every night. Posting is idempotent - a row per
+  asset per month is what stops a second one - so a night that does nothing
+  costs three queries, and a night the job did not run is caught by the next
+  one. Gating it on the first of the month would have meant one missed night
+  losing a month of depreciation with nothing to say so. The lives are the CPA's to
   set. The last month takes the rounding, so nothing is left on the books
   forever; a month already posted is never rewritten.
 - **Disposal**: the cost and the depreciation come off together, what was got

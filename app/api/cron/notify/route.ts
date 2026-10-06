@@ -69,13 +69,26 @@ async function handle(request: NextRequest) {
   // somebody has to see.
   const { data: billsWritten } = await supabase.rpc("create_due_recurring_bills", { p_today: practiceToday });
 
-  // On the first, the month that has just finished is depreciated (E4). A
-  // month still running cannot be: post_depreciation_for refuses it.
-  const lastMonth = new Date(practiceToday + "T00:00:00Z");
-  lastMonth.setUTCDate(0);
-  const { data: depreciated } = practiceToday.endsWith("-01")
-    ? await supabase.rpc("post_depreciation_for", { p_month: lastMonth.toISOString().slice(0, 10) })
-    : { data: 0 };
+  /**
+   * Depreciation for the finished months (E4).
+   *
+   * Every night, for the last three of them, rather than once on the first.
+   * Posting is idempotent - a row per asset per month is what stops a second
+   * one - so a night that does nothing costs three queries, and a night the
+   * job did not run is caught by the next one. Gating it on the first of the
+   * month would have meant one missed night losing a month of depreciation
+   * with nothing to say so.
+   */
+  let depreciated = 0;
+  for (const back of [1, 2, 3]) {
+    const month = new Date(practiceToday + "T00:00:00Z");
+    month.setUTCDate(1);
+    month.setUTCMonth(month.getUTCMonth() - back);
+    const { data } = await supabase.rpc("post_depreciation_for", {
+      p_month: month.toISOString().slice(0, 10),
+    });
+    depreciated += Number(data ?? 0);
+  }
 
   // Onboarding reminders go every night a step is open, unlike the digest's
   // once-per-item: the person asked to finish is the one who has to act.
