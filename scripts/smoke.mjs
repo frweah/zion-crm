@@ -168,8 +168,14 @@ async function pass(role) {
   const item = firstLink(results, "/billing?tab=items", new RegExp(`/billing/items/${uuid}`));
   if (item) results.push(await open(item));
 
+  // A bank statement's own screen, found on the list of statements. The hub
+  // walk above reaches every screen a card points at; this one is behind a
+  // record, like a client or a billing item, so it is found the same way.
+  const statement = firstLink(results, "/books/bank", new RegExp(`/books/bank/${uuid}`));
+  if (statement) results.push(await open(statement));
+
   await supabase.auth.signOut().catch(() => {});
-  return { results, client, item };
+  return { results, client, item, statement };
 }
 
 // ── the verdict ───────────────────────────────────────────────
