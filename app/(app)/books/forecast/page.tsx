@@ -84,6 +84,12 @@ export default async function Forecast() {
       )}
 
       <h2 className="h2">Cash, by week</h2>
+      {weeks.length === 0 && settings && (
+        <p className="empty">
+          Nothing until the books open on {settings.books_start} — no postings is not the same as no
+          money.
+        </p>
+      )}
       <DataTable
         label="weeks"
         filter={false}
@@ -105,7 +111,7 @@ export default async function Forecast() {
           },
           sort: { week: w.week, closing: w.closing },
         }))}
-        empty="Nothing is posted yet, so there is no balance to carry forward."
+        empty="No week to show."
       />
 
       <h2 className="h2" style={{ marginTop: 24 }}>

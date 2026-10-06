@@ -668,6 +668,16 @@ verified now, so that adding the PCA is an afternoon rather than a quarter.
   first, so consolidation is a sum rather than a translation table somebody
   has to maintain.
 
+**What still has no entity, and why that is right for now**
+
+A billing item, a contractor statement and an expense claim have no entity
+of their own, so everything they post goes to the default set of books. That
+is correct today: Zion does the work and Zion bills it. When the PCA starts
+billing, those three tables gain an entity column and the posting functions
+read it - which is a column and a default, not a rebuild, because the ledger
+underneath already carries the dimension. Saying so here is cheaper than
+rediscovering it.
+
 **Needs the owner** — nothing until the PCA exists. When it does: Books,
 add the entity, and the chart comes with it.
 
@@ -696,3 +706,27 @@ every twenty seconds - sixty requests per watch, the entire budget.
 Actions and Deployments is enough; it raises the limit from sixty requests
 an hour to five thousand, and the watcher stops guessing. Nothing breaks
 without it.
+
+---
+
+## The cash forecast waits for the books
+
+Deployed `<pending>`, 6 Oct 2026.
+
+Found while reading the Books screens back in the state they will actually be
+in for the next three months: before the books open there are no postings at
+all, and the cash forecast read that as no money. It would have shown the
+practice running to nothing all through the autumn - and worse, if the owner
+set a cash floor now, the nightly alert would have fired in red every night
+about a balance nobody is keeping yet. An alert that is wrong for three
+months running is an alert nobody reads on the day it is right.
+
+- The cash forecast returns nothing until the books open, and the screen says
+  so in a sentence.
+- The revenue and cost forecasts are deliberately left alone: they are built
+  from billing items and authorizations, which are real today, so they are
+  worth reading before the ledger exists. Only the cash side needs a starting
+  balance, and only the cash side waits.
+- `verify_budget_forecast.sql` gained the assertion, and is now 14.
+
+**Needs the owner** — nothing.

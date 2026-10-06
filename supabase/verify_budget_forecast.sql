@@ -161,6 +161,21 @@ begin
     raise notice 'ok  what is already owed is forecast as owed, not as an average';
   end if;
 
+  -- ── and says nothing before the books open ────────────────
+  --
+  -- No postings is not the same as no money. Reading it as no money would
+  -- show the practice running to nothing all through the autumn, and the
+  -- cash-floor alert would fire nightly, in red, about a balance nobody is
+  -- keeping yet.
+  update public.ledger_settings set books_start = date '2027-01-01' where entity_id = v_entity;
+  select count(*) into v_n from public.ledger_cash_forecast(90);
+  if v_n <> 0 then
+    failures := failures || format('FAILED: %s weeks of cash forecast before the books open', v_n)::text;
+  else
+    raise notice 'ok  the cash forecast says nothing until there is a balance to forecast from';
+  end if;
+  update public.ledger_settings set books_start = date '2020-01-01' where entity_id = v_entity;
+
   -- ── cash carries forward ──────────────────────────────────
   select f.closing into v_amount from public.ledger_cash_forecast(90) f order by f.week limit 1;
   if v_amount is null then
