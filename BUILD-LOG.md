@@ -71,7 +71,7 @@ Deployed `4cdf2ff`, 5 Oct 2026.
 
 ## Design language, step 3 — the time clock and My day
 
-Deployed `<pending>`, 5 Oct 2026.
+Deployed `8e3dd0c`, 5 Oct 2026.
 
 **Shipped**
 
@@ -91,5 +91,49 @@ Deployed `<pending>`, 5 Oct 2026.
 - The time clock does not repeat the session list or the statements; those are
   on Hours, one click away, and a screen that shows everything is a screen
   nobody reads.
+
+**Needs the owner** — nothing.
+
+---
+
+## Design language, step 4 — Updates, Directory, and the two-pane Inbox
+
+Deployed `<pending>`, 5 Oct 2026.
+
+**Shipped**
+
+- **Updates** (`/updates`): Admin posts a heading, what it says, an optional
+  link, and who it is for — a role or everybody. A post can require
+  acknowledgement and stay pinned until the person reads it. Reading is a
+  button, not a scroll position. Admin sees how many have read each post and
+  **who has not**, by name, which is the reason the feature exists.
+- **Directory** (`/directory`): colleagues and counselors, with initials, role
+  or office, and one tap to message, call or email.
+- **The Inbox opens two panes** on a desk: the thread, and the client's card
+  beside it — stage, who works them, who bills them, their counselor, their
+  number, and what is next. Where there is no client, the same space offers
+  the three things to do with an unknown number. One column on a phone,
+  thread first.
+- `verify_updates.sql`: only an Admin posts; a role's update is invisible to
+  another role; a person records their own reading and nobody else's; Admin
+  sees who has read and a colleague sees only themselves.
+
+**Chosen against**
+
+- No photographs in the directory. The practice holds none, and a page of
+  grey circles says less than initials do — the same initials the avatar menu
+  draws, so a person looks the same wherever they appear.
+- No reactions on updates yet (the brief marks them optional). Read or not
+  read is the question being asked; a thumbs-up would blur it.
+- Attachments on an update have their columns but no upload yet: the
+  `_Bills`-style folder work in E3 brings the same file plumbing, and doing it
+  once is better than twice.
+
+**Found while building** — the mail privacy check refuses any column that
+could hold a message body, and read `updates.body` as one. It is an
+announcement written in the CRM rather than a copy of anybody's message, but
+the column was renamed to `text` (what `notifications` already uses) rather
+than given an exception: a privacy rule with a list of exceptions is one
+somebody will add to without thinking.
 
 **Needs the owner** — nothing.

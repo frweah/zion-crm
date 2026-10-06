@@ -6,6 +6,7 @@ import { PageHead } from "../../page-head";
 import { DataTable } from "../../data-table";
 import { AssignForm, UnmatchedActions, NotSpam } from "./inbox-forms";
 import { WebThread, type WebMessage } from "./web-thread";
+import { ClientCard, StrangerCard } from "./client-card";
 
 /**
  * The inbox (Messaging brief, A and C).
@@ -111,12 +112,28 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
             </Link>
           </div>
 
-          <WebThread
-            conversationId={openId!}
-            visitor={visitorRow?.visitor_name ?? "The visitor"}
-            messages={(thread ?? []) as WebMessage[]}
-            canAnswer={canWork}
-          />
+          {/* Two panes on a desk (Design language, §2): the thread, and who
+              is asking. Answering means knowing who that is, and the thing
+              lost on a trip to their record and back is the half-written
+              reply. One column on a phone, thread first. */}
+          <div className="two-pane">
+            <div>
+              <WebThread
+                conversationId={openId!}
+                visitor={visitorRow?.visitor_name ?? "The visitor"}
+                messages={(thread ?? []) as WebMessage[]}
+                canAnswer={canWork}
+              />
+            </div>
+            {open.client_id ? (
+              <ClientCard clientId={open.client_id} />
+            ) : (
+              <StrangerCard
+                who={visitorRow?.visitor_name ?? open.who ?? "Unknown number"}
+                conversationId={openId!}
+              />
+            )}
+          </div>
 
           <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
             {visitorRow?.consent_at

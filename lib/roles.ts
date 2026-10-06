@@ -167,6 +167,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Chat", href: "/messages", roles: EVERYONE, note: "Colleagues, and threads about a client." },
       { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE, note: "Whoever is on zionrehabcenter.com now." },
       { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
+      // What the practice tells everybody, and who it can reach
+      // (Design language, §3).
+      { label: "Updates", href: "/updates", roles: EVERYONE, note: "Posts from the practice, and what you have read." },
+      { label: "Directory", href: "/directory", roles: EVERYONE, note: "Colleagues and counselors, with their numbers." },
     ],
   },
   {

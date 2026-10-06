@@ -4023,6 +4023,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      update_reads: {
+        Row: {
+          update_id: string;
+          staff_id: string;
+          read_at: string;
+        };
+        Insert: {
+          update_id: string;
+          staff_id: string;
+          read_at?: string;
+        };
+        Update: {
+          update_id?: string;
+          staff_id?: string;
+          read_at?: string;
+        };
+        Relationships: [];
+      };
+      updates: {
+        Row: {
+          id: string;
+          title: string;
+          text: string;
+          link: string | null;
+          attachment_path: string | null;
+          attachment_name: string | null;
+          audience: string[];
+          pinned: boolean;
+          requires_ack: boolean;
+          active: boolean;
+          posted_by: string | null;
+          posted_by_name: string | null;
+          posted_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          text: string;
+          link?: string | null;
+          attachment_path?: string | null;
+          attachment_name?: string | null;
+          audience?: string[];
+          pinned?: boolean;
+          requires_ack?: boolean;
+          active?: boolean;
+          posted_by?: string | null;
+          posted_by_name?: string | null;
+          posted_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          text?: string;
+          link?: string | null;
+          attachment_path?: string | null;
+          attachment_name?: string | null;
+          audience?: string[];
+          pinned?: boolean;
+          requires_ack?: boolean;
+          active?: boolean;
+          posted_by?: string | null;
+          posted_by_name?: string | null;
+          posted_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       warrant_documents: {
         Row: {
           id: string;
@@ -4816,6 +4885,24 @@ export type Database = {
           owed_by: string | null;
           waiting_since: string | null;
           business_days: number | null;
+        };
+        Relationships: [];
+      };
+      updates_for_me: {
+        Row: {
+          id: string | null;
+          title: string | null;
+          text: string | null;
+          link: string | null;
+          attachment_path: string | null;
+          attachment_name: string | null;
+          audience: string[] | null;
+          pinned: boolean | null;
+          requires_ack: boolean | null;
+          posted_by_name: string | null;
+          posted_at: string | null;
+          read_by_me: boolean | null;
+          read_count: number | null;
         };
         Relationships: [];
       };

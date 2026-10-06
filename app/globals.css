@@ -1041,6 +1041,148 @@ table.t tbody tr[aria-selected="true"] td {
   flex-shrink: 0;
 }
 
+/* ── two panes (Design language, §2) ────────────────────────
+   The thread, and the client's card beside it on a desk. One column on a
+   phone, thread first, because the card is context and the thread is the
+   thing being answered. */
+.two-pane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+
+.thread-aside .card {
+  margin: 0;
+  position: sticky;
+  top: 80px;
+}
+
+.card-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 10px 0 0;
+  font-size: var(--text-sm);
+}
+
+.card-facts dt {
+  color: var(--muted);
+}
+
+.card-facts dd {
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  .two-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .thread-aside .card {
+    position: static;
+  }
+}
+
+/* ── feeds (Design language, §2) ────────────────────────────
+   Communication reads top-down like a messaging app rather than across like
+   a table. A pinned-and-unread post carries the accent edge; once read it is
+   an ordinary post, which is what "pinned until read" means. */
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.feed-item {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.feed-pinned {
+  border-left: 3px solid var(--accent);
+}
+
+.feed-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.feed-head h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+}
+
+.feed-body {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+}
+
+.feed-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── people (Design language, §3) ───────────────────────────
+   Initials rather than a grey circle where a face should be: the practice
+   holds no photographs, and the initials are the ones the avatar menu draws,
+   so a person looks the same wherever they appear. */
+.people {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.person-face {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--bone);
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.person-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.person-do {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
 /* ── hubs (Design language, §1) ─────────────────────────────
    A hub opens on its own screens as cards: a person who knows what they want
    clicks past in a second, and a person who does not can see what the hub
