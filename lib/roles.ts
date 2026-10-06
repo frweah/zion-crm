@@ -129,7 +129,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // The person's day (owner, 21 Sept 2026). The counters open their lists
       // at /dashboard/needs.
-      { label: "Today", href: "/dashboard", roles: EVERYONE },
+      { label: "Today", href: "/dashboard", roles: EVERYONE, note: "What is waiting for you, in tiles." },
+      // What is today, as distinct from what is waiting (Design language, §3).
+      { label: "My day", href: "/my-day", roles: EVERYONE, note: "Appointments, tasks and clients, in time order." },
     ],
   },
   {
@@ -143,10 +145,10 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // Where somebody with a caseload starts the day: their own clients and
       // what is due against each (Workflow brief, 20 Sept 2026).
-      { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"] },
-      { label: "Clients", href: "/clients", roles: EVERYONE },
-      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks" },
-      { label: "Jobs", href: "/leads", roles: EVERYONE },
+      { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"], note: "Your caseload, and what is due on each." },
+      { label: "Clients", href: "/clients", roles: EVERYONE, note: "Every client the practice works with." },
+      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks", note: "Everybody's, not only your own." },
+      { label: "Jobs", href: "/leads", roles: EVERYONE, note: "Openings, applications and the employers behind them." },
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
       { label: "Counselors", href: "/counselors", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
@@ -160,11 +162,11 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Communication",
     hub: "/communication",
     items: [
-      { label: "Mail", href: "/mail", roles: EVERYONE },
-      { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE },
-      { label: "Chat", href: "/messages", roles: EVERYONE },
-      { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE },
-      { label: "Calendar", href: "/calendar", roles: EVERYONE },
+      { label: "Mail", href: "/mail", roles: EVERYONE, note: "Your own Outlook, read here." },
+      { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE, note: "Clients, both ways." },
+      { label: "Chat", href: "/messages", roles: EVERYONE, note: "Colleagues, and threads about a client." },
+      { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE, note: "Whoever is on zionrehabcenter.com now." },
+      { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
     ],
   },
   {
@@ -195,11 +197,14 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "HR",
     hub: "/hr",
     items: [
-      { label: "Hours", href: "/hours", roles: EVERYONE },
+      // The thing most people do most often, on a screen of its own
+      // (Design language, §3).
+      { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
+      { label: "Hours", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
       { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
-      { label: "Paperwork", href: "/paperwork", roles: EVERYONE },
+      { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
       { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
-      { label: "SOPs", href: "/sops", roles: EVERYONE },
+      { label: "SOPs", href: "/sops", roles: EVERYONE, note: "How the practice does things." },
       { label: "People", href: "/admin/people", roles: ADMIN },
       { label: "Contractors", href: "/admin/people?tab=contractors", roles: ADMIN },
     ],

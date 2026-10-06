@@ -39,7 +39,7 @@ Deployed `e4603ec`, 5 Oct 2026.
 
 ## Design language, step 2 — hubs, hub pages, the phone bar
 
-Deployed `<pending>`, 5 Oct 2026.
+Deployed `4cdf2ff`, 5 Oct 2026.
 
 **Shipped**
 
@@ -64,5 +64,32 @@ Deployed `<pending>`, 5 Oct 2026.
   brief's hub lists but are steps 3, 4 and 6. Adding navigation entries for
   screens that do not exist would fail `check-nav` and the deploy check, so
   each joins its hub as it is built.
+
+**Needs the owner** — nothing.
+
+---
+
+## Design language, step 3 — the time clock and My day
+
+Deployed `<pending>`, 5 Oct 2026.
+
+**Shipped**
+
+- **Time clock** (`/time-clock`, HR hub): clocked-in-since, today's total and
+  this period's total as three tiles, with the clock in / clock out control
+  under them. What is asked at clock-out is unchanged — the hours from the
+  clock, the category, what the time was spent on — because it was already
+  right; the categories offered are the person's role's (0134).
+- **My day** (`/my-day`, Home): today in one column. Appointments at their
+  time; tasks due and clients with something due under them, because a task
+  due today does not happen at nine o'clock and pretending it does invents a
+  schedule nobody agreed to.
+- Every hub card now carries one line saying what the screen is for.
+
+**Chosen against**
+
+- The time clock does not repeat the session list or the statements; those are
+  on Hours, one click away, and a screen that shows everything is a screen
+  nobody reads.
 
 **Needs the owner** — nothing.
