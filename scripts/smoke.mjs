@@ -24,7 +24,8 @@
  */
 import { readFileSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
-import { reachableFor } from "../lib/roles.ts";
+import { readdir } from "node:fs/promises";
+import { reachableFor, navPath } from "../lib/roles.ts";
 import { CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const env = (k) => {
@@ -101,6 +102,21 @@ async function open(path) {
 }
 
 // ── the screens ───────────────────────────────────────────────
+/** Every route with a page of its own, as a URL path. */
+async function routes(dir = new URL("../app/(app)/", import.meta.url), prefix = "") {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      const segment = entry.name.startsWith("(") ? "" : `/${entry.name}`;
+      out.push(...(await routes(new URL(`${entry.name}/`, dir), prefix + segment)));
+    } else if (entry.name === "page.tsx") {
+      out.push(prefix || "/");
+    }
+  }
+  return out;
+}
+
+
 const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf8").matchAll(/\{ key: "([a-z]+)", label:/g)].map((m) => m[1]);
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const firstLink = (results, path, re) => results.find((x) => x.path === path)?.body?.match(re)?.[0] ?? null;
@@ -170,9 +186,28 @@ if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {
   all.push(...billing.results.map((r) => ({ ...r, role: "Billing" })));
   if (!billing.item) console.log("  note  no billing item was listed, so no item record was opened");
 } else {
-  const unseen = [...new Set(reachableFor("Billing").map((i) => i.href))]
+  /**
+   * Said as an annotation, and counted properly.
+   *
+   * This was a note in the log, and the log is the place nobody reads: on
+   * 6 Oct 2026 the fourteen screens of the books shipped with nothing having
+   * opened them, because the only account that works is Job Search and the
+   * books are Billing's. The count now includes the screens inside a hub,
+   * since naming "/books" and meaning eleven screens understates the hole by
+   * ten.
+   */
+  const unseenNav = [...new Set(reachableFor("Billing").map((i) => i.href))]
     .filter((h) => !jobSearch.results.some((r) => r.path === h));
-  console.log(`  note  no SMOKE_BILLING_EMAIL, so ${unseen.length} Billing screens were opened by nobody: ${unseen.join(", ")}`);
+  const underneath = (await routes()).filter(
+    (r) => !r.includes("[") && unseenNav.some((h) => r.startsWith(navPath(h) + "/")),
+  );
+  const unseen = [...new Set([...unseenNav, ...underneath])].sort();
+  console.log(
+    `  note  no SMOKE_BILLING_EMAIL, so ${unseen.length} Billing screens were opened by nobody: ${unseen.join(", ")}`,
+  );
+  console.log(
+    `::warning title=Screens nobody opened::${unseen.length} screens only Billing can reach were not opened, because SMOKE_BILLING_EMAIL and SMOKE_BILLING_PASSWORD are not set: ${unseen.join(", ")}`,
+  );
 }
 
 const failed = all.filter((r) => !r.ok);

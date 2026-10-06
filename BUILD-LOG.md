@@ -755,3 +755,36 @@ anyway: `journal_lines` carries a client_id and so belongs in a records
 request; eleven new tables did not refuse writes from the automated
 accounts; and the migration history's copy of `generate_1099_run` named a
 column the database no longer has.
+
+---
+
+## Nobody has opened the books
+
+Deployed `<pending>`, 6 Oct 2026.
+
+**This is the one thing worth reading in this file.**
+
+The deploy check signs in as the automated-check account and opens every
+screen that account can reach. That account is Job Search, and the books are
+Billing's, so **not one of the fourteen screens built today has been opened
+by anything** - not by the deploy check, not by a person. The database
+underneath is held to 82 verification scripts and every rule in the brief;
+the screens are built, typed, linted against the project's own checks and
+built for production, and that is not the same as somebody having loaded one.
+
+The second account exists. What it is missing is two secrets.
+
+**Needs the owner — two secrets, and then this closes itself**
+
+Add `SMOKE_BILLING_EMAIL` and `SMOKE_BILLING_PASSWORD` to the repository's
+Actions secrets, for the "Automated check (billing)" account that already
+exists. On the next deploy the check opens every Billing screen, follows each
+hub's own cards, and fails the deploy - rolling production back - if any of
+them carries a server error.
+
+Until then the check says so out loud rather than in a log: it now reports
+the screens nobody opened as a warning annotation on the commit, and counts
+the screens inside a hub rather than naming the hub and meaning eleven
+things. Today that is 21 screens: the eleven of the books, and the ten
+Billing screens that were already in the same position before any of this
+was built.
