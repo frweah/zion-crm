@@ -730,3 +730,28 @@ months running is an alert nobody reads on the day it is right.
 - `verify_budget_forecast.sql` gained the assertion, and is now 14.
 
 **Needs the owner** — nothing.
+
+---
+
+## What the ERP brief asked to be verified, and where it is
+
+The brief lists six things the books must be held to. Each one is a script
+that builds the situation and tries to break it, and the whole suite is 82
+scripts with nothing failing. Written out here so somebody - the owner, the
+CPA, whoever is reading this in a year - can check the list rather than take
+it on trust.
+
+| What the brief asks | Where it is held to it |
+| --- | --- |
+| Debits equal credits on every posting | `verify_ledger.sql` — a one-sided entry and an unbalanced one, both refused at commit, through the deferred constraint rather than through code |
+| The trial balance balances | `verify_ledger.sql` — after a month of items, statements, claims and payouts |
+| Every source event posts exactly once | `verify_ledger.sql` — an item submitted, touched again, and submitted again |
+| Bank reconciliation cannot close with a difference | `verify_bank_import.sql` — an unsettled line, a statement that does not add up, and a ledger that disagrees: three refusals |
+| The 1099 tie-out equals payables | `verify_vendors.sql` — money recorded paid and never posted shows as a difference; a bill paid the proper way round ties out exactly |
+| Closed periods refuse writes | `verify_ledger.sql` — a journal by hand refused, and one the CRM makes for itself moved to the next open month, saying what day it happened |
+
+And the things the brief did not think to ask for, which the suite found
+anyway: `journal_lines` carries a client_id and so belongs in a records
+request; eleven new tables did not refuse writes from the automated
+accounts; and the migration history's copy of `generate_1099_run` named a
+column the database no longer has.

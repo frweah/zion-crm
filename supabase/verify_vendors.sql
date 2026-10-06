@@ -215,6 +215,11 @@ declare
   v_made     integer;
   v_n        integer;
   v_status   text;
+  v_tidy     uuid;
+  v_tidy_bill uuid;
+  v_rec      numeric;
+  v_post     numeric;
+  v_diff     numeric;
   failures   text[] := '{}';
 begin
   select id into v_entity from public.ledger_entities where is_default;
@@ -314,6 +319,43 @@ begin
     failures := failures || format('FAILED: the run holds %s rows for a ready 1099 vendor', v_n)::text;
   else
     raise notice 'ok  a vendor and a contractor are on one run, not two';
+  end if;
+
+  -- ── the tie-out does its job ──────────────────────────────
+  --
+  -- Three numbers that have to be the same: what was recorded paid, what the
+  -- ledger posted, and what the 1099 said. The bill above was written
+  -- straight in as paid, so nothing posted for it - and that is precisely
+  -- what the tie-out exists to notice.
+  select difference into v_diff from public.ledger_1099_tie_out(2026)
+   where person = 'ZZ Software Co';
+  if coalesce(v_diff, 0) = 0 then
+    failures := failures || 'FAILED: money recorded paid and never posted did not show as a difference'::text;
+  else
+    raise notice 'ok  the tie-out notices money recorded paid that the ledger never posted';
+  end if;
+
+  -- And a bill that went the proper way round ties out exactly.
+  insert into public.vendors (entity_id, name, expense_account_id, gets_1099, w9_on_file,
+                              w9_received_on, tin_type, tin_last4, address)
+  values (v_entity, 'ZZ Tidy Co', v_rent, true, true, date '2026-01-02', 'EIN', '9999',
+          'ZZ 2 Example Way, Provo, UT, 84601')
+  returning id into v_tidy;
+
+  insert into public.vendor_bills (entity_id, vendor_id, bill_date, amount, account_id)
+  values (v_entity, v_tidy, date '2026-02-01', 1800, v_rent) returning id into v_tidy_bill;
+  update public.vendor_bills
+     set status = 'Approved', approved_by = v_admin, approved_at = now() where id = v_tidy_bill;
+  update public.vendor_bills
+     set status = 'Paid', paid_on = date '2026-02-20', method = 'ACH' where id = v_tidy_bill;
+
+  select recorded, posted, difference into v_rec, v_post, v_diff
+    from public.ledger_1099_tie_out(2026) where person = 'ZZ Tidy Co';
+  if coalesce(v_rec, 0) <> 1800 or coalesce(v_post, 0) <> 1800 or coalesce(v_diff, 1) <> 0 then
+    failures := failures || format('FAILED: a bill paid the proper way tied out as recorded %s, posted %s, difference %s',
+                                   v_rec, v_post, v_diff)::text;
+  else
+    raise notice 'ok  and a bill paid the proper way round ties out exactly';
   end if;
 
   -- ── a recipient is one kind of payee ──────────────────────
