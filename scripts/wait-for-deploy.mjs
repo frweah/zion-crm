@@ -6,11 +6,13 @@
  *
  * Two questions, asked in one place because they are always asked together:
  * is it live (the site's own /api/version), and did the checks pass (the
- * repository's latest workflow run for that commit). The repository is public,
- * so neither needs a token.
+ * repository's latest workflow run for that commit). The repository is
+ * public, so neither needs a token - but GitHub's sixty-an-hour limit for
+ * unauthenticated callers does, so a read-only GITHUB_TOKEN in .env.local is
+ * used when there is one.
  *
  * Exits 0 when the commit is live and its run succeeded, 1 when the run
- * failed, 2 when it never arrived.
+ * failed, 2 when it never arrived, and 3 when it could not find out.
  */
 const sha = (process.argv[2] ?? "").trim();
 if (!sha) {
@@ -21,15 +23,28 @@ if (!sha) {
 const SITE = process.env.SMOKE_BASE_URL ?? "https://crm.zionvocrehab.com";
 const REPO = process.env.ZION_REPO ?? "frweah/zion-crm";
 const DEADLINE = Date.now() + 1000 * 60 * 25;
+
 /**
  * A token if there is one, and sixty requests an hour if there is not.
  *
- * Unauthenticated, GitHub allows sixty an hour for the whole machine, which
- * two watches and a few questions exhaust - and the symptom is this script
- * reporting that a deploy's checks never started when they had passed. With
- * a read-only token in .env.local it is five thousand an hour and the
- * question never comes up.
+ * Unauthenticated, GitHub allows sixty requests an hour for the whole
+ * machine, which two watches and a few questions exhaust - and the symptom
+ * is this script reporting that a deploy's checks never started when they
+ * had passed. It did that three times on 6 Oct 2026, once reported onward as
+ * a failure. With a read-only token it is five thousand an hour.
+ *
+ * Read from .env.local when it is not already in the environment, because
+ * this is run as `node scripts/wait-for-deploy.mjs <sha>` and nobody is
+ * going to remember --env-file. Without that, a token sits in the file being
+ * no use to anybody, which is worse than not having one.
  */
+if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+  try {
+    process.loadEnvFile(new URL("../.env.local", import.meta.url));
+  } catch {
+    // No .env.local, or no permission to read it. Sixty an hour it is.
+  }
+}
 const TOKEN = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? null;
 const headers = {
   "user-agent": "zion-crm-deploy-watch",
@@ -40,14 +55,13 @@ const headers = {
  * How often each thing is asked.
  *
  * The site's own /api/version costs nothing, so it is asked every twenty
- * seconds. GitHub, unauthenticated, allows sixty requests an hour for the
- * whole machine - and asking every twenty seconds spends all sixty on one
- * watch, which is why this reported "checks not started" three times on
- * 6 Oct 2026 for deploys whose checks had passed. Once every two minutes
- * costs a dozen a watch and tells us the same thing.
+ * seconds either way. GitHub is asked just as often with a token, and only
+ * every two minutes without one - that slower pace exists to protect sixty
+ * an hour, and there is no reason to be cautious about a cap the watch is
+ * nowhere near.
  */
 const SITE_EVERY_MS = 20000;
-const GITHUB_EVERY_MS = 120000;
+const GITHUB_EVERY_MS = TOKEN ? 20000 : 120000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
