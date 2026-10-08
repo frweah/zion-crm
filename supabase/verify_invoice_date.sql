@@ -14,7 +14,6 @@
 --   Where the pathway says nothing, the date says so. Where the CRM has
 --   nothing to go on, the date is today and says why.
 --
---   The Draft a completed form earns carries the pathway's date too.
 --
 -- Everything is rolled back.
 
@@ -89,11 +88,10 @@ begin
     raise notice 'ok  a date the pathway does not give, or the CRM cannot find, says so';
   end if;
 
-  -- ── the Draft the gate raises uses the rule ────────────────
-  -- The body of draft_invoice_for_authorization, read back: its dating line.
-  if position('invoice_date_for' in pg_get_functiondef('public.draft_invoice_for_authorization(uuid)'::regprocedure)) = 0 then
-    failures := failures || 'FAILED: the Draft raised by the billing gate is not dated by the pathway'::text;
-  end if;
+  -- The Draft this used to raise is gone with the invoice (§10): there is one
+  -- door to a bill now, and it is entering an authorization. The dating rule
+  -- itself is not gone - it is what gives a piece of work its service date -
+  -- so everything above still holds.
 
   -- ── nobody signed in ───────────────────────────────────────
   if has_function_privilege('anon', 'public.invoice_date_for(uuid)', 'execute') then

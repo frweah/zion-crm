@@ -27,7 +27,7 @@ import { TextThread } from "./messages-tab";
 import { RecordActions } from "./record-actions";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
-import { AuthorizationPayments } from "./authorization-payments";
+import { Worklist, ClientBillingHistory, type WorklistRow } from "../../billing/worklist";
 import { WarrantLink } from "../../billing/warrants/warrant-link";
 import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
@@ -527,308 +527,43 @@ export default async function ClientPage({
   }
 
   // ── Billing ────────────────────────────────────────────────
+  /**
+   * The client's Billing tab (Billing Simplification Brief §12.6).
+   *
+   * One component, the same list the Billing page shows, filtered to this
+   * client, with History collapsed. What was here before was five things
+   * saying overlapping versions of the same story: a received/outstanding
+   * card, a billing-items table, an authorizations table, an invoices table
+   * and the paperwork strip. §11's rule is that if two screens show the same
+   * records, one of them goes - and the totals went to Admin (§13.16), the
+   * invoice went altogether (§10), and the forms and files are on the
+   * authorization record where the person working on it can see them (§9).
+   */
   if (tab === "billing") {
-    const { data: auths } = await supabase
-      .from("authorizations")
-      .select(
-        "id, number, service_type, total_hours, carried_used, rate_type, rate, start_date, end_date, status, requires_forms, dates_from_ocr",
-      )
-      .eq("client_id", id)
-      .order("start_date", { ascending: false, nullsFirst: false });
-
-    const authIds = (auths ?? []).map((a) => a.id);
-    const idsOrNone = authIds.length ? authIds : ["00000000-0000-0000-0000-000000000000"];
-
-    const [
-      { data: entries },
-      { data: clientFiles },
-      { data: readings },
-      { data: correctionRows },
-      { data: invoiceRows },
-      { data: paperworkRows },
-      payments,
-      { data: itemRows },
-    ] = await Promise.all([
-      supabase.from("service_entries").select("auth_id, hours, non_billable").in("auth_id", idsOrNone),
-      // The PDFs: every file on this client's record, and what the inbox read
-      // off the ones that came through it, so a file carrying one of these
-      // authorizations' numbers can be offered first.
-      supabase
-        .from("attachments")
-        .select("id, storage_path, filename, category, auth_id, created_at, review_note")
-        .eq("client_id", id)
-        .order("created_at", { ascending: false }),
-      supabase.from("inbox_documents").select("storage_path, parsed, proposal").eq("client_id", id).eq("kind", "Authorization"),
-      supabase
-        .from("authorization_corrections")
-        .select("auth_id, at, field, was_value, new_value, reason, staff_name")
-        .in("auth_id", idsOrNone)
-        .order("at"),
-      supabase
-        .from("invoices")
-        .select("id, auth_id, number, date, amount, status, paid_date, warrant, service_type")
-        .in("auth_id", idsOrNone)
-        .order("date", { ascending: false }),
-      supabase
-        .from("client_paperwork")
-        .select("auth_number, service_type, usor, form_name, month, state, form_id, hours_logged")
-        .eq("client_id", id)
-        .order("state")
-        .order("usor"),
-      readPayments(supabase, authIds),
-      // The client's own billing items (0123): the spine of what is owed for
-      // them and where each piece has got to.
-      supabase
-        .from("billing_item_rows")
-        .select("*")
-        .eq("client_id", id)
-        .order("period", { ascending: false, nullsFirst: false }),
-    ]);
-
-    const readingByPath = new Map(
-      (readings ?? []).map((d) => {
-        const proposal = (d.proposal ?? {}) as { candidates?: { id: string }[] };
-        const fields = ((d.parsed ?? {}) as { fields?: Record<string, { value: string }> }).fields ?? {};
-        return [
-          d.storage_path,
-          {
-            authIds: new Set((proposal.candidates ?? []).map((c) => c.id)),
-            start: fields.startDate?.value ?? "",
-            end: fields.endDate?.value ?? "",
-          },
-        ] as const;
-      }),
-    );
-    const unlinkedFiles = (clientFiles ?? []).filter((f) => !f.auth_id);
-
-    // Received is invoices marked Paid; outstanding is invoices submitted to
-    // USOR (Sent) and not yet paid. The owner's definitions, 14 Sept 2026.
-    const invoices = (invoiceRows ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
-    const received = invoices.filter((i) => i.status === "Paid").reduce((t, i) => t + i.amount, 0);
-    const outstanding = invoices.filter((i) => i.status === "Sent").reduce((t, i) => t + i.amount, 0);
-    const paidOn = new Map<string, string>();
-    for (const i of invoices) {
-      if (i.status !== "Paid" || !i.paid_date) continue;
-      const seen = paidOn.get(i.auth_id);
-      if (!seen || i.paid_date > seen) paidOn.set(i.auth_id, i.paid_date);
-    }
-    const pageByInvoice = new Map<string, string>();
-    for (const p of payments) {
-      if (p.invoice_id && p.page_id && !pageByInvoice.has(p.invoice_id)) pageByInvoice.set(p.invoice_id, p.page_id);
-    }
-    const authNumber = new Map((auths ?? []).map((a) => [a.id, a.number]));
-
-    // Hours used = what was carried over at migration plus everything logged.
-    const logged = new Map<string, number>();
-    for (const e of entries ?? []) {
-      if (e.non_billable) continue;
-      logged.set(e.auth_id, (logged.get(e.auth_id) ?? 0) + Number(e.hours));
-    }
+    const { data: worklist } = await supabase.rpc("billing_worklist");
+    const mine = ((worklist ?? []) as WorklistRow[]).filter((w) => w.client_id === id);
 
     return (
       <>
         {header}
 
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row2" style={{ gap: 24, flexWrap: "wrap", alignItems: "baseline" }}>
-            <div className="stat" style={{ fontSize: "var(--text-xl)" }}>
-              {money(received)}
-              <small>received · invoices marked Paid</small>
-            </div>
-            <div className="stat" style={{ fontSize: "var(--text-xl)", color: outstanding > 0 ? "var(--bad)" : undefined }}>
-              {money(outstanding)}
-              <small>outstanding · submitted, not yet paid</small>
-            </div>
-            {!canBill && (
-              <span className="lock" style={{ marginLeft: "auto" }}>
-                Read-only for your role. Admin and Billing act here.
-              </span>
-            )}
-          </div>
-        </div>
-
-        <h2 className="h2" style={{ margin: "0 0 8px" }}>Billing items</h2>
-        {(itemRows ?? []).length === 0 ? (
-          <div className="empty">
-            Nothing is being billed for this client yet — an item opens when an authorization is confirmed, and each
-            month for Job Coaching.
-          </div>
-        ) : (
-          <div className="card" style={{ padding: 0, marginBottom: 18 }}>
-            <DataTable
-              label="billing items"
-              columns={[
-                { key: "service", label: "Service" },
-                { key: "period", label: "Period" },
-                { key: "status", label: "Billing status" },
-                { key: "form", label: "USOR form" },
-                { key: "value", label: "Amount", align: "right" },
-                { key: "who", label: "Assigned" },
-              ]}
-              rows={((itemRows ?? []) as unknown as ItemRow[]).map((it) => ({
-                key: it.id,
-                cells: {
-                  service: <Link href={`/billing/items/${it.id}`}>{it.service}</Link>,
-                  period: periodLabel(it.period),
-                  status: (
-                    <>
-                      {it.status}
-                      {it.zero_hours_flagged && <span className="chip warn">no hours</span>}
-                    </>
-                  ),
-                  form: formsLabel(it.usor_forms),
-                  value: money(it.value),
-                  who: it.assigned_staff ?? "—",
-                },
-                sort: { period: it.period ?? "", value: it.value ?? 0, status: it.status },
-              }))}
-              empty="Nothing yet."
-            />
-          </div>
+        {!canBill && (
+          <p className="lock">Read-only for your role. Admin and Billing act here.</p>
         )}
 
-        {/*
-          The authorizations as the one table, so they sort by number, service,
-          status or dates. Each still carries its own files and payments, in
-          its row.
-        */}
-        <h2 className="h2" style={{ margin: "0 0 8px" }}>Authorizations</h2>
-        {(auths ?? []).length === 0 && <div className="empty">No authorizations on file — they are added from Billing.</div>}
-        {(auths ?? []).length > 0 && (
-        <div className="card" style={{ padding: 0 }}>
-        <DataTable
-          label="authorizations"
-          columns={[
-            { key: "auth", label: "Authorization, its files and payments", sortLabel: "Number" },
-            { key: "service", label: "Service" },
-            { key: "status", label: "Status" },
-            { key: "ends", label: "Ends" },
-            { key: "left", label: "Hours left", align: "right" },
-          ]}
-          rows={(auths ?? []).map((a) => {
-          const used = Number(a.carried_used ?? 0) + (logged.get(a.id) ?? 0);
-          const total = a.total_hours ? Number(a.total_hours) : null;
-          const remaining = total === null ? null : total - used;
-          const pct = total ? Math.min(100, (used / total) * 100) : 0;
-          const tone = remaining === null ? "" : remaining <= 0 ? "bad" : pct >= 90 ? "warn" : "";
-
-          const body = (
-            <div>
-              <div className="row2" style={{ justifyContent: "space-between" }}>
-                <b>{a.number || "(no authorization number)"}</b>
-                <span className="chip gold">{a.service_type}</span>
-              </div>
-              <div style={{ fontSize: "var(--text-md)", marginTop: 6 }}>
-                {a.rate_type === "Hourly" && total !== null
-                  ? `${total} hrs @ ${money(a.rate)} · used ${used} · ${remaining} remaining`
-                  : `Flat fee ${money(a.rate)}`}
-              </div>
-              {total !== null && (
-                <div className="bar" style={{ marginTop: 6 }}>
-                  <i className={tone} style={{ width: `${pct}%` }} />
-                </div>
-              )}
-              <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)", marginTop: 6 }}>
-                {a.start_date || "—"} → {a.end_date || "—"}
-                {a.dates_from_ocr && " (read by OCR from the scan — check them)"} · {a.status}
-                {a.requires_forms && ` · needs: ${a.requires_forms}`}
-              </div>
-              <AuthorizationFiles
-                clientId={id}
-                authId={a.id}
-                authNumber={a.number}
-                linked={(clientFiles ?? []).filter((f) => f.auth_id === a.id)}
-                available={unlinkedFiles.map((f) => {
-                  const reading = f.storage_path ? readingByPath.get(f.storage_path) : undefined;
-                  return {
-                    ...f,
-                    suggested: Boolean(reading?.authIds.has(a.id)),
-                    start: reading?.start ?? "",
-                    end: reading?.end ?? "",
-                  };
-                })}
-                canConfirm={canBill}
-                paidOn={paidOn.get(a.id) ?? null}
-                corrections={(correctionRows ?? []).filter((c) => c.auth_id === a.id)}
-              />
-              <AuthorizationPayments payments={payments.filter((p) => p.auth_id === a.id)} status={a.status} />
-            </div>
-          );
-          return {
-            key: a.id,
-            sort: {
-              auth: a.number,
-              service: a.service_type,
-              status: a.status,
-              ends: a.end_date,
-              left: remaining,
-            },
-            text: [a.number, a.service_type, a.status, a.start_date, a.end_date].filter(Boolean).join(" "),
-            cells: {
-              auth: body,
-              service: a.service_type,
-              status: <span className={"chip " + (a.status === "Paid" ? "ok" : "")}>{a.status}</span>,
-              ends: <span style={{ whiteSpace: "nowrap" }}>{a.end_date ?? "—"}</span>,
-              left: remaining === null ? "—" : remaining,
-            },
-          };
-        })}
-          empty="No authorizations on file — they are added from Billing."
+        <Worklist
+          rows={mine}
+          withClient={false}
+          empty="Nothing is being billed for this client. Authorizations are added from Billing, and a coaching month opens itself."
         />
-        </div>
-        )}
 
-        <h2 className="h2" style={{ margin: "22px 0 8px" }}>Invoices</h2>
-        <div className="card" style={{ padding: 0 }}>
-          <DataTable
-            label="invoices"
-            columns={[
-              { key: "date", label: "Date" },
-              { key: "number", label: "Invoice" },
-              { key: "service", label: "Service" },
-              { key: "amount", label: "Amount", align: "right" },
-              { key: "status", label: "Status" },
-              { key: "warrant", label: "Warrant" },
-            ]}
-            rows={invoices.map((i) => ({
-              key: i.id,
-              sort: {
-                date: i.date,
-                number: i.number || authNumber.get(i.auth_id) || "",
-                amount: i.amount,
-                status: i.status,
-                warrant: i.status === "Paid" ? (i.warrant ?? "") : "",
-              },
-              cells: {
-                date: i.date,
-                number: i.number || authNumber.get(i.auth_id) || "",
-                service: i.service_type,
-                amount: money(i.amount),
-                status: (
-                  <>
-                    <span className={"chip " + (i.status === "Paid" ? "ok" : i.status === "Sent" ? "warn" : "")}>
-                      {i.status}
-                    </span>
-                    {i.status === "Paid" && i.paid_date && <div className="lock">paid {i.paid_date}</div>}
-                  </>
-                ),
-                warrant:
-                  i.status === "Paid" ? (
-                    <span style={{ fontSize: "var(--text-sm)" }}>
-                      <WarrantLink payment={{ warrant_no: i.warrant ?? "", page_id: pageByInvoice.get(i.id) ?? null }} />
-                    </span>
-                  ) : (
-                    "—"
-                  ),
-              },
-            }))}
-            empty="No invoices for this client."
-          />
-        </div>
+        <ClientBillingHistory clientId={id} />
 
-        <div id="paperwork">
-          <PaperworkStrip clientId={id} rows={(paperworkRows ?? []) as PaperworkRow[]} />
-        </div>
+        <p className="lock">
+          Each authorization carries its own forms, files, submission checklist and payment —{" "}
+          open one to work on it. What the practice is owed in total is on{" "}
+          <Link href="/insights/money#paid-and-outstanding">Admin → Money</Link>.
+        </p>
         {overlay}
       </>
     );

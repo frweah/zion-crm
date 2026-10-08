@@ -103,7 +103,7 @@ export default async function WarrantsPage() {
         title="Warrants"
         context="What USOR paid, read from the stubs in the _Warrants folder and reconciled against the authorizations and invoices on file"
         actions={
-          <Link href="/billing?tab=invoices#paid-and-outstanding" className="btn ghost" style={{ textDecoration: "none" }}>
+          <Link href="/insights/money#paid-and-outstanding" className="btn ghost" style={{ textDecoration: "none" }}>
             Paid &amp; outstanding
           </Link>
         }

@@ -67,15 +67,20 @@ begin
   -- tried. What is left is the sequence that does exist.
   --
   -- The forms rule came across from the invoice, where it was
-  -- check_invoice_forms: a packet does not go to USOR with a required form
-  -- outstanding, and that block now sits on the submit.
+  -- check_invoice_forms, and 0160 put it behind a setting: it is always on the
+  -- checklist and it refuses a submission only when an Admin has asked it to.
+  -- It starts off, because the practice signs its forms on paper. Here it is
+  -- turned on for the one assertion that is about it, and turned back off,
+  -- because the rest of this script is about the money.
   update public.authorizations set status = 'Due' where id = v_hourly;
+  update public.org_settings set require_forms_to_submit = true where id;
   begin
     update public.authorizations set status = 'Submitted', recipient = 'ZZ' where id = v_hourly;
     failures := failures || 'FAILED: an authorization was submitted with USOR forms outstanding'::text;
   exception when check_violation then
-    raise notice 'ok  the database refuses to submit while a required USOR form is unfinished';
+    raise notice 'ok  with the block on, the database refuses to submit while a required USOR form is unfinished';
   end;
+  update public.org_settings set require_forms_to_submit = false where id;
 
   insert into public.forms (template_id, client_id, auth_id, status, data)
   select t.id, v_client, v_hourly, 'Completed', '{}'::jsonb

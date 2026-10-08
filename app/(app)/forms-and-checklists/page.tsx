@@ -74,7 +74,7 @@ export default async function FormsAndChecklistsPage() {
 
       <p className="lock">
         USOR&rsquo;s own forms — the 95, the 93, the 60 and 92 — are on{" "}
-        <Link href="/billing/forms">Billing → Forms</Link>, where they have always been.
+        the client's own record, on the authorization the form is for.
       </p>
     </>
   );

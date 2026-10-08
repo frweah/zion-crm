@@ -4,7 +4,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { exportsFor } from "@/lib/exports";
 import { money, today, CAN_EDIT_BILLING } from "@/lib/constants";
-import { DataTable } from "../../data-table";
+import { DataTable } from "../../../data-table";
 import { readBillingOffices } from "@/lib/billing-offices";
 
 /**
@@ -211,7 +211,7 @@ export default async function ExportsPage({
               ),
               reconcile:
                 o.reconcile && o.t.unpaid > 0 ? (
-                  <Link className="btn ghost" href={`/billing?tab=invoices&reconcile=${o.key}`} style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
+                  <Link className="btn ghost" href={`/insights/money?reconcile=${o.key}`} style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
                     Reconcile
                   </Link>
                 ) : null,

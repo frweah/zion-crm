@@ -142,7 +142,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       {
         ask: "See the blank USOR templates",
         where: "Billing → Forms",
-        href: "/billing/forms",
+        href: "/clients",
       },
     ],
   },
@@ -309,7 +309,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       {
         ask: "Send the accountant the month",
         where: "Billing → Export",
-        href: "/billing/export",
+        href: "/insights/money#export",
         roles: ["Admin", "Billing"],
       },
       {

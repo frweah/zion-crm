@@ -163,14 +163,28 @@ begin
   -- ── the USOR forms the service needs ──────────────────────
   --
   -- This block came across from the invoice, where it was
-  -- check_invoice_forms. It is the rule that stops a packet reaching USOR
-  -- without its forms, and it would have been lost with the invoice.
+  -- check_invoice_forms, and 0160 put it behind a setting. The rule is real
+  -- and always on the checklist; whether it refuses a submission is Admin's,
+  -- and it starts off because the practice's forms are signed on paper and
+  -- attached as scans (§13.10). The whole of that reasoning is in 0160's
+  -- header. Both states are tried here, because the one that matters today is
+  -- the one that lets the close happen.
+  update public.org_settings set require_forms_to_submit = true where id;
   begin
     update public.authorizations set status = 'Submitted', recipient = 'ZZ USOR' where id = v_auth;
     failures := failures || 'FAILED: submitted with a required USOR form outstanding'::text;
   exception when check_violation then
-    raise notice 'ok  a required USOR form left unfinished stops the submission';
+    raise notice 'ok  with the block on, a required USOR form left unfinished stops the submission';
   end;
+
+  update public.org_settings set require_forms_to_submit = false where id;
+  begin
+    update public.authorizations set status = 'Submitted', recipient = 'ZZ USOR' where id = v_auth;
+    raise notice 'ok  with the block off, a missing form is shown and does not stop the billing';
+  exception when others then
+    failures := failures || format('FAILED: a missing form refused the submission with the block off (%s)', sqlerrm)::text;
+  end;
+  update public.authorizations set status = 'Due' where id = v_auth;
 
   insert into public.forms (template_id, client_id, auth_id, status, data)
   select t.id, v_client, v_auth, 'Completed', '{}'::jsonb
@@ -190,14 +204,29 @@ begin
     raise notice 'ok  submitting stamps the date and starts the chase';
   end if;
 
-  select coalesce(sum(l.debit), 0) into v_amount
+  -- Net, and following the reversals.
+  --
+  -- This authorization has been submitted, returned for correction and
+  -- submitted again by now, so it has two postings of 200 and one reversal.
+  -- A reversal is not filed against the authorization: reverse_journal() files
+  -- it as source_kind 'Reversal' with the reversed journal's id as its source.
+  -- So "every posting for this authorization" has to follow that link, and an
+  -- assertion that filters on the source alone reads gross - which is how this
+  -- one first claimed the practice was owed 400 for one piece of work.
+  select coalesce(sum(l.debit), 0) - coalesce(sum(l.credit), 0) into v_amount
     from public.journal_lines l
     join public.journals j on j.id = l.journal_id
-   where j.source_kind = 'Authorization' and j.source_id = v_auth and l.account_id = v_ar;
+   where l.account_id = v_ar
+     and (
+       (j.source_kind = 'Authorization' and j.source_id = v_auth)
+       or (j.source_kind = 'Reversal' and j.source_id in (
+             select r.id from public.journals r
+              where r.source_kind = 'Authorization' and r.source_id = v_auth))
+     );
   if v_amount <> 200 then
-    failures := failures || format('FAILED: submitting put %s into receivables, not 200', v_amount)::text;
+    failures := failures || format('FAILED: submitting left %s owed to the practice, not 200', v_amount)::text;
   else
-    raise notice 'ok  submitting an authorization is money owed to the practice';
+    raise notice 'ok  submitting is money owed, and a submission withdrawn and remade is owed once';
   end if;
 
   -- ── paid posts the cash ───────────────────────────────────
@@ -205,10 +234,16 @@ begin
      set status = 'Paid', paid_on = date '2026-10-20', paid_amount = 200, warrant = 'ZZ-W-9'
    where id = v_auth;
 
-  select coalesce(sum(l.debit), 0) into v_amount
+  select coalesce(sum(l.debit), 0) - coalesce(sum(l.credit), 0) into v_amount
     from public.journal_lines l
     join public.journals j on j.id = l.journal_id
-   where j.source_kind = 'Authorization' and j.source_id = v_auth and l.account_id = v_und;
+   where l.account_id = v_und
+     and (
+       (j.source_kind = 'Authorization' and j.source_id = v_auth)
+       or (j.source_kind = 'Reversal' and j.source_id in (
+             select r.id from public.journals r
+              where r.source_kind = 'Authorization' and r.source_id = v_auth))
+     );
   if v_amount <> 200 then
     failures := failures || format('FAILED: payment put %s in hand, not 200', v_amount)::text;
   else

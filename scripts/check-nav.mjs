@@ -80,25 +80,29 @@ if (orphans.length) {
 const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/settings-hub", "/admin/system",
-    "/billing", "/billing/export", "/billing/forms", "/billing/report",
+    "/billing",
     "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
     "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
+  // Billing → Forms and Report & bill were theirs and are gone (Billing
+  // Simplification Brief §9). The job itself is not: a signed packet is sent
+  // from the client's own record, which they still reach. What they no longer
+  // have is a screen of blank forms and a second way to bill.
   "Job Search": [
-    "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
+    "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
     "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
-    "/billing/forms", "/billing/report", "/calendar", "/clients", "/dashboard", "/directory", "/hours",
+    "/calendar", "/clients", "/dashboard", "/directory", "/hours",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
-    "/billing", "/billing/export", "/billing/forms", "/billing/report", "/calendar", "/clients", "/counselors",
+    "/billing", "/calendar", "/clients", "/counselors",
     "/dashboard", "/directory",
     "/books", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
   ],
@@ -265,6 +269,13 @@ const MOVED = [
   "/certifications",
   "/insights",
   "/dashboard/tasks",
+  // Billing cut to two tabs (Billing Simplification Brief §9). The forms, the
+  // signed authorization, the checklist and Report & bill are on the
+  // authorization record; the month-end export and the rate schedule are
+  // Admin's.
+  "/billing/forms",
+  "/billing/report",
+  "/billing/export",
 ];
 const missing = MOVED.filter((old) => !config.includes(`"${old}"`));
 if (missing.length) {

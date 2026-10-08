@@ -209,7 +209,6 @@ export async function completeForm(_prev: FormState, formData: FormData): Promis
 
   revalidatePath(`/clients/${clientId}/forms/${formId}`);
   revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/billing/forms");
   return { error: null, ok: "Signed and locked." };
 }
 
@@ -396,36 +395,32 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
     );
   }
 
-  // If that was the last form the authorization was waiting on, the invoice
-  // it has earned is raised as a Draft. The database decides whether there is
-  // one to raise; this only asks.
+  // The packet has gone, so the authorization it was for is Submitted
+  // (§§10, 12.4). Nothing is created: no draft invoice, no billing item - the
+  // authorization is the bill, and this is a status on one that already
+  // exists. A coaching month is opened only if the calendar has not got to it.
+  //
+  // A failure here is never a failed send - the email has gone - so it is
+  // reported to the server's log and the person is told what did happen.
   let billed = "";
   if (form.auth_id) {
-    const { data: invoiceId } = await supabase.rpc("draft_invoice_for_authorization", { p_auth: form.auth_id });
-    if (invoiceId) billed = " A draft invoice is waiting in Billing.";
-
-    // The item this packet was for is now Submitted (0128). It is opened if
-    // there was not one: claims went out for years before anything was called
-    // an item, and a send that left no record would be the worst of both.
-    // A failure here is never a failed send - the email has gone - so it is
-    // reported to the server's log and the person is told what did happen.
-    const { data: itemId, error: itemError } = await supabase.rpc("submit_item_for_form", {
+    const { data: authId, error: authError } = await supabase.rpc("submit_authorization_on_send", {
       p_auth: form.auth_id,
       p_month: form.month ?? "",
       p_recipient: sentTo,
       p_staff: me.id,
     });
-    if (itemError) {
-      console.error("[billing] the packet was sent but its item did not move", itemError.message);
-    } else if (itemId) {
-      billed += " The billing item is marked sent.";
-      revalidatePath(`/billing/items/${itemId}`);
+    if (authError) {
+      console.error("[billing] the packet was sent but the authorization did not move", authError.message);
+      billed = " The packet has gone, but the authorization did not move to Submitted — open it in Billing and submit it there.";
+    } else if (authId) {
+      billed = " The authorization is marked submitted, and payment will be chased after 14 days.";
+      revalidatePath(`/billing/authorizations/${authId}`);
     }
   }
 
   revalidatePath(`/clients/${clientId}/forms/${formId}`);
   revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/billing/forms");
   revalidatePath("/counselors");
   revalidatePath("/billing");
 

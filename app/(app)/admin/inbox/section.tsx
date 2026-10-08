@@ -43,7 +43,7 @@ export default async function InboxSection() {
       <p className="sub">
         Everything the agent has found in the client folders, waiting for somebody to say what it
         is. Warrant stubs in the _Warrants folder never come here: they are read line by line on{" "}
-        <Link href="/billing?tab=invoices#warrant-review">Billing → Invoices</Link>.
+        <Link href="/billing#warrant-review">Billing → Authorizations</Link>.
         {canBill && (
           <>
             {" "}

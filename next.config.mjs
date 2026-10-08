@@ -48,17 +48,17 @@ const nextConfig = {
   async redirects() {
     const moved = {
       "/needs": "/dashboard/needs",
-      "/forms": "/billing/forms",
+      "/forms": "/billing",
       "/revenue": "/insights/money",
       "/reports": "/insights/reports",
       "/outcomes": "/insights/outcomes",
       "/capacity": "/insights/capacity",
       "/staff": "/admin/people",
       "/contractors": "/admin/people?tab=contractors",
-      "/exports": "/billing/export",
+      "/exports": "/insights/money#export",
       "/referrals": "/insights/referrals",
       "/billing/revenue": "/insights/money",
-      "/billing/position": "/billing?tab=invoices#paid-and-outstanding",
+      "/billing/position": "/insights/money#paid-and-outstanding",
       "/admin/staff": "/admin/people",
       "/admin/contractors": "/admin/people?tab=contractors",
       "/admin/inbox": "/admin/documents",
@@ -68,6 +68,13 @@ const nextConfig = {
       "/admin/settings": "/admin/system",
       "/admin/note-templates": "/admin/system#note-headings",
       "/admin/access": "/admin/system#access-log",
+      // Billing is two tabs now (Billing Simplification Brief §9). Forms, the
+      // signed authorization, the submission checklist and Report & bill are
+      // on the authorization record, reached from the working list; the
+      // month-end export and the rate schedule are Admin's.
+      "/billing/forms": "/billing",
+      "/billing/report": "/billing",
+      "/billing/export": "/insights/money#export",
       "/admin/exports": "/billing/export",
       // Paths that never had a page but were typed or linked anyway (punch
       // list #14, 20 Sept 2026): Admin opens on People, and the documents

@@ -67,13 +67,19 @@ const { rows } = await client.query(`
 // than swept up wholesale: trigger functions and internal helpers are not part
 // of the client API and should not be typed as if they were.
 const RPC_FUNCTIONS = [
-  "billing_item_gate",
+  // The authorization is the bill (Billing Simplification Brief §§1, 12.3).
+  "authorization_gate",
+  "authorization_gate_met",
+  "authorization_can_submit",
+  "authorization_missing_forms",
+  "authorization_attention",
+  "billing_needs_action",
   "billing_item_ready",
   "billing_followups_on",
-  "submit_item_for_form",
+  "submit_authorization_on_send",
   "escalate_unanswered_texts",
   "work_categories_for",
-  "open_coaching_items_for",
+  "open_coaching_months_for",
   "current_staff_id",
   "current_staff_role",
   "is_active_staff",
@@ -263,7 +269,6 @@ const RPC_FUNCTIONS = [
   "authorization_blocked_from",
   "billing_worklist",
   "authorizations_fall_due",
-  "open_coaching_months_for",
   "close_empty_coaching_months",
 ];
 

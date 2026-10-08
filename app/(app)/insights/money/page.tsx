@@ -7,6 +7,9 @@ import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 import { Kpi as Stat, lastTwelveMonths } from "../kpi";
 import { FollowupForm } from "./followup-form";
+import PositionSection from "./sections/position";
+import ExportsSection from "./sections/exports";
+import RateSchedule from "./sections/rates";
 
 /**
  * Revenue.
@@ -53,7 +56,20 @@ type Econ = {
   committed: number | null;
 };
 
-export default async function RevenuePage() {
+/**
+ * Admin → Money (Billing Simplification Brief §§9, 12.7, 13.16).
+ *
+ * Paid & outstanding, the A/R aging and the month-end export were on Billing,
+ * beside the invoices they counted. §13.16 moved every money figure here:
+ * billing staff see each record's own status, warrant number and paid date,
+ * and never a total, an aging table or a roll-up. The export is generated on
+ * demand rather than living on a tab of its own (§12.7).
+ */
+export default async function RevenuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string; bo?: string; month?: string }>;
+}) {
   const me = await requireStaff();
   const supabase = await createClient();
   const canBill = can(me, "billing", "edit");
@@ -549,10 +565,24 @@ export default async function RevenuePage() {
         Hourly work earns by the hour; flat-fee work earns on completion, so a flat fee with no
         completion recorded has earned nothing however much time went into it. A closed
         authorization counts as settled.{" "}
-        What each client has been paid and still owes is on{" "}
-        <Link href="/billing?tab=invoices#paid-and-outstanding">Billing → Invoices</Link>.{" "}
-        {canBill && <Link href="/billing?tab=invoices">Raise an invoice in Billing</Link>}
+        <Link href="/billing">Billing</Link> shows each authorization&rsquo;s own status and what it
+        is waiting on; the totals are here.
       </p>
+
+      {/* §9: paid & outstanding, and the aging, live here now. */}
+      <section id="paid-and-outstanding" style={{ marginTop: 32 }}>
+        <PositionSection searchParams={searchParams} />
+      </section>
+
+      {/* §12.7: no Export tab - the month's files are made on demand. */}
+      <section id="export" style={{ marginTop: 32 }}>
+        <ExportsSection searchParams={searchParams} />
+      </section>
+
+      {/* §13.13: what the pricing comes from, beside what it produced. */}
+      <section id="rates" style={{ marginTop: 32 }}>
+        <RateSchedule />
+      </section>
     </>
   );
 }

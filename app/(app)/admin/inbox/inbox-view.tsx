@@ -493,7 +493,7 @@ function DocumentRow({
       {doc.kind === "Warrant" && (
         <p className="sub" style={{ margin: "8px 0 0" }}>
           A warrant stub: the agent reads it page by page and anything needing a person waits on{" "}
-          <Link href="/billing?tab=invoices#warrant-review">Billing → Invoices</Link>.
+          <Link href="/billing#warrant-review">Billing → Authorizations</Link>.
         </p>
       )}
 

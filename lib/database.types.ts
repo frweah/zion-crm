@@ -372,6 +372,7 @@ export type Database = {
           period: string | null;
           zero_hours_confirmed_by: string | null;
           zero_hours_confirmed_at: string | null;
+          is_placeholder: boolean;
         };
         Insert: {
           id?: string;
@@ -420,6 +421,7 @@ export type Database = {
           period?: string | null;
           zero_hours_confirmed_by?: string | null;
           zero_hours_confirmed_at?: string | null;
+          is_placeholder?: boolean;
         };
         Update: {
           id?: string;
@@ -468,6 +470,7 @@ export type Database = {
           period?: string | null;
           zero_hours_confirmed_by?: string | null;
           zero_hours_confirmed_at?: string | null;
+          is_placeholder?: boolean;
         };
         Relationships: [];
       };
@@ -3061,6 +3064,7 @@ export type Database = {
           web_chat_greeting: string;
           stale_grace_days: number;
           stale_soon_days: number;
+          require_forms_to_submit: boolean;
         };
         Insert: {
           id?: boolean;
@@ -3080,6 +3084,7 @@ export type Database = {
           web_chat_greeting?: string;
           stale_grace_days?: number;
           stale_soon_days?: number;
+          require_forms_to_submit?: boolean;
         };
         Update: {
           id?: boolean;
@@ -3099,6 +3104,7 @@ export type Database = {
           web_chat_greeting?: string;
           stale_grace_days?: number;
           stale_soon_days?: number;
+          require_forms_to_submit?: boolean;
         };
         Relationships: [];
       };
@@ -5477,6 +5483,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      authorization_record: {
+        Row: {
+          id: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          client_no: number | null;
+          parent_id: string | null;
+          parent_number: string | null;
+          number: string | null;
+          is_placeholder: boolean | null;
+          service_type: string | null;
+          funding_source: string | null;
+          period: string | null;
+          status: string | null;
+          rate_type: string | null;
+          rate: number | null;
+          total_hours: number | null;
+          authorized_hours: number | null;
+          carried_used: number | null;
+          start_date: string | null;
+          end_date: string | null;
+          service_start: string | null;
+          service_end: string | null;
+          first_work_day: string | null;
+          received_on: string | null;
+          bill_by: string | null;
+          stale_date: string | null;
+          stale_reason: string | null;
+          submitted_on: string | null;
+          submitted_by: string | null;
+          submitted_by_name: string | null;
+          recipient: string | null;
+          paid_on: string | null;
+          paid_amount: number | null;
+          warrant: string | null;
+          correction_note: string | null;
+          followup_due: string | null;
+          closed_reason: string | null;
+          closed_at: string | null;
+          note: string | null;
+          zero_hours_confirmed_at: string | null;
+          counselor_name: string | null;
+          counselor_email: string | null;
+          billing_office_id: string | null;
+          billing_office_name: string | null;
+          billing_office_email: string | null;
+          amount: number | null;
+          hours_logged: number | null;
+          hours_on_the_authorization: number | null;
+          can_submit: boolean | null;
+          gate_met: boolean | null;
+          missing_forms: string | null;
+          attention: string | null;
+          urgency: number | null;
+        };
+        Relationships: [];
+      };
       billing_item_rows: {
         Row: {
           id: string | null;
@@ -6033,8 +6096,28 @@ export type Database = {
         Args: { p_auth: string | null };
         Returns: number;
       };
+      authorization_attention: {
+        Args: { p_auth: string | null; p_today?: string | null };
+        Returns: { attention: string | null; urgency: number | null }[];
+      };
       authorization_blocked_from: {
         Args: { p_stale: string | null };
+        Returns: string;
+      };
+      authorization_can_submit: {
+        Args: { p_auth: string | null };
+        Returns: boolean;
+      };
+      authorization_gate: {
+        Args: { p_auth: string | null };
+        Returns: { line: string | null; passed: boolean | null; detail: string | null; blocking: boolean | null }[];
+      };
+      authorization_gate_met: {
+        Args: { p_auth: string | null };
+        Returns: boolean;
+      };
+      authorization_missing_forms: {
+        Args: { p_auth: string | null };
         Returns: string;
       };
       authorizations_fall_due: {
@@ -6061,13 +6144,13 @@ export type Database = {
         Args: { p_auth: string | null };
         Returns: boolean;
       };
-      billing_item_gate: {
-        Args: { p_item: string | null };
-        Returns: { line: string | null; passed: boolean | null; detail: string | null }[];
-      };
       billing_item_ready: {
         Args: { p_item: string | null };
         Returns: boolean;
+      };
+      billing_needs_action: {
+        Args: { p_today?: string | null };
+        Returns: number;
       };
       billing_office_reconciliation: {
         Args: { p_billing_office: string | null; p_within_days?: number | null };
@@ -6147,10 +6230,6 @@ export type Database = {
       };
       dispose_asset: {
         Args: { p_asset: string | null; p_on: string | null; p_reason: string | null; p_proceeds?: number | null };
-        Returns: string;
-      };
-      draft_invoice_for_authorization: {
-        Args: { p_auth: string | null };
         Returns: string;
       };
       edit_message: {
@@ -6429,10 +6508,6 @@ export type Database = {
         Args: { p_staff: string | null; p_key: string | null };
         Returns: boolean;
       };
-      open_coaching_items_for: {
-        Args: { p_month: string | null };
-        Returns: number;
-      };
       open_coaching_months_for: {
         Args: { p_month: string | null };
         Returns: number;
@@ -6665,7 +6740,7 @@ export type Database = {
         Args: { p_name: string | null; p_contact: string | null; p_consent: string | null; p_token_hash: string | null; p_ip_hash?: string | null };
         Returns: { conversation_id: string | null; live: boolean | null; promise: string | null; assigned_name: string | null }[];
       };
-      submit_item_for_form: {
+      submit_authorization_on_send: {
         Args: { p_auth: string | null; p_month: string | null; p_recipient: string | null; p_staff: string | null };
         Returns: string;
       };

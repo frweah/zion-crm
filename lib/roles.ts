@@ -177,21 +177,20 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "billing",
     label: "Billing",
     items: [
-      // The spine of Margaret's process (0123): a piece of work for one
-      // client in one period, from authorization to payment. Overview is
-      // where the day starts - what is waiting, and on whom.
-      { label: "Overview", href: "/billing?tab=overview", roles: BILLS, area: "billing" },
-      { label: "Items", href: "/billing?tab=items", roles: BILLS, area: "billing" },
-      { label: "Authorizations", href: "/billing?tab=authorizations", roles: BILLS, area: "billing" },
-      { label: "Service log", href: "/billing?tab=log", roles: BILLS, area: "billing" },
-      { label: "Invoices", href: "/billing?tab=invoices", roles: BILLS, area: "billing" },
-      // Pick a client, pick the authorization, the form comes up filled in
-      // (owner's layout, 20 Sept 2026). Everybody who bills can reach it.
-      { label: "Report & bill", href: "/billing/report", roles: EVERYONE },
-      { label: "Forms", href: "/billing/forms", roles: EVERYONE },
-      // The month as files, and the rate schedule. The authorizations that
-      // arrive in the documents folder are confirmed on Authorizations.
-      { label: "Export", href: "/billing/export", roles: BILLS, area: "billing" },
+      // Two tabs, and the authorization is the record (Billing
+      // Simplification Brief §9). Overview, Items, Invoices, Report & bill,
+      // Forms and Export were six ways of looking at the same authorizations;
+      // the forms, the signed authorization, the submission checklist and
+      // Report & bill are on the record itself now, and the money roll-ups
+      // are Admin's (§9, §13.16).
+      {
+        label: "Authorizations",
+        href: "/billing",
+        roles: BILLS,
+        area: "billing",
+        note: "Everything waiting to be billed, chased or paid.",
+      },
+      { label: "Hours", href: "/billing?tab=hours", roles: BILLS, area: "billing" },
       // The books (ERP brief, E1). Not under /insights: that is Admin's
       // alone and the people who read the books are the two already in this
       // group all day. The area is Billing's, which is also how a CPA is let

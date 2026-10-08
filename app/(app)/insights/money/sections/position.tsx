@@ -4,9 +4,9 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money } from "@/lib/constants";
-import { DataTable, type DataRow } from "../../data-table";
+import { DataTable, type DataRow } from "../../../data-table";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
-import { BillingOfficeFilter, withBo } from "../../billing-office-filter";
+import { BillingOfficeFilter, withBo } from "../../../billing-office-filter";
 
 /**
  * Paid & outstanding.
@@ -170,16 +170,16 @@ export default async function PositionPage({
       <BillingOfficeFilter
         billingOffices={billing.billingOffices}
         selected={bo}
-        href={(b) => withBo(owedOnly ? "/billing?tab=invoices&show=outstanding" : "/billing?tab=invoices", b, "#paid-and-outstanding")}
+        href={(b) => withBo(owedOnly ? "/insights/money?show=outstanding" : "/insights/money", b, "#paid-and-outstanding")}
       />
 
       {/* Which clients to show is a filter on this list, not a tab. */}
       <div style={{ marginBottom: 10 }}>
         <div className="segmented">
-          <Link className={owedOnly ? undefined : "on"} href={withBo("/billing?tab=invoices", bo, "#paid-and-outstanding")}>
+          <Link className={owedOnly ? undefined : "on"} href={withBo("/insights/money", bo, "#paid-and-outstanding")}>
             All clients
           </Link>
-          <Link className={owedOnly ? "on" : undefined} href={withBo("/billing?tab=invoices&show=outstanding", bo, "#paid-and-outstanding")}>
+          <Link className={owedOnly ? "on" : undefined} href={withBo("/insights/money?show=outstanding", bo, "#paid-and-outstanding")}>
             Only clients with money outstanding
           </Link>
         </div>

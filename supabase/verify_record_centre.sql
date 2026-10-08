@@ -125,54 +125,55 @@ begin
     raise notice 'ok  a signature is read by its owner and by nobody else, Admin included';
   end if;
 
-  -- ── the invoice the paperwork has earned ───────────────────
+  -- ── what the paperwork earns ───────────────────────────────
+  --
+  -- It used to earn a Draft invoice. §10 removed the invoice: there is one
+  -- door to a bill and it is entering an authorization, so what finished
+  -- paperwork earns now is a submission. The money is the same money - it is
+  -- on the authorization instead of on a second record that could disagree
+  -- with it.
+  --
   -- Nothing yet: USOR 93 and 95 are both still outstanding.
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   if public.billing_gate_met(v_auth) then
     failures := failures || 'FAILED: the billing gate passed with both forms outstanding'::text;
   end if;
-
-  perform set_config('role', 'authenticated', true);
-  perform set_config('request.jwt.claims', json_build_object('sub', v_worker_uid, 'role', 'authenticated')::text, true);
-  if public.draft_invoice_for_authorization(v_auth) is not null then
-    failures := failures || 'FAILED: an invoice was raised while a form was still outstanding'::text;
+  if public.authorization_missing_forms(v_auth) is null then
+    failures := failures || 'FAILED: the checklist did not ask for the two outstanding forms'::text;
   end if;
 
+  -- With the block on, that is also what stops the submission.
+  update public.org_settings set require_forms_to_submit = true where id;
+  if public.authorization_can_submit(v_auth) then
+    failures := failures || 'FAILED: submittable with both forms outstanding and the forms block on'::text;
+  end if;
+  update public.org_settings set require_forms_to_submit = false where id;
+
   -- Both forms signed, and now it is owed.
-  perform set_config('role', 'postgres', true);
   insert into public.forms (template_id, client_id, auth_id, month, status, data, created_by, created_by_name, completed_by, completed_by_name)
   values ('usor93', v_client, v_auth, to_char(public.practice_today(), 'YYYY-MM'), 'Completed', '{}', v_worker, 'ZZ Centre Worker', v_worker, 'ZZ Centre Worker'),
          ('usor95', v_client, v_auth, to_char(public.practice_today(), 'YYYY-MM'), 'Completed', '{}', v_worker, 'ZZ Centre Worker', v_worker, 'ZZ Centre Worker');
   if not public.billing_gate_met(v_auth) then
     failures := failures || 'FAILED: the gate is still shut with every form signed'::text;
   end if;
-
-  perform set_config('role', 'authenticated', true);
-  v_invoice := public.draft_invoice_for_authorization(v_auth);
-  if v_invoice is null then
-    failures := failures || 'FAILED: no invoice was raised once the paperwork was complete'::text;
-  else
-    select amount into v_amount from public.invoices where id = v_invoice;
-    -- Four hours at forty-five.
-    if v_amount <> 180 then
-      failures := failures || format('FAILED: the invoice was for %s, and the hours come to 180', v_amount)::text;
-    end if;
-    if (select status from public.invoices where id = v_invoice) <> 'Draft' then
-      failures := failures || 'FAILED: the invoice was raised as something other than a Draft'::text;
-    end if;
+  if public.authorization_missing_forms(v_auth) is not null then
+    failures := failures || format('FAILED: every form is signed and the checklist still wants %s',
+                                   public.authorization_missing_forms(v_auth))::text;
   end if;
 
-  -- Asking again does not raise a second one.
-  v_again := public.draft_invoice_for_authorization(v_auth);
-  if v_again is not null then
-    failures := failures || 'FAILED: asking twice raised two invoices for the same hours'::text;
+  -- Four hours at forty-five, worked out from the record rather than typed.
+  v_amount := public.authorization_amount(v_auth);
+  if v_amount <> 180 then
+    failures := failures || format('FAILED: the authorization came to %s, and the hours come to 180', v_amount)::text;
   end if;
-  select count(*) into v_n from public.invoices where auth_id = v_auth;
+
+  -- And no second record was created along the way, which is the whole point.
+  select count(*) into v_n from public.authorizations where client_id = v_client;
   if v_n <> 1 then
-    failures := failures || format('FAILED: the authorization ended up with %s invoices', v_n)::text;
+    failures := failures || format('FAILED: the client ended up with %s authorizations for one piece of work', v_n)::text;
   else
-    raise notice 'ok  the invoice the paperwork earned is raised once, as a Draft, for what the hours come to - and not before';
+    raise notice 'ok  finished paperwork makes the authorization billable for what the hours come to, and creates nothing';
   end if;
 
   -- ── the two moments the pathway turns on (0111) ───────────
@@ -260,7 +261,7 @@ begin
   if has_function_privilege('anon', 'public.search_clients(text, integer)', 'execute')
      or has_function_privilege('anon', 'public.client_next_actions(uuid)', 'execute')
      or has_function_privilege('anon', 'public.set_my_signature(text)', 'execute')
-     or has_function_privilege('anon', 'public.draft_invoice_for_authorization(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.authorization_can_submit(uuid)', 'execute')
      or has_function_privilege('anon', 'public.hqi_for_placement(uuid)', 'execute')
      or has_function_privilege('anon', 'public.hqi_total(uuid)', 'execute')
      or has_table_privilege('anon', 'public.staff_signatures', 'select')
