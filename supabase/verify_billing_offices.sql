@@ -127,32 +127,46 @@ begin
   -- A service no USOR form is required for, so the invoices can be Sent
   -- through the ordinary gate rather than around it.
   insert into public.authorizations (client_id, number, service_type, total_hours, rate, rate_type, status, start_date, end_date)
-  values (v_a, 'ZQ-REC-SOON', 'ZZ Reconciliation Service', 20, 50, 'Hourly', 'Open',
+  values (v_a, 'ZQ-REC-SOON', 'ZZ Reconciliation Service', 20, 50, 'Hourly', 'Authorized',
           public.practice_today() - 60, public.practice_today() + 10)
   returning id into v_auth_soon;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate, rate_type, status, start_date, end_date)
-  values (v_a, 'ZQ-REC-LATE', 'ZZ Reconciliation Service', 20, 50, 'Hourly', 'Open',
+  values (v_a, 'ZQ-REC-LATE', 'ZZ Reconciliation Service', 20, 50, 'Hourly', 'Authorized',
           public.practice_today() - 60, public.practice_today() + 60)
   returning id into v_auth_late;
   insert into public.authorizations (client_id, number, service_type, rate, rate_type, status, start_date, end_date)
-  values (v_a, 'ZQ-REC-DONE', 'ZZ Reconciliation Service', 300, 'Flat Fee', 'Open',
+  values (v_a, 'ZQ-REC-DONE', 'ZZ Reconciliation Service', 300, 'Flat Fee', 'Authorized',
           public.practice_today() - 60, public.practice_today() + 5)
   returning id into v_auth_done;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate, rate_type, status, start_date, end_date)
-  values (v_c, 'ZQ-REC-OTHER', 'ZZ Reconciliation Service', 10, 50, 'Hourly', 'Open',
+  values (v_c, 'ZQ-REC-OTHER', 'ZZ Reconciliation Service', 10, 50, 'Hourly', 'Authorized',
           public.practice_today() - 60, public.practice_today() + 10)
   returning id into v_auth_c;
 
-  insert into public.invoices (auth_id, number, date, amount, status, sent_date, service_type)
-  values (v_auth_soon, 'ZQ-INV-SENT', public.practice_today() - 40, 200, 'Sent', public.practice_today() - 40, 'ZZ Reconciliation Service');
-  insert into public.invoices (auth_id, number, date, amount, status, sent_date, paid_date, service_type)
-  values (v_auth_soon, 'ZQ-INV-PAID', public.practice_today() - 70, 100, 'Paid', public.practice_today() - 70, public.practice_today() - 20, 'ZZ Reconciliation Service');
-  insert into public.invoices (auth_id, number, date, amount, status, service_type)
-  values (v_auth_soon, 'ZQ-INV-DRAFT', public.practice_today() - 1, 50, 'Draft', 'ZZ Reconciliation Service');
-  insert into public.invoices (auth_id, number, date, amount, status, sent_date, paid_date, service_type)
-  values (v_auth_done, 'ZQ-INV-DONE', public.practice_today() - 30, 300, 'Paid', public.practice_today() - 30, public.practice_today() - 10, 'ZZ Reconciliation Service');
-  insert into public.invoices (auth_id, number, date, amount, status, sent_date, service_type)
-  values (v_auth_c, 'ZQ-INV-OTHER', public.practice_today() - 15, 100, 'Sent', public.practice_today() - 15, 'ZZ Reconciliation Service');
+  -- There is no invoice any more: the authorization's own submission is
+  -- what "sent and unpaid" means (§1, §10). SOON is submitted 40 days ago
+  -- and waiting; DONE has been paid; OTHER belongs to another office.
+  insert into public.service_entries (auth_id, date, hours, non_billable, notes)
+  values (v_auth_soon, public.practice_today() - 45, 4, false, 'ZZ');
+  update public.authorizations set status = 'Due' where id = v_auth_soon;
+  update public.authorizations
+     set status = 'Submitted', submitted_on = public.practice_today() - 40, recipient = 'ZZ'
+   where id = v_auth_soon;
+
+  update public.authorizations set status = 'Due' where id = v_auth_done;
+  update public.authorizations
+     set status = 'Submitted', submitted_on = public.practice_today() - 30, recipient = 'ZZ'
+   where id = v_auth_done;
+  update public.authorizations
+     set status = 'Paid', paid_on = public.practice_today() - 10, paid_amount = 300
+   where id = v_auth_done;
+
+  insert into public.service_entries (auth_id, date, hours, non_billable, notes)
+  values (v_auth_c, public.practice_today() - 20, 2, false, 'ZZ');
+  update public.authorizations set status = 'Due' where id = v_auth_c;
+  update public.authorizations
+     set status = 'Submitted', submitted_on = public.practice_today() - 15, recipient = 'ZZ'
+   where id = v_auth_c;
 
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
@@ -162,16 +176,16 @@ begin
   if v_n <> 1 then
     failures := failures || format('FAILED: Valley West''s reconciliation lists %s fixture unpaid invoices, not 1', v_n)::text;
   end if;
-  select * into r from public.billing_office_reconciliation(v_vw, 30) x where x.invoice_number = 'ZQ-INV-SENT';
-  if r.invoice_number is null or r.days_outstanding <> 40 or r.amount <> 200
+  select * into r from public.billing_office_reconciliation(v_vw, 30) x where x.auth_number = 'ZQ-REC-SOON';
+  if r.auth_number is null or r.days_outstanding <> 40 or r.amount <> 200
      or r.counselor_email is distinct from 'zz-tooele@example.test' then
-    failures := failures || 'FAILED: the Sent invoice is not listed with its amount, 40 days outstanding and the counselor to copy'::text;
+    failures := failures || 'FAILED: the submitted authorization is not listed with its amount, 40 days outstanding and the counselor to copy'::text;
   else
-    raise notice 'ok  a Sent, unpaid invoice is listed with its amount, days outstanding and the counselor to copy';
+    raise notice 'ok  submitted and unpaid is listed with its amount, days outstanding and the counselor to copy';
   end if;
   if exists (select 1 from public.billing_office_reconciliation(v_vw, 30) x
-              where x.invoice_number in ('ZQ-INV-PAID', 'ZQ-INV-DRAFT', 'ZQ-INV-DONE', 'ZQ-INV-OTHER')) then
-    failures := failures || 'FAILED: a paid or draft invoice, or another office''s, is in the reconciliation'::text;
+              where x.kind = 'Unpaid invoice' and x.auth_number in ('ZQ-REC-DONE', 'ZQ-REC-OTHER')) then
+    failures := failures || 'FAILED: a paid authorization, or another office''s, is in the reconciliation'::text;
   else
     raise notice 'ok  nothing paid, nothing drafted and nothing of another office''s is listed';
   end if;
@@ -188,8 +202,12 @@ begin
     raise notice 'ok  an authorization ending within 30 days with value not invoiced is listed; one ending later, or fully invoiced, is not';
   end if;
 
-  if not exists (select 1 from public.billing_office_reconciliation(v_dt, 30) x where x.invoice_number = 'ZQ-INV-OTHER') then
-    failures := failures || 'FAILED: Downtown''s reconciliation misses its own Sent invoice'::text;
+  -- Each office sees its own, which is the point of passing the office in.
+  if not exists (select 1 from public.billing_office_reconciliation(v_dt, 30) x
+                  where x.auth_number = 'ZQ-REC-OTHER' and x.kind = 'Unpaid invoice') then
+    failures := failures || 'FAILED: Downtown''s reconciliation misses its own submitted authorization'::text;
+  else
+    raise notice 'ok  and each office sees its own, not another''s';
   end if;
 
   -- ── the contact log can name the office ────────────────────

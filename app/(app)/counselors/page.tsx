@@ -9,6 +9,7 @@ import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-office
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { BillingOfficesPanel } from "./billing-offices-panel";
 import { DirectoryHistory, DIRECTORY_CHANGE_COLUMNS, type DirectoryChange } from "./directory-history";
+import { LIVE_STATUSES } from "@/lib/billing";
 import {
   LogContactForm,
   AddCounselorForm,
@@ -261,7 +262,7 @@ export default async function CounselorsPage({
         .from("authorizations")
         .select("id, number, service_type, client_id, total_hours")
         .not("total_hours", "is", null)
-        .eq("status", "Open")
+        .in("status", [...LIVE_STATUSES])
         .order("number"),
     ]);
 

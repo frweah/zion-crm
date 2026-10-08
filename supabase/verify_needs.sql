@@ -59,7 +59,7 @@ begin
   -- below are about this one form and not an accident of overlapping services.
   insert into public.authorizations (client_id, number, service_type, total_hours, rate,
                                      rate_type, status, start_date)
-  values (v_client, 'ZZ-AUTH', 'WSA Tier 1', 10, 50, 'Hourly', 'Open', public.practice_today())
+  values (v_client, 'ZZ-AUTH', 'WSA Tier 1', 10, 50, 'Hourly', 'Authorized', public.practice_today())
   returning id into v_auth;
 
   select state into v_state from public.client_paperwork
@@ -114,7 +114,7 @@ begin
   -- Started 50 days back, so the hours logged 45 days ago fall inside its
   -- dates (0116 refuses billable hours outside them) and in the same
   -- earlier month.
-  values (v_client, 'ZZ-AUTH-M', 'Job Development', 10, 50, 'Hourly', 'Open', public.practice_today() - 50)
+  values (v_client, 'ZZ-AUTH-M', 'Job Development', 10, 50, 'Hourly', 'Authorized', public.practice_today() - 50)
   returning id into v_monthly;
 
   select state into v_state from public.client_paperwork
@@ -141,7 +141,8 @@ begin
   end if;
 
   -- ── a closed authorization asks for nothing ────────────────
-  update public.authorizations set status = 'Paid' where id = v_auth;
+  update public.authorizations
+     set status = 'Closed', closed_reason = 'ZZ settled' where id = v_auth;
   select count(*) into v_count from public.client_paperwork where auth_id = v_auth;
   if v_count <> 0 then
     failures := failures || format('FAILED: a closed authorization still wants %s form(s)', v_count);

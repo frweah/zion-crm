@@ -124,7 +124,6 @@ export async function createFromImport(
       total_hours: rateType === "Hourly" ? Number(hours) : null,
       start_date: str("start_date") || null,
       end_date: str("end_date") || null,
-      status: "Open",
       note: str("note"),
     })
     .select("id")

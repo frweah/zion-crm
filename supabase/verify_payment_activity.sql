@@ -31,8 +31,11 @@ begin
 
   insert into public.clients (name, stage, status, assigned_staff_id)
   values ('ZZ Timeline Payment Client', 'Job Coaching', 'Active', coalesce(v_js, v_admin)) returning id into v_client;
-  insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-  values (v_client, 'ZQ9700001', 'Job Placement', 'Flat Fee', 560, 'Paid') returning id into v_auth;
+  insert into public.authorizations (
+    client_id, number, service_type, rate_type, rate, status, paid_on, paid_amount, submitted_on
+  )
+  values (v_client, 'ZQ9700001', 'Job Placement', 'Flat Fee', 560, 'Paid',
+          date '2026-04-06', 560, date '2026-03-20') returning id into v_auth;
   insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name)
   values (v_auth, 560, 'ZW0000701', date '2026-04-06', '26PR00000000701', 'Workbook', 'Workbook import')
   returning id into v_pay;

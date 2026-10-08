@@ -111,19 +111,26 @@ begin
 
   insert into public.clients (name, stage, status) values ('ZZ Forecast Client', 'Placement', 'Active')
   returning id into v_client;
+  -- The parent holds forty hours; the month is a child with ten logged
+  -- against it, which is the 500 of committed work (§1, §5).
   insert into public.authorizations (client_id, service_type, rate_type, rate, total_hours, status, end_date)
-  values (v_client, 'Job Coaching', 'Hourly', 50, 40, 'Open',
+  values (v_client, 'Job Coaching', 'Hourly', 50, 40, 'Authorized',
           (public.practice_today() + 60)) returning id into v_auth;
-  insert into public.billing_items (client_id, auth_id, service, period, status, billing_type, hours, rate, amount)
-  values (v_client, v_auth, 'Job Coaching', v_month, 'Service in progress', 'Hourly', 10, 50, 500)
-  returning id into v_item;
+  insert into public.authorizations (
+    client_id, number, service_type, rate_type, rate, status, end_date, parent_id, period, bill_by
+  ) values (
+    v_client, '', 'Job Coaching', 'Hourly', 50, 'Authorized',
+    (public.practice_today() + 60), v_auth, v_month, public.practice_today() + 5
+  ) returning id into v_item;
+  insert into public.service_entries (auth_id, date, hours, non_billable, notes)
+  values (v_item, v_month, 10, false, 'ZZ');
 
   select coalesce(sum(f.amount), 0) - v_before_committed into v_amount
     from public.ledger_revenue_forecast(3) f where f.band = 'Committed';
   if v_amount is distinct from 500 then
-    failures := failures || format('FAILED: a 500 item in the pipeline added %s to committed revenue', v_amount)::text;
+    failures := failures || format('FAILED: 500 of work in the pipeline added %s to committed revenue', v_amount)::text;
   else
-    raise notice 'ok  an item in the pipeline is committed revenue, in the month its service bills';
+    raise notice 'ok  an authorization not yet billed is committed revenue, in its bill-by month';
   end if;
 
   -- Authorized 2000, committed 500: the other 1500 is the authorized band,
@@ -131,9 +138,9 @@ begin
   select coalesce(sum(f.amount), 0) - v_before_authorized into v_amount
     from public.ledger_revenue_forecast(3) f where f.band = 'Authorized';
   if v_amount > 1500 + 0.05 then
-    failures := failures || format('FAILED: %s is authorized-and-unearned where 1500 is uncovered - the item was counted twice', v_amount)::text;
+    failures := failures || format('FAILED: %s is authorized-and-unearned where 1500 is uncovered - the month was counted twice', v_amount)::text;
   else
-    raise notice 'ok  an item and the authorization behind it are one expectation, not two';
+    raise notice 'ok  a coaching month and its parent are one expectation, not two';
   end if;
 
   select count(distinct f.band) into v_n from public.ledger_revenue_forecast(3) f;
@@ -194,10 +201,18 @@ begin
   end if;
 
   -- ── the payment lag is measured, not assumed ──────────────
-  update public.billing_items
-     set status = 'Paid', service_end = public.practice_today() - 55,
-         submitted_at = (public.practice_today() - 50)::timestamptz,
-         recipient = 'ZZ USOR', paid_on = public.practice_today() - 30, paid_amount = 500
+  -- The forms the service needs, so the submit gate lets it through.
+  insert into public.forms (template_id, client_id, auth_id, status, data)
+  select t.id, v_client, v_item, 'Completed', '{}'::jsonb
+    from public.form_templates t
+   where t.required_for_billing and 'Job Coaching' = any (t.services);
+  update public.authorizations set status = 'Due' where id = v_item;
+  update public.authorizations
+     set status = 'Submitted', service_end = public.practice_today() - 55,
+         submitted_on = public.practice_today() - 50, recipient = 'ZZ USOR'
+   where id = v_item;
+  update public.authorizations
+     set status = 'Paid', paid_on = public.practice_today() - 30, paid_amount = 500
    where id = v_item;
   if public.ledger_payment_lag() <> 20 then
     failures := failures || format('FAILED: twenty days from sent to paid measured as %s', public.ledger_payment_lag())::text;

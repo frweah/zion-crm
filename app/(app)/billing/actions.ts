@@ -49,7 +49,8 @@ export async function addAuthorization(
     start_date: str("start_date") || null,
     end_date: str("end_date") || null,
     requires_forms: str("requires_forms"),
-    status: "Open",
+    // No status: the column defaults to Authorized, and the insert trigger
+    // fills in received_on, stale_date and bill_by (§2).
   });
 
   if (error) return { error: friendly(error), ok: null };

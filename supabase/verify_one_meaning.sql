@@ -30,13 +30,13 @@ begin
 
   -- A flat fee, completed inside its dates and not yet invoiced.
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status, start_date, end_date)
-  values (v_client, 'V0000771', 'Job Placement', 'Flat Fee', 2250, 'Open', public.practice_today() - 20, public.practice_today() + 10)
+  values (v_client, 'V0000771', 'Job Placement', 'Flat Fee', 2250, 'Authorized', public.practice_today() - 20, public.practice_today() + 10)
   returning id into v_flat;
   update public.completions set completion = public.practice_today() - 2 where auth_id = v_flat;
 
   -- An hourly one with nothing logged.
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status, start_date, end_date)
-  values (v_client, 'V0000772', 'Job Coaching', 20, 'Hourly', 45, 'Open', public.practice_today() - 20, public.practice_today() + 10)
+  values (v_client, 'V0000772', 'Job Coaching', 20, 'Hourly', 45, 'Authorized', public.practice_today() - 20, public.practice_today() + 10)
   returning id into v_hourly;
 
   select detail into v_detail from public.client_next_actions(v_client) where title like '%V0000771%';

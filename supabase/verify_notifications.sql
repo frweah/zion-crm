@@ -32,31 +32,30 @@ begin
   -- 1. no hours left
   insert into public.authorizations
     (client_id, number, service_type, total_hours, carried_used, rate_type, rate, status)
-  values (v_client, 'ZZ-EXHAUSTED', 'Job Coaching', 10, 10, 'Hourly', 45, 'Open')
+  values (v_client, 'ZZ-EXHAUSTED', 'Job Coaching', 10, 10, 'Hourly', 45, 'Authorized')
     returning id into a_exhausted;
 
   -- 2. under 10% remaining
   insert into public.authorizations
     (client_id, number, service_type, total_hours, carried_used, rate_type, rate, status)
-  values (v_client, 'ZZ-LOW', 'Job Coaching', 100, 95, 'Hourly', 45, 'Open')
+  values (v_client, 'ZZ-LOW', 'Job Coaching', 100, 95, 'Hourly', 45, 'Authorized')
     returning id into a_low;
 
   -- 3. ending within 14 days
   insert into public.authorizations
     (client_id, number, service_type, total_hours, carried_used, rate_type, rate, status, end_date)
-  values (v_client, 'ZZ-ENDING', 'Job Coaching', 50, 0, 'Hourly', 45, 'Open', current_date + 7)
+  values (v_client, 'ZZ-ENDING', 'Job Coaching', 50, 0, 'Hourly', 45, 'Authorized', current_date + 7)
     returning id into a_ending;
 
-  -- 4. invoice sent and long unpaid. "Other" requires no USOR form, so the
-  --    billing gate does not block the fixture.
+  -- 4. submitted and long unpaid. There is no invoice any more (§1, §10):
+  --    the authorization's own submitted date is what the rule reads, so the
+  --    fixture states it outright rather than sending anything.
   insert into public.authorizations
-    (client_id, number, service_type, rate_type, rate, status)
-  values (v_client, 'ZZ-FLAT', 'Other', 'Flat Fee', 500, 'Open')
+    (client_id, number, service_type, rate_type, rate, status, submitted_on, recipient)
+  values (v_client, 'ZZ-FLAT', 'Other', 'Flat Fee', 500, 'Submitted',
+          current_date - 95, 'ZZ USOR')
     returning id into a_flat;
-  -- A flat fee is sent only once its completion is recorded (0116).
   update public.completions set completion = current_date - 100 where auth_id = a_flat;
-  insert into public.invoices (auth_id, number, date, amount, status)
-  values (a_flat, 'ZZ-INV-95', current_date - 95, 500, 'Sent');
 
   -- 5. overdue task
   insert into public.tasks (client_id, assigned_staff_id, title, due, status)
@@ -65,7 +64,7 @@ begin
   -- 6. monthly USOR reports, with activity last month to report on
   insert into public.authorizations
     (client_id, number, service_type, total_hours, carried_used, rate_type, rate, status)
-  values (v_client, 'ZZ-COACH', 'Job Coaching', 40, 0, 'Hourly', 45, 'Open')
+  values (v_client, 'ZZ-COACH', 'Job Coaching', 40, 0, 'Hourly', 45, 'Authorized')
     returning id into a_coaching;
   insert into public.notes (client_id, text, type, at, visible_roles)
   values (v_client, 'ZZ activity last month', 'Job search', last_day,
@@ -118,9 +117,10 @@ begin
     failures := failures || 'auth_ending did not fire'::text;
   end if;
 
+  -- The alert names the authorization now, not an invoice number (§1, §10).
   if not exists (select 1 from public.notifications
                   where kind = 'invoice_unpaid' and level = 'bad'
-                    and text like '%ZZ-INV-95%' and resolved_at is null) then
+                    and text like '%ZZ-FLAT%' and resolved_at is null) then
     failures := failures || 'invoice_unpaid did not fire at 90+ days as level bad'::text;
   end if;
 

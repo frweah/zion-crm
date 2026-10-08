@@ -61,7 +61,7 @@ begin
 
   -- Job Coaching bills on USOR 93 and 95, both monthly.
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, start_date, end_date, status)
-  values (v_client, 'V0000111', 'Job Coaching', 20, 'Hourly', 45, public.practice_today() - 30, public.practice_today() + 10, 'Open')
+  values (v_client, 'V0000111', 'Job Coaching', 20, 'Hourly', 45, public.practice_today() - 30, public.practice_today() + 10, 'Authorized')
   returning id into v_auth;
   insert into public.service_entries (auth_id, date, hours, notes, non_billable, primary_code, secondary_code, staff_id)
   values (v_auth, public.practice_today() - 2, 4, 'ZZ coaching visit', false, '', '', v_worker);

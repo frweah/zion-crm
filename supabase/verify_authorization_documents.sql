@@ -62,9 +62,9 @@ begin
   values ('ZZ AuthDoc Two', 'Job Coaching', 'Active', v_admin) returning id into v_b;
 
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_a, 'ZQ9900001', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_authA;
+  values (v_a, 'ZQ9900001', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_authA;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_b, 'ZQ9900002', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_authB;
+  values (v_b, 'ZQ9900002', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_authB;
 
   insert into public.attachments (client_id, storage_path, filename, mime_type, category, uploaded_by)
   values (v_a, 'zz/one.pdf', 'one.pdf', 'application/pdf', 'Other', v_admin) returning id into v_att1;
@@ -212,7 +212,7 @@ begin
   -- ── the database refuses a duplicate on its own ────────────
   begin
     insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-    values (v_a, 'zq-990-0003', 'Other', 'Flat Fee', 1, 'Open');
+    values (v_a, 'zq-990-0003', 'Other', 'Flat Fee', 1, 'Authorized');
     failures := failures || 'FAILED: the database accepted a second authorization with the same number'::text;
   exception when unique_violation then
     raise notice 'ok  asked directly, the database refuses a second authorization with the same number';

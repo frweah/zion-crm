@@ -257,6 +257,14 @@ const RPC_FUNCTIONS = [
   "my_entities",
   "create_entity",
   "post_inter_entity_transfer",
+  // The authorization is the bill (Billing Simplification Brief).
+  "bill_by_for",
+  "authorization_amount",
+  "authorization_blocked_from",
+  "billing_worklist",
+  "authorizations_fall_due",
+  "open_coaching_months_for",
+  "close_empty_coaching_months",
 ];
 
 const { rows: fns } = await client.query(

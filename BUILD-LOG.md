@@ -962,7 +962,9 @@ On the full test, **four** placeholders have something attached:
 
 Strictly, §9's delete condition names "hours, forms, invoice or payment", so
 a literal reading would have removed the corrections and the attachments
-too. It stays on the owner's desk rather than being decided here.
+too. Put to the owner, who settled it the same day: **keep them.** All four
+stay as history on the client's Billing tab, which is where §9 puts kept
+placeholders anyway. Closed question.
 
 **What the delete did**, all verified inside the transaction before it
 committed - any one of these failing would have rolled it back:
@@ -988,3 +990,94 @@ contained piece of work - the postings are one trigger function and the
 forecast is one query - and it is called out here because the order matters:
 the ledger has to keep posting across the migration, or a month of revenue
 goes missing silently.
+
+---
+
+## §§1-7: the authorization is the bill
+
+Deployed `<pending>`, 7 Oct 2026. Migrations 0155-0159, one new verification
+script, five rewritten, two deleted.
+
+**What changed.** The billing item is gone as a working record. Every
+authorization now carries its own status (Authorized, Due, Submitted, Paid,
+Closed), the day the form was received, the day we mean to bill by, the day
+it goes stale, the submission and the payment. Job Coaching is a parent
+holding the hours with a child authorization per month, each with its own
+bill-by, forms, status and payment. One list - `billing_worklist` - returns
+everything not Paid and not Closed with the single most pressing thing wrong
+with each row.
+
+**The fold, held to §7's own test.** 160 authorizations became 162 - the two
+coaching children of the one authorization that already had two monthly
+items - and **the paid total came through at 142,947.50, matching
+`billing_items` to the penny.** Every child table has exactly the row count
+it had. Captured before, compared after, not assumed.
+
+**The stale rule, as the owner revised it on 7 Oct.** Service dates outside
+the authorized period are a hard block. Submitting after the end date is
+allowed and flagged. Only 90 days past the end date refuses, and the 90 is
+Admin-adjustable. A missing end date warns and never blocks. Day one on the
+real data: **22 rows, 4 that cannot be submitted** (ended between December
+2025 and May 2026), 6 past the end date and still submittable with the
+closing date shown, 2 with no end date, 9 overdue against bill-by, 1 clean.
+Under the first reading of §4 it was 13 blocked.
+
+**Six faults the work surfaced, each of which would have shipped quietly**
+
+1. **The coaching hours alert would never have fired again.** It summed
+   hours logged against the authorization itself; coaching hours now land on
+   the month, which is a child. Every parent would have read zero used, for
+   ever.
+2. **`unbilled` and `committed` would have been zero everywhere.** Both read
+   "when the status is not Open, this is zero", and Open was gone - so the
+   economics view, `staff_capacity`, `billing_position` and the Money insight
+   would all have shown nothing, with nothing failing. `verify_capacity`
+   caught the first; the rest were then looked for rather than discovered one
+   screen at a time. Checking a spliced definition for the table that was
+   removed is not enough; the status values have to be checked too.
+3. **Five more views asked for `'Open'`** and would have returned nothing,
+   which looks exactly like a practice with nothing to show (0159).
+4. **The USOR forms gate would have been lost.** `check_invoice_forms`
+   refused to send an invoice while a required form was outstanding. The
+   invoice is going; the rule came with it, onto the submit, rather than
+   being rediscovered the first time a packet reached USOR without its 93
+   and 95.
+5. **The payment lag would have been poisoned.** All 139 paid rows from the
+   workbook have no submission date. Requiring one for Paid meant backfilling
+   it from the payment date - which would have told `ledger_payment_lag()`
+   that USOR pays on the day of billing and wrecked the cash forecast built
+   on it yesterday. Submitted needs a date; Paid does not.
+6. **Two new columns were unreadable.** `org_settings` is granted column by
+   column, so the grace the owner sets would have been written by an Admin
+   and read by nobody. `verify_columns` caught it.
+
+**Chosen against**
+
+- **A coaching child carrying the USOR number.** It is the same
+  authorization, for one month of it, and §11 says a fact lives in one
+  place: the number is the parent's and is read from there. Searching by
+  number finds the authorization rather than twelve copies of it.
+- **Backfilling the missing submission dates** - see fault 5.
+- **Dropping the billing item now.** It stays, frozen against every write,
+  for one deploy: §7's test needs it to compare totals against, and the old
+  Items screen is reachable until §9 replaces it. Frozen rather than live
+  because two records disagreeing about what was billed is what this brief
+  exists to end; deleted rather than frozen in §10, because §13.17 says so.
+- **One giant deploy.** The database, its readers and the app's status
+  filters land together - they have to - but the screens are their own
+  deploy. A smaller surface is a smaller thing to be wrong.
+
+**Where §11 stands.** The audit still finds 15, unchanged, and that is
+expected: the facts are single-sourced in the database now, but the screens
+still read `invoices` (8 of them) and the tables still exist. §9 and §10 are
+what clear it. The audit is the measure, and it is run again at the end.
+
+**Owed, and named here so it is not forgotten.** `verify_warrants` lost one
+assertion about `billing_position`'s figures: every one of them came off the
+invoice, and warrant reconciliation still writes invoices until §10 moves it
+onto the authorization. It returns with §10 and §13.9. The rest of that
+script - reading the stub, matching the lines, refusing a bad match - is
+untouched.
+
+**Needs the owner** — nothing. The 90-day grace and the 14-day stale warning
+are on `org_settings` and are yours to change.

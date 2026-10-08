@@ -117,7 +117,7 @@ begin
           array['Admin']);
 
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status)
-  values (v_client, 'ZZ-AUTH-1', 'Job Coaching', 20, 'Hourly', 45, 'Open')
+  values (v_client, 'ZZ-AUTH-1', 'Job Coaching', 20, 'Hourly', 45, 'Authorized')
   returning id into v_auth;
 
   -- Draft, not Sent: this authorization requires a USOR 93 and 95 and the

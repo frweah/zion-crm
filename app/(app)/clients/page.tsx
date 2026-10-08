@@ -19,6 +19,7 @@ import { readBillingOffices, matchesBo } from "@/lib/billing-offices";
 import { SavedViews, type SavedView } from "./saved-views";
 import { loadCaseload } from "@/lib/caseload";
 import { CaseloadSummary } from "../caseload-summary";
+import { LIVE_STATUSES } from "@/lib/billing";
 
 type Row = {
   id: string;
@@ -153,7 +154,10 @@ export default async function ClientsPage({
 
   if (filters.jobSearch) rows = rows.filter((r) => r.searching);
   if (filters.openAuth) {
-    const { data: open } = await supabase.from("authorizations").select("client_id").eq("status", "Open");
+    const { data: open } = await supabase
+      .from("authorizations")
+      .select("client_id")
+      .in("status", [...LIVE_STATUSES]);
     const withOpen = new Set((open ?? []).map((a) => a.client_id));
     rows = rows.filter((r) => withOpen.has(r.id));
   }

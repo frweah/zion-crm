@@ -34,7 +34,7 @@ begin
   insert into public.clients (name, stage, status, assigned_staff_id)
   values ('ZZ Followup Client', 'Job Coaching', 'Active', v_worker) returning id into v_client;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status)
-  values (v_client, 'V0000999', 'Job Coaching', 20, 'Hourly', 45, 'Open') returning id into v_auth;
+  values (v_client, 'V0000999', 'Job Coaching', 20, 'Hourly', 45, 'Authorized') returning id into v_auth;
 
   -- ── somebody who does not bill ─────────────────────────────
   perform set_config('role', 'authenticated', true);
