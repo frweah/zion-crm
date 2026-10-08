@@ -164,8 +164,16 @@ async function pass(role) {
   if (job) results.push(await open(job));
   if (counselor) results.push(await open(counselor));
 
-  // A billing item's own record, which is only reachable as Billing.
-  const item = firstLink(results, "/billing?tab=items", new RegExp(`/billing/items/${uuid}`));
+  /**
+   * An authorization's own record, which is only reachable as Billing.
+   *
+   * This looked for a billing item at /billing?tab=items, and §§9 and 10
+   * removed both the tab and the record - so it found nothing, opened nothing,
+   * and said so in a note that reads the same whether the screen is missing or
+   * merely empty. The authorization record is where the work happens now: the
+   * checklist, the papers, the submit.
+   */
+  const item = firstLink(results, "/billing", new RegExp(`/billing/authorizations/${uuid}`));
   if (item) results.push(await open(item));
 
   // A bank statement's own screen, found on the list of statements. The hub
@@ -190,7 +198,14 @@ if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {
   await signIn(process.env.SMOKE_BILLING_EMAIL, process.env.SMOKE_BILLING_PASSWORD, "automated-check (billing)");
   const billing = await pass("Billing");
   all.push(...billing.results.map((r) => ({ ...r, role: "Billing" })));
-  if (!billing.item) console.log("  note  no billing item was listed, so no item record was opened");
+  if (!billing.item) {
+    // An annotation, not a note: the working list being empty is worth knowing,
+    // and so is the link to a record having changed shape again.
+    console.log(
+      "::warning title=No authorization record opened::" +
+        "Nothing on Billing linked to /billing/authorizations/<id>, so the record screen - the checklist, the papers, the submit - was not opened by this run.",
+    );
+  }
 } else {
   /**
    * Said as an annotation, and counted properly.
