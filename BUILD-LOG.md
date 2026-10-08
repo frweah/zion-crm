@@ -962,7 +962,9 @@ On the full test, **four** placeholders have something attached:
 
 Strictly, §9's delete condition names "hours, forms, invoice or payment", so
 a literal reading would have removed the corrections and the attachments
-too. It stays on the owner's desk rather than being decided here.
+too. Put to the owner, who settled it the same day: **keep them.** All four
+stay as history on the client's Billing tab, which is where §9 puts kept
+placeholders anyway. Closed question.
 
 **What the delete did**, all verified inside the transaction before it
 committed - any one of these failing would have rolled it back:
