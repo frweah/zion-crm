@@ -281,7 +281,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       {
         ask: "Add an authorization from the PDF USOR sent",
         where: "Billing → Authorizations → Read an authorization",
-        href: "/billing/import",
+        href: "/billing#new-authorization",
         roles: ["Admin", "Billing"],
       },
       {

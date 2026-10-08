@@ -58,19 +58,15 @@ const FACTS = [
   // record rather than counting how far two have drifted apart.
   //
   // What stays here is what is still kept twice.
-  {
-    // referring_office is not a copy of the counselor's office: it is who sent
-    // the client, which can be a different office and often is. What is a copy
-    // is the counselor's contact details written onto the client.
-    fact: "How to reach the counselor",
-    home: "counselors.email, counselors.phone",
-    copies: ["clients.counselor_contact"],
-    disagree: `select count(*) from public.clients c
-                 join public.counselors k on k.id = c.counselor_id
-                where nullif(btrim(c.counselor_contact), '') is not null
-                  and position(lower(coalesce(nullif(k.email, ''), '~none~'))
-                               in lower(c.counselor_contact)) = 0`,
-  },
+  // "How to reach the counselor" was here. clients.counselor_contact was a
+  // free-text box holding the counselor's phone, written a second time and
+  // disagreeing with the counselor's own record on twelve clients - every one of
+  // them the same number in a different format, bar one phone and one fax that
+  // were only written there. Those two were moved onto the counselor and the box
+  // was dropped (0175), so there is nothing left to disagree.
+  //
+  // referring_office is deliberately not on this list: it is who sent the
+  // client, which can be a different office from the counselor's and often is.
   {
     // Two different things that look like one: what somebody worked, and what
     // the practice bills. They are allowed to differ, and the audit watches

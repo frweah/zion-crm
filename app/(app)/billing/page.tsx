@@ -16,6 +16,7 @@ import { DataTable, type DataRow } from "../data-table";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import PendingAuthorizations from "./pending-authorizations";
+import { ImportForm } from "./import/import-form";
 import { Worklist, type WorklistRow } from "./worklist";
 import { isLive } from "@/lib/billing";
 
@@ -68,7 +69,7 @@ export default async function BillingPage({
       .from("authorizations")
       .select("id, client_id, number, service_type, total_hours, carried_used, rate_type, rate, status, parent_id, period")
       .order("number"),
-    supabase.from("clients").select("id, name, status").order("name"),
+    supabase.from("clients").select("id, name, status, agency_id").order("name"),
     tab === "hours"
       ? supabase
           .from("service_entries")
@@ -110,8 +111,8 @@ export default async function BillingPage({
       }
       actions={
         canBill ? (
-          <Link href="/billing/import" className="btn" style={{ textDecoration: "none" }}>
-            Read an authorization
+          <Link href="/billing#new-authorization" className="btn" style={{ textDecoration: "none" }}>
+            Add authorization
           </Link>
         ) : undefined
       }
@@ -243,8 +244,47 @@ export default async function BillingPage({
         />
       )}
 
-      {/* §9: Add authorization at the top of the page. */}
-      {canBill && <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} rates={rates} />}
+      {/*
+        §§9, 12.1: Add authorization at the top of the page, and the PDF is the
+        way in.
+
+        "Drop a PDF - the number, dates, service, rate and hours are read off it
+        - confirm - saved, with the PDF referenced." The typed form is the
+        fallback for a scan with no text in it, which is why it is behind a fold
+        rather than gone: a photographed authorization still has to be typed, and
+        a rate keyed as 4.50 instead of 45.00 is not noticed until the payment is
+        short.
+      */}
+      {canBill && (
+        <section id="new-authorization" className="page-section">
+          <h2 className="h2">Add authorization</h2>
+          <ImportForm clients={clients.filter((c) => c.status !== "Closed")} />
+          <details className="card" style={{ marginTop: 12 }}>
+            <summary>How this reads a file</summary>
+            <p className="sub" style={{ marginTop: 8 }}>
+              Rules, not judgement. The PDF is opened here, its text is read, and each field is
+              found by a labelled pattern &mdash; &ldquo;Total Hours&rdquo; followed by a number,
+              &ldquo;Rate&rdquo; followed by an amount. Nothing is sent to any outside service, no
+              model sees a client&apos;s authorization, and the same file gives the same answer
+              every time.
+            </p>
+            <p className="sub">
+              That also sets the limits. A label the rules do not know is left blank rather than
+              guessed at, and a scanned or photographed authorization has no text to read at all.
+              The rules live in one file with names on them, so a field that comes out wrong on a
+              real USOR form is a rule to fix rather than a mystery.
+            </p>
+          </details>
+          <details className="card" style={{ marginTop: 12 }}>
+            <summary>No text in the PDF? Type it in instead</summary>
+            <p className="lock">
+              A scanned or photographed authorization has no text to read, so there is nothing to
+              check against. Everything below is typed, and the rate comes from the rate schedule.
+            </p>
+            <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} rates={rates} />
+          </details>
+        </section>
+      )}
 
       <BillingOfficeFilter
         billingOffices={billing.billingOffices}
@@ -282,7 +322,7 @@ export default async function BillingPage({
 
       {canBill && (
         <p className="lock" style={{ margin: "0 0 14px" }}>
-          Have the PDF USOR sent? <Link href="/billing/import">Read the authorization off it</Link>{" "}
+          Have the PDF USOR sent? <Link href="/billing#new-authorization">Read the authorization off it</Link>{" "}
           instead of typing it — a rate keyed as 4.50 instead of 45.00 is not noticed until the
           payment is short.
         </p>

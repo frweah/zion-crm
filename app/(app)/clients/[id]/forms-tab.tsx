@@ -54,62 +54,26 @@ export function FormsTab({
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <h3>Start a form</h3>
-        {state.error && <div className="alert bad">{state.error}</div>}
+      {/*
+        "Start a form" was here: a list of blank forms to pick from, and three
+        questions - which form, which authorization, which month - that the
+        authorization already knows the answers to.
 
-        <form action={action}>
-          <input type="hidden" name="client_id" value={clientId} />
-          <div className="row2">
-            <label className="field" style={{ flex: 2 }}>
-              Form
-              <select
-                name="template_id"
-                required
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-              >
-                <option value="">— choose —</option>
-                {FORM_TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.usor} — {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="field">
-              Authorization
-              <select name="auth_id" defaultValue="">
-                <option value="">— none —</option>
-                {auths.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {template?.monthly && (
-              <label className="field" style={{ maxWidth: 170 }}>
-                Reporting month
-                <input name="month" type="month" defaultValue={today().slice(0, 7)} />
-              </label>
-            )}
-
-            <button className="btn gold" type="submit" disabled={pending}>
-              {pending ? "Starting…" : "Start form"}
-            </button>
-          </div>
-        </form>
-
-        {template && (
-          <p className="lock" style={{ margin: "10px 0 0" }}>
-            {template.due}
-            {template.sensitive && " This form holds restricted content."}
-          </p>
-        )}
-      </div>
+        §13.10: forms are generated, not filled. They are produced from the
+        authorization that needs them, where the record knows the client, the
+        counselor, the month and the hours, and this tab is where they are read
+        afterwards. One screen per job (§11): a second way to make a form is a
+        second way to make the wrong one.
+      */}
+      {missingForBilling.length > 0 && (
+        <p className="lock" style={{ margin: "0 0 14px" }}>
+          Forms are produced from the authorization that needs them, on{" "}
+          <Link href="/billing" style={{ color: "var(--teal)" }}>
+            Billing
+          </Link>
+          , filled in from the record and the service log.
+        </p>
+      )}
 
       <div className="card" style={{ padding: 0 }}>
         <DataTable

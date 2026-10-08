@@ -88,7 +88,7 @@ export default async function ClientPage({
     supabase
     .from("clients")
     .select(
-      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, counselor_contact, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, billing_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
+      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, billing_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
     )
     .eq("id", id)
     .maybeSingle(),
@@ -694,7 +694,7 @@ export default async function ClientPage({
     // log. It returns an "allowed" flag rather than a null, so the panel can
     // still tell "we do not hold this" from "this is not for you".
     supabase.rpc("read_client_private", { p_client_id: id, p_purpose: "shown on the client record" }),
-    supabase.from("counselors").select("id, name").order("name"),
+    supabase.from("counselors").select("id, name, email, phone, fax, office").order("name"),
     supabase.from("offices").select("name").order("name"),
     supabase.from("client_stage_history").select("stage, at").eq("client_id", id).order("at", { ascending: false }).limit(8),
     supabase.from("client_paperwork").select("state").eq("client_id", id),

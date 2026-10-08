@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { setStage, updateClient, updateRestricted, type DetailState } from "./actions";
 import { STAGES, CLIENT_STATUSES } from "@/lib/constants";
@@ -7,6 +8,20 @@ import { STAGES, CLIENT_STATUSES } from "@/lib/constants";
 const initial: DetailState = { error: null, ok: null };
 
 type Option = { id: string; name: string };
+
+/**
+ * A counselor, as the counselor's own record holds them.
+ *
+ * The client's profile used to carry a "Counselor phone / fax" box, which was
+ * the same fact written a second time - and the two disagreed (§11). It reads
+ * the counselor record now and asks for nothing.
+ */
+type CounselorOption = Option & {
+  email: string | null;
+  phone: string | null;
+  fax: string | null;
+  office: string | null;
+};
 
 export type ClientDetail = {
   id: string;
@@ -17,7 +32,6 @@ export type ClientDetail = {
   phone: string;
   email: string;
   counselor_id: string | null;
-  counselor_contact: string;
   referring_office: string;
   caseload: string;
   unit: string;
@@ -82,7 +96,7 @@ export function DetailsForm({
   isAdmin,
 }: {
   client: ClientDetail;
-  counselors: Option[];
+  counselors: CounselorOption[];
   staff: Option[];
   offices: string[];
   canEdit: boolean;
@@ -175,14 +189,22 @@ export function DetailsForm({
               ))}
             </select>
           </label>
-          <label className="field">
-            Counselor phone / fax
-            <input
-              name="counselor_contact"
-              defaultValue={client.counselor_contact}
-              disabled={!canEdit}
-            />
-          </label>
+          {/* Read from the counselor, never asked for here (§11). */}
+          {(() => {
+            const k = counselors.find((x) => x.id === client.counselor_id);
+            if (!k) return null;
+            const reach = [k.phone, k.fax ? `fax ${k.fax}` : null, k.email]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <p className="lock" style={{ gridColumn: "1 / -1", margin: 0 }}>
+                {reach || "No phone or email on this counselor's record."}{" "}
+                <Link href="/directory" style={{ color: "var(--teal)" }}>
+                  {reach ? "On the counselor's record" : "Add it to their record"}
+                </Link>
+              </p>
+            );
+          })()}
           <label className="field">
             Referring office
             <select

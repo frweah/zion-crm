@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, type Attachment } from "@/lib/email";
 import { today } from "@/lib/constants";
+import { createForm } from "../../clients/[id]/forms/actions";
 
 /**
  * What can be done to an authorization (Billing Simplification Brief §§4, 12.4).
@@ -275,4 +276,46 @@ export async function resolveZeroHours(
   if (error) return refusal(error.message);
   done(id);
   return { error: null, ok: "Noted. Log the hours and it will price itself." };
+}
+
+/**
+ * Produce a USOR form from the record (§13.10).
+ *
+ * "Forms are generated, not filled." The CRM recorded the hours as they
+ * happened, it knows the client, the counselor, the authorization and the
+ * month - so nobody should retype a month of coaching onto USOR 95. The form
+ * comes up filled in, and what staff do is read it against what they remember
+ * and sign it.
+ *
+ * This is the same createForm the client's record uses, reached from the
+ * authorization the form is for, so the two cannot produce different forms.
+ * The month is the authorization's own period where it has one; a monthly form
+ * on a one-off service takes this month.
+ */
+export async function generateForm(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await billingHands();
+  const id = String(formData.get("auth_id") ?? "");
+  const templateId = String(formData.get("template_id") ?? "");
+
+  const { data: rec } = await supabase
+    .from("authorization_record")
+    .select("id, client_id, period, service_type")
+    .eq("id", id)
+    .maybeSingle();
+  if (!rec) return { error: "That authorization is not there any more.", ok: null };
+
+  const month = rec.period
+    ? String(rec.period).slice(0, 7)
+    : new Date().toISOString().slice(0, 7);
+
+  const body = new FormData();
+  body.set("client_id", String(rec.client_id));
+  body.set("template_id", templateId);
+  body.set("auth_id", id);
+  body.set("month", month);
+
+  // createForm redirects to the form it made, which is where somebody reads and
+  // signs it. A redirect from a server action throws, so there is nothing after
+  // this line on the happy path.
+  return createForm({ error: null, ok: null }, body);
 }

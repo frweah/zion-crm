@@ -23,7 +23,7 @@ export default async function DocumentsPage() {
         title="Documents"
         context="What has arrived and is waiting, how long records are kept, and requests for a person's file"
         actions={
-          <Link className="btn ghost" href="/billing/import" style={{ textDecoration: "none" }}>
+          <Link className="btn ghost" href="/billing#new-authorization" style={{ textDecoration: "none" }}>
             Read an authorization PDF
           </Link>
         }

@@ -912,7 +912,6 @@ export type Database = {
           caseload: string;
           unit: string;
           counselor_id: string | null;
-          counselor_contact: string;
           referring_office: string;
           phone: string;
           email: string;
@@ -946,7 +945,6 @@ export type Database = {
           caseload?: string;
           unit?: string;
           counselor_id?: string | null;
-          counselor_contact?: string;
           referring_office?: string;
           phone?: string;
           email?: string;
@@ -980,7 +978,6 @@ export type Database = {
           caseload?: string;
           unit?: string;
           counselor_id?: string | null;
-          counselor_contact?: string;
           referring_office?: string;
           phone?: string;
           email?: string;

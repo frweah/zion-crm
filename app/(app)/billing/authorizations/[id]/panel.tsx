@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import {
+  generateForm,
   markDue,
   submitAuthorization,
   closeAuthorization,
@@ -181,5 +182,65 @@ export function ZeroHours({ authId, month }: { authId: string; month: string }) 
       </div>
       <Said state={state} />
     </form>
+  );
+}
+
+/**
+ * The forms this authorization needs, produced from the record (§13.10).
+ *
+ * "Forms are generated, not filled." Each one comes up filled in from what the
+ * CRM recorded as it happened - the hours, the client, the counselor, the month
+ * - and what staff do is read it and sign it. There is no blank-form screen
+ * anywhere, because a blank form is a request to retype what is already known.
+ */
+export function Forms({
+  authId,
+  clientId,
+  outstanding,
+  done,
+}: {
+  authId: string;
+  clientId: string;
+  outstanding: { id: string; usor: string; name: string }[];
+  done: { id: string; usor: string; formId: string; signed: boolean }[];
+}) {
+  const [state, action, pending] = useActionState(generateForm, EMPTY);
+  if (outstanding.length === 0 && done.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 className="h2">Its USOR forms</h2>
+      {done.length > 0 && (
+        <ul className="list">
+          {done.map((f) => (
+            <li key={f.formId}>
+              <span className={f.signed ? "chip ok" : "chip warn"}>{f.signed ? "signed" : "draft"}</span>{" "}
+              <a href={`/clients/${clientId}/forms/${f.formId}`} style={{ color: "var(--teal)" }}>
+                {f.usor}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      {outstanding.length === 0 ? (
+        <p className="lock">Every form this service needs is on file.</p>
+      ) : (
+        <>
+          <p className="lock">
+            Each of these comes up filled in from the record and the service log. Read it against
+            what you remember, then sign it.
+          </p>
+          <form action={action} className="record-actions">
+            <input type="hidden" name="auth_id" value={authId} />
+            {outstanding.map((t) => (
+              <button key={t.id} className="btn" name="template_id" value={t.id} disabled={pending}>
+                {pending ? "…" : `Produce ${t.usor}`}
+              </button>
+            ))}
+          </form>
+        </>
+      )}
+      <Said state={state} />
+    </div>
   );
 }

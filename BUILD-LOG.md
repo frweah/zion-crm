@@ -1237,3 +1237,205 @@ offers today. §13.14 wants quick-add to offer "Add authorization (from PDF)",
 which waits on §12.1; quick-add offers one billing action today, Log hours, and
 no invoice.
 
+---
+
+## §§13.11, 13.13, 13.15: the rate comes from the schedule, one alert per record
+
+Deployed `3834650`, 7 Oct 2026. Migrations 0169-0170, one new verification
+script, three rewritten.
+
+**There were two rate schedules.** One is the table Admin can edit; the other
+was `SERVICE_DEFAULTS`, hard-coded in `lib/constants.ts`, in the CRM's service
+names rather than the workbook's - and the hard-coded one is what the Add
+authorization form filled in.
+
+They disagreed, and it mattered. **The code said Job Development + HQ Indicator
+was 560. The schedule says 1,120, and the practice has billed it at 1,120
+twelve times** - it is the development fee at 560 plus one High Quality
+Indicator at 560, which the workbook expresses as two rows rather than one. So
+the form has been offering half the rate for its second busiest service, and
+the only thing between that and a short payment was whoever typed over it. This
+is the "4.50 instead of 45.00" the form warns about, in the form's own default.
+
+The duplication audit could not see it, because one of the two copies was
+TypeScript. Worth remembering: that audit reads the database, so a fact
+duplicated between the database and the code is invisible to it.
+
+The schedule wins, because it is the document USOR and the practice agree on
+and Admin can change it without a deploy. Each of its rows now says which CRM
+service it prices, the one the workbook expresses as a sum has a row of its
+own, and the form reads `service_rate()` and shows where the figure came from -
+so a different number on the PDF is a decision somebody makes rather than a
+field they overwrite without knowing what it was. A rate changed in Admin is
+the rate the form offers, with no deploy, and that is asserted. The code copy is
+deleted.
+
+**One alert per record (§13.11).** The record and the working list already
+showed one line. The alerts did not: three separate kinds were raised per
+authorization, and one ending soon with its hours nearly gone raised two of
+them - so somebody clearing their notifications saw the same piece of work
+twice with no way to know it was once. They are one alert now, carrying the
+same sentence the record and the list carry, from the same function.
+
+Which meant hours-low had to join that function, since §13.11 names it among
+the four. Running out of hours now sits just below "cannot be submitted" - it
+is the one of these that means stop serving somebody rather than get on with
+billing - and it is the one alert that still reaches Job Search. A kept
+placeholder raises nothing: §9 took it off the working list, and it has no
+business alerting either.
+
+**Two more things quietly wrong**
+
+1. **The chase keyed off `followup_due` alone.** That column is set when the
+   status moves, so it is normally there - but an authorization submitted
+   ninety days ago whose follow-up date was never set would have been chased by
+   nobody. It reads the submission's own age too. Keying off the fact rather
+   than a column derived from it.
+2. **No billing tile on the dashboard at all** for billing staff; the money
+   counters are Admin's (§13.16) and rightly so, but §13.15 asks for one
+   number. It is there, counted by the same function the working list counts
+   itself with, so the tile and the list cannot disagree.
+
+**§13.16, checked rather than built.** No alert carries a money figure to
+billing staff - the one they see says "submitted 45 days ago with no payment",
+which is a chase and not a figure - and every roll-up is already behind Admin.
+
+---
+
+## §§5, 12.5: coaching hours land on the month, and the month is the bill
+
+Deployed `d9525be`, 7 Oct 2026. Migrations 0171-0174, six verification scripts
+rewritten.
+
+**Every coaching month would have been billed at nothing.** Hours logged
+against a coaching authorization stayed on the authorization; `authorization_
+amount` for a month counts only that month's own entries; and both places that
+log hours offer the authorization, not the month. So the working list would have
+shown nothing to bill, the checklist's Amount line would have failed, and the
+ledger would have posted nothing - for the practice's only monthly service and
+most of what USOR pays for.
+
+Nobody had hit it because the two months that exist were opened by the fold and
+no hours have been logged since. Margaret's first coaching month would have been
+the first to find out.
+
+Hours now land on the month they were worked, and the month is opened if the
+calendar has not reached it - nobody logging Tuesday's hours should have to know
+whether October exists yet.
+
+**Fixing it broke the same thing in five more places,** each asking "what hours
+are on this authorization?" by looking only at the row it was handed:
+
+1. **The hours cap waved coaching hours through entirely.** A month carries no
+   `total_hours` of its own (§5), so the guard found null and returned early -
+   no cap at all. It counts across the authorization and every month under it
+   now, against what the authorization actually says.
+2. **`committed`** - "authorized, not yet earned", on the dashboard - read a
+   twenty-hour authorization with every hour worked and billed as 900 of work
+   still to do.
+3. **`hours_left`** read that same authorization as having every hour still
+   available.
+4. **`service_date_for`** could not find a coaching parent's first billable day,
+   and dated everything today.
+5. **A coaching warrant line stopped matching.** The stub prints the parent's
+   V-number and the parent holds no hours, so every coaching payment went to the
+   review list. A line resolves to the month it paid now: the one submitted for
+   that amount, exactly one of them, or it waits. Twelve months at the same rate
+   come to the same figure, and guessing which month a warrant paid is how one
+   gets marked paid twice while another waits for ever.
+
+So **"this authorization's hours" has one definition** -
+`authorization_entries()` - and the readers ask it rather than each keeping
+their own. Four of the five above were found by tests rather than by looking,
+which is the usual way, and is the argument for the definition being one thing.
+
+**Chosen against.** The economics view keeps its own inline sum, with a comment
+saying there are two and why: it is a spliced definition built from a chain of
+CTEs, and threading a set-returning function through it would buy correctness
+that is already there at the cost of a rewrite nobody asked for.
+
+**A fixture that had to change its method, not its expectation.** Over the
+authorized hours can no longer be reached by logging - the cap refuses it across
+every month. The way it happens in practice is an amendment: USOR reducing an
+authorization below what has already been worked. That is what the fixture does
+now, and it is a better test for being the real path.
+
+---
+
+## §12.1, §13.10 and the counselor's phone number
+
+Deployed 8 Oct 2026. Migration 0175, one screen removed, one check added.
+
+**§12.1: the PDF is the way in.** Reading an authorization off its PDF already
+worked - the parser finds the number, the service, the hours, the rate and the
+dates by labelled patterns, with no model and nothing leaving the building - but
+it lived on a screen of its own while the typed form sat on Billing as the
+obvious thing to do. They have swapped places. Dropping the PDF is the primary
+Add authorization, at the top of Billing; the typed form is behind a fold,
+labelled for what it is for, which is a scan with no text in it. The separate
+screen is gone and redirects, because two screens doing one job is what §11 is
+about.
+
+**Two things that were wrong with the PDF route, and the second is worse**
+
+1. **It threw the PDF away.** The file was read, parsed and dropped, so an
+   authorization entered from its own authorization document had no document on
+   it. The PDF is now kept when it is read and moved into the client's folder
+   when the client is known, with one attachment row pointing at it - one
+   object, never a copy (§11). It also makes the checklist's "Signed
+   authorization attached" line true for anything entered this way, which it
+   could not be before: 8 of 22 live rows have that line green.
+
+2. **It had been broken for two deploys.** It inserted into `authorizations`
+   directly, and 0168 revoked that from everybody - so the route this brief
+   makes primary answered with a permission error. `verify_one_door` asks which
+   *functions* create a bill and never thought to ask about the app.
+
+   There is a check for that now, and it was written against the break: it
+   catches the old code and passes the fixed version. A rule the database
+   enforces still needs a check in front of it, because "the database will stop
+   it" means the person using the screen finds out, not the person writing it.
+
+**§13.10: forms are generated, not filled.** The machinery was already there -
+each USOR form is filled in from the record and the service log, rendered by the
+one renderer, and signed by the completion recorded against a name. What was
+missing was the way to it from the record that needs it: the authorization said
+"still wanted: DWS-USOR 93 + 95" and offered no way to produce them.
+
+It does now, one button per outstanding form, and the forms already produced are
+listed beside them. And the blank-form picker is gone from the client's
+Documents tab: it asked which form, which authorization and which month - three
+questions the authorization already knows the answers to - and a second way to
+make a form is a second way to make the wrong one. The tab still lists them,
+because that is what a documents tab is for.
+
+Coverage is every form the practice produces: 60, 92, 93, 94, 95, 96 and 148.
+USOR 98 is not on the list because it is received from the counselor, not
+produced.
+
+**§11: a counselor is reached one way.** `clients.counselor_contact` was a
+free-text box on the client's profile for the counselor's phone and fax - the
+same fact the counselor's own record holds, and the audit found the two
+disagreeing on twelve clients.
+
+Looked at closely, every one of the twelve was a phone number, and none held an
+email. On the last ten digits: **eight were the counselor's own number in a
+different format** (8014462560 against (801) 446-2560), two were the only record
+anywhere of one counselor's phone, one carried a fax the counselor record
+already had, and two were truncated to nine digits, which is not a phone number.
+
+So the column was not simply dropped. The one phone number that existed nowhere
+else was moved onto the counselor first, matched on the data rather than by
+name, and the truncated pair was left behind deliberately - both of those
+counselors have a complete number on their own record. Then the box went, and
+the profile reads the counselor instead of asking.
+
+**Where §11 stands: 10 findings, all of them the one you deferred.** Checks 1
+and 3 are clear - no fact is kept in two tables, and the working list is one
+component with no second version of it. What remains is §11's "one document
+store": 23 file-path columns across 15 tables, with the same stored object
+pointed at from two of them in three places - the inbox staging pair (130
+objects, which is a pipeline and arguably correct), staff documents and staff
+files (10), and tax submissions (3). That is HR and tax plumbing rather than
+billing, and it is yours to schedule.
+

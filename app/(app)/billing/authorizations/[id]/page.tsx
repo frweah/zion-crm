@@ -9,7 +9,7 @@ import { PageHead } from "../../../page-head";
 import { AuthorizationFiles } from "../../../clients/[id]/authorization-files";
 import { AuthorizationPayments } from "../../../clients/[id]/authorization-payments";
 import { readPayments } from "@/lib/payments";
-import { SubmitPacket, MarkDue, ServiceDates, MoveStale, CloseIt, ZeroHours } from "./panel";
+import { SubmitPacket, MarkDue, ServiceDates, MoveStale, CloseIt, ZeroHours, Forms } from "./panel";
 
 /**
  * One authorization: what it is, whether it can be billed, and what has
@@ -75,6 +75,32 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
       .order("at"),
     readPayments(supabase, [id]),
   ]);
+
+  // §13.10: the forms this service requires, and the ones already produced.
+  const [{ data: templates }, { data: formRows }] = await Promise.all([
+    supabase
+      .from("form_templates")
+      .select("id, usor, name, services, required_for_billing")
+      .eq("required_for_billing", true)
+      .order("sort_order"),
+    supabase
+      .from("forms")
+      .select("id, template_id, status, completed_at")
+      .eq("auth_id", id),
+  ]);
+  const needed = (templates ?? []).filter((t) =>
+    (t.services ?? []).includes(rec.service_type as string),
+  );
+  const haveTemplate = new Set((formRows ?? []).map((f) => f.template_id));
+  const formsDone = (formRows ?? []).map((f) => ({
+    id: f.template_id as string,
+    usor: (templates ?? []).find((t) => t.id === f.template_id)?.usor ?? (f.template_id as string),
+    formId: f.id as string,
+    signed: f.completed_at !== null,
+  }));
+  const formsOutstanding = needed
+    .filter((t) => !haveTemplate.has(t.id))
+    .map((t) => ({ id: t.id as string, usor: t.usor as string, name: t.name as string }));
 
   const readingByPath = new Map(
     (readings ?? []).map((d) => {
@@ -240,6 +266,16 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
           corrections={corrections ?? []}
         />
         <AuthorizationPayments payments={payments} status={rec.status as string} />
+        {canBill && (
+          <div style={{ marginTop: 12 }}>
+            <Forms
+              authId={rec.id as string}
+              clientId={rec.client_id as string}
+              outstanding={formsOutstanding}
+              done={formsDone}
+            />
+          </div>
+        )}
         {rec.missing_forms ? (
           <p className="lock">
             Still wanted for {rec.service_type}: {rec.missing_forms}.

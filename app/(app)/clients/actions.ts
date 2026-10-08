@@ -40,7 +40,6 @@ export async function addClient(
       agency_id: str("agency_id"),
       funding_source: str("funding_source") || "Utah VR",
       counselor_id: orNull(str("counselor_id")),
-      counselor_contact: str("counselor_contact"),
       caseload: str("caseload"),
       unit: str("unit"),
       referring_office: str("referring_office"),

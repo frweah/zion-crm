@@ -71,10 +71,6 @@ export function AddClientPanel({
                 </select>
               </label>
               <label className="field">
-                Counselor phone / fax
-                <input name="counselor_contact" />
-              </label>
-              <label className="field">
                 Referring office
                 <select name="referring_office" defaultValue="">
                   <option value="">—</option>

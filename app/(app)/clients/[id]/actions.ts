@@ -58,7 +58,6 @@ export async function updateClient(_prev: DetailState, formData: FormData): Prom
     phone: str("phone"),
     email: str("email"),
     counselor_id: orNull(str("counselor_id")),
-    counselor_contact: str("counselor_contact"),
     referring_office: str("referring_office"),
     caseload: str("caseload"),
     unit: str("unit"),

@@ -117,6 +117,15 @@ export function ImportForm({ clients }: { clients: Client[] }) {
           {createState.error && <div className="alert bad">{createState.error}</div>}
 
           <form action={createAction}>
+            {/*
+              The PDF is waiting in staging; these carry it through so the
+              authorization is saved with its own PDF attached (§12.1). Without
+              them the file would sit in the staging folder with nothing
+              pointing at it.
+            */}
+            <input type="hidden" name="staged_path" value={readState.stagedPath ?? ""} />
+            <input type="hidden" name="filename" value={readState.filename ?? ""} />
+            <input type="hidden" name="bytes" value={readState.bytes ?? ""} />
             <div className="card" style={{ marginBottom: 14 }}>
               <h3 style={{ marginTop: 0 }}>Check this against the PDF</h3>
               <p className="sub" style={{ marginTop: 0 }}>

@@ -111,8 +111,8 @@ const EXPECTED = {
 // Screens a role must still reach, now that they sit under a sidebar entry
 // rather than on one of their own.
 const STILL_REACHED = {
-  Admin: ["/dashboard/needs", "/billing/import", "/billing/warrants", "/admin/documents/records-request/x"],
-  Billing: ["/dashboard/needs", "/billing/import", "/billing/warrants"],
+  Admin: ["/dashboard/needs", "/billing/warrants", "/admin/documents/records-request/x"],
+  Billing: ["/dashboard/needs", "/billing/warrants"],
   "Job Search": ["/dashboard/needs"],
   Reports: ["/dashboard/needs"],
 };
@@ -276,6 +276,7 @@ const MOVED = [
   "/billing/forms",
   "/billing/report",
   "/billing/export",
+  "/billing/import",
 ];
 const missing = MOVED.filter((old) => !config.includes(`"${old}"`));
 if (missing.length) {
@@ -363,6 +364,35 @@ if (offenders.length) {
   fail(`something still offers to raise an invoice: ${offenders.join(", ")}`);
 } else {
   ok("nothing offers to raise an invoice, and nothing writes one");
+}
+
+// ── and nothing writes a bill around the door ────────────────
+//
+// §10: entering an authorization is the only thing that creates a bill, and
+// add_authorization() is where that happens. 0168 revoked direct insert from
+// everybody, which means a screen that still inserts does not fail review - it
+// fails in front of whoever is using it.
+//
+// That is exactly what happened: the PDF import route kept its own insert and
+// was refused with a permission error for two deploys, on the route this brief
+// makes the primary one. verify_one_door asks which *functions* write a bill;
+// nothing asked about the app. This does.
+// Chained to that from and nothing else: whitespace only in between, so an
+// update here and an unrelated insert thirty lines later is not a finding.
+const DIRECT_WRITE = /from\(["']authorizations["']\)\s*\.(insert|upsert)\(/;
+const roundTheDoor = [];
+for (const file of [
+  ...(await sources(new URL("../app/", import.meta.url))),
+  ...(await sources(new URL("../lib/", import.meta.url))),
+]) {
+  if (DIRECT_WRITE.test(await readFile(file, "utf8"))) {
+    roundTheDoor.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
+  }
+}
+if (roundTheDoor.length) {
+  fail(`these create an authorization without going through add_authorization: ${roundTheDoor.join(", ")}`);
+} else {
+  ok("nothing creates a bill except through add_authorization");
 }
 
 console.log("");

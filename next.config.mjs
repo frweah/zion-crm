@@ -75,6 +75,10 @@ const nextConfig = {
       "/billing/forms": "/billing",
       "/billing/report": "/billing",
       "/billing/export": "/insights/money#export",
+      // §§11, 12.1: reading an authorization off its PDF is the primary Add
+      // authorization, on Billing itself. A second screen showing the same
+      // thing is the duplication §11 is about.
+      "/billing/import": "/billing#new-authorization",
       "/admin/exports": "/billing/export",
       // Paths that never had a page but were typed or linked anyway (punch
       // list #14, 20 Sept 2026): Admin opens on People, and the documents
