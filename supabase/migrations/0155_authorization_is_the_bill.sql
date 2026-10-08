@@ -90,6 +90,17 @@ alter table public.authorizations
   add column if not exists stale_changed_at timestamptz,
   -- Job Placement's clock starts here rather than at the authorization.
   add column if not exists first_work_day date,
+  /**
+   * When the work actually happened.
+   *
+   * §8: "Service dates never inherit authorization dates." They answer
+   * different questions - the authorization says what USOR allowed and
+   * when, the service dates say what was done and when - and the submit
+   * gate compares the two, which it cannot do if one is a copy of the
+   * other. So these stay empty until somebody records them.
+   */
+  add column if not exists service_start date,
+  add column if not exists service_end date,
   -- The submission, and what came back.
   add column if not exists submitted_on date,
   add column if not exists submitted_by uuid references public.staff(id) on delete set null,
@@ -117,6 +128,8 @@ comment on column public.authorizations.stale_date is
   'The authorization''s end date (§2). Past it nothing is submitted without a new authorization; changing it needs a reason, which is kept.';
 comment on column public.authorizations.parent_id is
   'The coaching authorization this month hangs off (§5). The parent holds the hours; the child has its own bill-by, forms, status and payment.';
+comment on column public.authorizations.service_start is
+  'When the work actually started (§8). Never copied from the authorization: the submit gate compares the two.';
 comment on column public.authorizations.period is
   'The month a coaching child covers (§5). Null on every other kind of authorization.';
 
@@ -223,7 +236,7 @@ begin
       insert into public.authorizations (
         client_id, number, service_type, funding_source, rate_type, rate,
         total_hours, carried_used, start_date, end_date, requires_forms, note,
-        parent_id, period, received_on, first_work_day,
+        parent_id, period, received_on, first_work_day, service_start, service_end,
         status, submitted_on, submitted_by, recipient,
         paid_on, paid_amount, warrant, correction_note, followup_due,
         closed_reason, closed_at, closed_by
@@ -246,7 +259,7 @@ begin
              a.start_date, a.end_date, a.requires_forms, coalesce(v_item.notes, ''),
              a.id, v_item.period,
              coalesce(v_item.created_at::date, a.created_at::date),
-             v_item.first_work_day,
+             v_item.first_work_day, v_item.service_start, v_item.service_end,
              case v_item.status
                when 'Referral received'        then 'Authorized'
                when 'Authorization received'   then 'Authorized'
@@ -287,6 +300,8 @@ end $$;
 update public.authorizations a
    set received_on = coalesce(a.received_on, i.created_at::date, a.created_at::date),
        first_work_day = coalesce(a.first_work_day, i.first_work_day),
+       service_start = coalesce(a.service_start, i.service_start),
+       service_end = coalesce(a.service_end, i.service_end),
        submitted_on = coalesce(a.submitted_on, i.submitted_at::date),
        submitted_by = coalesce(a.submitted_by, i.submitted_by),
        recipient = coalesce(a.recipient, i.recipient),
@@ -366,6 +381,12 @@ update public.authorizations
 update public.authorizations
    set closed_reason = coalesce(nullif(closed_reason, ''), 'Carried over from the billing item')
  where status = 'Closed';
+
+alter table public.authorizations
+  drop constraint if exists authorizations_service_dates_in_order;
+alter table public.authorizations
+  add constraint authorizations_service_dates_in_order
+  check (service_start is null or service_end is null or service_end >= service_start);
 
 alter table public.authorizations
   drop constraint if exists authorizations_closed_has_reason;

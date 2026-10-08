@@ -24,6 +24,54 @@
 --   A coaching month makes itself, and closes itself when it is empty.
 
 -- ─────────────────────────────────────────────────────────────
+-- The numbers the owner adjusts
+--
+-- §4, revised by the owner on 7 Oct: an expired authorization is a warning,
+-- not a wall. Submitting after the end date is allowed and flagged; it is
+-- only refused once it is 90 days past, and that 90 is theirs to change.
+--
+-- The reason for the change is worth recording. On the migrated data, 13 of
+-- 21 live authorizations were already past their end date - median 16 days,
+-- worst 311 - and 7 more had no end date at all. A hard block would have
+-- stopped the October close on day one over data the practice inherited
+-- rather than over anything it did wrong. A warning tells Margaret the same
+-- thing without standing in front of her.
+-- ─────────────────────────────────────────────────────────────
+alter table public.org_settings
+  add column if not exists stale_grace_days integer not null default 90,
+  add column if not exists stale_soon_days integer not null default 14;
+
+alter table public.org_settings
+  drop constraint if exists org_settings_grace_is_sane;
+alter table public.org_settings
+  add constraint org_settings_grace_is_sane
+  check (stale_grace_days between 0 and 3650 and stale_soon_days between 0 and 365);
+
+comment on column public.org_settings.stale_grace_days is
+  'How long past its end date an authorization may still be submitted (§4, owner 7 Oct). Past this it is refused. Zero makes the end date a hard wall again.';
+comment on column public.org_settings.stale_soon_days is
+  'How long before the end date the "goes stale soon" warning starts (§6).';
+
+/**
+ * The day an authorization stops being submittable at all.
+ *
+ * Null where there is no end date: §4 as revised says a missing end date
+ * warns and never blocks, because the practice cannot be stopped by a field
+ * USOR left empty.
+ */
+create or replace function public.authorization_blocked_from(p_stale date)
+returns date language sql stable set search_path = public as $$
+  select case when p_stale is null then null
+              else p_stale + (select stale_grace_days from public.org_settings where id) end;
+$$;
+
+comment on function public.authorization_blocked_from is
+  'The day submitting is refused: the stale date plus the grace the owner set (§4). Null when there is no end date, which never blocks.';
+
+revoke all on function public.authorization_blocked_from(date) from anon, authenticated;
+grant execute on function public.authorization_blocked_from(date) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────
 -- What happened to it, and who did it
 -- ─────────────────────────────────────────────────────────────
 create table if not exists public.authorization_events (
@@ -93,17 +141,51 @@ begin
     end if;
 
     /**
-     * Stale blocks submitting, and nothing else.
+     * What stops a submission, and what only warns (§4, owner 7 Oct).
      *
-     * A stale authorization can still be worked on, corrected, closed, or
-     * paid for work already sent. What it cannot be is sent to USOR, which
-     * is the one act that needs the authorization to be live.
+     * Hard: the work has to have happened inside the authorization's own
+     * period. That is the rule USOR actually enforces, and billing work
+     * done outside the authorized dates is the mistake that gets a whole
+     * submission returned.
+     *
+     * Hard: more than the grace past the end date. Ninety days by default,
+     * and the owner's to change.
+     *
+     * Warning only: past the end date but inside the grace, and a missing
+     * end date. Both go on the record and the worklist; neither stands in
+     * front of the person billing. A wall built on inherited data stops the
+     * close over something nobody at the practice did.
      */
-    if new.status = 'Submitted' and new.stale_date is not null
-       and new.stale_date < public.practice_today() then
-      raise exception 'That authorization went stale on %', new.stale_date
-        using hint = 'Enter the new authorization, or change the stale date and say why.',
-              errcode = 'check_violation';
+    if new.status = 'Submitted' then
+      if new.start_date is not null and new.service_start is not null
+         and new.service_start < new.start_date then
+        raise exception 'The work started % and the authorization starts %',
+          new.service_start, new.start_date
+          using hint = 'Service dates have to sit inside the authorized period.',
+                errcode = 'check_violation';
+      end if;
+      if new.end_date is not null and new.service_end is not null
+         and new.service_end > new.end_date then
+        raise exception 'The work ran to % and the authorization ends %',
+          new.service_end, new.end_date
+          using hint = 'Service dates have to sit inside the authorized period.',
+                errcode = 'check_violation';
+      end if;
+      -- A coaching month is its own service period.
+      if new.period is not null and new.end_date is not null
+         and new.period > date_trunc('month', new.end_date)::date then
+        raise exception 'That month is after the authorization ends on %', new.end_date
+          using errcode = 'check_violation';
+      end if;
+
+      if public.authorization_blocked_from(new.stale_date) is not null
+         and public.authorization_blocked_from(new.stale_date) < public.practice_today() then
+        raise exception 'That authorization ended % and is more than % days past it',
+          new.stale_date,
+          (select stale_grace_days from public.org_settings where id)
+          using hint = 'Enter the new authorization, or move the end date and say why.',
+                errcode = 'check_violation';
+      end if;
     end if;
 
     -- The stamps the flow is defined by, so no screen has to remember them.
@@ -338,15 +420,25 @@ returns table (
                 else coalesce(
                   (select sum(e.hours) from public.service_entries e
                     where e.auth_id = a.id and not e.non_billable), 0) * a.rate end as amount,
+           -- Past the end date and past the grace: it cannot be submitted.
+           public.authorization_blocked_from(a.stale_date) is not null
+             and public.authorization_blocked_from(a.stale_date) < (select today from me)
+             and a.status not in ('Submitted', 'Paid') as is_blocked,
+           -- Past the end date but still inside the grace: a warning.
            a.stale_date is not null and a.stale_date < (select today from me)
-             and a.status not in ('Submitted', 'Paid') as is_stale,
+             and (public.authorization_blocked_from(a.stale_date) is null
+                  or public.authorization_blocked_from(a.stale_date) >= (select today from me))
+             and a.status not in ('Submitted', 'Paid') as is_expired,
+           -- No end date at all: §4 warns and never blocks.
+           a.stale_date is null and a.status not in ('Submitted', 'Paid') as no_end_date,
            a.bill_by is not null and a.bill_by < (select today from me)
              and a.status in ('Authorized', 'Due') as is_overdue,
            a.followup_due is not null and a.followup_due <= (select today from me)
              and a.status = 'Submitted' as needs_chasing,
            a.stale_date is not null and a.status not in ('Submitted', 'Paid')
              and a.stale_date >= (select today from me)
-             and a.stale_date <= (select today from me) + 14 as stale_soon
+             and a.stale_date <= (select today from me)
+               + (select stale_soon_days from public.org_settings where id) as stale_soon
       from public.authorizations a
       join public.clients c on c.id = a.client_id
       left join public.authorizations p on p.id = a.parent_id
@@ -356,29 +448,36 @@ returns table (
   )
   select r.id, r.client_id, r.client_name, r.number, r.service_type, r.period, r.status,
          r.bill_by, r.stale_date, r.submitted_on, r.followup_due, r.amount, r.parent_id,
-         -- First true wins: the most pressing thing, said once.
+         -- First true wins: the most pressing thing, said once (§13.11).
          case
-           when r.is_stale then 'Stale since ' || r.stale_date || ' - needs a new authorization'
+           when r.is_blocked then 'Cannot be submitted - ended ' || r.stale_date
+                                  || ', more than ' || (select stale_grace_days from public.org_settings where id)
+                                  || ' days ago'
            when r.needs_chasing then 'Submitted ' || r.submitted_on || ', no payment after 14 days'
            when r.is_overdue then 'Overdue - meant to be billed by ' || r.bill_by
-           when r.stale_soon then 'Goes stale ' || r.stale_date
+           when r.is_expired then 'Past its end date (' || r.stale_date || ') - can still be submitted until '
+                                  || public.authorization_blocked_from(r.stale_date)
+           when r.stale_soon then 'Ends ' || r.stale_date
+           when r.no_end_date then 'No end date on the authorization'
            when r.status = 'Due' then 'Due to be billed'
            else ''
          end,
          case
-           when r.is_stale then 0
+           when r.is_blocked then 0
            when r.needs_chasing then 1
            when r.is_overdue then 2
-           when r.stale_soon then 3
-           when r.status = 'Due' then 4
-           else 5
+           when r.is_expired then 3
+           when r.stale_soon then 4
+           when r.no_end_date then 5
+           when r.status = 'Due' then 6
+           else 7
          end
     from rows r
    order by 15, r.bill_by nulls last, r.client_name;
 $$;
 
 comment on function public.billing_worklist is
-  'The one billing list (§12.2): everything not Paid and not Closed, each row with the single most pressing thing wrong with it (§13.11), overdue first.';
+  'The one billing list (§12.2): everything not Paid and not Closed, each row with the single most pressing thing wrong with it (§13.11), the ones that cannot be submitted first. Past the end date is a warning; past the grace is a block; no end date only warns (§4, owner 7 Oct).';
 
 revoke all on function public.billing_worklist(date) from anon, authenticated;
 grant execute on function public.billing_worklist(date) to authenticated;
