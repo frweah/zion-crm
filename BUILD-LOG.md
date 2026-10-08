@@ -868,3 +868,90 @@ token that then lives in a transcript.
 **Needs the owner** — generate that token if the deploy watcher is worth
 five thousand requests an hour to them, and paste it into `.env.local`.
 Nothing breaks without it.
+
+---
+
+# Billing Simplification Brief
+
+Owner, 7 Oct 2026: build all of §§1-13, ahead of the ERP brief, before
+15 October so the month-end close runs on the new flow.
+
+## The duplication audit (§11), before anything was built
+
+`scripts/duplication-audit.mjs`, run against production. §11 says the build
+is not done until a later run finds none, so this is the baseline it will be
+measured against. Fifteen findings, in the three shapes §11 asks about.
+
+**One fact, kept in more than one place.** Seven facts are stored two or
+three times over:
+
+| The fact | Where it lives | Also kept in | Rows disagreeing today |
+| --- | --- | --- | --- |
+| Which service the work is for | `authorizations.service_type` | `billing_items.service`, `invoices.service_type` | 0 |
+| The rate, and whether it is hourly | `authorizations.rate/rate_type` | `billing_items.rate/billing_type`, `rate_schedule` | 0 |
+| What the work came to | rate x hours on the authorization | `billing_items.amount`, `invoices.amount` | 0 |
+| When it was sent, and to whom | `billing_items.submitted_at/recipient` | `invoices.sent_date/payee` | 0 |
+| That it was paid, and on what warrant | `billing_items.paid_on/warrant` | `invoices.paid_date/warrant`, `payments.warrant_no` | 0 |
+| Counselor and billing office | `clients.counselor_id`, `counselors.office` | `clients.referring_office`, `clients.counselor_contact` | **2** |
+| Hours worked | `work_sessions`, `service_entries` | `billing_items.hours` | 0 |
+
+Six of the seven agree today, and that is worth being clear about: they agree
+because triggers copy them and nobody has yet edited one side. A copy nobody
+has contradicted is still a copy, and the first person to change a rate on
+one record and not the other produces a bill that is wrong in a way no screen
+shows. The seventh has already happened - **two clients whose referring
+office does not match their counselor's office** - which is what the rest
+will look like given time.
+
+**Documents.** 24 columns across 16 tables hold a path to a file. No two rows
+share a storage path, so nothing is physically stored twice *yet*, and there
+is **no fingerprint anywhere in the database** - the only hashes are for
+login codes, IP addresses and chat tokens. So §11's "the fingerprint matches
+and the second copy is dropped" does not exist: a PDF that arrives from the
+agent and again by upload is stored twice and nothing notices. 35 filenames
+in `attachments` and 39 in `inbox_documents` are already used by more than
+one row.
+
+**Lists.** `authorizations` is read by **16** screens, `invoices` by 8,
+`service_entries` by 7. §11's "if two screens show the same records, one of
+them goes" has a lot to bite on.
+
+## The placeholder count (§9), before anything is deleted
+
+`scripts/placeholder-counts.mjs`. Counts only; it changes nothing.
+
+- **20** placeholder authorizations in all - the ones the spreadsheet import
+  created with no USOR number, numbered `(workbook) ...`.
+- **19** have nothing attached at all: no hours, no forms, no invoice, no
+  payment, no carried hours, no billing item. §9 deletes these.
+- **1** is not deletable: it has a form attached. §9's condition is "no
+  hours, forms, invoice or payment", so a form keeps it, and it stays on the
+  client's Billing tab as history.
+- **No money is involved either way.** Nothing paid sits on any of the
+  twenty, so no paid total moves whichever way this goes. That is worth
+  knowing because it is the risk §9 was written to avoid.
+- They are spread across 20 clients, one each, except the one client with
+  the form.
+
+The per-client breakdown was printed and is deliberately **not** written
+here: the standing rule is no client data in the repository or its history,
+and a table of client numbers against counts is client data. It went to the
+owner directly.
+
+**Waiting on the owner before deleting.** Deleting records is on the short
+list of things this session asks about rather than does, and these are client
+records in production. The 19 go on a word from the owner; everything else in
+§9 proceeds meanwhile.
+
+## What the brief lands on, which the owner should know
+
+The ERP brief is **already built and live** - E1 to E5 shipped 6 October. Its
+ledger posts from `billing_items`, on the statuses `Submitted` and `Paid`,
+and E2's revenue forecast reads `billing_items` too. §1 removes that table.
+
+So this is not work that comes "ahead of" the ERP: it requires rewiring E1's
+posting trigger and E2's forecast onto the authorization. That is a known,
+contained piece of work - the postings are one trigger function and the
+forecast is one query - and it is called out here because the order matters:
+the ledger has to keep posting across the migration, or a month of revenue
+goes missing silently.
