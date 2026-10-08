@@ -61,6 +61,11 @@ export async function getAlerts(): Promise<Alert[]> {
 
 /** Which tab of a client's record an alert about them is dealt with on. */
 const TAB_FOR_KIND: Record<string, string> = {
+  // One kind for an authorization now (§13.11): out of hours, nearly out,
+  // ending soon and submitted-unpaid were four, and one record could raise two
+  // of them at once. The old names are kept here so an alert somebody has not
+  // cleared yet still knows where it is dealt with.
+  authorization: "billing",
   auth_ending: "billing",
   auth_hours: "billing",
   invoice_unpaid: "billing",

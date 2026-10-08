@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, CAN_LOG_HOURS } from "@/lib/constants";
-import { AddAuthorizationForm, ServiceEntryForm, type AuthOption } from "./billing-forms";
+import {
+  AddAuthorizationForm,
+  ServiceEntryForm,
+  type AuthOption,
+  type ServiceRate,
+} from "./billing-forms";
 import { WarrantsToReview, loadWarrantsToReview } from "./warrants/review-section";
 import { PageHead } from "../page-head";
 import { DataTable, type DataRow } from "../data-table";
@@ -56,7 +61,7 @@ export default async function BillingPage({
   const canLog = CAN_LOG_HOURS.includes(me.role) || canBill;
   const showAll = show === "all";
 
-  const [worklistResult, authsResult, clientsResult, entriesResult, billing] = await Promise.all([
+  const [worklistResult, authsResult, clientsResult, entriesResult, billing, ratesResult] = await Promise.all([
     supabase.rpc("billing_worklist"),
     // What the hours form needs to offer, and what the log needs to name.
     supabase
@@ -70,6 +75,9 @@ export default async function BillingPage({
           .select("id, auth_id, date, hours, non_billable, notes, primary_code, secondary_code, staff_id")
       : Promise.resolve({ data: [] as never[] }),
     readBillingOffices(supabase),
+    // §13.13: the rate comes from the schedule, which Admin can change, and
+    // never from a constant in the code.
+    supabase.from("rate_schedule").select("crm_service, fee, unit, service, sub").not("crm_service", "is", null),
   ]);
 
   const worklist = (worklistResult.data ?? []) as WorklistRow[];
@@ -77,6 +85,18 @@ export default async function BillingPage({
   const clients = clientsResult.data ?? [];
   const entries = entriesResult.data ?? [];
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
+
+  // One entry per service: every row that prices a service carries the same
+  // fee and unit, so the last one read is the figure.
+  const rates: Record<string, ServiceRate> = {};
+  for (const r of ratesResult.data ?? []) {
+    if (!r.crm_service) continue;
+    rates[r.crm_service] = {
+      fee: Number(r.fee),
+      rateType: r.unit === "per hour" ? "Hourly" : "Flat Fee",
+      basis: `The rate schedule: ${r.service}${r.sub ? `, ${r.sub}` : ""}`,
+    };
+  }
 
   const bo = readBoParam(rawBo, billing.billingOffices);
 
@@ -224,7 +244,7 @@ export default async function BillingPage({
       )}
 
       {/* §9: Add authorization at the top of the page. */}
-      {canBill && <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} />}
+      {canBill && <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} rates={rates} />}
 
       <BillingOfficeFilter
         billingOffices={billing.billingOffices}

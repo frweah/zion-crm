@@ -84,7 +84,8 @@ begin
   perform public.generate_notifications_on(public.practice_today());
 
   select staff_id into v_who from public.notifications
-   where client_id = v_client and kind in ('auth_exhausted', 'auth_low') and resolved_at is null limit 1;
+   -- One kind now, not four (§13.11).
+   where client_id = v_client and kind = 'authorization' and resolved_at is null limit 1;
   if v_who is distinct from v_bill then
     failures := failures || 'FAILED: a client''s authorization alert did not go to whoever bills for them'::text;
   end if;

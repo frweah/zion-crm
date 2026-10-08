@@ -11,7 +11,6 @@ import {
   today,
   money,
   SERVICE_TYPES,
-  SERVICE_DEFAULTS,
   COACHING_CODES,
 } from "@/lib/constants";
 
@@ -35,11 +34,28 @@ function Message({ state }: { state: BillingState }) {
   return null;
 }
 
-export function AddAuthorizationForm({ clients }: { clients: Option[] }) {
+/** What the rate schedule says each service costs (§13.13). */
+export type ServiceRate = { fee: number; rateType: "Hourly" | "Flat Fee"; basis: string };
+
+export function AddAuthorizationForm({
+  clients,
+  rates,
+}: {
+  clients: Option[];
+  /**
+   * From the rate schedule, not from a constant in the code (§13.13).
+   *
+   * There used to be a hard-coded copy here, and it said Job Development + HQ
+   * Indicator was 560 when the schedule says 1,120 - so the form offered half
+   * the rate for a service the practice bills every month. A rate belongs in
+   * the schedule Admin can change, in one place.
+   */
+  rates: Record<string, ServiceRate>;
+}) {
   const [state, action, pending] = useActionState(addAuthorization, initial);
   const [service, setService] = useState("Job Coaching");
-  const defaults = SERVICE_DEFAULTS[service];
-  const [rateType, setRateType] = useState(defaults?.rateType ?? "Hourly");
+  const scheduled = rates[service];
+  const [rateType, setRateType] = useState(scheduled?.rateType ?? "Hourly");
 
   return (
     <div className="card">
@@ -69,7 +85,7 @@ export function AddAuthorizationForm({ clients }: { clients: Option[] }) {
               value={service}
               onChange={(e) => {
                 setService(e.target.value);
-                const d = SERVICE_DEFAULTS[e.target.value];
+                const d = rates[e.target.value];
                 if (d) setRateType(d.rateType);
               }}
             >
@@ -99,10 +115,18 @@ export function AddAuthorizationForm({ clients }: { clients: Option[] }) {
               type="number"
               step="0.01"
               key={service}
-              defaultValue={defaults?.rate ?? ""}
+              defaultValue={scheduled?.fee ?? ""}
               required
             />
           </label>
+          {/* Where the figure came from, so a different one on the PDF is a
+              decision somebody makes rather than a field they overwrite
+              without knowing what it was (§13.13). */}
+          <p className="lock" style={{ alignSelf: "end", margin: 0 }}>
+            {scheduled
+              ? scheduled.basis
+              : "The rate schedule does not price this service, so enter what the authorization says."}
+          </p>
           {rateType === "Hourly" && (
             <label className="field" style={{ maxWidth: 160 }}>
               Authorized hours

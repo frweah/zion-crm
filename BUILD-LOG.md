@@ -1081,3 +1081,159 @@ untouched.
 
 **Needs the owner** — nothing. The 90-day grace and the 14-day stale warning
 are on `org_settings` and are yours to change.
+
+---
+
+## §§9, 10, 12, 13: two tabs, one record, and the invoice gone
+
+Deployed `b652652` and `ec7ff4a`, 7 Oct 2026. Migrations 0160-0168, two new
+verification scripts, fourteen rewritten, one renamed.
+
+**What changed.** Billing is two tabs. The authorization is the screen: the
+forms, the signed authorization, the submission checklist and Report & bill were
+four places and are now one record, with one line at the top saying the single
+most pressing thing about it. The invoice is gone - table, screens, actions,
+exports, and the billing item with it. Nothing creates a bill except entering an
+authorization, and that now goes through one function with direct insert
+revoked, so it is the database that enforces the one door rather than a code
+review. A warrant line that matches a submitted authorization pays it with no
+click; anything else waits with the reason on it. Paid and Closed are off the
+working list and live under History on the client, with every total in Admin
+Money.
+
+**Two things I shipped in §§1-7 that were wrong, found by measuring rather than
+re-reading**
+
+1. **The forms gate refused 22 of 22 rows.** I had carried a rule from
+   `check_invoice_forms` onto the submit so it would not be lost with the
+   invoice. The rule had never once run: its trigger fires only when an invoice
+   becomes Sent, and no invoice in this database has ever been Sent - all 139
+   are paid history imported from the workbook. Worse, it does not match the
+   practice: 305 signed USOR forms are filed as scans against four rows in
+   `forms`, none completed. Measured against the live worklist, my version
+   refused every authorization waiting to be billed, Margaret's whole close
+   included. The day-one count I reported said four could not be submitted. The
+   true number under what I shipped was all of them.
+
+   The test stays, computed and always on the checklist. Whether it refuses is
+   an Admin setting, and it starts off. §13.10 makes the forms real, and the
+   switch is there for that day.
+
+2. **A checklist line that could never pass.** "Signed authorization" read
+   `billing_items.signed_auth_path`, null on all 153 rows - nothing had ever
+   written it. The signed authorization is an attachment. The line reads the
+   attachments now and passes for 8 of the 22 live rows instead of none.
+
+**Eight more faults the work surfaced**
+
+1. **A checklist line could answer null.** With no billing address anywhere the
+   recipient line returned null rather than no, and a null slipped past
+   `not passed` in both helpers as though it had passed. 1,944 lines across
+   every authorization are now asserted never to answer null.
+2. **Warrant reconciliation broke the moment the invoice table went,** because
+   the function still named it. `verify_one_door` now asks which functions name
+   a record that no longer exists - and the same question found two billing-item
+   guard functions sitting with nothing to guard, which is what §13.17 forbids.
+3. **A warrant line of any amount against an already-paid authorization** would
+   have recorded a payment against work already settled. It has to match the
+   payment that paid it now. This was my own new code, caught by the fixture
+   that used to test the invoice amount guard.
+4. **Admin Money filtered authorizations on `status = 'Open'`,** removed in §4,
+   so its follow-up column has been empty since. The dashboard's "earned, not
+   yet invoiced" read zero for the same reason. That makes nine places this
+   status rename reached; the first five were in §§1-7.
+5. **The flat-fee completion rule was asking the wrong column.** The checklist
+   tested `service_end` while the practice records the fact in `completions`.
+   It was wrong for 7 of the 15 flat fees being worked - 11 of 18 rows pass now
+   where 3 of 22 did.
+6. **The records-request bundle disclosed invoices and billing items** in two
+   sections. A records request is a legal disclosure, and it now shows the
+   authorization and its own history: the same facts, from the record the
+   practice actually has, with no second section that could read as a second
+   charge.
+7. **A leaked probe connection blocked a migration for three minutes.** One of
+   my own dry runs was killed mid-transaction and held the lock. The probes now
+   set `idle_in_transaction_session_timeout`, so the database lets go by itself.
+8. **The reconciliation matched on prose.** The screen decided which rows were
+   unpaid by comparing against the string "Unpaid invoice". The kinds are
+   machine values now, and the words belong to the screen.
+
+**One of mine that was wrong rather than the code.** A verify assertion claimed
+the practice was owed 400 for one piece of work. A reversing journal is filed as
+`source_kind` 'Reversal' against the journal it reverses, not against the
+authorization, so netting the ledger by source alone reads gross. The ledger was
+right: a submission withdrawn and remade is owed once, and that is now what the
+script asserts. Worth knowing for every ledger test and report: follow the
+reversal, or read gross.
+
+**Chosen against**
+
+- **Walling off the close.** Three rules came off the invoice and none of them
+  had ever run. Promoting a dormant rule to a live wall is how a close stops
+  over something nobody at the practice did - the owner's own reasoning for the
+  90-day grace, applied to the forms and the completion. Both are computed and
+  shown; neither refuses. The owner can turn the forms one on in one click, and
+  the completion one is one word in the gate.
+- **Backfilling a billing date.** `billed_work` dates history from the payment,
+  because the invoice's own date *was* the payment date on all 139 rows, to the
+  day. There was never a real billing date for that history, and inventing one
+  would have told the payment lag that USOR pays same-day - the same trap §7
+  avoided.
+- **Making the duplication audit reach zero by loosening it.** See below.
+- **A `(workbook)` prefix as an identifier.** §9 strips it, and two screens
+  found their placeholders by matching that text, so stripping it would have
+  hidden them from the code that manages them. They have a column saying what
+  they are instead.
+
+**Where §11 stands: 15 findings, now 11, and the audit itself was wrong.**
+
+Five of its seven tracked facts were duplications between the authorization, the
+billing item and the invoice. Both copies are gone, so those are resolved by
+construction rather than by agreement - and `verify_one_door` keeps it that way
+by refusing a second record, which is better than counting how far two have
+drifted.
+
+The audit was also reporting things that are not duplication. It flagged
+filename collisions as duplicate files: two clients may both have an
+"authorization.pdf". And it reported eleven screens reading one authorization as
+eleven findings, when a fact read in many places is exactly a fact kept in one -
+that check was measuring the opposite of the rule. An earlier version of my fix
+guessed at which screens *show* a list rather than total one, and reported false
+findings; a check that cries wolf is worse than no check, so that section now
+reports and does not judge, except for one thing it can state exactly: the
+working list is one component, and no screen lays out a second.
+
+**What is genuinely left, and what each would take**
+
+- **`clients.counselor_contact`** duplicates the counselor's email and phone,
+  and disagrees with the counselor record on 12 clients. One migration to drop
+  the column and read it from `counselors`, and the screens that show it. It is
+  client data, so I have left it for a deliberate pass rather than folding it
+  into a billing deploy.
+- **23 file-path columns across 15 tables,** with the same stored object pointed
+  at from two tables in three places: the inbox staging pair (130 objects, which
+  is a pipeline and arguably correct), staff documents and staff files (10), and
+  tax submissions (3). §11's "one document store" is a real piece of work and it
+  is not billing's - it touches HR and tax records. Named here so it is not
+  mistaken for done.
+
+**Owed, and now paid.** `verify_warrants` lost an assertion about
+`billing_position`'s figures in §§1-7, because every one of them came off the
+invoice. It is back, read from the authorization: what was authorized, what the
+warrant paid, and nothing still owed.
+
+**Needs the owner**
+
+- **Turning the USOR forms block on,** when the forms live in the system rather
+  than on paper. One setting on Admin, and §13.10 is what makes it true.
+- Nothing else. The 90-day grace and the 14-day warning are yours as before.
+
+**Not built, and deliberately**
+
+§12.1 (an authorization read off a dropped PDF) and §13.10 (USOR forms generated
+from the record) are the two you put after the 15th, and they are not here. The
+typed form and the documents-folder confirm queue are what Add authorization
+offers today. §13.14 wants quick-add to offer "Add authorization (from PDF)",
+which waits on §12.1; quick-add offers one billing action today, Log hours, and
+no invoice.
+

@@ -114,7 +114,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
       {/* §13.11: one line, not four alerts. */}
       {rec.attention ? (
         <section className="page-section">
-          <p className={`alert ${Number(rec.urgency) <= 2 ? "bad" : ""}`}>{rec.attention}</p>
+          <p className={`alert ${Number(rec.urgency) <= 3 ? "bad" : ""}`}>{rec.attention}</p>
         </section>
       ) : null}
 

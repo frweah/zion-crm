@@ -184,19 +184,15 @@ export const serviceCode = (service: string): string =>
   SERVICE_CODE[service] ?? service.slice(0, 3).toUpperCase();
 
 /** Rate defaults from the CRP schedule, used to pre-fill a new authorization. */
-export const SERVICE_DEFAULTS: Record<string, { rate: number; rateType: "Hourly" | "Flat Fee" }> = {
-  "Job Coaching": { rate: 45, rateType: "Hourly" },
-  "Job Development": { rate: 560, rateType: "Flat Fee" },
-  "Job Development + HQ Indicator": { rate: 560, rateType: "Flat Fee" },
-  "Job Placement": { rate: 2250, rateType: "Flat Fee" },
-  "Job Placement (SE)": { rate: 3375, rateType: "Flat Fee" },
-  "WSA Tier 1": { rate: 270, rateType: "Flat Fee" },
-  "WSA Tier 2": { rate: 585, rateType: "Flat Fee" },
-  "HQ Indicator": { rate: 560, rateType: "Flat Fee" },
-  "Temporary Work Experience": { rate: 500, rateType: "Flat Fee" },
-  "Life Skills": { rate: 45, rateType: "Hourly" },
-  "CRP Group Training": { rate: 17, rateType: "Hourly" },
-};
+/*
+ * SERVICE_DEFAULTS was here: a hard-coded copy of the rate schedule, in the
+ * CRM's service names rather than the workbook's. It said Job Development + HQ
+ * Indicator was 560; the schedule says 1,120, and the practice has billed it
+ * at 1,120 twelve times. Two copies of a price is one too many (§11), and the
+ * copy that was wrong was the one the form filled in.
+ *
+ * Rates come from public.rate_schedule, through service_rate() (§13.13).
+ */
 
 /** Accounts-receivable ageing, as the prototype buckets it. */
 export function arBuckets(

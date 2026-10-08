@@ -60,6 +60,7 @@ export default async function DashboardPage({
   const logsHours = CAN_LOG_HOURS.includes(me.role) || can(me, "billing", "edit");
   const hasCaseload = ["Admin", "Job Search", "Reports"].includes(me.role);
   const isAdmin = me.role === "Admin";
+  const canBill = can(me, "billing", "edit");
 
   const dayStart = practiceWallToDate(`${day}T00:00`)!;
   const dayEnd = new Date(dayStart.getTime() + 86400000);
@@ -286,6 +287,18 @@ export default async function DashboardPage({
   // ── alerts, less the ones put aside ─────────────────────────
   const snoozed = new Set((snoozesResult.data ?? []).map((s) => s.notification_id));
   const shownAlerts = alerts.filter((a) => !snoozed.has(a.id));
+
+  /**
+   * The billing tile: one number (§13.15).
+   *
+   * "Authorizations needing action today, opening the working list." One
+   * number, not four, and not money - money figures are Admin's (§13.16), and
+   * a count of work is not a money figure. The same function the working list
+   * counts itself with, so the tile and the list cannot disagree.
+   */
+  const billingNeedsAction = canBill
+    ? Number((await supabase.rpc("billing_needs_action")).data ?? 0)
+    : null;
 
   // ── Admin's business counters ───────────────────────────────
   let business: {
@@ -669,6 +682,26 @@ export default async function DashboardPage({
 
       {/* ── the caseload, for everyone, in their own scope ───── */}
       <CaseloadSummary caseload={caseload} />
+
+      {/* ── whoever bills: one number, opening the working list ─ */}
+      {billingNeedsAction !== null && (
+        <section className="day-section" aria-labelledby="day-billing">
+          <h2 className="h2" id="day-billing">
+            Billing
+          </h2>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+            <Link href="/billing" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+              <div className="stat" style={billingNeedsAction > 0 ? { color: "var(--bad)" } : undefined}>
+                {billingNeedsAction}
+                <small>
+                  {billingNeedsAction === 1 ? "authorization needs" : "authorizations need"} something
+                  today
+                </small>
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* ── Admin: the business ──────────────────────────────── */}
       {business && (

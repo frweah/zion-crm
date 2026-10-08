@@ -100,28 +100,42 @@ begin
     raise notice '  [%] % — %', r.level, r.kind, left(r.text, 90);
   end loop;
 
-  -- Each rule must have produced its own kind.
+  -- Four kinds became one (§13.11): out of hours, nearly out, ending soon and
+  -- submitted-unpaid were separate alerts, and one authorization could raise
+  -- two at once. Each of these four used to assert its own kind; each now
+  -- asserts that the one alert for that authorization says the right thing.
   if not exists (select 1 from public.notifications
-                  where kind = 'auth_exhausted' and level = 'bad'
-                    and text like '%ZZ-EXHAUSTED%' and resolved_at is null) then
-    failures := failures || 'auth_exhausted did not fire'::text;
+                  where kind = 'authorization' and level = 'bad'
+                    and text like '%ZZ-EXHAUSTED%' and text like '%No hours left%'
+                    and resolved_at is null) then
+    failures := failures || 'the alert for an authorization out of hours did not fire, or did not say so'::text;
   end if;
 
   if not exists (select 1 from public.notifications
-                  where kind = 'auth_low' and text like '%ZZ-LOW%' and resolved_at is null) then
-    failures := failures || 'auth_low did not fire'::text;
+                  where kind = 'authorization' and text like '%ZZ-LOW%'
+                    and text like '%hours left%' and resolved_at is null) then
+    failures := failures || 'the alert for an authorization nearly out of hours did not fire'::text;
   end if;
 
   if not exists (select 1 from public.notifications
-                  where kind = 'auth_ending' and text like '%ZZ-ENDING%' and resolved_at is null) then
-    failures := failures || 'auth_ending did not fire'::text;
+                  where kind = 'authorization' and text like '%ZZ-ENDING%'
+                    and text like '%Ends %' and resolved_at is null) then
+    failures := failures || 'the alert for an authorization ending soon did not fire'::text;
   end if;
 
   -- The alert names the authorization now, not an invoice number (§1, §10).
   if not exists (select 1 from public.notifications
-                  where kind = 'invoice_unpaid' and level = 'bad'
-                    and text like '%ZZ-FLAT%' and resolved_at is null) then
-    failures := failures || 'invoice_unpaid did not fire at 90+ days as level bad'::text;
+                  where kind = 'authorization' and level = 'bad'
+                    and text like '%ZZ-FLAT%' and text like '%no payment%'
+                    and resolved_at is null) then
+    failures := failures || 'the chase for a submission with no payment did not fire as bad'::text;
+  end if;
+
+  -- And one authorization is one alert.
+  if exists (select 1 from (
+       select split_part(dedupe_key, ':', 2) a, count(*) c from public.notifications
+        where kind = 'authorization' and resolved_at is null group by 1 having count(*) > 1) d) then
+    failures := failures || 'an authorization raised more than one alert'::text;
   end if;
 
   if not exists (select 1 from public.notifications

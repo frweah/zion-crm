@@ -3403,6 +3403,7 @@ export type Database = {
           unit: string;
           effective_from: string | null;
           effective_to: string | null;
+          crm_service: string | null;
         };
         Insert: {
           id?: string;
@@ -3413,6 +3414,7 @@ export type Database = {
           unit: string;
           effective_from?: string | null;
           effective_to?: string | null;
+          crm_service?: string | null;
         };
         Update: {
           id?: string;
@@ -3423,6 +3425,7 @@ export type Database = {
           unit?: string;
           effective_from?: string | null;
           effective_to?: string | null;
+          crm_service?: string | null;
         };
         Relationships: [];
       };

@@ -75,7 +75,7 @@ export function worklistRows(rows: WorklistRow[], withClient: boolean): DataRow[
       status: <span className="chip">{w.status}</span>,
       // §13.11: one line about this record, never four alerts.
       attention: w.attention ? (
-        <span className={w.urgency <= 2 ? "chip bad" : w.urgency <= 5 ? "chip warn" : "chip"}>
+        <span className={w.urgency <= 3 ? "chip bad" : w.urgency <= 6 ? "chip warn" : "chip"}>
           {w.attention}
         </span>
       ) : (

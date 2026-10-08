@@ -91,8 +91,17 @@ begin
   select count(*) into n from public.form_templates where sensitive;
   if n <> 2 then raise exception 'Expected USOR 94 and 98 to be marked sensitive, found % sensitive', n; end if;
 
+  -- Nineteen: the workbook's eighteen, plus the one it expresses as a sum
+  -- rather than a row - Job Development with one High Quality Indicator, 1,120
+  -- (0169). A count is the wrong thing to assert about a table Admin is meant
+  -- to edit, so what matters is checked instead: every service the practice can
+  -- pick has a rate, which verify_rates_and_alerts asserts service by service.
   select count(*) into n from public.rate_schedule;
-  if n <> 18 then raise exception 'Expected 18 rate schedule rows, found %', n; end if;
+  if n < 19 then raise exception 'The rate schedule has lost rows: % left', n; end if;
+  select count(*) into n from public.rate_schedule where crm_service is not null;
+  if n < 11 then
+    raise exception 'Only % rate schedule rows say which service they price', n;
+  end if;
 
   raise notice 'ok  reference data loaded (8 form templates, 18 rates)';
 end $$;
