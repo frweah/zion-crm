@@ -938,10 +938,43 @@ here: the standing rule is no client data in the repository or its history,
 and a table of client numbers against counts is client data. It went to the
 owner directly.
 
-**Waiting on the owner before deleting.** Deleting records is on the short
-list of things this session asks about rather than does, and these are client
-records in production. The 19 go on a word from the owner; everything else in
-§9 proceeds meanwhile.
+## The placeholders, deleted (§9)
+
+Owner approved on 7 Oct 2026, having seen the counts. **Sixteen deleted, not
+nineteen** - and the three that survived are the reason the test was widened
+before the delete rather than after it.
+
+The first count asked six tables whether anything was attached. The schema
+says **ten** things point at an authorization, and six of those cascade: a
+delete would have taken the authorization's corrections, completions, hours
+requests, invoices, payments and service entries with it, while three more
+would have been orphaned by a SET NULL. So the test is now built from the
+foreign keys themselves, read out of the schema, and a table added later is
+included without anybody remembering to add it.
+
+On the full test, **four** placeholders have something attached:
+
+| What it holds | How many | Why it stays |
+| --- | --- | --- |
+| A logged correction | 2 | Deleting cascades the correction away. A record of a change somebody made is the last thing to destroy to tidy a list. |
+| Two attachments | 1 | Deleting orphans two PDFs - they lose what they document, which is the opposite of §11. |
+| A completed form | 1 | §9's own condition keeps it. |
+
+Strictly, §9's delete condition names "hours, forms, invoice or payment", so
+a literal reading would have removed the corrections and the attachments
+too. It stays on the owner's desk rather than being decided here.
+
+**What the delete did**, all verified inside the transaction before it
+committed - any one of these failing would have rolled it back:
+
+- authorizations 176 to 160; placeholders 20 to 4.
+- Every one of the ten child tables has exactly as many rows as before, so
+  nothing cascaded.
+- The sum of every payment in the database is unchanged at the penny:
+  142,947.50 before and after.
+
+`scripts/delete-placeholders.mjs` counts by default and needs `--delete` to
+act, so it is safe to run again to see where things stand.
 
 ## What the brief lands on, which the owner should know
 
