@@ -10,8 +10,8 @@ import type { BillingOffice } from "@/lib/billing-offices";
  * still owed and what is about to lapse unbilled.
  *
  * What goes in it is the database's answer (billing_office_reconciliation,
- * 0091) - every Sent invoice not yet paid, and every open authorization ending
- * within 30 days with value not yet invoiced. This turns it into words, and
+ * 0091) - every authorization submitted and not yet paid, and every live one
+ * ending within 30 days with value not yet billed. This turns it into words, and
  * works out who to copy: the counselor on each case listed.
  *
  * Built twice for every send - once to show the draft, and again on the server
@@ -31,7 +31,6 @@ export type ReconRow = {
   auth_id: string;
   auth_number: string | null;
   service: string | null;
-  invoice_number: string | null;
   amount: number | null;
   sent_on: string | null;
   days_outstanding: number | null;
@@ -52,7 +51,12 @@ export type Reconciliation = {
   cases: { client_id: string; client_name: string; counselor_id: string | null; lines: string[] }[];
 };
 
-const UNPAID = "Unpaid invoice";
+/**
+ * The kinds the database returns, as machine values (§10). It used to return
+ * prose - "Unpaid invoice" - and this file matched on it, which made the
+ * wording load-bearing.
+ */
+const UNPAID = "unpaid";
 
 export async function buildReconciliation(
   supabase: SupabaseClient<Database>,
@@ -98,7 +102,7 @@ export async function buildReconciliation(
     `sent ${r.sent_on ?? "—"} · ${r.days_outstanding ?? 0} days outstanding`;
   const endingLine = (r: ReconRow) =>
     `- ${r.client_name} · ${r.auth_number || "(no V-number)"} · ${r.service || "—"} · ends ${r.end_date ?? "—"} · ` +
-    `${money(r.unbilled ?? 0)} not yet invoiced`;
+    `${money(r.unbilled ?? 0)} not yet billed`;
 
   const hello = bo.contact_name.trim() ? `Hello ${bo.contact_name.trim().split(/\s+/)[0]},` : "Hello,";
   const parts: string[] = [
@@ -109,21 +113,21 @@ export async function buildReconciliation(
   ];
   if (unpaid.length) {
     parts.push(
-      `Invoices sent and not yet paid - ${unpaid.length}, ${money(unpaidTotal)} in all:`,
+      `Submitted and not yet paid - ${unpaid.length}, ${money(unpaidTotal)} in all:`,
       ...unpaid.map(unpaidLine),
       "",
     );
   }
   if (ending.length) {
     parts.push(
-      `Authorizations ending in the next ${ENDING_WITHIN_DAYS} days with value not yet invoiced - ${ending.length}:`,
+      `Authorizations ending in the next ${ENDING_WITHIN_DAYS} days with value not yet billed - ${ending.length}:`,
       ...ending.map(endingLine),
       "",
     );
   }
   parts.push(
     unpaid.length
-      ? "Could you let us know where each unpaid invoice stands, and whether you need anything further from us to process it?"
+      ? "Could you let us know where each outstanding submission stands, and whether you need anything further from us to process it?"
       : "We are letting you know before these lapse, in case anything is needed from your side.",
     "",
     "Thank you,",
@@ -140,7 +144,7 @@ export async function buildReconciliation(
   }
   for (const r of ending) {
     const c = byClient.get(r.client_id) ?? { client_id: r.client_id, client_name: r.client_name, counselor_id: r.counselor_id, lines: [] };
-    c.lines.push(`${r.auth_number || "(no V-number)"} ends ${r.end_date}, ${money(r.unbilled ?? 0)} not invoiced`);
+    c.lines.push(`${r.auth_number || "(no V-number)"} ends ${r.end_date}, ${money(r.unbilled ?? 0)} not billed`);
     byClient.set(r.client_id, c);
   }
 

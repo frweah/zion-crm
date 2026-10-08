@@ -52,8 +52,9 @@ declare
     'contact_log=counselor_contacts',
     'tasks=tasks',
     'authorizations=authorizations',
-    'invoices=invoices',
-    'billing_items=billing',
+    -- The authorization is the bill (§§1, 10), so the billing section is
+    -- its own history. There is no invoice and no billing item to disclose.
+    'authorization_events=billing',
     'practice_form_entries=practice_forms',
     -- The ledger postings that name the person (0145), in words rather than
     -- in debits and credits.
@@ -120,11 +121,10 @@ begin
   values (v_client, 'ZZ-AUTH-1', 'Job Coaching', 20, 'Hourly', 45, 'Authorized')
   returning id into v_auth;
 
-  -- Draft, not Sent: this authorization requires a USOR 93 and 95 and the
-  -- database refuses to let an invoice go out without them. The fixture bends
-  -- rather than the rule.
-  insert into public.invoices (auth_id, number, date, amount, status)
-  values (v_auth, 'ZZ-INV-1', public.practice_today(), 900, 'Draft');
+  -- Some hours on it, so the billing section of the bundle has something to
+  -- disclose. The invoice this used to insert no longer exists (§10).
+  insert into public.service_entries (auth_id, date, hours)
+  values (v_auth, public.practice_today() - 2, 4);
 
   insert into public.placements (client_id, employer, title, start_date)
   values (v_client, 'ZZ Grocery', 'Clerk', public.practice_today());
@@ -169,7 +169,7 @@ begin
     select * from (values
       ('notes', jsonb_array_length(v_bundle->'notes')),
       ('authorizations', jsonb_array_length(v_bundle->'authorizations')),
-      ('invoices', jsonb_array_length(v_bundle->'invoices')),
+      ('billing', jsonb_array_length(v_bundle->'billing')),
       ('placements', jsonb_array_length(v_bundle->'placements')),
       ('texts', jsonb_array_length(v_bundle->'texts')),
       ('files', jsonb_array_length(v_bundle->'files')),
@@ -181,7 +181,7 @@ begin
     end if;
   end loop;
   if failures = '{}' then
-    raise notice 'ok  notes, authorizations, invoices, placements, texts, files and stage history are all present';
+    raise notice 'ok  notes, authorizations, billing, placements, texts, files and stage history are all present';
   end if;
 
   -- The restricted note is in it. A records request answered with only the
@@ -220,7 +220,7 @@ begin
      where n.nspname = 'public' and c.relkind = 'r'
        and (exists (select 1 from pg_attribute a
                      where a.attrelid = c.oid and a.attname = 'client_id' and not a.attisdropped)
-            or c.relname in ('clients', 'invoices'))
+            or c.relname = 'clients')
        and not (c.relname = any (skipped))
      order by c.relname
   loop

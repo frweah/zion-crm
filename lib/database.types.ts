@@ -612,150 +612,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      billing_item_events: {
-        Row: {
-          id: string;
-          item_id: string;
-          at: string;
-          staff_id: string | null;
-          staff_name: string | null;
-          was: string | null;
-          became: string | null;
-          note: string | null;
-        };
-        Insert: {
-          id?: string;
-          item_id: string;
-          at?: string;
-          staff_id?: string | null;
-          staff_name?: string | null;
-          was?: string | null;
-          became?: string | null;
-          note?: string | null;
-        };
-        Update: {
-          id?: string;
-          item_id?: string;
-          at?: string;
-          staff_id?: string | null;
-          staff_name?: string | null;
-          was?: string | null;
-          became?: string | null;
-          note?: string | null;
-        };
-        Relationships: [];
-      };
-      billing_items: {
-        Row: {
-          id: string;
-          client_id: string;
-          auth_id: string | null;
-          service: string;
-          period: string | null;
-          status: string;
-          service_start: string | null;
-          service_end: string | null;
-          first_work_day: string | null;
-          assigned_staff_id: string | null;
-          billing_type: string | null;
-          hours: number | null;
-          rate: number | null;
-          amount: number | null;
-          invoice_id: string | null;
-          recipient: string | null;
-          submitted_at: string | null;
-          submitted_by: string | null;
-          paid_on: string | null;
-          paid_amount: number | null;
-          warrant: string | null;
-          correction_note: string | null;
-          followup_due: string | null;
-          zero_hours_flagged: boolean;
-          zero_hours_confirmed_by: string | null;
-          zero_hours_confirmed_at: string | null;
-          signed_auth_path: string | null;
-          closed_reason: string | null;
-          closed_at: string | null;
-          closed_by: string | null;
-          notes: string | null;
-          created_at: string;
-          created_by: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          client_id: string;
-          auth_id?: string | null;
-          service: string;
-          period?: string | null;
-          status?: string;
-          service_start?: string | null;
-          service_end?: string | null;
-          first_work_day?: string | null;
-          assigned_staff_id?: string | null;
-          billing_type?: string | null;
-          hours?: number | null;
-          rate?: number | null;
-          amount?: number | null;
-          invoice_id?: string | null;
-          recipient?: string | null;
-          submitted_at?: string | null;
-          submitted_by?: string | null;
-          paid_on?: string | null;
-          paid_amount?: number | null;
-          warrant?: string | null;
-          correction_note?: string | null;
-          followup_due?: string | null;
-          zero_hours_flagged?: boolean;
-          zero_hours_confirmed_by?: string | null;
-          zero_hours_confirmed_at?: string | null;
-          signed_auth_path?: string | null;
-          closed_reason?: string | null;
-          closed_at?: string | null;
-          closed_by?: string | null;
-          notes?: string | null;
-          created_at?: string;
-          created_by?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          client_id?: string;
-          auth_id?: string | null;
-          service?: string;
-          period?: string | null;
-          status?: string;
-          service_start?: string | null;
-          service_end?: string | null;
-          first_work_day?: string | null;
-          assigned_staff_id?: string | null;
-          billing_type?: string | null;
-          hours?: number | null;
-          rate?: number | null;
-          amount?: number | null;
-          invoice_id?: string | null;
-          recipient?: string | null;
-          submitted_at?: string | null;
-          submitted_by?: string | null;
-          paid_on?: string | null;
-          paid_amount?: number | null;
-          warrant?: string | null;
-          correction_note?: string | null;
-          followup_due?: string | null;
-          zero_hours_flagged?: boolean;
-          zero_hours_confirmed_by?: string | null;
-          zero_hours_confirmed_at?: string | null;
-          signed_auth_path?: string | null;
-          closed_reason?: string | null;
-          closed_at?: string | null;
-          closed_by?: string | null;
-          notes?: string | null;
-          created_at?: string;
-          created_by?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
       billing_offices: {
         Row: {
           id: string;
@@ -2151,63 +2007,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      invoices: {
-        Row: {
-          id: string;
-          legacy_id: string | null;
-          auth_id: string;
-          number: string;
-          date: string;
-          amount: number;
-          status: string;
-          sent_date: string | null;
-          paid_date: string | null;
-          warrant: string;
-          voucher: string;
-          payee: string;
-          service_type: string;
-          created_at: string;
-          updated_at: string;
-          reconciled_from_warrant: boolean;
-        };
-        Insert: {
-          id?: string;
-          legacy_id?: string | null;
-          auth_id: string;
-          number?: string;
-          date?: string;
-          amount: number;
-          status?: string;
-          sent_date?: string | null;
-          paid_date?: string | null;
-          warrant?: string;
-          voucher?: string;
-          payee?: string;
-          service_type?: string;
-          created_at?: string;
-          updated_at?: string;
-          reconciled_from_warrant?: boolean;
-        };
-        Update: {
-          id?: string;
-          legacy_id?: string | null;
-          auth_id?: string;
-          number?: string;
-          date?: string;
-          amount?: number;
-          status?: string;
-          sent_date?: string | null;
-          paid_date?: string | null;
-          warrant?: string;
-          voucher?: string;
-          payee?: string;
-          service_type?: string;
-          created_at?: string;
-          updated_at?: string;
-          reconciled_from_warrant?: boolean;
-        };
-        Relationships: [];
-      };
       job_leads: {
         Row: {
           id: string;
@@ -3112,7 +2911,6 @@ export type Database = {
         Row: {
           id: string;
           auth_id: string;
-          invoice_id: string | null;
           amount: number;
           warrant_no: string;
           warrant_date: string | null;
@@ -3126,7 +2924,6 @@ export type Database = {
         Insert: {
           id?: string;
           auth_id: string;
-          invoice_id?: string | null;
           amount: number;
           warrant_no?: string;
           warrant_date?: string | null;
@@ -3140,7 +2937,6 @@ export type Database = {
         Update: {
           id?: string;
           auth_id?: string;
-          invoice_id?: string | null;
           amount?: number;
           warrant_no?: string;
           warrant_date?: string | null;
@@ -5191,7 +4987,6 @@ export type Database = {
           status: string;
           problem: string;
           payment_id: string | null;
-          invoice_id: string | null;
           decided_by: string | null;
           decided_by_name: string;
           decided_at: string | null;
@@ -5214,7 +5009,6 @@ export type Database = {
           status?: string;
           problem?: string;
           payment_id?: string | null;
-          invoice_id?: string | null;
           decided_by?: string | null;
           decided_by_name?: string;
           decided_at?: string | null;
@@ -5237,7 +5031,6 @@ export type Database = {
           status?: string;
           problem?: string;
           payment_id?: string | null;
-          invoice_id?: string | null;
           decided_by?: string | null;
           decided_by_name?: string;
           decided_at?: string | null;
@@ -5540,52 +5333,21 @@ export type Database = {
         };
         Relationships: [];
       };
-      billing_item_rows: {
-        Row: {
-          id: string | null;
-          client_id: string | null;
-          client_name: string | null;
-          client_no: number | null;
-          service: string | null;
-          period: string | null;
-          status: string | null;
-          auth_number: string | null;
-          auth_status: string | null;
-          auth_end: string | null;
-          service_start: string | null;
-          service_end: string | null;
-          first_work_day: string | null;
-          billing_type: string | null;
-          usor_forms: string[] | null;
-          recurrence: string | null;
-          hours: number | null;
-          rate: number | null;
-          value: number | null;
-          assigned_staff_id: string | null;
-          assigned_staff: string | null;
-          recipient: string | null;
-          submitted_at: string | null;
-          paid_on: string | null;
-          paid_amount: number | null;
-          followup_due: string | null;
-          zero_hours_flagged: boolean | null;
-          correction_note: string | null;
-          closed_reason: string | null;
-          signed: boolean | null;
-        };
-        Relationships: [];
-      };
-      billing_items_undated: {
+      billed_work: {
         Row: {
           auth_id: string | null;
-          number: string | null;
           client_id: string | null;
-          client_name: string | null;
           service_type: string | null;
-          rate_type: string | null;
-          rate: number | null;
-          total_hours: number | null;
-          billing_staff_id: string | null;
+          number: string | null;
+          period: string | null;
+          status: string | null;
+          billed_on: string | null;
+          amount: number | null;
+          paid_on: string | null;
+          paid_amount: number | null;
+          warrant: string | null;
+          outstanding: boolean | null;
+          paid: boolean | null;
         };
         Relationships: [];
       };
@@ -6060,6 +5822,10 @@ export type Database = {
       };
     };
     Functions: {
+      add_authorization: {
+        Args: { p_client: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null; p_requires_forms?: string | null; p_funding_source?: string | null; p_note?: string | null };
+        Returns: string;
+      };
       add_conversation_participant: {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
@@ -6140,21 +5906,13 @@ export type Database = {
         Args: { p_today: string | null };
         Returns: number;
       };
-      billing_gate_met: {
-        Args: { p_auth: string | null };
-        Returns: boolean;
-      };
-      billing_item_ready: {
-        Args: { p_item: string | null };
-        Returns: boolean;
-      };
       billing_needs_action: {
         Args: { p_today?: string | null };
         Returns: number;
       };
       billing_office_reconciliation: {
         Args: { p_billing_office: string | null; p_within_days?: number | null };
-        Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; invoice_number: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
+        Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
       };
       billing_worklist: {
         Args: { p_today?: string | null };
@@ -6315,10 +6073,6 @@ export type Database = {
       inbox_seen: {
         Args: { p_hashes: string[] | null };
         Returns: { sha256: string | null; known: boolean | null }[];
-      };
-      invoice_date_for: {
-        Args: { p_auth: string | null };
-        Returns: { on_date: string | null; basis: string | null }[];
       };
       is_active_staff: {
         Args: Record<string, never>;
@@ -6655,6 +6409,10 @@ export type Database = {
       search_messages: {
         Args: { p_query: string | null; p_limit?: number | null };
         Returns: { message_id: string | null; conversation_id: string | null; conversation_label: string | null; sender_label: string | null; body: string | null; created_at: string | null }[];
+      };
+      service_date_for: {
+        Args: { p_auth: string | null };
+        Returns: { on_date: string | null; basis: string | null }[];
       };
       set_checklist_item: {
         Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note?: string | null };

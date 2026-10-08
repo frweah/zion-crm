@@ -24,7 +24,7 @@ declare
   tables     text[] := array[
     'staff','offices','rate_schedule','counselors','clients','client_private',
     'client_stage_history','intakes','authorizations','service_entries',
-    'completions','invoices','placements','tasks','notes','form_templates',
+    'completions','placements','tasks','notes','form_templates',
     'forms','contact_log','hours_requests','sops'
   ];
 begin
@@ -142,37 +142,20 @@ begin
     raise notice 'ok  future-dated entry refused';
   end;
 
-  -- An invoice cannot exceed what the authorization authorizes (10 x 45 = 450).
-  begin
-    insert into public.invoices (auth_id, number, amount) values (v_auth, 'ZZ-1', 500);
-    raise exception 'FAILED: an invoice above the authorized amount was accepted';
-  exception when check_violation then
-    raise notice 'ok  invoice above the authorized amount refused';
-  end;
-
-  insert into public.invoices (auth_id, number, amount, status)
-    values (v_auth, 'ZZ-1', 400, 'Draft')
-    returning id into v_invoice;
-
-  -- Job Coaching requires USOR 93 and 95 before the invoice can be sent.
-  begin
-    update public.invoices set status = 'Sent' where id = v_invoice;
-    raise exception 'FAILED: an invoice was sent with USOR forms outstanding';
-  exception when check_violation then
-    raise notice 'ok  invoice with USOR 93/95 outstanding could not be sent';
-  end;
+  -- More than the authorization authorizes cannot be billed.
+  --
+  -- This was a guard on the invoice's amount: an invoice for more than
+  -- 10 x 45 was refused. The invoice is gone (§10) and nothing types an amount
+  -- any more - it is the hours at the rate - so the rule is enforced where the
+  -- hours are logged, which is earlier and harder than the invoice ever was.
+  -- "entry beyond the authorized hours refused", above, is that assertion; the
+  -- submission checklist carries the same check for the hours already on file.
 
   insert into public.forms (template_id, client_id, auth_id, status, data)
     values ('usor93', v_client, v_auth, 'Completed', '{"note":"verify"}'::jsonb)
     returning id into v_form;
   insert into public.forms (template_id, client_id, auth_id, status)
     values ('usor95', v_client, v_auth, 'Completed');
-
-  update public.invoices set status = 'Sent' where id = v_invoice;
-  if (select sent_date from public.invoices where id = v_invoice) is null then
-    raise exception 'FAILED: sent_date was not stamped when the invoice was sent';
-  end if;
-  raise notice 'ok  invoice sent once the required forms were completed';
 
   -- A completed form is locked.
   begin

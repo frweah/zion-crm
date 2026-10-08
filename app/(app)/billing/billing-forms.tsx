@@ -5,9 +5,6 @@ import {
   addAuthorization,
   logServiceEntry,
   updateCompletion,
-  createInvoice,
-  invoiceDateFor,
-  setInvoiceStatus,
   type BillingState,
 } from "./actions";
 import {
@@ -278,120 +275,9 @@ export function CompletionDates({
   );
 }
 
-export function NewInvoiceForm({ auths }: { auths: AuthOption[] }) {
-  const [state, action, pending] = useActionState(createInvoice, initial);
-  const [authId, setAuthId] = useState("");
-  // The pathway's date for the chosen service, and the rule behind it.
-  const [dated, setDated] = useState<{ date: string; basis: string } | null>(null);
+/*
+ * NewInvoiceForm and InvoiceAction were here. §10: there is no "New invoice"
+ * anywhere, and no status to mark by hand - an authorization becomes Submitted
+ * when its packet is sent and Paid when a warrant matches it.
+ */
 
-  const latest = useRef("");
-
-  async function choose(id: string) {
-    setAuthId(id);
-    setDated(null);
-    latest.current = id;
-    if (!id) return;
-    const found = await invoiceDateFor(id);
-    // A later choice may have overtaken this one while it was asked for.
-    if (latest.current === id) setDated(found);
-  }
-
-  const auth = auths.find((a) => a.id === authId);
-  const authorized =
-    auth == null
-      ? null
-      : auth.rateType === "Flat Fee"
-        ? auth.rate
-        : (auth.totalHours ?? 0) * auth.rate;
-  const suggested =
-    auth == null ? "" : auth.rateType === "Flat Fee" ? auth.rate : auth.used * auth.rate;
-
-  return (
-    <div className="card" style={{ marginBottom: 14 }}>
-      <h3>New invoice</h3>
-      <Message state={state} />
-      <form action={action}>
-        <div className="row2">
-          <label className="field" style={{ flex: 2 }}>
-            Authorization
-            <select name="auth_id" required value={authId} onChange={(e) => void choose(e.target.value)}>
-              <option value="">— choose —</option>
-              {auths.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            Invoice #
-            <input name="number" required />
-          </label>
-          <label className="field" style={{ maxWidth: 170 }}>
-            Date
-            {/* Keyed so the pathway's date replaces the field when it arrives. */}
-            <input name="date" type="date" key={`${authId}:${dated?.date ?? ""}`} defaultValue={dated?.date ?? today()} />
-          </label>
-          <label className="field" style={{ maxWidth: 140 }}>
-            Amount
-            <input
-              name="amount"
-              type="number"
-              step="0.01"
-              key={authId}
-              defaultValue={suggested}
-              required
-            />
-          </label>
-          <button className="btn gold" type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save draft"}
-          </button>
-        </div>
-
-        {authorized !== null && (
-          <p className="lock" style={{ margin: "10px 0 0" }}>
-            {auth?.rateType === "Flat Fee"
-              ? `Flat fee ${money(auth.rate)}.`
-              : `${auth?.used ?? 0} hrs logged at ${money(auth?.rate)} — ${money(authorized)} authorized in total.`}{" "}
-            The database refuses anything above the authorized amount.
-          </p>
-        )}
-        {dated && (
-          <p className="lock" style={{ margin: "6px 0 0" }}>
-            Dated {dated.date}: {dated.basis}.
-          </p>
-        )}
-      </form>
-    </div>
-  );
-}
-
-export function InvoiceAction({
-  invoiceId,
-  status,
-}: {
-  invoiceId: string;
-  status: string;
-}) {
-  const [state, action, pending] = useActionState(setInvoiceStatus, initial);
-  const next = status === "Draft" ? "Sent" : status === "Sent" ? "Paid" : null;
-
-  if (!next) return null;
-
-  return (
-    <>
-      <form action={action}>
-        <input type="hidden" name="invoice_id" value={invoiceId} />
-        <input type="hidden" name="status" value={next} />
-        <button className="btn ghost" type="submit" disabled={pending}>
-          {pending ? "…" : `Mark ${next.toLowerCase()}`}
-        </button>
-      </form>
-      {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)", maxWidth: 320, marginTop: 4 }}>
-          {state.error}
-        </div>
-      )}
-    </>
-  );
-}

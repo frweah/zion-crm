@@ -83,7 +83,7 @@ export default async function OutcomesPage({
     supabase
       .from("placements")
       .select("client_id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_paid"),
-    supabase.from("invoices").select("auth_id, date, amount, status, paid_date, service_type"),
+    supabase.from("billed_work").select("auth_id, billed_on, amount, paid, outstanding, paid_on, paid_amount, service_type"),
     supabase.from("service_entries").select("auth_id, date, hours, non_billable"),
     supabase.from("authorization_economics").select("auth_id, client_id, service_type, hours_used, received"),
     supabase.from("counselors").select("id, name"),
@@ -108,7 +108,7 @@ export default async function OutcomesPage({
       month: m,
       value: dates.reduce((s, d, i) => (d && d.startsWith(m) ? s + (amounts ? amounts[i] : 1) : s), 0),
     }));
-  const paidInvoices = invoices.filter((i) => i.status === "Paid");
+  const paidWork = invoices.filter((i) => i.paid);
 
   // ── who we worked with ────────────────────────────────────
   const referredInPeriod = clients.filter((c) => within(c.created_at.slice(0, 10)));
@@ -125,7 +125,7 @@ export default async function OutcomesPage({
   for (const i of invoices) {
     // The authorization says whose invoice it is. Matching on service type
     // would count everybody who has ever had Job Coaching authorized.
-    if (i.status !== "Paid" || !within(i.paid_date)) continue;
+    if (!i.paid || !within(i.paid_on)) continue;
     const clientOf = i.auth_id ? authClient.get(i.auth_id) : null;
     if (clientOf) servedIds.add(clientOf);
   }
@@ -165,10 +165,10 @@ export default async function OutcomesPage({
     byService.set(key, row);
   }
   for (const i of invoices) {
-    if (i.status !== "Paid" || !within(i.paid_date)) continue;
+    if (!i.paid || !within(i.paid_on)) continue;
     const key = i.service_type || "—";
     const row = byService.get(key) ?? { hours: 0, received: 0 };
-    row.received += i.amount;
+    row.received += Number(i.paid_amount ?? i.amount);
     byService.set(key, row);
   }
   const services = [...byService.entries()]
@@ -176,8 +176,8 @@ export default async function OutcomesPage({
     .sort((a, b) => b.received - a.received || b.hours - a.hours);
 
   const receivedInPeriod = invoices
-    .filter((i) => i.status === "Paid" && within(i.paid_date))
-    .reduce((s, i) => s + i.amount, 0);
+    .filter((i) => i.paid && within(i.paid_on))
+    .reduce((s, i) => s + Number(i.paid_amount ?? i.amount), 0);
 
   // ── assessments and CIE ───────────────────────────────────
   const wsaCompleted = clients.filter((c) => within(c.wsa_completed)).length;
@@ -337,7 +337,7 @@ export default async function OutcomesPage({
         <Figure
           value={money(receivedInPeriod)}
           label="received for services"
-          series={perMonth(paidInvoices.map((i) => i.paid_date), paidInvoices.map((i) => i.amount))}
+          series={perMonth(paidWork.map((i) => i.paid_on), paidWork.map((i) => Number(i.paid_amount ?? i.amount)))}
           describe={(v) => money(v)}
         />
       </div>

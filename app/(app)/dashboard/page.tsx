@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { refreshAlertsIfStale, getAlerts } from "@/lib/alerts";
 import { today, CAN_LOG_HOURS, money } from "@/lib/constants";
 import { myMailAccess } from "@/lib/mail-access";
+import { isLive } from "@/lib/billing";
 import { listCalendar, type CalendarItem } from "@/lib/calendar-view";
 import { clientNoFromSubject } from "@/lib/graph";
 import { practiceWallToDate, dateToPracticeWall } from "@/lib/practice-time";
@@ -303,7 +304,7 @@ export default async function DashboardPage({
     const [needs, { data: econ }, { data: paid }, { data: due }, { data: aging }] = await Promise.all([
       countNeeds(supabase, me),
       supabase.from("authorization_economics").select("status, unbilled, outstanding"),
-      supabase.from("invoices").select("amount").eq("status", "Paid").gte("paid_date", `${day.slice(0, 7)}-01`),
+      supabase.from("billed_work").select("paid_amount").eq("paid", true).gte("paid_on", `${day.slice(0, 7)}-01`),
       supabase.rpc("bills_due_by", { p_by: week.toISOString().slice(0, 10) }),
       supabase.rpc("ledger_ap_aging", { p_as_of: day }),
     ]);
@@ -311,9 +312,9 @@ export default async function DashboardPage({
     const bills = (due ?? []) as { amount: number; late: boolean }[];
     business = {
       needs,
-      unbilled: (econ ?? []).filter((e) => e.status === "Open").reduce((s, e) => s + n(e.unbilled), 0),
+      unbilled: (econ ?? []).filter((e) => isLive(e.status ?? "")).reduce((s, e) => s + n(e.unbilled), 0),
       outstanding: (econ ?? []).reduce((s, e) => s + n(e.outstanding), 0),
-      receivedMonth: (paid ?? []).reduce((s, i) => s + n(i.amount), 0),
+      receivedMonth: (paid ?? []).reduce((s, i) => s + n(i.paid_amount), 0),
       dueThisWeek: bills.reduce((s, b) => s + n(b.amount), 0),
       dueThisWeekLate: bills.filter((b) => b.late).length,
       owed: ((aging ?? []) as { amount: number }[]).reduce((s, a) => s + n(a.amount), 0),

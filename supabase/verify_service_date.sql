@@ -1,14 +1,14 @@
--- Zion Vocational Rehab CRM — the date on an invoice (0113)
+-- Zion Vocational Rehab CRM — the date a piece of work is billed under (0113, 0163)
 --
 -- What has to hold, each tried from the direction that would break it:
 --
---   An invoice is dated by the CRP billing pathway's rule for its service,
---   not by the day somebody raised it: coaching by the first coaching day of
+--   Work is dated by the CRP billing pathway's rule for its service, not by
+--   the day somebody got to it: coaching by the first coaching day of
 --   the month being billed, placement by the first day of work, the High
 --   Quality Indicators by the stability date, job development by the first
 --   meeting to look for work.
 --
---   A month already invoiced is not billed again, so coaching moves on to
+--   A month already billed is not billed again, so coaching moves on to
 --   the next month with hours in it. A non-billable entry never dates one.
 --
 --   Where the pathway says nothing, the date says so. Where the CRM has
@@ -49,39 +49,46 @@ begin
     values (v_c, 'ZZ Employer', 'ZZ Job', '2026-08-04', '2026-09-05');
 
   -- ── coaching: the first billable day, then the next month ───
-  select on_date into v_on from public.invoice_date_for(v_jc);
+  select on_date into v_on from public.service_date_for(v_jc);
   if v_on is distinct from '2026-08-12'::date then
     failures := failures || format('FAILED: coaching was dated %s, not its first billable day 2026-08-12', v_on);
   end if;
-  insert into public.invoices (auth_id, number, date, amount, status) values (v_jc, 'ZZ-1', '2026-08-12', 225, 'Draft');
-  select on_date into v_on from public.invoice_date_for(v_jc);
+  -- August billed: the month's own record goes to USOR. This used to be an
+  -- invoice row dated in August; the month is the bill now (§1).
+  insert into public.authorizations
+    (client_id, number, service_type, rate_type, rate, status, start_date, end_date,
+     parent_id, period, submitted_on)
+  select v_c, '', 'Job Coaching', a.rate_type, a.rate, 'Submitted', a.start_date, a.end_date,
+         v_jc, date '2026-08-01', date '2026-08-31'
+    from public.authorizations a where a.id = v_jc;
+  select on_date into v_on from public.service_date_for(v_jc);
   if v_on is distinct from '2026-09-03'::date then
-    failures := failures || format('FAILED: with August invoiced, coaching was dated %s, not 2026-09-03', v_on);
+    failures := failures || format('FAILED: with August billed, coaching was dated %s, not 2026-09-03', v_on);
   else
-    raise notice 'ok  coaching is dated by the first coaching day of the month not yet invoiced';
+    raise notice 'ok  coaching is dated by the first coaching day of the month not yet billed';
   end if;
 
   -- ── placement, HQI, development ────────────────────────────
-  if (select on_date from public.invoice_date_for(v_jp)) is distinct from '2026-08-04'::date then
-    failures := failures || 'FAILED: a placement invoice was not dated the first day of work'::text;
+  if (select on_date from public.service_date_for(v_jp)) is distinct from '2026-08-04'::date then
+    failures := failures || 'FAILED: placement work was not dated the first day of work'::text;
   end if;
-  if (select on_date from public.invoice_date_for(v_hq)) is distinct from '2026-09-05'::date then
-    failures := failures || 'FAILED: an HQI invoice was not dated the stability date'::text;
+  if (select on_date from public.service_date_for(v_hq)) is distinct from '2026-09-05'::date then
+    failures := failures || 'FAILED: HQI work was not dated the stability date'::text;
   end if;
-  if (select on_date from public.invoice_date_for(v_jd)) is distinct from '2026-06-10'::date then
+  if (select on_date from public.service_date_for(v_jd)) is distinct from '2026-06-10'::date then
     failures := failures || 'FAILED: a job development invoice was not dated the first meeting'::text;
   else
     raise notice 'ok  placement, indicators and development take the pathway''s dates';
   end if;
 
   -- ── where the pathway is silent, it says so ────────────────
-  select on_date, basis into v_on, v_basis from public.invoice_date_for(v_ls);
+  select on_date, basis into v_on, v_basis from public.service_date_for(v_ls);
   if v_on is distinct from '2026-07-15'::date or v_basis not like '%pathway does not give one%' then
     failures := failures || format('FAILED: Life Skills was dated %s (%s) without saying the rule is the CRM''s', v_on, v_basis);
   end if;
 
   -- ── nothing to go on: today, and why ───────────────────────
-  select on_date, basis into v_on, v_basis from public.invoice_date_for(v_empty);
+  select on_date, basis into v_on, v_basis from public.service_date_for(v_empty);
   if v_on is distinct from public.practice_today() or v_basis not like '%so today%' then
     failures := failures || 'FAILED: with nothing logged the date was not today, or did not say why'::text;
   else
@@ -94,11 +101,11 @@ begin
   -- so everything above still holds.
 
   -- ── nobody signed in ───────────────────────────────────────
-  if has_function_privilege('anon', 'public.invoice_date_for(uuid)', 'execute') then
-    failures := failures || 'FAILED: somebody not signed in can ask for an invoice date'::text;
+  if has_function_privilege('anon', 'public.service_date_for(uuid)', 'execute') then
+    failures := failures || 'FAILED: somebody not signed in can ask for a billing date'::text;
   end if;
-  if not has_function_privilege('authenticated', 'public.invoice_date_for(uuid)', 'execute') then
-    failures := failures || 'FAILED: staff cannot ask for an invoice date'::text;
+  if not has_function_privilege('authenticated', 'public.service_date_for(uuid)', 'execute') then
+    failures := failures || 'FAILED: staff cannot ask for a billing date'::text;
   end if;
 
   if array_length(failures, 1) > 0 then

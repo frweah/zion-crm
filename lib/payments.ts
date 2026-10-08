@@ -6,7 +6,6 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 export type PaymentRow = {
   id: string;
   auth_id: string;
-  invoice_id: string | null;
   amount: number;
   warrant_no: string;
   warrant_date: string | null;
@@ -21,7 +20,7 @@ const NONE = "00000000-0000-0000-0000-000000000000";
 
 /**
  * Payments on record - the workbook's, those read from warrant stubs, and
- * invoices marked paid by hand - newest warrant first, each with the warrant
+ * authorizations marked paid by hand - newest warrant first, each with the warrant
  * page it came from. All of them, or those on the authorizations given.
  *
  * The page comes through warrant_lines, which only Admin and Billing may read;
@@ -33,7 +32,7 @@ export async function readPayments(supabase: Supabase, authIds?: string[]): Prom
   // warrants gets none, exactly as when they were a query of their own.
   let payments = supabase
     .from("payments")
-    .select("id, auth_id, invoice_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name, warrant_lines!warrant_lines_payment_id_fkey(page_id)")
+    .select("id, auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name, warrant_lines!warrant_lines_payment_id_fkey(page_id)")
     .order("warrant_date", { ascending: false, nullsFirst: false });
   if (authIds) payments = payments.in("auth_id", authIds.length ? authIds : [NONE]);
   const { data } = (await payments) as unknown as {
@@ -41,7 +40,6 @@ export async function readPayments(supabase: Supabase, authIds?: string[]): Prom
       | {
           id: string;
           auth_id: string;
-          invoice_id: string | null;
           amount: number;
           warrant_no: string | null;
           warrant_date: string | null;
@@ -64,7 +62,6 @@ export async function readPayments(supabase: Supabase, authIds?: string[]): Prom
   return rows.map((p) => ({
     id: p.id,
     auth_id: p.auth_id,
-    invoice_id: p.invoice_id,
     amount: Number(p.amount),
     warrant_no: p.warrant_no ?? "",
     warrant_date: p.warrant_date,

@@ -172,9 +172,9 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
 
   select count(*) into v_n from public.billing_office_reconciliation(v_vw, 30) x
-   where x.kind = 'Unpaid invoice' and x.auth_number like 'ZQ-%';
+   where x.kind = 'unpaid' and x.auth_number like 'ZQ-%';
   if v_n <> 1 then
-    failures := failures || format('FAILED: Valley West''s reconciliation lists %s fixture unpaid invoices, not 1', v_n)::text;
+    failures := failures || format('FAILED: Valley West''s reconciliation lists %s fixture submissions outstanding, not 1', v_n)::text;
   end if;
   select * into r from public.billing_office_reconciliation(v_vw, 30) x where x.auth_number = 'ZQ-REC-SOON';
   if r.auth_number is null or r.days_outstanding <> 40 or r.amount <> 200
@@ -184,7 +184,7 @@ begin
     raise notice 'ok  submitted and unpaid is listed with its amount, days outstanding and the counselor to copy';
   end if;
   if exists (select 1 from public.billing_office_reconciliation(v_vw, 30) x
-              where x.kind = 'Unpaid invoice' and x.auth_number in ('ZQ-REC-DONE', 'ZQ-REC-OTHER')) then
+              where x.kind = 'unpaid' and x.auth_number in ('ZQ-REC-DONE', 'ZQ-REC-OTHER')) then
     failures := failures || 'FAILED: a paid authorization, or another office''s, is in the reconciliation'::text;
   else
     raise notice 'ok  nothing paid, nothing drafted and nothing of another office''s is listed';
@@ -192,10 +192,10 @@ begin
 
   select string_agg(x.auth_number, ', ' order by x.auth_number) into v_text
     from public.billing_office_reconciliation(v_vw, 30) x
-   where x.kind <> 'Unpaid invoice' and x.auth_number like 'ZQ-%';
+   where x.kind <> 'unpaid' and x.auth_number like 'ZQ-%';
   if v_text is distinct from 'ZQ-REC-SOON' then
-    failures := failures || format('FAILED: authorizations ending soon with value to invoice were %s, not ZQ-REC-SOON', coalesce(v_text, 'none'))::text;
-  elsif (select x.unbilled from public.billing_office_reconciliation(v_vw, 30) x where x.auth_number = 'ZQ-REC-SOON' and x.kind <> 'Unpaid invoice')
+    failures := failures || format('FAILED: authorizations ending soon with value still to bill were %s, not ZQ-REC-SOON', coalesce(v_text, 'none'))::text;
+  elsif (select x.unbilled from public.billing_office_reconciliation(v_vw, 30) x where x.auth_number = 'ZQ-REC-SOON' and x.kind <> 'unpaid')
         is distinct from (select not_yet_invoiced from public.billing_position where auth_id = v_auth_soon) then
     failures := failures || 'FAILED: the unbilled value in the reconciliation disagrees with Paid & outstanding'::text;
   else
@@ -204,7 +204,7 @@ begin
 
   -- Each office sees its own, which is the point of passing the office in.
   if not exists (select 1 from public.billing_office_reconciliation(v_dt, 30) x
-                  where x.auth_number = 'ZQ-REC-OTHER' and x.kind = 'Unpaid invoice') then
+                  where x.auth_number = 'ZQ-REC-OTHER' and x.kind = 'unpaid') then
     failures := failures || 'FAILED: Downtown''s reconciliation misses its own submitted authorization'::text;
   else
     raise notice 'ok  and each office sees its own, not another''s';

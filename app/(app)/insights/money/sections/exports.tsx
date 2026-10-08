@@ -52,16 +52,16 @@ export default async function ExportsPage({
         .gte("date", start)
         .lte("date", end),
       supabase
-        .from("invoices")
+        .from("billed_work")
         .select("amount, auth_id", { count: "exact" })
-        .gte("date", start)
-        .lte("date", end),
+        .gte("billed_on", start)
+        .lte("billed_on", end),
       supabase
-        .from("invoices")
-        .select("amount, auth_id")
-        .eq("status", "Paid")
-        .gte("paid_date", start)
-        .lte("paid_date", end),
+        .from("billed_work")
+        .select("amount, paid_amount, auth_id")
+        .eq("paid", true)
+        .gte("paid_on", start)
+        .lte("paid_on", end),
       supabase
         .from("placements")
         .select("client_id", { count: "exact" })
@@ -86,7 +86,7 @@ export default async function ExportsPage({
   const [billing, { data: authRows }, { data: sentRows }] = await Promise.all([
     readBillingOffices(supabase),
     supabase.from("authorizations").select("id, client_id"),
-    supabase.from("invoices").select("amount, auth_id").eq("status", "Sent"),
+    supabase.from("billed_work").select("amount, auth_id").eq("outstanding", true),
   ]);
   const clientOfAuth = new Map((authRows ?? []).map((a) => [a.id, a.client_id]));
   type Tally = { hours: number; invoiced: number; received: number; outstanding: number; unpaid: number };

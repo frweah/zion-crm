@@ -7,6 +7,7 @@ import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 import { Kpi as Stat, lastTwelveMonths } from "../kpi";
 import { FollowupForm } from "./followup-form";
+import { LIVE_STATUSES } from "@/lib/billing";
 import PositionSection from "./sections/position";
 import ExportsSection from "./sections/exports";
 import RateSchedule from "./sections/rates";
@@ -80,12 +81,15 @@ export default async function RevenuePage({
       .select("*")
       .order("committed", { ascending: false, nullsFirst: false }),
     supabase.from("clients").select("id, name, counselor_id, status"),
-    supabase.from("invoices").select("date, amount, status, paid_date, service_type"),
+    supabase.from("billed_work").select("billed_on, amount, paid, outstanding, paid_on, paid_amount, service_type"),
     supabase.from("client_paperwork").select("client_id, auth_id, usor").eq("state", "Missing"),
+    // Still being worked. "Open" was removed in §4 and this had been asking
+    // for it ever since, which is to say asking for nothing: the follow-up
+    // column on this page has been empty since.
     supabase
       .from("authorizations")
       .select("id, followup_owner, followup_action, followup_due, followup_set_at")
-      .eq("status", "Open"),
+      .in("status", [...LIVE_STATUSES]),
     supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
   ]);
   const followup = new Map((followupResult.data ?? []).map((f) => [f.id, f]));
@@ -122,11 +126,11 @@ export default async function RevenuePage({
   const byMonth = months.map((m) => ({
     month: m,
     received: invoices
-      .filter((i) => i.status === "Paid" && (i.paid_date ?? "").startsWith(m))
-      .reduce((s, i) => s + i.amount, 0),
+      .filter((i) => i.paid && (i.paid_on ?? "").startsWith(m))
+      .reduce((s, i) => s + Number(i.paid_amount ?? i.amount), 0),
     invoiced: invoices
-      .filter((i) => i.status !== "Void" && i.date.startsWith(m))
-      .reduce((s, i) => s + i.amount, 0),
+      .filter((i) => (i.billed_on ?? "").startsWith(m))
+      .reduce((s, i) => s + Number(i.amount), 0),
   }));
   const peak = Math.max(1, ...byMonth.map((b) => Math.max(b.received, b.invoiced)));
   const received12 = byMonth.reduce((s, b) => s + b.received, 0);

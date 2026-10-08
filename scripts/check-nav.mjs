@@ -331,6 +331,40 @@ if (CLIENT_TABS.length <= 7 && !unmapped.length && !staleLinks.length) {
   ok(`the client record has ${CLIENT_TABS.length} tabs, every old tab redirects to one, and no link names an old tab`);
 }
 
+// ── nothing offers to raise an invoice ───────────────────────
+//
+// §10: there is one door to a bill and it is entering an authorization. The
+// check is on what a person is *offered*, not on the word itself - the history
+// of this practice is full of invoices and the screens may say so. What they
+// may not do is put a button, a link, a menu item or a quick-add entry in front
+// of somebody that makes one.
+const OFFERS = [
+  // A control that offers to make one. A column heading that says "Invoiced"
+  // is not an offer, so this looks for the verbs.
+  /<(?:button|a|Link)[^>]*>\s*(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice/i,
+  /(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice\s*<\/(?:button|a|Link)>/i,
+  // Writing one, or naming the table at all.
+  /from\(["']invoices["']\)/,
+  /rpc\(["'](?:draft_invoice_for_authorization|setInvoiceStatus)["']/,
+  // A quick-add entry for one. Only quick-add declares entries this way.
+  /QUICK_ADD[\s\S]{0,400}?invoice/i,
+];
+const offenders = [];
+for (const file of [
+  ...(await sources(new URL("../app/", import.meta.url))),
+  ...(await sources(new URL("../lib/", import.meta.url))),
+]) {
+  const text = await readFile(file, "utf8");
+  if (OFFERS.some((re) => re.test(text))) {
+    offenders.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
+  }
+}
+if (offenders.length) {
+  fail(`something still offers to raise an invoice: ${offenders.join(", ")}`);
+} else {
+  ok("nothing offers to raise an invoice, and nothing writes one");
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

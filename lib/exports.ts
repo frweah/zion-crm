@@ -35,10 +35,10 @@ export const EXPORTS: ExportKind[] = [
       "Every billable and non-billable hour logged against an authorization in the month, with the client, the service and who logged it. Grouped by billing office.",
   },
   {
-    key: "invoices",
-    label: "Invoices and payments",
+    key: "billed-work",
+    label: "Billed work and payments",
     detail:
-      "Invoices raised in the month, and separately what was paid in the month — a warrant often lands in a different month from the invoice. Grouped by billing office.",
+      "Work submitted to USOR in the month, and separately what was paid in the month — a warrant often lands in a different month from the submission. Grouped by billing office.",
   },
   {
     key: "authorizations",

@@ -37,20 +37,23 @@ export async function addAuthorization(
     return { error: "An hourly authorization needs its authorized hours.", ok: null };
   }
 
+  // Through the one door (§10): direct insert is revoked, so this is how a
+  // billable record comes into being and there is no second way.
+  //
+  // No status is passed: the column defaults to Authorized, and the insert
+  // trigger fills in received_on, stale_date and bill_by (§2).
   const supabase = await createClient();
-  const { error } = await supabase.from("authorizations").insert({
-    client_id: str("client_id"),
-    number: str("number"),
-    service_type: str("service_type"),
-    funding_source: str("funding_source") || "Utah VR",
-    rate_type: rateType,
-    rate: Number(str("rate") || 0),
-    total_hours: rateType === "Hourly" ? Number(totalHours) : null,
-    start_date: str("start_date") || null,
-    end_date: str("end_date") || null,
-    requires_forms: str("requires_forms"),
-    // No status: the column defaults to Authorized, and the insert trigger
-    // fills in received_on, stale_date and bill_by (§2).
+  const { error } = await supabase.rpc("add_authorization", {
+    p_client: str("client_id"),
+    p_number: str("number"),
+    p_service_type: str("service_type"),
+    p_rate_type: rateType,
+    p_rate: Number(str("rate") || 0),
+    p_total_hours: rateType === "Hourly" ? Number(totalHours) : null,
+    p_start: str("start_date") || null,
+    p_end: str("end_date") || null,
+    p_requires_forms: str("requires_forms"),
+    p_funding_source: str("funding_source") || "Utah VR",
   });
 
   if (error) return { error: friendly(error), ok: null };
@@ -126,88 +129,24 @@ export async function updateCompletion(
   return { error: null, ok: "Saved." };
 }
 
-export async function createInvoice(
-  _prev: BillingState,
-  formData: FormData,
-): Promise<BillingState> {
-  const me = await getCurrentStaff();
-  if (!me || !can(me, "billing", "edit")) {
-    return { error: "Only Admin and Billing can raise invoices.", ok: null };
-  }
-
-  const str = (k: string) => String(formData.get(k) ?? "").trim();
-  if (!str("auth_id")) return { error: "Choose the authorization.", ok: null };
-  if (!str("number")) return { error: "An invoice number is required.", ok: null };
-  if (!str("amount")) return { error: "An amount is required.", ok: null };
-
-  const supabase = await createClient();
-  // Left blank, the date is the pathway's for the service (0113), not today.
-  let date = str("date");
-  if (!date) {
-    const { data } = await supabase.rpc("invoice_date_for", { p_auth: str("auth_id") });
-    date = data?.[0]?.on_date ?? "";
-  }
-  const { error } = await supabase.from("invoices").insert({
-    auth_id: str("auth_id"),
-    number: str("number"),
-    date: date || undefined,
-    amount: Number(str("amount")),
-    status: "Draft",
-  });
-
-  if (error) return { error: friendly(error), ok: null };
-
-  revalidatePath("/billing");
-  return { error: null, ok: `Invoice ${str("number")} saved as a draft.` };
-}
-
 /**
- * The date an invoice against this authorization should carry, and the rule
- * that gave it (0113) - for the form to fill in and show, so whoever raises
- * the invoice can see why and change it when the rule does not fit.
+ * The date a piece of work should be billed under, and the rule that gave it
+ * (the CRP billing pathway).
+ *
+ * createInvoice, setInvoiceStatus and invoiceDateFor were here. §10 removed
+ * them: there is one door to a bill and it is entering an authorization, so
+ * there is nothing to raise and no status to type. An authorization becomes
+ * Submitted when its packet is sent, and Paid when a warrant matches.
+ *
+ * The dating rule stayed, because it is about when the work happened and the
+ * authorization needs it just as much.
  */
-export async function invoiceDateFor(authId: string): Promise<{ date: string; basis: string } | null> {
+export async function serviceDateFor(authId: string): Promise<{ date: string; basis: string } | null> {
   const me = await getCurrentStaff();
   if (!me || !can(me, "billing", "edit") || !authId) return null;
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("invoice_date_for", { p_auth: authId });
+  const { data, error } = await supabase.rpc("service_date_for", { p_auth: authId });
   const row = data?.[0];
   if (error || !row?.on_date) return null;
   return { date: row.on_date, basis: row.basis ?? "" };
-}
-
-/**
- * Move an invoice to Sent or Paid.
- *
- * Marking Sent is refused by the database until every USOR form required for
- * that service type is out of Draft. That refusal is the point of the rule, so
- * it is shown as written rather than swallowed.
- */
-export async function setInvoiceStatus(
-  _prev: BillingState,
-  formData: FormData,
-): Promise<BillingState> {
-  const me = await getCurrentStaff();
-  if (!me || !can(me, "billing", "edit")) {
-    return { error: "Only Admin and Billing can change an invoice.", ok: null };
-  }
-
-  const id = String(formData.get("invoice_id") ?? "");
-  const status = String(formData.get("status") ?? "");
-  const todayStr = today();
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("invoices")
-    .update({
-      status,
-      ...(status === "Sent" ? { sent_date: todayStr } : {}),
-      ...(status === "Paid" ? { paid_date: todayStr } : {}),
-    })
-    .eq("id", id);
-
-  if (error) return { error: friendly(error), ok: null };
-
-  revalidatePath("/billing");
-  return { error: null, ok: `Invoice marked ${status}.` };
 }

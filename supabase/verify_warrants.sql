@@ -18,8 +18,8 @@
 --   payments directly. An invoice marked Paid by hand records its payment, and
 --   un-paying it takes that payment back.
 --
---   The position view counts paid as invoices marked Paid and outstanding as
---   invoices submitted (Sent) and not yet paid - the owner's definitions,
+--   The position view counts received as what a warrant actually paid and
+--   outstanding as what is submitted and not yet paid - the owner's definitions,
 --   14 Sept 2026 - so an invoice still in Draft is invoiced but not outstanding.
 --
 -- Runs inside a transaction that is rolled back. Nothing here is left behind.
@@ -59,12 +59,13 @@ begin
   select id, user_id into v_js, v_js_uid from public.staff where active and role = 'Job Search' order by created_at limit 1;
 
   -- ── the workbook's payments came across ────────────────────
-  if exists (select 1 from public.invoices i
-              where i.status = 'Paid' and i.amount > 0
-                and not exists (select 1 from public.payments p where p.invoice_id = i.id)) then
-    failures := failures || 'FAILED: a paid invoice has no payment on record'::text;
+  -- The payment hangs off the authorization now, not off an invoice (§10).
+  if exists (select 1 from public.authorizations a
+              where a.status = 'Paid' and coalesce(a.paid_amount, 0) > 0
+                and not exists (select 1 from public.payments p where p.auth_id = a.id)) then
+    failures := failures || 'FAILED: a paid authorization has no payment on record'::text;
   else
-    raise notice 'ok  every paid invoice on file has its payment on record';
+    raise notice 'ok  every paid authorization on file has its payment on record';
   end if;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
@@ -74,22 +75,45 @@ begin
   values (v_client, 'ZQ9600001', 'Job Placement', 'Flat Fee', 560, 'Authorized') returning id into v_auth1;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
   values (v_client, 'ZQ9600002A', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_auth2a;
+  -- A different rate, so the two lines below pay different amounts and the
+  -- suffix is the only thing that can be routing them.
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_client, 'ZQ9600002', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_auth2;
+  values (v_client, 'ZQ9600002', 'Job Coaching', 'Hourly', 44, 20, 'Authorized') returning id into v_auth2;
 
-  -- What the workbook recorded: one payment on warrant ZW0000001.
+  -- §13.9 pays a line only when the authorization has been submitted and the
+  -- line is for what it comes to. Ten hours each: 450 and 440.
+  insert into public.service_entries (auth_id, date, hours)
+  values (v_auth2a, date '2026-01-05', 10), (v_auth2, date '2026-01-05', 10);
+  insert into public.forms (template_id, client_id, auth_id, status, data)
+  select t.id, v_client, a.id, 'Completed', '{}'::jsonb
+    from public.form_templates t
+   cross join (select v_auth2a as id union all select v_auth2) a
+   where t.required_for_billing and 'Job Coaching' = any (t.services);
+  update public.authorizations set status = 'Due' where id in (v_auth2a, v_auth2);
+  update public.authorizations
+     set status = 'Submitted', submitted_on = date '2026-01-02', recipient = 'ZZ USOR'
+   where id in (v_auth2a, v_auth2);
+
+  -- What the workbook recorded: one payment on warrant ZW0000001, against the
+  -- authorization itself.
   perform set_config('zion.reconciling', 'on', true);
-  insert into public.invoices (auth_id, number, date, amount, status, paid_date, warrant, voucher)
-  values (v_auth1, 'ZQ9600001', date '2026-01-02', 560, 'Paid', date '2026-01-15', 'ZW0000001', '26PR00000000001')
-  returning id into v_wb_inv;
-  insert into public.payments (auth_id, invoice_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name)
-  values (v_auth1, v_wb_inv, 560, 'ZW0000001', date '2026-01-15', '26PR00000000001', 'Workbook', 'Workbook import')
+  -- Through the flow, not around it: Due, submitted, then paid.
+  update public.authorizations set status = 'Due' where id = v_auth1;
+  -- A completion row is opened for every flat fee by a trigger, so this sets
+  -- the date on the one that is already there.
+  update public.completions
+     set start_date = date '2025-12-01', completion = date '2026-01-01'
+   where auth_id = v_auth1;
+  update public.authorizations
+     set status = 'Submitted', submitted_on = date '2026-01-02', recipient = 'ZZ USOR'
+   where id = v_auth1;
+  update public.authorizations
+     set status = 'Paid', paid_on = date '2026-01-15', paid_amount = 560, warrant = 'ZW0000001'
+   where id = v_auth1;
+  insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name)
+  values (v_auth1, 560, 'ZW0000001', date '2026-01-15', '26PR00000000001', 'Workbook', 'Workbook import')
   returning id into v_wb_pay;
   perform set_config('zion.reconciling', '', true);
-
-  -- An invoice billed and not yet paid.
-  insert into public.invoices (auth_id, number, date, amount, status)
-  values (v_auth2a, 'ZQ9600002A', date '2026-01-02', 450, 'Draft') returning id into v_draft;
 
   insert into public.warrant_documents (sha256, filename, page_count)
   values (repeat('e', 64), 'paid_invoices.pdf', 4) returning id into v_doc;
@@ -159,24 +183,26 @@ begin
     raise notice 'ok  a line the workbook already recorded is linked to that payment, not paid twice';
   end if;
 
-  if (select status from public.invoices where id = v_draft) <> 'Paid'
-     or (select paid_date from public.invoices where id = v_draft) <> date '2026-01-15'
-     or (select warrant from public.invoices where id = v_draft) <> 'ZW0000001'
-     or not exists (select 1 from public.payments where invoice_id = v_draft and source = 'Warrant'
+  -- The line pays the authorization itself (§10): no invoice is marked, and
+  -- none is created.
+  if (select status from public.authorizations where id = v_auth2a) <> 'Paid'
+     or (select paid_on from public.authorizations where id = v_auth2a) <> date '2026-01-15'
+     or (select warrant from public.authorizations where id = v_auth2a) <> 'ZW0000001'
+     or (select paid_amount from public.authorizations where id = v_auth2a) <> 450
+     or not exists (select 1 from public.payments where auth_id = v_auth2a and source = 'Warrant'
                       and amount = 450 and warrant_line_id = v_l2 and voucher = '26PR00000000002') then
-    failures := failures || 'FAILED: the unpaid invoice was not marked Paid with the warrant, or its payment not recorded'::text;
+    failures := failures || 'FAILED: the suffixed authorization was not marked Paid with the warrant, or its payment not recorded'::text;
   else
-    raise notice 'ok  a suffix printed only before the slash pays that suffixed authorization, and its unpaid invoice is marked Paid on the warrant date';
+    raise notice 'ok  a suffix printed only before the slash pays that suffixed authorization, on the warrant date';
   end if;
 
-  if not exists (select 1 from public.invoices
-                  where auth_id = v_auth2 and reconciled_from_warrant and status = 'Paid'
-                    and amount = 440 and date = date '2026-01-05' and number = 'ZQ9600002') then
-    failures := failures || 'FAILED: a paid line with no invoice on file did not create one marked as reconciled'::text;
+  if (select status from public.authorizations where id = v_auth2) <> 'Paid'
+     or (select paid_amount from public.authorizations where id = v_auth2) <> 440 then
+    failures := failures || 'FAILED: the base authorization was not paid by its own line'::text;
   elsif exists (select 1 from public.payments where auth_id = v_auth2a and amount = 440) then
     failures := failures || 'FAILED: a V-number with no suffix was paid onto the suffixed authorization'::text;
   else
-    raise notice 'ok  a paid line with no invoice creates one, marked reconciled from the warrant, on the base authorization';
+    raise notice 'ok  a line pays the authorization its V-number names, and nothing is created to hold it';
   end if;
 
   perform public.reconcile_warrant_page(v_p1);
@@ -200,7 +226,7 @@ begin
   select * into r from public.reconcile_warrant_page(v_hand);
   if r.already_recorded <> 3 or r.reconciled <> 0
      or (select count(*) from public.payments where warrant_no = 'ZW0000001') <> 3
-     or (select count(*) from public.invoices where auth_id = v_auth2 and reconciled_from_warrant) <> 1 then
+     or (select count(*) from public.payments where auth_id = v_auth2) <> 1 then
     failures := failures || format('FAILED: a second copy of a warrant paid its lines again (%s reconciled, %s recorded)',
                                    r.reconciled, r.already_recorded);
   else
@@ -230,11 +256,12 @@ begin
   end if;
 
   perform public.reconcile_warrant_page(v_p4);
-  if not exists (select 1 from public.warrant_lines where page_id = v_p4 and status = 'Needs review' and problem like '%exceeds%')
-     or exists (select 1 from public.invoices where auth_id = v_auth1 and amount = 9999) then
-    failures := failures || 'FAILED: a line over what the authorization allows created an invoice, or did not say why'::text;
+  if not exists (select 1 from public.warrant_lines where page_id = v_p4 and status = 'Needs review'
+                   and problem like '%does not match that payment%')
+     or exists (select 1 from public.payments where auth_id = v_auth1 and amount = 9999) then
+    failures := failures || 'FAILED: a line for an amount nobody can account for was recorded, or did not say why'::text;
   else
-    raise notice 'ok  a line over the authorized amount creates nothing and waits with the reason';
+    raise notice 'ok  a line that does not match what was paid creates nothing and waits with the reason';
   end if;
 
   -- ── who ────────────────────────────────────────────────────
@@ -295,36 +322,38 @@ begin
     raise notice 'ok  even Admin cannot write a payment except through reconciliation or an invoice';
   end;
 
-  -- An invoice marked Paid by hand records its payment; un-paying it takes it back.
-  insert into public.invoices (auth_id, number, date, amount, status)
-  values (v_auth2a, 'ZQ9600002A-2', date '2026-02-01', 100, 'Draft') returning id into v_hand;
-  update public.invoices set status = 'Paid', paid_date = date '2026-02-20', warrant = 'ZW0000099' where id = v_hand;
-  select count(*) into v_count from public.payments where invoice_id = v_hand and source = 'By hand' and amount = 100;
-  update public.invoices set status = 'Draft' where id = v_hand;
-  if v_count <> 1 or exists (select 1 from public.payments where invoice_id = v_hand) then
-    failures := failures || 'FAILED: marking an invoice Paid by hand did not record its payment, or un-paying it kept it'::text;
+  -- Marking something Paid by hand used to be an invoice's doing, and the
+  -- invoice recorded its own payment. There is no invoice and no by-hand pay
+  -- path (§10): a payment exists because a warrant line produced it, which is
+  -- the assertion above. The authorization's own status is moved by the
+  -- reconciliation, never typed.
+  if exists (select 1 from public.authorizations a
+              where a.status = 'Paid'
+                and not exists (select 1 from public.payments p where p.auth_id = a.id)) then
+    failures := failures || 'FAILED: something is marked Paid with no payment behind it'::text;
   else
-    raise notice 'ok  an invoice marked Paid by hand records its payment, and un-paying it takes the payment back';
+    raise notice 'ok  nothing is Paid without a payment behind it, and payments come only from a warrant';
   end if;
 
-  -- ── the position: owed to §10 ──────────────────────────────
+  -- ── the position, returned from §10 ────────────────────────
   --
-  -- This checked billing_position's figures, and every one of them came off
-  -- the invoice: 450 of a Draft paid from the warrant, 30 by hand, a 100 put
-  -- back to Draft. billing_position reads the authorization now (§1), and
-  -- warrant reconciliation still writes invoices until §10 moves it onto the
-  -- authorization - so for this one deploy there is no honest figure to
-  -- assert here, and asserting the old one would mean keeping the invoice
-  -- alive to satisfy a test.
+  -- This assertion was owed. It checked billing_position's figures, and every
+  -- one of them came off the invoice; §1 moved the view onto the authorization
+  -- and §10 moved the warrant onto it too, so the figures can be asserted
+  -- again - from the record that holds them.
   --
-  -- It comes back with §10 and §13.9, where a warrant line matching a
-  -- submitted authorization marks it Paid with no click. Everything else in
-  -- this script - reading the stub, matching the lines, refusing a bad match
-  -- - is untouched and still holds.
+  -- ZQ9600002A: 20 hours at 45 authorized, ten of them logged and paid on the
+  -- warrant for 450.
   if (select authorized from public.billing_position where auth_id = v_auth2a) <> 900 then
     failures := failures || 'FAILED: the position has lost what the authorization authorized'::text;
+  elsif (select paid from public.billing_position where auth_id = v_auth2a) <> 450 then
+    failures := failures || format('FAILED: the position has paid %s on a 450 warrant payment',
+                                   (select paid from public.billing_position where auth_id = v_auth2a));
+  elsif (select outstanding from public.billing_position where auth_id = v_auth2a) <> 0 then
+    failures := failures || format('FAILED: a paid authorization is still outstanding for %s',
+                                   (select outstanding from public.billing_position where auth_id = v_auth2a));
   else
-    raise notice 'ok  the position still knows what was authorized (the rest returns with §10)';
+    raise notice 'ok  the position reads what was authorized, what came in on the warrant, and nothing still owed';
   end if;
 
   perform set_config('role', 'postgres', true);

@@ -107,8 +107,12 @@ begin
     raise notice 'ok  a placeholder is replaced only from the same client''s document';
   end;
 
-  insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_a, '(workbook) coaching ZZ03', 'Job Coaching', 'Hourly', 45, 40, 'Authorized') returning id into v_phB;
+  -- A fixture, so it goes in as the owner: §10 revoked the direct insert, and
+  -- switching the role keeps the claims the triggers read.
+  perform set_config('role', 'postgres', true);
+  insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status, is_placeholder)
+  values (v_a, 'coaching ZZ03', 'Job Coaching', 'Hourly', 45, 40, 'Authorized', true) returning id into v_phB;
+  perform set_config('role', 'authenticated', true);
   begin
     perform public.replace_placeholder_authorization(v_doc2, v_phB, 'zq-970 0001');
     failures := failures || 'FAILED: a placeholder was given a number already on file'::text;

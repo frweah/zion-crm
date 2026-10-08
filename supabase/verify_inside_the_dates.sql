@@ -80,16 +80,24 @@ begin
   values (v_hourly, public.practice_today() - 5, 2, 'ZZ inside the dates', false, '', '');
   raise notice 'ok  completions and billable hours outside the dates are refused; non-billable hours are not';
 
-  -- ── a flat fee is not sent without its completion ──────────
-  insert into public.invoices (auth_id, number, date, amount, status) values (v_flat, 'ZZ-881', public.practice_today(), 2250, 'Draft')
-  returning id into v_inv;
-  begin
-    update public.invoices set status = 'Sent' where id = v_inv;
-    failures := failures || 'FAILED: a flat-fee invoice was sent with no completion recorded'::text;
-  exception when check_violation then null;
-  end;
+  -- ── a flat fee is finished when its completion says so ─────
+  --
+  -- The invoice carried a guard here: a flat fee could not be sent with no
+  -- completion recorded. Like the other two invoice guards it only ever fired
+  -- on an invoice becoming Sent, which never happened in this database, so it
+  -- had never run. It is on the submission checklist now (0165), computed and
+  -- shown, rather than a wall in front of 7 of the 15 flat fees being worked.
+  if (select g.passed from public.authorization_gate(v_flat) g where g.line = 'Service finished') then
+    failures := failures || 'FAILED: a flat fee with no completion recorded was called finished'::text;
+  end if;
 
   update public.completions set completion = public.practice_today() - 3 where auth_id = v_flat;
+
+  if not (select g.passed from public.authorization_gate(v_flat) g where g.line = 'Service finished') then
+    failures := failures || 'FAILED: a flat fee with its completion recorded was not called finished'::text;
+  else
+    raise notice 'ok  a flat fee is finished when its completion is recorded, and the checklist reads it there';
+  end if;
   -- Job Placement also needs its USOR forms before it goes (0002). They are
   -- not what is being tried here, so they are put on file.
   insert into public.forms (template_id, client_id, auth_id, status, data)

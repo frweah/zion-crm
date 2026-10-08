@@ -47,7 +47,7 @@ export default async function ReportsPage({
       .from("authorizations")
       .select("id, number, service_type, total_hours, carried_used"),
     supabase.from("service_entries").select("auth_id, date, hours, non_billable"),
-    supabase.from("invoices").select("date, amount, status, paid_date"),
+    supabase.from("billed_work").select("billed_on, amount, paid, outstanding, paid_on, paid_amount"),
     supabase.from("placements").select("start_date, check90, wage"),
     supabase.from("staff").select("id, name, role").eq("active", true).eq("is_system", false),
     supabase.from("completions").select("auth_id, completion"),
@@ -108,15 +108,18 @@ export default async function ReportsPage({
   const totalUsed = hourlyAuths.reduce((s, a) => s + (usedByAuth.get(a.id) ?? 0), 0);
   const util = totalAuth ? Math.round((totalUsed / totalAuth) * 100) : null;
 
+  // Work carried over from the workbook was billed and paid on the same
+  // recorded day, so it contributes zero and always has. Anything billed
+  // through the CRM carries the day its packet went.
   const daysToPay = median(
     invoices
-      .filter((i) => i.status === "Paid" && i.paid_date)
-      .map((i) => daysBetween(i.date, i.paid_date!)),
+      .filter((i) => i.paid && i.paid_on && i.billed_on)
+      .map((i) => daysBetween(i.billed_on!, i.paid_on!)),
   );
 
   const ar60 = invoices
-    .filter((i) => i.status === "Sent" && daysBetween(i.date, today()) > 60)
-    .reduce((s, i) => s + i.amount, 0);
+    .filter((i) => i.outstanding && i.billed_on && daysBetween(i.billed_on, today()) > 60)
+    .reduce((s, i) => s + Number(i.amount), 0);
 
   const started = placements.filter((p) => p.start_date);
   const eligible = started.filter((p) => daysBetween(p.start_date!, today()) >= 90);
@@ -131,7 +134,7 @@ export default async function ReportsPage({
 
   const wsaDone = clients.filter((c) => c.wsa_completed).length;
   const wsaSubmitted = clients.filter((c) => c.wsa_submitted).length;
-  const paidTotal = invoices.filter((i) => i.status === "Paid").reduce((t, i) => t + i.amount, 0);
+  const paidTotal = invoices.filter((i) => i.paid).reduce((t, i) => t + Number(i.paid_amount ?? i.amount), 0);
 
   // ── the selected month ────────────────────────────────────
   const newClients = clients.filter((c) => inMonth(c.created_at)).length;
@@ -141,8 +144,8 @@ export default async function ReportsPage({
   const monthHours = entries
     .filter((e) => inMonth(e.date) && !e.non_billable)
     .reduce((s, e) => s + Number(e.hours), 0);
-  const issued = invoices.filter((i) => inMonth(i.date));
-  const paidInMonth = invoices.filter((i) => i.status === "Paid" && inMonth(i.paid_date));
+  const issued = invoices.filter((i) => inMonth(i.billed_on));
+  const paidInMonth = invoices.filter((i) => i.paid && inMonth(i.paid_on));
 
   // The same five figures for each of the twelve months to the one shown.
   const trend = lastTwelveMonths(month).map((m) => {
@@ -152,8 +155,8 @@ export default async function ReportsPage({
       newClients: clients.filter((c) => inM(c.created_at)).length,
       placed: clients.filter((c) => (stagesByClient.get(c.id) ?? []).some((h) => h.stage === "Placement" && inM(h.at))).length,
       hours: entries.filter((e) => inM(e.date) && !e.non_billable).reduce((s, e) => s + Number(e.hours), 0),
-      issued: invoices.filter((i) => inM(i.date)).length,
-      paid: invoices.filter((i) => i.status === "Paid" && inM(i.paid_date)).length,
+      issued: invoices.filter((i) => inM(i.billed_on)).length,
+      paid: invoices.filter((i) => i.paid && inM(i.paid_on)).length,
     };
   });
   const series = (k: "newClients" | "placed" | "hours" | "issued" | "paid") =>
@@ -190,9 +193,9 @@ export default async function ReportsPage({
   }
 
   const sameDayPaid = invoices.filter(
-    (i) => i.status === "Paid" && i.paid_date && i.paid_date === i.date,
+    (i) => i.paid && i.paid_on && i.paid_on === i.billed_on,
   ).length;
-  const paidWithDate = invoices.filter((i) => i.status === "Paid" && i.paid_date).length;
+  const paidWithDate = invoices.filter((i) => i.paid && i.paid_on).length;
   if (paidWithDate > 0 && sameDayPaid > paidWithDate / 2) {
     migrationCaveats.push(
       `Days invoice → paid reads ${show(daysToPay)} because ${sameDayPaid} of ${paidWithDate} migrated invoices carry the warrant date as both the issue and payment date. It becomes a real measure for invoices raised in the CRM.`,

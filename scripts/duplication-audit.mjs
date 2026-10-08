@@ -50,67 +50,40 @@ await client.connect();
 // kept - with the query that counts the rows where the two disagree.
 // ─────────────────────────────────────────────────────────────
 const FACTS = [
+  // Five of the facts this audit was built to watch were duplicated between
+  // the authorization, the billing item and the invoice. §§1 and 10 removed
+  // both of the copies, so those facts now live in one place by construction
+  // rather than by agreement - there is nothing left to disagree with. The
+  // check that keeps it that way is verify_one_door, which refuses a second
+  // record rather than counting how far two have drifted apart.
+  //
+  // What stays here is what is still kept twice.
   {
-    fact: "Which service a piece of work is for",
-    home: "authorizations.service_type",
-    copies: ["billing_items.service", "invoices.service_type"],
-    disagree: `select count(*) from public.billing_items i
-                 join public.authorizations a on a.id = i.auth_id
-                where i.service is distinct from a.service_type`,
-  },
-  {
-    fact: "The rate and whether it is hourly",
-    home: "authorizations.rate, authorizations.rate_type",
-    copies: ["billing_items.rate, billing_items.billing_type", "rate_schedule"],
-    disagree: `select count(*) from public.billing_items i
-                 join public.authorizations a on a.id = i.auth_id
-                where i.rate is not null and i.rate is distinct from a.rate`,
-  },
-  {
-    fact: "What the work came to",
-    home: "authorizations (rate x hours)",
-    copies: ["billing_items.amount", "invoices.amount"],
-    disagree: `select count(*) from public.invoices v
-                 join public.billing_items i on i.invoice_id = v.id
-                where v.amount is distinct from i.amount`,
-  },
-  {
-    fact: "When it was sent and to whom",
-    home: "billing_items.submitted_at, billing_items.recipient",
-    copies: ["invoices.sent_date, invoices.payee"],
-    disagree: `select count(*) from public.invoices v
-                 join public.billing_items i on i.invoice_id = v.id
-                where v.sent_date is distinct from i.submitted_at::date`,
-  },
-  {
-    fact: "That it was paid, and on what warrant",
-    home: "billing_items.paid_on, billing_items.warrant",
-    copies: ["invoices.paid_date, invoices.warrant", "payments.warrant_no", "warrant_lines.amount"],
-    disagree: `select count(*) from public.invoices v
-                 join public.billing_items i on i.invoice_id = v.id
-                where v.paid_date is distinct from i.paid_on`,
-  },
-  {
-    fact: "Who the counselor and billing office are",
-    home: "clients.counselor_id, counselors.office",
-    copies: ["clients.counselor_contact", "clients.referring_office", "billing_offices"],
+    // referring_office is not a copy of the counselor's office: it is who sent
+    // the client, which can be a different office and often is. What is a copy
+    // is the counselor's contact details written onto the client.
+    fact: "How to reach the counselor",
+    home: "counselors.email, counselors.phone",
+    copies: ["clients.counselor_contact"],
     disagree: `select count(*) from public.clients c
                  join public.counselors k on k.id = c.counselor_id
-                where nullif(c.referring_office, '') is not null
-                  and nullif(k.office, '') is not null
-                  and c.referring_office is distinct from k.office`,
+                where nullif(btrim(c.counselor_contact), '') is not null
+                  and position(lower(coalesce(nullif(k.email, ''), '~none~'))
+                               in lower(c.counselor_contact)) = 0`,
   },
   {
+    // Two different things that look like one: what somebody worked, and what
+    // the practice bills. They are allowed to differ, and the audit watches
+    // the pair that must not - the same hours entered against the same
+    // authorization twice.
     fact: "Hours worked",
     home: "work_sessions (what somebody did) and service_entries (what is billed)",
-    copies: ["billing_items.hours"],
-    disagree: `select count(*) from public.billing_items i
-                where i.hours is not null
-                  and i.auth_id is not null
-                  and i.hours is distinct from (
-                    select coalesce(sum(e.hours), 0) from public.service_entries e
-                     where e.auth_id = i.auth_id and not e.non_billable
-                       and (i.period is null or date_trunc('month', e.date) = i.period))`,
+    copies: ["service_entries, where the same day is entered twice for one authorization"],
+    disagree: `select count(*) from (
+                 select e.auth_id, e.date, e.hours, count(*)
+                   from public.service_entries e
+                  where not e.non_billable
+                  group by 1, 2, 3 having count(*) > 1) d`,
   },
 ];
 
@@ -157,8 +130,14 @@ note(
 );
 
 // The same stored object named by two different rows.
+//
+// A path, not a filename. Two clients can both have an "authorization.pdf" and
+// that is not a duplicate of anything; two rows pointing at the same object in
+// storage is. The filename columns are listed above for the picture, and
+// excluded here for that reason.
+const PATHLIKE = /(storage_path|relative_path|image_path|attachment_path|document_path|photo_path|pdf_path)$/;
 for (const [t, cols] of byTable) {
-  for (const col of cols) {
+  for (const col of cols.filter((c) => PATHLIKE.test(c))) {
     try {
       const { rows } = await client.query(
         `select count(*)::int as n from (
@@ -166,11 +145,37 @@ for (const [t, cols] of byTable) {
            group by ${col} having count(*) > 1) d`,
       );
       if (rows[0].n > 0) {
-        console.log(`    ${t}.${col}: ${rows[0].n} path(s) used by more than one row`);
-        note("documents", `${t}.${col} has ${rows[0].n} path(s) referenced by more than one row`);
+        console.log(`    ${t}.${col}: ${rows[0].n} object(s) pointed at by more than one row`);
+        note("documents", `${t}.${col} has ${rows[0].n} stored object(s) referenced by more than one row`);
       }
     } catch {
       // Not a table we can read this way; the column list above is the point.
+    }
+  }
+}
+
+// And the same object held in two different tables, which is the one §11
+// actually forbids: a PDF exists once, in the client's file, and everything
+// else references it.
+const STORES = [...byTable.entries()].flatMap(([t, cols]) =>
+  cols.filter((c) => PATHLIKE.test(c)).map((c) => [t, c]),
+);
+for (let i = 0; i < STORES.length; i++) {
+  for (let j = i + 1; j < STORES.length; j++) {
+    const [t1, c1] = STORES[i];
+    const [t2, c2] = STORES[j];
+    try {
+      const { rows } = await client.query(
+        `select count(*)::int as n
+           from public.${t1} a join public.${t2} b on a.${c1} = b.${c2}
+          where a.${c1} is not null and a.${c1} <> ''`,
+      );
+      if (rows[0].n > 0) {
+        console.log(`    ${t1}.${c1} and ${t2}.${c2} point at ${rows[0].n} of the same object(s)`);
+        note("documents", `${t1}.${c1} and ${t2}.${c2} both point at ${rows[0].n} stored object(s)`);
+      }
+    } catch {
+      // Different shapes of path; nothing to compare.
     }
   }
 }
@@ -192,20 +197,51 @@ async function files(dir) {
 }
 const rel = (url) => decodeURIComponent(url.pathname).split("/app/(app)/")[1] ?? url.pathname;
 
-const WATCH = ["authorizations", "billing_items", "invoices", "payments", "service_entries", "warrant_lines"];
-const readers = new Map(WATCH.map((t) => [t, []]));
-for (const url of await files(APP)) {
+// A screen reading a record is not duplication - it is the point of keeping the
+// fact in one place, and eleven screens reading one authorization is §11
+// working, not failing. Counting readers measures the opposite of the rule.
+//
+// What §11 forbids is "if two screens show the same records, one of them goes",
+// and whether a given file *shows* records or merely totals them is not
+// something a regular expression can tell: `.map(` is in both. An earlier
+// version of this check guessed, and reported eleven screens as findings when
+// none of them was a rival list. A check that cries wolf is worse than no
+// check, because it teaches people to skip the output.
+//
+// So this section reports and does not judge. What keeps the rule is a thing
+// the code can state exactly: the working list is one component - Worklist, in
+// billing/worklist.tsx - and both the Billing page and the client's Billing tab
+// render that one (§12.6). If somebody writes a second one, it shows up here as
+// a file that queries the worklist and lays out its own table, and the reviewer
+// decides.
+const APPFILES = await files(APP);
+// Plain string matching: a regex here needs its brackets escaped through two
+// layers and silently matches nothing when one of them is lost.
+const shows = (src, t) => src.includes(`from("${t}")`) || src.includes(`rpc("${t}")`);
+const WATCH = ["authorizations", "payments", "service_entries", "warrant_lines", "billed_work"];
+const counts = new Map(WATCH.map((t) => [t, []]));
+let shared = 0;
+const ownTable = [];
+for (const url of APPFILES) {
   const src = await readFile(url, "utf8");
-  for (const t of WATCH) {
-    if (new RegExp(`from\\("${t}"\\)|from\\('${t}'\\)`).test(src)) readers.get(t).push(rel(url));
+  const name = rel(url);
+  if (/export function Worklist\b/.test(src)) shared += 1;
+  if (/rpc\("billing_worklist"\)/.test(src) && !/<Worklist\b/.test(src) && /<DataTable/.test(src)) {
+    ownTable.push(name);
   }
+  for (const t of WATCH) if (shows(src, t)) counts.get(t).push(name);
 }
-for (const [t, where] of readers) {
-  if (where.length <= 1) continue;
-  console.log(`    ${t}: read by ${where.length} screens`);
-  for (const w of where) console.log(`      ${w}`);
-  note("lists", `${t} is listed by ${where.length} screens: ${where.join(", ")}`);
+console.log(`    the working list is one component, found ${shared} time(s) (expected 1)`);
+if (shared !== 1) note("lists", `the shared working list component was found ${shared} times, not once`);
+if (ownTable.length) {
+  for (const n of ownTable) console.log(`    ${n} queries the working list and lays out its own table`);
+  note("lists", `these query the working list instead of using the shared one: ${ownTable.join(", ")}`);
+} else {
+  console.log("    and no screen lays out a second one");
 }
+console.log("");
+console.log("    read by, for information - not findings:");
+for (const [t, where] of counts) console.log(`      ${t.padEnd(18)} ${where.length} screen(s)`);
 
 await client.end();
 

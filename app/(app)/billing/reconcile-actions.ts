@@ -43,7 +43,7 @@ export async function sendReconciliation(_prev: ReconcileState, formData: FormDa
   if (!built.ok) return { error: `The reconciliation could not be read: ${built.error}`, ok: null };
   const { recon } = built;
   if (recon.cases.length === 0) {
-    return { error: `Nothing is waiting on ${bo.name}: no unpaid invoice and nothing about to lapse.`, ok: null };
+    return { error: `Nothing is waiting on ${bo.name}: nothing outstanding and nothing about to lapse.`, ok: null };
   }
 
   const { cc, bad } = parseCc(String(formData.get("cc") ?? ""), recon.to);

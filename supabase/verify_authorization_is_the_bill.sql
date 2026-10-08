@@ -265,6 +265,9 @@ begin
   end if;
 
   -- ── the grace: inside it warns, past it refuses ───────────
+  -- The fixture needs the table; switching the role keeps the claims, so the
+  -- triggers still know whose doing it is (§10 revoked the direct insert).
+  perform set_config('role', 'postgres', true);
   insert into public.authorizations (
     client_id, number, service_type, rate_type, rate,
     start_date, end_date, received_on, stale_date, status, bill_by
@@ -273,6 +276,7 @@ begin
     date '2026-01-01', public.practice_today() - 30, public.practice_today() - 60,
     public.practice_today() - 30, 'Due', public.practice_today() - 20
   ) returning id into v_auth;
+  perform set_config('role', 'authenticated', true);
 
   insert into public.forms (template_id, client_id, auth_id, status, data)
   select t.id, v_client, v_auth, 'Completed', '{}'::jsonb
@@ -328,6 +332,9 @@ begin
   end if;
 
   -- ── no end date never blocks ──────────────────────────────
+  -- The fixture needs the table; switching the role keeps the claims, so the
+  -- triggers still know whose doing it is (§10 revoked the direct insert).
+  perform set_config('role', 'postgres', true);
   insert into public.authorizations (
     client_id, number, service_type, rate_type, rate,
     start_date, received_on, status, bill_by
@@ -335,6 +342,7 @@ begin
     v_client, 'ZZ-A-3', 'Job Readiness', 'Flat Fee', 300,
     date '2026-01-01', public.practice_today() - 40, 'Due', public.practice_today() - 10
   ) returning id into v_auth;
+  perform set_config('role', 'authenticated', true);
 
   insert into public.forms (template_id, client_id, auth_id, status, data)
   select t.id, v_client, v_auth, 'Completed', '{}'::jsonb

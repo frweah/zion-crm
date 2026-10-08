@@ -107,7 +107,7 @@ export default async function RecordsBundlePage({
       <Section title="Case notes" rows={list("notes")} highlight="visible_roles" />
       <Section title="Counselor contacts" rows={list("counselor_contacts")} />
       <Section title="Authorizations" rows={list("authorizations")} />
-      <Section title="Invoices" rows={list("invoices")} />
+      <Section title="Billing" rows={list("billed_work")} />
       <Section title="Service hours" rows={list("service_hours")} />
       <Section title="USOR forms" rows={list("forms")} />
       <Section title="Placements" rows={list("placements")} />

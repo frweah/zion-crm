@@ -92,13 +92,13 @@ export async function GET(
       ];
     });
     rows = byOffice(rows);
-  } else if (kind === "invoices") {
+  } else if (kind === "billed-work") {
     const [{ data: invoices }, { data: auths }, { data: clients }] = await Promise.all([
       supabase
-        .from("invoices")
-        .select("auth_id, number, date, amount, status, sent_date, paid_date, warrant, voucher, service_type")
-        .or(`and(date.gte.${start},date.lte.${end}),and(paid_date.gte.${start},paid_date.lte.${end})`)
-        .order("date"),
+        .from("billed_work")
+        .select("auth_id, number, billed_on, amount, status, paid_on, paid_amount, warrant, service_type")
+        .or(`and(billed_on.gte.${start},billed_on.lte.${end}),and(paid_on.gte.${start},paid_on.lte.${end})`)
+        .order("billed_on"),
       supabase.from("authorizations").select("id, number, client_id"),
       supabase.from("clients").select("id, name, client_no, agency_id"),
     ]);
@@ -107,8 +107,8 @@ export async function GET(
     const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
 
     headers = [
-      "Billing office", "Invoice", "Date", "Client", "Client no", "USOR ID", "Authorization", "Service",
-      "Amount", "Status", "Sent", "Paid", "Warrant", "Voucher", "In this month",
+      "Billing office", "Authorization", "Billed", "Client", "Client no", "USOR ID", "Service",
+      "Amount", "Status", "Paid", "Paid amount", "Warrant", "In this month",
     ];
     rows = (invoices ?? []).map((i) => {
       const a = i.auth_id ? authById.get(i.auth_id) : undefined;
@@ -117,14 +117,14 @@ export async function GET(
       // actually asking, so it is answered in the file rather than left to
       // whoever sorts it.
       const belongs = [
-        inMonth(i.date) ? "raised" : null,
-        inMonth(i.paid_date) ? "paid" : null,
+        inMonth(i.billed_on) ? "billed" : null,
+        inMonth(i.paid_on) ? "paid" : null,
       ].filter(Boolean).join(" and ");
       return [
         billing.forClient(a?.client_id)?.name ?? "",
-        i.number, i.date, c?.name ?? "", c?.client_no ?? "", c?.agency_id ?? "",
-        a?.number ?? "", i.service_type, i.amount, i.status,
-        i.sent_date ?? "", i.paid_date ?? "", i.warrant, i.voucher, belongs,
+        i.number || a?.number || "", i.billed_on ?? "", c?.name ?? "", c?.client_no ?? "",
+        c?.agency_id ?? "", i.service_type, i.amount, i.status,
+        i.paid_on ?? "", i.paid_amount ?? "", i.warrant ?? "", belongs,
       ];
     });
     rows = byOffice(rows);

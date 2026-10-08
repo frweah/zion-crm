@@ -108,12 +108,12 @@ export async function buildReportText(
       : Promise.resolve({ data: [] }),
     authIds.length
       ? supabase
-          .from("invoices")
-          .select("number, date, amount, status, paid_date")
+          .from("billed_work")
+          .select("number, billed_on, amount, status, paid_on, paid_amount")
           .in("auth_id", authIds)
-          .gte("date", start)
-          .lte("date", end)
-          .order("date")
+          .gte("billed_on", start)
+          .lte("billed_on", end)
+          .order("billed_on")
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -300,9 +300,9 @@ export async function buildReportText(
     L.push("BILLING IN PERIOD");
     for (const i of invoices) {
       L.push(
-        `${i.date} — ${i.number} — ${money(i.amount)} — ${i.status}${
-          i.paid_date ? " " + i.paid_date : ""
-        }`,
+        `${i.billed_on} — ${i.number || "no USOR number"} — ${money(
+          Number(i.paid_amount ?? i.amount),
+        )} — ${i.status}${i.paid_on ? " " + i.paid_on : ""}`,
       );
     }
   }

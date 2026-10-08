@@ -136,9 +136,6 @@ begin
   -- Nothing yet: USOR 93 and 95 are both still outstanding.
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  if public.billing_gate_met(v_auth) then
-    failures := failures || 'FAILED: the billing gate passed with both forms outstanding'::text;
-  end if;
   if public.authorization_missing_forms(v_auth) is null then
     failures := failures || 'FAILED: the checklist did not ask for the two outstanding forms'::text;
   end if;
@@ -154,9 +151,6 @@ begin
   insert into public.forms (template_id, client_id, auth_id, month, status, data, created_by, created_by_name, completed_by, completed_by_name)
   values ('usor93', v_client, v_auth, to_char(public.practice_today(), 'YYYY-MM'), 'Completed', '{}', v_worker, 'ZZ Centre Worker', v_worker, 'ZZ Centre Worker'),
          ('usor95', v_client, v_auth, to_char(public.practice_today(), 'YYYY-MM'), 'Completed', '{}', v_worker, 'ZZ Centre Worker', v_worker, 'ZZ Centre Worker');
-  if not public.billing_gate_met(v_auth) then
-    failures := failures || 'FAILED: the gate is still shut with every form signed'::text;
-  end if;
   if public.authorization_missing_forms(v_auth) is not null then
     failures := failures || format('FAILED: every form is signed and the checklist still wants %s',
                                    public.authorization_missing_forms(v_auth))::text;

@@ -45,7 +45,7 @@ export async function resolveWarrantLine(_prev: WarrantState, formData: FormData
   revalidatePath("/billing");
   return {
     error: null,
-    ok: data === "Resolved by hand" ? "Recorded: the payment is on the authorization and its invoice is paid." : `The line is now ${data}.`,
+    ok: data === "Resolved by hand" ? "Recorded: the payment is on the authorization, and the authorization is paid." : `The line is now ${data}.`,
   };
 }
 

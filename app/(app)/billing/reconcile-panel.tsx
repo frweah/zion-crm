@@ -55,8 +55,8 @@ export function ReconcilePanel({
 
       {nothingToSend ? (
         <div className="alert ok">
-          Nothing is waiting on {billingOfficeName}: every invoice sent to them has been paid, and no
-          authorization of theirs is about to lapse with value left to invoice.
+          Nothing is waiting on {billingOfficeName}: everything submitted to them has been paid, and no
+          authorization of theirs is about to lapse with value left on it.
         </div>
       ) : (
         <form action={action}>

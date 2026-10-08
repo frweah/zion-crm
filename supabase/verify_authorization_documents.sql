@@ -211,8 +211,7 @@ begin
 
   -- ── the database refuses a duplicate on its own ────────────
   begin
-    insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-    values (v_a, 'zq-990-0003', 'Other', 'Flat Fee', 1, 'Authorized');
+    perform public.add_authorization(v_a, 'zq-990-0003', 'Other', 'Flat Fee', 1);
     failures := failures || 'FAILED: the database accepted a second authorization with the same number'::text;
   exception when unique_violation then
     raise notice 'ok  asked directly, the database refuses a second authorization with the same number';

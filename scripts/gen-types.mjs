@@ -74,7 +74,7 @@ const RPC_FUNCTIONS = [
   "authorization_missing_forms",
   "authorization_attention",
   "billing_needs_action",
-  "billing_item_ready",
+  "service_date_for",
   "billing_followups_on",
   "submit_authorization_on_send",
   "escalate_unanswered_texts",
@@ -207,12 +207,10 @@ const RPC_FUNCTIONS = [
   "set_my_signature",
   "clear_my_signature",
   "have_my_signature",
-  "billing_gate_met",
   "draft_invoice_for_authorization",
   // The High Quality Indicator schedule (0112).
   "hqi_for_placement",
   "hqi_total",
-  "invoice_date_for",
   "client_merged_into",
   "merge_clients",
   // The books (0141-0144). post_journal is not here on purpose: it is the
@@ -265,6 +263,7 @@ const RPC_FUNCTIONS = [
   "post_inter_entity_transfer",
   // The authorization is the bill (Billing Simplification Brief).
   "bill_by_for",
+  "add_authorization",
   "authorization_amount",
   "authorization_blocked_from",
   "billing_worklist",
