@@ -1439,3 +1439,36 @@ objects, which is a pipeline and arguably correct), staff documents and staff
 files (10), and tax submissions (3). That is HR and tax plumbing rather than
 billing, and it is yours to schedule.
 
+---
+
+## ERP Controls: the 1099 tie-out follows the reversals
+
+Deployed 8 Oct 2026. Migration 0176, one assertion added.
+
+The ERP brief's Controls name six things that must be verified. Five already
+were - debits equal credits, the trial balance balances, every source event
+posts once, a bank reconciliation cannot close with a difference, a closed
+period refuses writes. The sixth, "1099 tie-out equals payables", had a hole.
+
+**The tie-out could not see a reversal.** It counted the ledger side by naming
+the payment kinds - 'Contractor payment' and 'Vendor bill' with a Paid event -
+and a reversal is neither: `reverse_journal()` files it as source_kind
+'Reversal' against the journal it reverses. Measured, by paying a vendor bill of
+500 and undoing it the way the books undo things: **recorded 0, posted 500,
+difference -500.** A phantom, in the one report somebody has to be able to trust
+in January, and the kind that sends a person looking for an error that is not
+there.
+
+It also had to decide which year a reversal belongs to, and the answer is the
+year of the payment it undoes - not the day somebody got round to undoing it.
+The operational side already works that way, reading the bill's own paid_on,
+which goes back with the payment; a tie-out whose two sides answer for different
+years cannot balance.
+
+**This is the third time the same shape of mistake has turned up**, and worth
+naming as a pattern: a reversal is linked by the journal it reverses, not by the
+thing that was paid or billed. Anything that filters journals by source and sums
+reads gross. A report that sums *by account* is safe, because the reversing
+lines land in the same accounts - which is why the general ledger and the
+records-request bundle were not affected, and I checked rather than assumed.
+

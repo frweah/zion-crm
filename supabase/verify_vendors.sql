@@ -219,6 +219,7 @@ declare
   v_tidy_bill uuid;
   v_rec      numeric;
   v_post     numeric;
+  v_rev_journal uuid;
   v_diff     numeric;
   failures   text[] := '{}';
 begin
@@ -356,6 +357,33 @@ begin
                                    v_rec, v_post, v_diff)::text;
   else
     raise notice 'ok  and a bill paid the proper way round ties out exactly';
+  end if;
+
+  -- ── and a payment taken back ties out too ─────────────────
+  --
+  -- A reversal is filed against the journal it reverses, not against the
+  -- payment, so a report that names the payment kinds cannot see it. This one
+  -- could not: undoing a paid bill left the operational record at nothing and
+  -- the ledger at the full amount, and the tie-out showed a difference nobody
+  -- could find (0176). The year it counts in is the payment's, not the day
+  -- somebody got round to undoing it.
+  select id into v_rev_journal from public.journals
+   where source_id = v_tidy_bill and source_event like 'Paid%' limit 1;
+  if v_rev_journal is null then
+    failures := failures || 'FAILED: a paid bill posted nothing to reverse'::text;
+  else
+    perform public.reverse_journal(v_rev_journal, 'ZZ paid in error');
+    update public.vendor_bills
+       set status = 'Approved', paid_on = null, method = null where id = v_tidy_bill;
+
+    select recorded, posted, difference into v_rec, v_post, v_diff
+      from public.ledger_1099_tie_out(2026) where person = 'ZZ Tidy Co';
+    if coalesce(v_rec, 0) <> 0 or coalesce(v_post, 0) <> 0 or coalesce(v_diff, 1) <> 0 then
+      failures := failures || format('FAILED: a payment taken back tied out as recorded %s, posted %s, difference %s',
+                                     v_rec, v_post, v_diff)::text;
+    else
+      raise notice 'ok  a payment taken back leaves nothing recorded, nothing posted and no difference';
+    end if;
   end if;
 
   -- ── a recipient is one kind of payee ──────────────────────
