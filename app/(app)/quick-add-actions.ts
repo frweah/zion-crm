@@ -2,11 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
+import { LIVE_STATUSES } from "@/lib/billing";
 import { today } from "@/lib/constants";
 import { kindsForRole, type QuickKind } from "@/lib/quick-add";
 import { addNote, addTask, addPlacement } from "./clients/[id]/actions";
 import { addClientJob, updateClientJob } from "./clients/[id]/job-actions";
 import { logSession } from "./hours/actions";
+import { logServiceEntry } from "./billing/actions";
 
 export type QuickAddState = { error: string | null; ok: string | null };
 
@@ -28,23 +30,47 @@ export async function quickAddOptions(): Promise<{
   clients: { id: string; name: string }[];
   employers: { id: string; name: string }[];
   categories: { key: string; label: string }[];
+  /**
+   * The authorizations billable hours can go against (§13.14).
+   *
+   * Hourly, still being worked, and the parent rather than a month - the hours
+   * land on the month they were worked on their own (0171), so asking somebody
+   * to pick a month would be asking them to do what the database does.
+   */
+  auths: { id: string; label: string }[];
   kinds: QuickKind[];
   today: string;
 }> {
   const me = await getCurrentStaff();
-  if (!me) return { clients: [], employers: [], categories: [], kinds: [], today: today() };
+  if (!me) return { clients: [], employers: [], categories: [], auths: [], kinds: [], today: today() };
 
   const supabase = await createClient();
-  const [{ data: clients }, { data: employers }, { data: categories }] = await Promise.all([
-    supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
-    supabase.from("employers").select("id, name").order("name"),
-    supabase.rpc("work_categories_for", { p_role: me.role }),
-  ]);
+  const [{ data: clients }, { data: employers }, { data: categories }, { data: auths }] =
+    await Promise.all([
+      supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
+      supabase.from("employers").select("id, name").order("name"),
+      supabase.rpc("work_categories_for", { p_role: me.role }),
+      supabase
+        .from("authorizations")
+        .select("id, number, service_type, client_id, rate_type, status, parent_id")
+        .eq("rate_type", "Hourly")
+        .is("parent_id", null)
+        .in("status", [...LIVE_STATUSES])
+        .order("number"),
+    ]);
+
+  const nameOf = new Map((clients ?? []).map((c) => [c.id, c.name]));
 
   return {
     clients: clients ?? [],
     employers: employers ?? [],
     categories: (categories ?? []).map((c) => ({ key: c.key!, label: c.label! })),
+    auths: (auths ?? [])
+      .filter((a) => nameOf.has(a.client_id))
+      .map((a) => ({
+        id: a.id,
+        label: `${a.number || "(no number)"} · ${nameOf.get(a.client_id)} · ${a.service_type}`,
+      })),
     kinds: kindsForRole(me.role),
     today: today(),
   };
@@ -174,6 +200,26 @@ export async function quickAdd(
         start_date: str("start_date") || null,
       }),
     );
+  }
+
+  /**
+   * Billable hours against an authorization (§13.14).
+   *
+   * Handed to the same action the Hours tab uses, so the rules - no future
+   * dates, never past the authorized hours - are enforced in one place and the
+   * hours land on the month they were worked.
+   */
+  if (what === "hours") {
+    const result = await logServiceEntry(
+      { error: null, ok: null },
+      pass({
+        auth_id: str("auth_id"),
+        date: str("worked_on"),
+        hours: str("hours"),
+        notes: str("description"),
+      }),
+    );
+    return { error: result.error, ok: result.ok };
   }
 
   // A work session is the one thing here that is about the person adding it

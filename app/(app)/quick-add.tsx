@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { NOTE_TYPES, JOB_STATUSES } from "@/lib/constants";
 import { QUICK_KINDS, type QuickKind } from "@/lib/quick-add";
@@ -67,7 +68,7 @@ export function QuickAdd({
 
   const allowed = QUICK_KINDS.filter((k) => !options || options.kinds.includes(k.key));
   const current = QUICK_KINDS.find((k) => k.key === kind)!;
-  const needsClient = kind !== "session";
+  const needsClient = kind !== "session" && kind !== "hours" && kind !== "authorization";
   const today = options?.today ?? "";
 
   return (
@@ -308,6 +309,63 @@ export function QuickAdd({
                 </>
               )}
 
+              {/* §13.14: billable hours against an authorization. */}
+              {kind === "hours" && (
+                <>
+                  {options.auths.length === 0 ? (
+                    <p className="lock">
+                      No hourly authorization is being worked, so there is nothing to log hours
+                      against yet.
+                    </p>
+                  ) : (
+                    <>
+                      <label className="field">
+                        Authorization
+                        <select name="auth_id" required defaultValue="">
+                          <option value="" disabled>
+                            Choose…
+                          </option>
+                          {options.auths.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        Day worked
+                        <input type="date" name="worked_on" defaultValue={today} required />
+                      </label>
+                      <label className="field">
+                        Hours
+                        <input type="number" name="hours" step="0.25" min="0" required />
+                      </label>
+                      <label className="field">
+                        What was done
+                        <textarea name="description" rows={3} />
+                      </label>
+                      <p className="lock">
+                        Coaching hours land on the month they were worked on their own. Hours past
+                        what USOR authorized are refused — ask the counselor for more first.
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* §§12.1, 13.14: an authorization is read off its PDF, on Billing. */}
+              {kind === "authorization" && (
+                <p className="lock">
+                  An authorization is read off the PDF USOR sent, so that the number, the dates, the
+                  service, the rate and the hours come off the document rather than somebody&rsquo;s
+                  typing.{" "}
+                  <Link href="/billing#new-authorization" style={{ color: "var(--teal)" }}>
+                    Drop the PDF on Billing
+                  </Link>
+                  .
+                </p>
+              )}
+
               {kind === "session" && (
                 <>
                   <label className="field">
@@ -342,10 +400,21 @@ export function QuickAdd({
                 </>
               )}
 
-              {!(kind === "interview" && (!clientId || (jobs?.length ?? 0) === 0)) && (
+              {/*
+                Nothing to submit when there is nothing to submit: adding an
+                authorization happens on Billing, and hours need an
+                authorization to go against.
+              */}
+              {kind !== "authorization" &&
+                !(kind === "hours" && options.auths.length === 0) &&
+                !(kind === "interview" && (!clientId || (jobs?.length ?? 0) === 0)) && (
                 <div className="row2" style={{ marginTop: 12 }}>
                   <button className="btn gold" type="submit" disabled={pending}>
-                    {pending ? "Saving…" : `Add ${current.label.toLowerCase()}`}
+                    {pending
+                      ? "Saving…"
+                      : kind === "hours"
+                        ? "Log the hours"
+                        : `Add ${current.label.toLowerCase()}`}
                   </button>
                   <span className="lock">
                     Saved to the same place the full screen writes to, under the same rules.

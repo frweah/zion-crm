@@ -1472,3 +1472,50 @@ reads gross. A report that sums *by account* is safe, because the reversing
 lines land in the same accounts - which is why the general ledger and the
 records-request bundle were not affected, and I checked rather than assumed.
 
+---
+
+## §13.14: quick-add's two billing actions
+
+Deployed 8 Oct 2026. No migration.
+
+"Quick-add offers two billing actions only: Add authorization (from PDF), Log
+hours." It offered neither, and the thing that looked like one was something
+else: **"Work session" writes `work_sessions`, which is what somebody did with
+their day, not `service_entries`, which is what the practice bills.** Conflating
+the two is how a month of coaching ends up as nobody's billable time, so both are
+offered and both say which they are.
+
+**Log hours** picks the authorization, not the client - the authorization implies
+the client, and the hours land on the month they were worked by themselves
+(0171), so asking for a month would be asking somebody to do what the database
+does. It hands off to the same action the Hours tab uses, so the rules about
+future dates and authorized hours live in one place.
+
+**Add authorization** is a link to the PDF drop on Billing rather than a form.
+An authorization read off its own document is the point of §12.1, and a quick
+form that let somebody type one would be the second door §10 closed.
+
+There is no invoice action, and the cap is the brief's: two.
+
+---
+
+## Where the two briefs stand
+
+**Billing Simplification Brief: §§1-13 are built.** The one thing outstanding is
+§11's "one document store" - 23 file-path columns across 15 tables, with three
+pairs pointing at the same object - which the owner has deferred to a later pass,
+and which is HR and tax plumbing rather than billing.
+
+**ERP Brief: E1-E5 and the Controls are built and verified.** What is left is
+owner input, which is listed in the brief itself: the chart of accounts and
+opening balances with the CPA, the books start date, cash or accrual as the
+default, which bank accounts to import, the approval threshold for bills, asset
+lives, and the cash floor for the alert.
+
+**Also waiting on somebody other than me**
+
+- Turning the USOR forms block on, once the forms live in the system rather than
+  on paper. One setting on Admin; §13.10 is what makes it true.
+- Melanie's Outlook connection for billing@zionvocrehab.com still has no
+  connection row, so mail from that address cannot be verified from here.
+
