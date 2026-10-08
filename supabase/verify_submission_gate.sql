@@ -248,26 +248,27 @@ begin
   values (v_client, 'V0000902', 'Job Coaching', 10, 'Hourly', 45, 'Authorized',
           public.practice_today() - 60, public.practice_today() + 30)
   returning id into v_hourly;
-  -- The months are opened nightly, so one is opened here on purpose. A
-  -- fixture that logs hours against a child that does not exist yet inserts
-  -- nothing and proves nothing.
-  insert into public.authorizations
-    (client_id, number, service_type, rate_type, rate, status, start_date, end_date,
-     parent_id, period)
-  values (v_client, '', 'Job Coaching', 'Hourly', 45, 'Authorized',
-          public.practice_today() - 60, public.practice_today() + 30,
-          v_hourly, date_trunc('month', public.practice_today())::date)
-  returning id into v_child;
+  -- Hours logged against the authorization land on the month they were worked
+  -- (0171), so logging ten here opens this month and puts them on it.
   insert into public.service_entries (auth_id, date, hours)
-  values (v_child, public.practice_today() - 5, 12);
-  if (select coalesce(sum(e.hours), 0) from public.service_entries e
-       where e.auth_id = v_child) <> 12 then
-    failures := failures || 'FAILED: the fixture logged no hours, so the check below proves nothing'::text;
+  values (v_hourly, public.practice_today() - 5, 10);
+  select id into v_child from public.authorizations
+   where parent_id = v_hourly and period = date_trunc('month', public.practice_today())::date;
+  if v_child is null or (select coalesce(sum(e.hours), 0) from public.service_entries e
+                          where e.auth_id = v_child) <> 10 then
+    failures := failures || 'FAILED: the hours did not land on this month, so the check below proves nothing'::text;
   end if;
+
+  -- Over the authorized hours cannot be reached by logging - the cap refuses
+  -- that, across every month (0171). The way it happens in practice is an
+  -- amendment: USOR reduces an authorization to fewer hours than have already
+  -- been worked. That is a conversation to have, and until it is had the work
+  -- cannot be submitted.
+  update public.authorizations set total_hours = 8 where id = v_hourly;
   if public.authorization_can_submit(v_hourly) then
-    failures := failures || 'FAILED: twelve hours logged against ten authorized was said to be submittable'::text;
+    failures := failures || 'FAILED: ten hours worked against eight now authorized was said to be submittable'::text;
   else
-    raise notice 'ok  hours are counted across the months and held to what the parent authorized';
+    raise notice 'ok  hours are counted across the months and held to what the authorization says today';
   end if;
 
   -- ── and nobody who is not signed in reads any of it ────────

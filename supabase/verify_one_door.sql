@@ -16,9 +16,9 @@
 --   The door still enforces who. Billing and Admin go through it; nobody else.
 --
 --   The functions that also create an authorization row are only the ones that
---   enter an authorization: a coaching month, a confirmed PDF, and a packet
---   sent for a month the calendar has not opened yet. Anything else appearing
---   in that list is a second door.
+--   enter an authorization, or open a month of one already entered: the
+--   calendar, a confirmed PDF, a packet sent for a month not opened yet, and
+--   hours logged in one. Anything else appearing in that list is a second door.
 --
 --   A payment is still written only by reconciliation, and nothing is Paid
 --   without one behind it.
@@ -92,7 +92,7 @@ begin
   -- number on an authorization that is already there, in place, rather than
   -- creating a second one. That is the point of it.
   if v_doors is distinct from
-     'confirm_authorization_document, open_coaching_months_for, submit_authorization_on_send' then
+     'confirm_authorization_document, open_coaching_months_for, route_entry_to_month, submit_authorization_on_send' then
     failures := failures || format('FAILED: the write paths into authorizations are now %s', coalesce(v_doors, 'none'));
   else
     raise notice 'ok  the only other writers are a coaching month, a confirmed PDF and a packet sent early';
@@ -116,8 +116,14 @@ begin
     raise notice 'ok  the door creates one authorization, Authorized, with its own dates filled in';
   end if;
 
-  -- ── service hours bill nothing ────────────────────────────
-  select count(*) into v_n from public.authorizations where client_id = v_client;
+  -- ── service hours open a month, and nothing else ──────────
+  --
+  -- Logging hours in a coaching month opens that month if it is not there
+  -- (§§5, 12.5), which is a month of an authorization somebody already
+  -- entered - not a new bill. What must not happen is a second
+  -- authorization: the test is that nothing new appears at the top level.
+  select count(*) into v_n from public.authorizations
+   where client_id = v_client and parent_id is null;
   insert into public.authorizations
     (client_id, number, service_type, rate_type, rate, total_hours, start_date, end_date)
   values (v_client, 'V0000971', 'Job Coaching', 'Hourly', 45, 20,
@@ -125,10 +131,16 @@ begin
   insert into public.service_entries (auth_id, date, hours)
   select id, public.practice_today() - 1, 3 from public.authorizations
    where client_id = v_client and number = 'V0000971';
-  if (select count(*) from public.authorizations where client_id = v_client) <> v_n + 1 then
-    failures := failures || 'FAILED: logging hours created a record of its own'::text;
+  if (select count(*) from public.authorizations
+       where client_id = v_client and parent_id is null) <> v_n + 1 then
+    failures := failures || 'FAILED: logging hours created an authorization of its own'::text;
+  elsif not exists (
+    select 1 from public.authorizations ch
+      join public.authorizations p on p.id = ch.parent_id
+     where p.number = 'V0000971' and ch.period = date_trunc('month', public.practice_today() - 1)::date) then
+    failures := failures || 'FAILED: the hours did not open the month they were worked in'::text;
   else
-    raise notice 'ok  logging hours records time and bills nothing';
+    raise notice 'ok  logging hours opens the month it was worked in, and bills nothing new';
   end if;
 
   -- ── a payment comes only from a warrant ───────────────────

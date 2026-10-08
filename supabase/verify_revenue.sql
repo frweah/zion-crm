@@ -13,6 +13,7 @@ do $$
 declare
   v_admin   uuid;
   v_client  uuid;
+  v_month   uuid;
   v_hourly  uuid;
   v_flat    uuid;
   v_invoice uuid;
@@ -38,21 +39,30 @@ begin
     raise notice 'ok  ten hours at $45 is $450 authorized, none of it earned yet';
   end if;
 
+  -- Coaching is monthly, so the hours land on the month they were worked and
+  -- what they earn is the month's (§§5, 12.5). The authorization keeps what it
+  -- authorized and stops counting the earned part as still to do (0172).
   insert into public.service_entries (auth_id, date, hours, staff_id, primary_code)
   values (v_hourly, public.practice_today(), 3, v_admin, 'JC');
+  select id into v_month from public.authorizations
+   where parent_id = v_hourly and period = date_trunc('month', public.practice_today())::date;
 
+  select * into r from public.authorization_economics where auth_id = v_month;
+  if r.earned <> 135 or r.unbilled <> 135 then
+    failures := failures || format('FAILED: after 3 hours the month earned %s / unbilled %s',
+                                   r.earned, r.unbilled);
+  end if;
   select * into r from public.authorization_economics where auth_id = v_hourly;
-  if r.earned <> 135 or r.unbilled <> 135 or r.committed <> 315 then
-    failures := failures || format('FAILED: after 3 hours, earned %s / unbilled %s / committed %s',
-                                   r.earned, r.unbilled, r.committed);
+  if r.committed <> 315 then
+    failures := failures || format('FAILED: 3 of 10 hours worked leaves committed at %s, not 315', r.committed);
   else
-    raise notice 'ok  three hours earns $135, all of it not yet invoiced';
+    raise notice 'ok  three hours earns $135 on the month, and the authorization owes 315 of work';
   end if;
 
   insert into public.service_entries (auth_id, date, hours, staff_id, primary_code, non_billable)
   values (v_hourly, public.practice_today(), 2, v_admin, 'JC', true);
 
-  select * into r from public.authorization_economics where auth_id = v_hourly;
+  select * into r from public.authorization_economics where auth_id = v_month;
   if r.earned <> 135 then
     failures := failures || format('FAILED: two non-billable hours moved earned to %s', r.earned);
   else
@@ -83,23 +93,25 @@ begin
   update public.org_settings set require_forms_to_submit = false where id;
 
   insert into public.forms (template_id, client_id, auth_id, status, data)
-  select t.id, v_client, v_hourly, 'Completed', '{}'::jsonb
+  select t.id, v_client, v_month, 'Completed', '{}'::jsonb
     from public.form_templates t
    where t.required_for_billing and 'Job Coaching' = any (t.services);
 
-  update public.authorizations set status = 'Submitted', recipient = 'ZZ USOR' where id = v_hourly;
-  select * into r from public.authorization_economics where auth_id = v_hourly;
+  -- The month is the bill (§5), so the month is what is submitted.
+  update public.authorizations set status = 'Due' where id = v_month;
+  update public.authorizations set status = 'Submitted', recipient = 'ZZ USOR' where id = v_month;
+  select * into r from public.authorization_economics where auth_id = v_month;
   if r.invoiced <> 135 or r.outstanding <> 135 or r.unbilled <> 0 then
     failures := failures || format('FAILED: submitted reads invoiced %s / outstanding %s / unbilled %s',
                                    r.invoiced, r.outstanding, r.unbilled);
   else
-    raise notice 'ok  submitting asks for the work done, and leaves nothing unbilled';
+    raise notice 'ok  submitting a month asks for the work done in it, and leaves nothing unbilled';
   end if;
 
   update public.authorizations
      set status = 'Paid', paid_on = public.practice_today(), paid_amount = 135
-   where id = v_hourly;
-  select * into r from public.authorization_economics where auth_id = v_hourly;
+   where id = v_month;
+  select * into r from public.authorization_economics where auth_id = v_month;
   if r.received <> 135 or r.outstanding <> 0 then
     failures := failures || format('FAILED: paid reads received %s / outstanding %s',
                                    r.received, r.outstanding);

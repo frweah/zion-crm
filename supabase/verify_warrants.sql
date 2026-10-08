@@ -89,10 +89,14 @@ begin
     from public.form_templates t
    cross join (select v_auth2a as id union all select v_auth2) a
    where t.required_for_billing and 'Job Coaching' = any (t.services);
-  update public.authorizations set status = 'Due' where id in (v_auth2a, v_auth2);
+  -- The hours landed on the month they were worked (0171), and the month is
+  -- the bill (§5) - so it is the months that are submitted, and a coaching
+  -- warrant line resolves to the month it paid (0174).
+  update public.authorizations set status = 'Due'
+   where parent_id in (v_auth2a, v_auth2);
   update public.authorizations
      set status = 'Submitted', submitted_on = date '2026-01-02', recipient = 'ZZ USOR'
-   where id in (v_auth2a, v_auth2);
+   where parent_id in (v_auth2a, v_auth2);
 
   -- What the workbook recorded: one payment on warrant ZW0000001, against the
   -- authorization itself.
@@ -185,21 +189,25 @@ begin
 
   -- The line pays the authorization itself (§10): no invoice is marked, and
   -- none is created.
-  if (select status from public.authorizations where id = v_auth2a) <> 'Paid'
-     or (select paid_on from public.authorizations where id = v_auth2a) <> date '2026-01-15'
-     or (select warrant from public.authorizations where id = v_auth2a) <> 'ZW0000001'
-     or (select paid_amount from public.authorizations where id = v_auth2a) <> 450
-     or not exists (select 1 from public.payments where auth_id = v_auth2a and source = 'Warrant'
-                      and amount = 450 and warrant_line_id = v_l2 and voucher = '26PR00000000002') then
+  if not exists (select 1 from public.authorizations ch
+                  where ch.parent_id = v_auth2a and ch.status = 'Paid'
+                    and ch.paid_on = date '2026-01-15' and ch.warrant = 'ZW0000001'
+                    and ch.paid_amount = 450)
+     or not exists (select 1 from public.payments p
+                      join public.authorizations ch on ch.id = p.auth_id
+                     where ch.parent_id = v_auth2a and p.source = 'Warrant'
+                       and p.amount = 450 and p.warrant_line_id = v_l2
+                       and p.voucher = '26PR00000000002') then
     failures := failures || 'FAILED: the suffixed authorization was not marked Paid with the warrant, or its payment not recorded'::text;
   else
     raise notice 'ok  a suffix printed only before the slash pays that suffixed authorization, on the warrant date';
   end if;
 
-  if (select status from public.authorizations where id = v_auth2) <> 'Paid'
-     or (select paid_amount from public.authorizations where id = v_auth2) <> 440 then
+  if not exists (select 1 from public.authorizations ch
+                  where ch.parent_id = v_auth2 and ch.status = 'Paid' and ch.paid_amount = 440) then
     failures := failures || 'FAILED: the base authorization was not paid by its own line'::text;
-  elsif exists (select 1 from public.payments where auth_id = v_auth2a and amount = 440) then
+  elsif exists (select 1 from public.payments p join public.authorizations ch on ch.id = p.auth_id
+                 where ch.parent_id = v_auth2a and p.amount = 440) then
     failures := failures || 'FAILED: a V-number with no suffix was paid onto the suffixed authorization'::text;
   else
     raise notice 'ok  a line pays the authorization its V-number names, and nothing is created to hold it';
@@ -226,7 +234,8 @@ begin
   select * into r from public.reconcile_warrant_page(v_hand);
   if r.already_recorded <> 3 or r.reconciled <> 0
      or (select count(*) from public.payments where warrant_no = 'ZW0000001') <> 3
-     or (select count(*) from public.payments where auth_id = v_auth2) <> 1 then
+     or (select count(*) from public.payments p join public.authorizations ch on ch.id = p.auth_id
+          where ch.parent_id = v_auth2) <> 1 then
     failures := failures || format('FAILED: a second copy of a warrant paid its lines again (%s reconciled, %s recorded)',
                                    r.reconciled, r.already_recorded);
   else
@@ -346,12 +355,20 @@ begin
   -- warrant for 450.
   if (select authorized from public.billing_position where auth_id = v_auth2a) <> 900 then
     failures := failures || 'FAILED: the position has lost what the authorization authorized'::text;
-  elsif (select paid from public.billing_position where auth_id = v_auth2a) <> 450 then
+  elsif (select sum(bp.paid) from public.billing_position bp
+           join public.authorizations ch on ch.id = bp.auth_id
+          where ch.parent_id = v_auth2a) <> 450 then
     failures := failures || format('FAILED: the position has paid %s on a 450 warrant payment',
-                                   (select paid from public.billing_position where auth_id = v_auth2a));
-  elsif (select outstanding from public.billing_position where auth_id = v_auth2a) <> 0 then
+                                   (select sum(bp.paid) from public.billing_position bp
+                                      join public.authorizations ch on ch.id = bp.auth_id
+                                     where ch.parent_id = v_auth2a));
+  elsif (select coalesce(sum(bp.outstanding), 0) from public.billing_position bp
+           join public.authorizations ch on ch.id = bp.auth_id
+          where ch.parent_id = v_auth2a) <> 0 then
     failures := failures || format('FAILED: a paid authorization is still outstanding for %s',
-                                   (select outstanding from public.billing_position where auth_id = v_auth2a));
+                                   (select coalesce(sum(bp.outstanding), 0) from public.billing_position bp
+                                      join public.authorizations ch on ch.id = bp.auth_id
+                                     where ch.parent_id = v_auth2a));
   else
     raise notice 'ok  the position reads what was authorized, what came in on the warrant, and nothing still owed';
   end if;

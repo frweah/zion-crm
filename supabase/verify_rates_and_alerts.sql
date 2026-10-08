@@ -165,6 +165,45 @@ begin
     failures := failures || 'FAILED: a kept placeholder is on the working list'::text;
   end if;
 
+  -- ── coaching hours land on the month they were worked ──────
+  --
+  -- §§5 and 12.5. Hours are logged against the authorization, because that is
+  -- what a person picks; the month is the bill, and it is the month that has to
+  -- end up holding them. Nothing did this before, so every coaching month
+  -- would have been billed at nothing.
+  insert into public.authorizations
+    (client_id, number, service_type, rate_type, rate, total_hours, start_date, end_date)
+  values (v_client, 'V0000981', 'Job Coaching', 'Hourly', 45, 20,
+          public.practice_today() - 90, public.practice_today() + 90)
+  returning id into v_auth;
+
+  insert into public.service_entries (auth_id, date, hours)
+  values (v_auth, public.practice_today() - 40, 6), (v_auth, public.practice_today() - 5, 4);
+
+  if exists (select 1 from public.service_entries where auth_id = v_auth) then
+    failures := failures || 'FAILED: hours stayed on the coaching authorization instead of its month'::text;
+  end if;
+  select count(*) into v_n from public.authorizations where parent_id = v_auth;
+  if v_n <> 2 then
+    failures := failures || format('FAILED: two months of hours opened %s month record(s)', v_n);
+  end if;
+  select sum(public.authorization_amount(ch.id)) into v_fee
+    from public.authorizations ch where ch.parent_id = v_auth;
+  if v_fee <> 450 then
+    failures := failures || format('FAILED: ten hours at 45 across two months came to %s, not 450', v_fee);
+  else
+    raise notice 'ok  hours land on the month they were worked, and each month prices itself';
+  end if;
+
+  -- And the cap counts across the whole authorization, not one month of it.
+  begin
+    insert into public.service_entries (auth_id, date, hours)
+    values (v_auth, public.practice_today() - 1, 11);
+    failures := failures || 'FAILED: eleven more hours against ten used of twenty authorized went through'::text;
+  exception when check_violation then
+    raise notice 'ok  the hours cap counts every month of an authorization, not one of them';
+  end;
+
   -- ── and nobody signed out reads any of it ──────────────────
   if has_function_privilege('anon', 'public.service_rate(text)', 'execute')
      or has_function_privilege('anon', 'public.authorization_attention(uuid, date)', 'execute') then

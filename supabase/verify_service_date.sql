@@ -54,13 +54,14 @@ begin
     failures := failures || format('FAILED: coaching was dated %s, not its first billable day 2026-08-12', v_on);
   end if;
   -- August billed: the month's own record goes to USOR. This used to be an
-  -- invoice row dated in August; the month is the bill now (§1).
-  insert into public.authorizations
-    (client_id, number, service_type, rate_type, rate, status, start_date, end_date,
-     parent_id, period, submitted_on)
-  select v_c, '', 'Job Coaching', a.rate_type, a.rate, 'Submitted', a.start_date, a.end_date,
-         v_jc, date '2026-08-01', date '2026-08-31'
-    from public.authorizations a where a.id = v_jc;
+  -- invoice row dated in August; the month is the bill now (§1), and logging
+  -- the hours above already opened it (0171) - so this submits the month that
+  -- is there rather than making a second one.
+  update public.authorizations set status = 'Due'
+   where parent_id = v_jc and period = date '2026-08-01';
+  update public.authorizations
+     set status = 'Submitted', submitted_on = date '2026-08-31', recipient = 'ZZ USOR'
+   where parent_id = v_jc and period = date '2026-08-01';
   select on_date into v_on from public.service_date_for(v_jc);
   if v_on is distinct from '2026-09-03'::date then
     failures := failures || format('FAILED: with August billed, coaching was dated %s, not 2026-09-03', v_on);

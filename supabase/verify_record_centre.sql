@@ -157,17 +157,23 @@ begin
   end if;
 
   -- Four hours at forty-five, worked out from the record rather than typed.
-  v_amount := public.authorization_amount(v_auth);
+  --
+  -- Coaching is monthly, so the hours are on the month they were worked and so
+  -- is the figure (§§5, 12.5). The authorization is the sum of its months.
+  select coalesce(sum(public.authorization_amount(ch.id)), 0) into v_amount
+    from public.authorizations ch where ch.parent_id = v_auth;
   if v_amount <> 180 then
-    failures := failures || format('FAILED: the authorization came to %s, and the hours come to 180', v_amount)::text;
+    failures := failures || format('FAILED: the month came to %s, and the hours come to 180', v_amount)::text;
   end if;
 
-  -- And no second record was created along the way, which is the whole point.
-  select count(*) into v_n from public.authorizations where client_id = v_client;
+  -- And no second piece of work was created along the way, which is the point.
+  -- A month is not a second piece of work; a second authorization would be.
+  select count(*) into v_n from public.authorizations
+   where client_id = v_client and parent_id is null;
   if v_n <> 1 then
     failures := failures || format('FAILED: the client ended up with %s authorizations for one piece of work', v_n)::text;
   else
-    raise notice 'ok  finished paperwork makes the authorization billable for what the hours come to, and creates nothing';
+    raise notice 'ok  finished paperwork makes the month billable for what the hours come to, and creates no second bill';
   end if;
 
   -- ── the two moments the pathway turns on (0111) ───────────
