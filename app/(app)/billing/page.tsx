@@ -23,6 +23,7 @@ import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { ReconcilePanel } from "./reconcile-panel";
 import PendingAuthorizations from "./pending-authorizations";
 import { BillingOverview, BillingItems } from "./items/section";
+import { isLive } from "@/lib/billing";
 
 /**
  * The tabs are the Billing group in the sidebar, drawn once in the layout.
@@ -163,7 +164,7 @@ export default async function BillingPage({
     const staffResult = await supabase.from("staff").select("id, name");
     const staffName = new Map((staffResult.data ?? []).map((s) => [s.id, s.name]));
     const authById = new Map(auths.map((a) => [a.id, a]));
-    const hourly = auths.filter((a) => a.rate_type === "Hourly" && a.status === "Open");
+    const hourly = auths.filter((a) => a.rate_type === "Hourly" && isLive(a.status));
 
     const logRows: DataRow[] = [...entries]
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -429,7 +430,7 @@ export default async function BillingPage({
         <div style={{ marginBottom: 8 }}>
           <div className="segmented">
             {[
-              { key: "open", label: "Open" },
+              { key: "open", label: "Being worked" },
               { key: "paid", label: `Paid (${paidCount.length} · ${money(paidTotal)})` },
               { key: "all", label: "All" },
             ].map((f) => (
@@ -494,8 +495,8 @@ export default async function BillingPage({
   // ── Authorizations ────────────────────────────────────────
   const showAll = show === "all";
   const inOfficeAuths = auths.filter((a) => matchesBo(bo, billing.forClient(a.client_id)));
-  const closedCount = inOfficeAuths.filter((a) => a.status !== "Open").length;
-  const shownAuths = inOfficeAuths.filter((a) => showAll || a.status === "Open");
+  const closedCount = inOfficeAuths.filter((a) => !isLive(a.status)).length;
+  const shownAuths = inOfficeAuths.filter((a) => showAll || isLive(a.status));
 
   const { data: completions } = await supabase
     .from("completions")

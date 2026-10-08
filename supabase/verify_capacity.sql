@@ -89,11 +89,11 @@ begin
   -- ── owed: hours for hourly, value for both ─────────────────
   insert into public.authorizations (client_id, number, service_type, total_hours, rate,
                                      rate_type, status)
-  values (v_client, 'ZZ-CAP-H', 'Job Coaching', 20, 45, 'Hourly', 'Open')
+  values (v_client, 'ZZ-CAP-H', 'Job Coaching', 20, 45, 'Hourly', 'Authorized')
   returning id into v_auth;
 
   insert into public.authorizations (client_id, number, service_type, rate, rate_type, status)
-  values (v_client, 'ZZ-CAP-F', 'Job Placement', 1000, 'Flat Fee', 'Open');
+  values (v_client, 'ZZ-CAP-F', 'Job Placement', 1000, 'Flat Fee', 'Authorized');
 
   select * into r from public.staff_capacity where staff_id = v_admin;
   if r.committed_hours <> v_b_hours + 20 then
@@ -117,7 +117,8 @@ begin
   end if;
 
   -- A closed authorization is not owed to anybody.
-  update public.authorizations set status = 'Paid' where id = v_auth;
+  update public.authorizations
+     set status = 'Closed', closed_reason = 'ZZ settled' where id = v_auth;
   select * into r from public.staff_capacity where staff_id = v_admin;
   if r.committed_hours <> v_b_hours then
     failures := failures || format('FAILED: a closed authorization still owes %s hours',

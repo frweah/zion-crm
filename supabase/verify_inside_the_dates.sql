@@ -32,10 +32,10 @@ declare
 begin
   insert into public.clients (name, stage, status) values ('ZZ Dates Window', 'Placement', 'Active') returning id into v_client;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status, start_date, end_date)
-  values (v_client, 'V0000881', 'Job Placement', 'Flat Fee', 2250, 'Open', public.practice_today() - 40, public.practice_today() + 9)
+  values (v_client, 'V0000881', 'Job Placement', 'Flat Fee', 2250, 'Authorized', public.practice_today() - 40, public.practice_today() + 9)
   returning id into v_flat;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status, start_date, end_date)
-  values (v_client, 'V0000882', 'Job Coaching', 20, 'Hourly', 45, 'Open', public.practice_today() - 40, public.practice_today() + 9)
+  values (v_client, 'V0000882', 'Job Coaching', 20, 'Hourly', 45, 'Authorized', public.practice_today() - 40, public.practice_today() + 9)
   returning id into v_hourly;
 
   -- ── a completion to record ────────────────────────────────
@@ -96,11 +96,16 @@ begin
   select t.id, v_client, v_flat, 'Completed', '{}'::jsonb
     from public.form_templates t
    where t.required_for_billing and 'Job Placement' = any (t.services);
-  update public.invoices set status = 'Sent' where id = v_inv;
-  if (select status from public.invoices where id = v_inv) <> 'Sent' then
-    failures := failures || 'FAILED: a flat-fee invoice with its completion recorded could not be sent'::text;
+  -- Sending is the authorization's own move now (§1): there is no invoice to
+  -- set Sent, and "fully invoiced" means the authorization has been
+  -- submitted.
+  update public.authorizations set status = 'Due' where id = v_flat;
+  update public.authorizations
+     set status = 'Submitted', recipient = 'ZZ USOR' where id = v_flat;
+  if (select status from public.authorizations where id = v_flat) <> 'Submitted' then
+    failures := failures || 'FAILED: a flat-fee authorization with its completion recorded could not be sent'::text;
   else
-    raise notice 'ok  a flat-fee invoice goes only once its completion is recorded';
+    raise notice 'ok  a flat-fee authorization goes only once its completion is recorded';
   end if;
 
   if exists (select 1 from public.client_next_actions(v_client) where title like 'Authorization V0000881%') then

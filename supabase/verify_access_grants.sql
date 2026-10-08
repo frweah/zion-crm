@@ -74,7 +74,7 @@ begin
   end if;
   begin
     insert into public.authorizations (client_id, number, service_type, rate, rate_type, status)
-    values (v_client, 'ZQ-GRANT-0', 'ZZ Grant Service', 100, 'Flat Fee', 'Open');
+    values (v_client, 'ZQ-GRANT-0', 'ZZ Grant Service', 100, 'Flat Fee', 'Authorized');
     failures := failures || 'FAILED: somebody without Billing added an authorization'::text;
   exception when insufficient_privilege then null;
   end;
@@ -140,7 +140,7 @@ begin
   end;
   begin
     insert into public.authorizations (client_id, number, service_type, rate, rate_type, status)
-    values (v_client, 'ZQ-GRANT-1', 'ZZ Grant Service', 100, 'Flat Fee', 'Open');
+    values (v_client, 'ZQ-GRANT-1', 'ZZ Grant Service', 100, 'Flat Fee', 'Authorized');
     failures := failures || 'FAILED: a view-only grant added an authorization'::text;
   exception when insufficient_privilege then
     raise notice 'ok  view only opens reading; writing stays shut';
@@ -168,7 +168,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_rep_uid, 'role', 'authenticated')::text, true);
   begin
     insert into public.authorizations (client_id, number, service_type, rate, rate_type, status)
-    values (v_client, 'ZQ-GRANT-2', 'ZZ Grant Service', 100, 'Flat Fee', 'Open');
+    values (v_client, 'ZQ-GRANT-2', 'ZZ Grant Service', 100, 'Flat Fee', 'Authorized');
   exception when insufficient_privilege then
     failures := failures || 'FAILED: an edit grant could not add an authorization'::text;
   end;
@@ -217,7 +217,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_rep_uid, 'role', 'authenticated')::text, true);
   begin
     insert into public.authorizations (client_id, number, service_type, rate, rate_type, status)
-    values (v_client, 'ZQ-GRANT-3', 'ZZ Grant Service', 100, 'Flat Fee', 'Open');
+    values (v_client, 'ZQ-GRANT-3', 'ZZ Grant Service', 100, 'Flat Fee', 'Authorized');
     failures := failures || 'FAILED: ended access still let them add an authorization'::text;
   exception when insufficient_privilege then
     raise notice 'ok  ended access shuts again, and the record says who ended it and why';

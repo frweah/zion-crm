@@ -55,9 +55,20 @@ async function handle(request: NextRequest) {
   // a task for whoever bills it. Both are counted in the answer so a night
   // that did nothing is distinguishable from a night that did not run.
   const practiceToday = new Date().toISOString().slice(0, 10);
+  // On the 1st, each coaching parent gets the month that just finished as a
+  // child authorization (§5). The call is named for what it makes now.
   const { data: itemsOpened } = practiceToday.endsWith("-01")
-    ? await supabase.rpc("open_coaching_items_for", { p_month: practiceToday })
+    ? await supabase.rpc("open_coaching_months_for", { p_month: practiceToday })
     : { data: 0 };
+
+  // Every night: an authorization falls Due on its bill-by date (§4), and a
+  // finished coaching month with no hours closes itself (§13.8). Both are
+  // idempotent, so a night that does nothing costs two queries and a night
+  // the job missed is caught by the next one.
+  const { data: fellDue } = await supabase.rpc("authorizations_fall_due", { p_today: practiceToday });
+  const { data: emptyMonthsClosed } = await supabase.rpc("close_empty_coaching_months", {
+    p_today: practiceToday,
+  });
   const { data: chased } = await supabase.rpc("billing_followups_on", { p_today: practiceToday });
 
   // A client's text nobody answered: a task for whoever works that client at
@@ -117,7 +128,7 @@ async function handle(request: NextRequest) {
   );
 
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, escalated, billsWritten, depreciated, note: "nothing new" });
+    return NextResponse.json({ ok: true, notifications: 0, emails: 0, onboardingReminders, itemsOpened, chased, escalated, billsWritten, depreciated, fellDue, emptyMonthsClosed, note: "nothing new" });
   }
   if (!emailConfigured()) {
     return NextResponse.json(
@@ -187,6 +198,8 @@ async function handle(request: NextRequest) {
     escalated,
     billsWritten,
     depreciated,
+    fellDue,
+    emptyMonthsClosed,
     ...(failed.length ? { failed } : {}),
   });
 }

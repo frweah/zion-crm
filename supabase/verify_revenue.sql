@@ -25,7 +25,7 @@ begin
   -- ── hourly: earns by the hour, and only billable hours ─────
   insert into public.authorizations (client_id, number, service_type, total_hours, rate,
                                      rate_type, status, start_date, carried_used)
-  values (v_client, 'ZZ-HOURLY', 'Job Coaching', 10, 45, 'Hourly', 'Open', public.practice_today(), 0)
+  values (v_client, 'ZZ-HOURLY', 'Job Coaching', 10, 45, 'Hourly', 'Authorized', public.practice_today(), 0)
   returning id into v_hourly;
 
   select * into r from public.authorization_economics where auth_id = v_hourly;
@@ -59,63 +59,49 @@ begin
     raise notice 'ok  a non-billable hour is worth nothing, which is what non-billable means';
   end if;
 
-  -- ── an invoice is money asked for, a void one is not ───────
-  insert into public.invoices (auth_id, number, date, amount, status, service_type)
-  values (v_hourly, 'ZZ-INV-1', public.practice_today(), 100, 'Draft', 'Job Coaching')
-  returning id into v_invoice;
-
-  select * into r from public.authorization_economics where auth_id = v_hourly;
-  if r.unbilled <> 35 or r.outstanding <> 0 then
-    failures := failures || format('FAILED: after a $100 draft, unbilled %s / outstanding %s',
-                                   r.unbilled, r.outstanding);
-  else
-    raise notice 'ok  a draft invoice claims the work, but nobody owes us anything yet';
-  end if;
-
-  -- The revenue screen tells people paperwork can block an invoice. That rule
-  -- lives in the database, and this is it: sending is refused while a USOR
-  -- form the service requires is unfinished.
+  -- ── submitting is asking for the money (§1, §10) ──────────
+  --
+  -- The invoice is gone. Draft, Sent, Paid and Void on an invoice are now
+  -- the authorization's own status, so the shapes this script used to try -
+  -- a part-invoiced authorization, a voided invoice - no longer exist to be
+  -- tried. What is left is the sequence that does exist.
+  --
+  -- The forms rule came across from the invoice, where it was
+  -- check_invoice_forms: a packet does not go to USOR with a required form
+  -- outstanding, and that block now sits on the submit.
+  update public.authorizations set status = 'Due' where id = v_hourly;
   begin
-    update public.invoices set status = 'Sent' where id = v_invoice;
-    failures := failures || 'FAILED: an invoice was sent with USOR forms outstanding'::text;
-  exception when others then
-    raise notice 'ok  the database refuses to send an invoice while a required form is unfinished';
+    update public.authorizations set status = 'Submitted', recipient = 'ZZ' where id = v_hourly;
+    failures := failures || 'FAILED: an authorization was submitted with USOR forms outstanding'::text;
+  exception when check_violation then
+    raise notice 'ok  the database refuses to submit while a required USOR form is unfinished';
   end;
 
-  insert into public.forms (template_id, client_id, auth_id, month, status, created_by, completed_at)
-  select t.id, v_client, v_hourly,
-         case when t.monthly then to_char(public.practice_today(), 'YYYY-MM') else null end,
-         'Completed', v_admin, now()
+  insert into public.forms (template_id, client_id, auth_id, status, data)
+  select t.id, v_client, v_hourly, 'Completed', '{}'::jsonb
     from public.form_templates t
-   where t.required_for_billing and 'Job Coaching' = any(t.services);
+   where t.required_for_billing and 'Job Coaching' = any (t.services);
 
-  update public.invoices set status = 'Sent' where id = v_invoice;
-
+  update public.authorizations set status = 'Submitted', recipient = 'ZZ USOR' where id = v_hourly;
   select * into r from public.authorization_economics where auth_id = v_hourly;
-  if r.unbilled <> 35 or r.outstanding <> 100 or r.received <> 0 then
-    failures := failures || format('FAILED: after sending $100, unbilled %s / outstanding %s / received %s',
-                                   r.unbilled, r.outstanding, r.received);
+  if r.invoiced <> 135 or r.outstanding <> 135 or r.unbilled <> 0 then
+    failures := failures || format('FAILED: submitted reads invoiced %s / outstanding %s / unbilled %s',
+                                   r.invoiced, r.outstanding, r.unbilled);
   else
-    raise notice 'ok  invoicing $100 of $135 leaves $35 not asked for, and $100 owed to us';
+    raise notice 'ok  submitting asks for the work done, and leaves nothing unbilled';
   end if;
 
-  update public.invoices set status = 'Paid', paid_date = public.practice_today() where id = v_invoice;
+  update public.authorizations
+     set status = 'Paid', paid_on = public.practice_today(), paid_amount = 135
+   where id = v_hourly;
   select * into r from public.authorization_economics where auth_id = v_hourly;
-  if r.received <> 100 or r.outstanding <> 0 then
-    failures := failures || format('FAILED: a paid invoice reads received %s / outstanding %s',
+  if r.received <> 135 or r.outstanding <> 0 then
+    failures := failures || format('FAILED: paid reads received %s / outstanding %s',
                                    r.received, r.outstanding);
   else
     raise notice 'ok  paid moves out of owed and into received';
   end if;
 
-  update public.invoices set status = 'Void' where id = v_invoice;
-  select * into r from public.authorization_economics where auth_id = v_hourly;
-  if r.invoiced <> 0 or r.unbilled <> 135 then
-    failures := failures || format('FAILED: a voided invoice still counts — invoiced %s, unbilled %s',
-                                   r.invoiced, r.unbilled);
-  else
-    raise notice 'ok  a voided invoice is not money asked for, and the work goes back to unbilled';
-  end if;
 
   -- ── you cannot work past what USOR authorized ──────────────
   -- The revenue screen warns when an authorization is nearly spent. This is
@@ -146,7 +132,7 @@ begin
   -- ── flat fee earns on completion, not on effort ────────────
   insert into public.authorizations (client_id, number, service_type, rate, rate_type,
                                      status, start_date)
-  values (v_client, 'ZZ-FLAT', 'Job Placement', 1000, 'Flat Fee', 'Open', public.practice_today())
+  values (v_client, 'ZZ-FLAT', 'Job Placement', 1000, 'Flat Fee', 'Authorized', public.practice_today())
   returning id into v_flat;
 
   insert into public.service_entries (auth_id, date, hours, staff_id, primary_code)
@@ -172,7 +158,10 @@ begin
   end if;
 
   -- ── a closed authorization is settled ──────────────────────
-  update public.authorizations set status = 'Paid' where id in (v_hourly, v_flat);
+  -- Closed, not Paid: §4 allows Closed from any state, and v_flat has never
+  -- been submitted, so it could not be paid.
+  update public.authorizations
+     set status = 'Closed', closed_reason = 'ZZ settled' where id in (v_hourly, v_flat);
 
   select sum(unbilled) as u, sum(committed) as c into r
     from public.authorization_economics where auth_id in (v_hourly, v_flat);

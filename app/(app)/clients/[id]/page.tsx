@@ -33,6 +33,7 @@ import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
+import { LIVE_STATUSES, isLive } from "@/lib/billing";
 
 type Params = {
   tab?: string;
@@ -126,7 +127,7 @@ export default async function ClientPage({
       .from("authorizations")
       .select("id, number, service_type, rate, rate_type, total_hours, status")
       .eq("client_id", id)
-      .eq("status", "Open")
+      .in("status", [...LIVE_STATUSES])
       .order("end_date", { ascending: true, nullsFirst: false }),
     supabase.from("client_paperwork").select("auth_id, template_id, state, month").eq("client_id", id),
     supabase.from("client_billing_office").select("billing_office").eq("client_id", id).maybeSingle(),
@@ -868,7 +869,7 @@ export default async function ClientPage({
     // The same test the database applies before letting an invoice be sent,
     // shown here where the work to clear it actually happens.
     const missingForBilling = authsForForms
-      .filter((a) => a.status === "Open")
+      .filter((a) => isLive(a.status))
       .map((a) => ({
         authLabel: `${a.number || a.service_type}`,
         usor: templatesForService(a.service_type)

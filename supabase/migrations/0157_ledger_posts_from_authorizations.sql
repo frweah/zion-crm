@@ -368,12 +368,19 @@ grant execute on function public.ledger_cash_forecast(integer) to authenticated;
 -- authorization now carries its own submission and payment, so the view
 -- reads those.
 --
--- Only the `billed` part changes. The other twenty-one columns are the live
--- definition, dumped and left byte-for-byte alone, because two views
--- (billing_position, staff_capacity) and three functions select from this
--- one and a column list that shifted would break them silently. CREATE OR
--- REPLACE also refuses to change a view's columns, which is the database
--- making the same point.
+-- Three things change: the `billed` part, and the one condition that opens
+-- both `unbilled` and `committed`. Everything else is the live definition,
+-- dumped and left byte-for-byte alone, because two views (billing_position,
+-- staff_capacity) and three functions select from this one and a column list
+-- that shifted would break them silently. CREATE OR REPLACE also refuses to
+-- change a view's columns, which is the database making the same point.
+--
+-- Those two conditions nearly got away. Both read "when the status is not
+-- Open, this is zero" - and with Open gone that is every row, so unbilled
+-- and committed would have been zero everywhere: here, in staff_capacity,
+-- in billing_position and in the Money insight, with nothing failing.
+-- verify_capacity caught it. Checking a spliced definition for the table
+-- that was removed is not enough; the status values have to be checked too.
 -- ─────────────────────────────────────────────────────────────
 create or replace view public.authorization_economics as
  WITH used AS (
@@ -441,7 +448,7 @@ create or replace view public.authorization_economics as
     b.outstanding,
     b.last_invoice_on,
         CASE
-            WHEN a.status <> 'Open'::text THEN 0::numeric
+            WHEN a.status <> ALL (ARRAY['Authorized'::text, 'Due'::text, 'Submitted'::text]) THEN 0::numeric
             ELSE GREATEST(
             CASE
                 WHEN a.rate_type = 'Hourly'::text THEN u.hours_used * a.rate
@@ -450,7 +457,7 @@ create or replace view public.authorization_economics as
             END - b.invoiced, 0::numeric)
         END AS unbilled,
         CASE
-            WHEN a.status <> 'Open'::text THEN 0::numeric
+            WHEN a.status <> ALL (ARRAY['Authorized'::text, 'Due'::text, 'Submitted'::text]) THEN 0::numeric
             ELSE GREATEST(
             CASE
                 WHEN a.rate_type = 'Hourly'::text THEN COALESCE(a.total_hours, 0::numeric) * a.rate

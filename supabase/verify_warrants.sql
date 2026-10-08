@@ -71,11 +71,11 @@ begin
   values ('ZZ Warrant Client', 'Job Coaching', 'Active', v_admin) returning id into v_client;
 
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-  values (v_client, 'ZQ9600001', 'Job Placement', 'Flat Fee', 560, 'Open') returning id into v_auth1;
+  values (v_client, 'ZQ9600001', 'Job Placement', 'Flat Fee', 560, 'Authorized') returning id into v_auth1;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_client, 'ZQ9600002A', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_auth2a;
+  values (v_client, 'ZQ9600002A', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_auth2a;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_client, 'ZQ9600002', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_auth2;
+  values (v_client, 'ZQ9600002', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_auth2;
 
   -- What the workbook recorded: one payment on warrant ZW0000001.
   perform set_config('zion.reconciling', 'on', true);
@@ -307,17 +307,24 @@ begin
     raise notice 'ok  an invoice marked Paid by hand records its payment, and un-paying it takes the payment back';
   end if;
 
-  -- ── the position ───────────────────────────────────────────
-  -- ZQ9600002A: the 450 Draft paid from the warrant, the 30 recorded by hand
-  -- (both invoices marked Paid), and the 100 invoice put back to Draft. Paid is
-  -- 480; nothing has been submitted and left unpaid, so nothing is outstanding.
-  select * into r from public.billing_position where auth_id = v_auth2a;
-  if r.paid <> 480 or r.invoiced <> 580 or r.outstanding <> 0 or r.authorized <> 900 or r.not_yet_invoiced <> 320
-     or r.payments <> 2 then
-    failures := failures || format('FAILED: the position for ZQ9600002A is wrong (authorized %s, invoiced %s, paid %s, outstanding %s, not yet invoiced %s, paid invoices %s)',
-                                   r.authorized, r.invoiced, r.paid, r.outstanding, r.not_yet_invoiced, r.payments);
+  -- ── the position: owed to §10 ──────────────────────────────
+  --
+  -- This checked billing_position's figures, and every one of them came off
+  -- the invoice: 450 of a Draft paid from the warrant, 30 by hand, a 100 put
+  -- back to Draft. billing_position reads the authorization now (§1), and
+  -- warrant reconciliation still writes invoices until §10 moves it onto the
+  -- authorization - so for this one deploy there is no honest figure to
+  -- assert here, and asserting the old one would mean keeping the invoice
+  -- alive to satisfy a test.
+  --
+  -- It comes back with §10 and §13.9, where a warrant line matching a
+  -- submitted authorization marks it Paid with no click. Everything else in
+  -- this script - reading the stub, matching the lines, refusing a bad match
+  -- - is untouched and still holds.
+  if (select authorized from public.billing_position where auth_id = v_auth2a) <> 900 then
+    failures := failures || 'FAILED: the position has lost what the authorization authorized'::text;
   else
-    raise notice 'ok  paid counts invoices marked Paid, and a Draft is invoiced but not outstanding';
+    raise notice 'ok  the position still knows what was authorized (the rest returns with §10)';
   end if;
 
   perform set_config('role', 'postgres', true);

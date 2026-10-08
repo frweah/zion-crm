@@ -127,7 +127,7 @@ begin
   end if;
 
   insert into public.authorizations (client_id, number, service_type, total_hours, rate, rate_type, status)
-  values (v_client, 'ZZ-PIPE', 'Job Coaching', 10, 45, 'Hourly', 'Open');
+  values (v_client, 'ZZ-PIPE', 'Job Coaching', 10, 45, 'Hourly', 'Authorized');
 
   select auth_count into v_count from public.client_pipeline where client_id = v_client;
   if v_count <> 1 or (select no_authorization from public.client_pipeline where client_id = v_client) then

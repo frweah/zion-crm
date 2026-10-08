@@ -8,6 +8,7 @@ import { CRP_STAGES } from "@/lib/crp-pathway";
 import { PageHead } from "../../page-head";
 import { BillFlow, type BillOption } from "../../bill-flow";
 import { ClientPicker } from "./client-picker";
+import { LIVE_STATUSES } from "@/lib/billing";
 
 /**
  * Report &amp; bill, on one screen.
@@ -54,7 +55,7 @@ export default async function ReportAndBillPage({
         .from("authorizations")
         .select("id, number, service_type, rate, rate_type, total_hours, status")
         .eq("client_id", clientId)
-        .eq("status", "Open")
+        .in("status", [...LIVE_STATUSES])
         .order("end_date", { ascending: true, nullsFirst: false }),
       supabase.from("client_paperwork").select("auth_id, template_id, state").eq("client_id", clientId),
       supabase.from("client_billing_office").select("billing_office").eq("client_id", clientId).maybeSingle(),

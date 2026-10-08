@@ -291,6 +291,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      authorization_events: {
+        Row: {
+          id: string;
+          auth_id: string;
+          at: string;
+          staff_id: string | null;
+          staff_name: string | null;
+          was: string | null;
+          became: string | null;
+          note: string | null;
+        };
+        Insert: {
+          id?: string;
+          auth_id: string;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string | null;
+          was?: string | null;
+          became?: string | null;
+          note?: string | null;
+        };
+        Update: {
+          id?: string;
+          auth_id?: string;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string | null;
+          was?: string | null;
+          became?: string | null;
+          note?: string | null;
+        };
+        Relationships: [];
+      };
       authorizations: {
         Row: {
           id: string;
@@ -316,6 +349,29 @@ export type Database = {
           followup_due: string | null;
           followup_set_at: string | null;
           followup_set_by: string | null;
+          received_on: string;
+          bill_by: string | null;
+          stale_date: string | null;
+          stale_reason: string;
+          stale_changed_by: string | null;
+          stale_changed_at: string | null;
+          first_work_day: string | null;
+          service_start: string | null;
+          service_end: string | null;
+          submitted_on: string | null;
+          submitted_by: string | null;
+          recipient: string | null;
+          paid_on: string | null;
+          paid_amount: number | null;
+          warrant: string | null;
+          correction_note: string | null;
+          closed_reason: string | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          parent_id: string | null;
+          period: string | null;
+          zero_hours_confirmed_by: string | null;
+          zero_hours_confirmed_at: string | null;
         };
         Insert: {
           id?: string;
@@ -341,6 +397,29 @@ export type Database = {
           followup_due?: string | null;
           followup_set_at?: string | null;
           followup_set_by?: string | null;
+          received_on?: string;
+          bill_by?: string | null;
+          stale_date?: string | null;
+          stale_reason?: string;
+          stale_changed_by?: string | null;
+          stale_changed_at?: string | null;
+          first_work_day?: string | null;
+          service_start?: string | null;
+          service_end?: string | null;
+          submitted_on?: string | null;
+          submitted_by?: string | null;
+          recipient?: string | null;
+          paid_on?: string | null;
+          paid_amount?: number | null;
+          warrant?: string | null;
+          correction_note?: string | null;
+          closed_reason?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          parent_id?: string | null;
+          period?: string | null;
+          zero_hours_confirmed_by?: string | null;
+          zero_hours_confirmed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -366,6 +445,29 @@ export type Database = {
           followup_due?: string | null;
           followup_set_at?: string | null;
           followup_set_by?: string | null;
+          received_on?: string;
+          bill_by?: string | null;
+          stale_date?: string | null;
+          stale_reason?: string;
+          stale_changed_by?: string | null;
+          stale_changed_at?: string | null;
+          first_work_day?: string | null;
+          service_start?: string | null;
+          service_end?: string | null;
+          submitted_on?: string | null;
+          submitted_by?: string | null;
+          recipient?: string | null;
+          paid_on?: string | null;
+          paid_amount?: number | null;
+          warrant?: string | null;
+          correction_note?: string | null;
+          closed_reason?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          parent_id?: string | null;
+          period?: string | null;
+          zero_hours_confirmed_by?: string | null;
+          zero_hours_confirmed_at?: string | null;
         };
         Relationships: [];
       };
@@ -480,6 +582,30 @@ export type Database = {
           ignored_reason?: string;
           decided_by?: string | null;
           decided_at?: string | null;
+        };
+        Relationships: [];
+      };
+      bill_by_defaults: {
+        Row: {
+          service: string;
+          anchor: string;
+          days: number;
+          note: string;
+          updated_at: string;
+        };
+        Insert: {
+          service: string;
+          anchor: string;
+          days: number;
+          note?: string;
+          updated_at?: string;
+        };
+        Update: {
+          service?: string;
+          anchor?: string;
+          days?: number;
+          note?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -2933,6 +3059,8 @@ export type Database = {
           web_chat_days: number[];
           web_chat_promise: string;
           web_chat_greeting: string;
+          stale_grace_days: number;
+          stale_soon_days: number;
         };
         Insert: {
           id?: boolean;
@@ -2950,6 +3078,8 @@ export type Database = {
           web_chat_days?: number[];
           web_chat_promise?: string;
           web_chat_greeting?: string;
+          stale_grace_days?: number;
+          stale_soon_days?: number;
         };
         Update: {
           id?: boolean;
@@ -2967,6 +3097,8 @@ export type Database = {
           web_chat_days?: number[];
           web_chat_promise?: string;
           web_chat_greeting?: string;
+          stale_grace_days?: number;
+          stale_soon_days?: number;
         };
         Relationships: [];
       };
@@ -5897,6 +6029,18 @@ export type Database = {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
       };
+      authorization_amount: {
+        Args: { p_auth: string | null };
+        Returns: number;
+      };
+      authorization_blocked_from: {
+        Args: { p_stale: string | null };
+        Returns: string;
+      };
+      authorizations_fall_due: {
+        Args: { p_today?: string | null };
+        Returns: number;
+      };
       bank_reconciliation: {
         Args: { p_statement: string | null };
         Returns: { statement_total: number | null; statement_closing: number | null; ledger_closing: number | null; unsettled: number | null; difference: number | null }[];
@@ -5904,6 +6048,10 @@ export type Database = {
       bank_suggestions: {
         Args: { p_statement: string | null };
         Returns: { transaction_id: string | null; kind: string | null; why: string | null; account_id: string | null; journal_id: string | null }[];
+      };
+      bill_by_for: {
+        Args: { p_service: string | null; p_received_on: string | null; p_period?: string | null; p_first_work_day?: string | null };
+        Returns: string;
       };
       billing_followups_on: {
         Args: { p_today: string | null };
@@ -5924,6 +6072,10 @@ export type Database = {
       billing_office_reconciliation: {
         Args: { p_billing_office: string | null; p_within_days?: number | null };
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; invoice_number: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
+      };
+      billing_worklist: {
+        Args: { p_today?: string | null };
+        Returns: { id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; bill_by: string | null; stale_date: string | null; submitted_on: string | null; followup_due: string | null; amount: number | null; parent_id: string | null; attention: string | null; urgency: number | null }[];
       };
       bills_due_by: {
         Args: { p_by: string | null };
@@ -5948,6 +6100,10 @@ export type Database = {
       client_next_actions: {
         Args: { p_client: string | null };
         Returns: { kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
+      };
+      close_empty_coaching_months: {
+        Args: { p_today?: string | null };
+        Returns: number;
       };
       close_ledger_month: {
         Args: { p_month: string | null; p_note?: string | null };
@@ -6274,6 +6430,10 @@ export type Database = {
         Returns: boolean;
       };
       open_coaching_items_for: {
+        Args: { p_month: string | null };
+        Returns: number;
+      };
+      open_coaching_months_for: {
         Args: { p_month: string | null };
         Returns: number;
       };

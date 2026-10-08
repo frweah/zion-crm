@@ -156,122 +156,26 @@ begin
     raise notice 'ok  a posting is reversed once';
   end;
 
-  -- ── a billing item: submitted, then paid ──────────────────
-  insert into public.staff (name, email, role, active)
-  values ('ZZ Ledger Contractor', 'zz-ledger@example.test', 'Job Search', true) returning id into v_staff;
-  insert into public.clients (name, stage, status) values ('ZZ Ledger Client', 'Placement', 'Active')
-  returning id into v_client;
-  insert into public.authorizations (client_id, service_type, rate_type, rate, total_hours)
-  values (v_client, 'Job Coaching', 'Hourly', 40, 20) returning id into v_auth;
-
-  insert into public.billing_items (client_id, auth_id, service, period, status, billing_type, hours, rate, amount)
-  values (v_client, v_auth, 'Job Coaching', date '2026-03-01', 'Ready for billing', 'Hourly', 10, 40, 400)
-  returning id into v_item;
-
-  update public.billing_items
-     set status = 'Submitted', submitted_at = timestamptz '2026-03-10 12:00+00', recipient = 'ZZ USOR'
-   where id = v_item;
-
-  select coalesce(sum(l.debit), 0) into v_amount
-    from public.journal_lines l
-    join public.journals j on j.id = l.journal_id
-   where j.source_kind = 'Billing item' and j.source_id = v_item and l.account_id = v_ar;
-  if v_amount <> 400 then
-    failures := failures || format('FAILED: submitting an item put %s into receivables, not 400', v_amount)::text;
-  end if;
-  select coalesce(sum(l.credit), 0) into v_amount
-    from public.journal_lines l
-    join public.journals j on j.id = l.journal_id
-   where j.source_kind = 'Billing item' and j.source_id = v_item and l.account_id = v_rev;
-  if v_amount <> 400 then
-    failures := failures || format('FAILED: submitting an item credited %s to its service, not 400', v_amount)::text;
-  else
-    raise notice 'ok  an item submitted is owed to the practice, against the revenue for its service';
-  end if;
-
-  -- The same event again is the same event.
-  update public.billing_items set notes = 'ZZ touched again' where id = v_item;
-  update public.billing_items set status = 'Submitted' where id = v_item;
-  select count(*) into v_n from public.journals
-   where source_kind = 'Billing item' and source_id = v_item and source_event like 'Submitted%';
-  if v_n <> 1 then
-    failures := failures || format('FAILED: submitting posted %s times', v_n)::text;
-  else
-    raise notice 'ok  a source event posts exactly once';
-  end if;
-
-  update public.billing_items
-     set status = 'Paid', paid_on = date '2026-04-02', paid_amount = 400, warrant = 'ZZ-W-1'
-   where id = v_item;
-
-  select coalesce(sum(l.debit), 0) into v_amount
-    from public.journal_lines l
-    join public.journals j on j.id = l.journal_id
-   where j.source_kind = 'Billing item' and j.source_id = v_item and l.account_id = v_und;
-  if v_amount <> 400 then
-    failures := failures || format('FAILED: a warrant paid put %s into undeposited funds, not 400', v_amount)::text;
-  else
-    raise notice 'ok  a warrant paid is money in hand, not money at the bank';
-  end if;
-
-  select count(*) into v_n from public.journals
-   where source_kind = 'Billing item' and source_id = v_item
-     and source_event like 'Paid%' and cash_class_account_id = v_rev;
-  if v_n <> 1 then
-    failures := failures || 'FAILED: a payment did not carry the revenue it was for'::text;
-  else
-    raise notice 'ok  a payment says what it was for, so a cash-basis report need not guess';
-  end if;
-
-  -- Receivables are back to nothing: billed 400, paid 400.
-  select coalesce(sum(l.debit) - sum(l.credit), 0) into v_amount
-    from public.journal_lines l
-    join public.journals j on j.id = l.journal_id
-   where l.account_id = v_ar and j.source_kind = 'Billing item' and j.source_id = v_item;
-  if v_amount <> 0 then
-    failures := failures || format('FAILED: receivables stand at %s after an item was billed and paid in full', v_amount)::text;
-  else
-    raise notice 'ok  billed and paid in full leaves nothing owed';
-  end if;
-
-  -- ── and if the payment is undone, so is the posting ───────
-  update public.billing_items set status = 'Correction needed', correction_note = 'ZZ wrong warrant' where id = v_item;
-  select count(*) into v_n from public.journals j
-   where j.source_kind = 'Reversal'
-     and j.reverses_id in (select id from public.journals
-                            where source_kind = 'Billing item' and source_id = v_item
-                              and source_event like 'Paid%');
-  if v_n <> 1 then
-    failures := failures || 'FAILED: undoing a payment left the cash posted'::text;
-  else
-    raise notice 'ok  a payment undone is reversed, not erased';
-  end if;
-
-  -- ── but closing a paid item is not undoing it ─────────────
+  -- ── where the billing-item postings went ──────────────────
   --
-  -- Closed is an ending, not a correction. An item that was paid and is then
-  -- closed off has still been paid, and reversing it would take real money
-  -- off the books with a reversal nobody would read until the month would
-  -- not reconcile.
-  update public.billing_items
-     set status = 'Paid', paid_on = date '2026-04-20', paid_amount = 400 where id = v_item;
-  select count(*) into v_n from public.journals j
-   where j.source_kind = 'Reversal'
-     and j.reverses_id in (select id from public.journals
-                            where source_kind = 'Billing item' and source_id = v_item
-                              and source_event like 'Paid%');
-  update public.billing_items
-     set status = 'Closed', closed_reason = 'ZZ finished with' where id = v_item;
-  select count(*) - v_n into v_n from public.journals j
-   where j.source_kind = 'Reversal'
-     and j.reverses_id in (select id from public.journals
-                            where source_kind = 'Billing item' and source_id = v_item
-                              and source_event like 'Paid%');
-  if v_n <> 0 then
-    failures := failures || 'FAILED: closing a paid item reversed the money it had been paid'::text;
-  else
-    raise notice 'ok  closing a paid item leaves the money where it is';
-  end if;
+  -- This script used to post an item submitted and an item paid, and check
+  -- the receivable, the cash, the cash classification, the reversal when a
+  -- payment is undone, and that closing a paid item does not un-pay it.
+  --
+  -- The billing item is gone (Billing Simplification Brief §1) and every one
+  -- of those assertions now lives in verify_authorization_is_the_bill.sql,
+  -- asked of the authorization that posts them. Keeping a copy here would be
+  -- two scripts testing one rule, which is the duplication §11 is about.
+  --
+  -- What stays here is the ledger's own business: that entries balance, that
+  -- they cannot be edited, that a correction mirrors, that a closed month
+  -- refuses, and that the trial balance balances. Those are true whatever is
+  -- posting into it.
+
+  -- The contractor sections below need somebody to owe money to.
+  insert into public.staff (name, email, role, active)
+  values ('ZZ Ledger Contractor', 'zz-ledger@example.test', 'Job Search', true)
+  returning id into v_staff;
 
   -- ── a statement approved, and the claims on it ────────────
   insert into public.mileage_rates (effective_from, cents_per_mile)

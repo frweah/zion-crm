@@ -44,7 +44,7 @@ begin
   insert into public.notes (client_id, type, text) values (v_old, 'General', 'ZZ old note');
   insert into public.tasks (client_id, title, due) values (v_old, 'ZZ old task', public.practice_today());
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-  values (v_new, 'V0000998', 'Job Development', 'Flat Fee', 560, 'Open');
+  values (v_new, 'V0000998', 'Job Development', 'Flat Fee', 560, 'Authorized');
   insert into public.access_log (client_id, staff_id, subject) values (v_old, v_worker, 'Client intake');
 
   -- ── somebody who is not Admin ──────────────────────────────

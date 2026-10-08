@@ -52,6 +52,11 @@ comment on column public.org_settings.stale_grace_days is
 comment on column public.org_settings.stale_soon_days is
   'How long before the end date the "goes stale soon" warning starts (§6).';
 
+-- org_settings is granted column by column, so a new column is unreadable
+-- until it is named. verify_columns.sql caught these two; without it the
+-- grace would have been set by an Admin and read by nobody.
+grant select (stale_grace_days, stale_soon_days) on public.org_settings to authenticated;
+
 /**
  * The day an authorization stops being submittable at all.
  *
@@ -101,14 +106,48 @@ create policy authorization_events_read on public.authorization_events
 grant select on public.authorization_events to authenticated;
 
 -- ─────────────────────────────────────────────────────────────
+-- §2. What a new authorization fills in for itself
+--
+-- Received on is today unless somebody says the form arrived earlier. The
+-- stale date is the authorization's end date. Bill-by comes from the
+-- service. All three are §2's defaults, and they belong here rather than in
+-- the screen: the PDF route (§12.1), the typed form, the coaching month and
+-- the import all create authorizations, and four places computing the same
+-- three dates is four places to get them wrong.
+--
+-- It also stops a nonsense: the stale date cannot be moved without a reason
+-- (§2), and without this an "Add authorization" that set its own stale date
+-- afterwards would be asked to justify a date it had just invented.
+-- ─────────────────────────────────────────────────────────────
+create or replace function public.authorization_defaults()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.received_on := coalesce(new.received_on, public.practice_today());
+  new.stale_date := coalesce(new.stale_date, new.end_date);
+  new.bill_by := coalesce(
+    new.bill_by,
+    public.bill_by_for(new.service_type, new.received_on, new.period, new.first_work_day));
+  return new;
+end;
+$$;
+
+comment on function public.authorization_defaults is
+  'The three dates §2 says an authorization arrives with: received today unless told otherwise, stale on the end date, bill-by from the service.';
+
+drop trigger if exists authorizations_defaults on public.authorizations;
+create trigger authorizations_defaults before insert on public.authorizations
+  for each row execute function public.authorization_defaults();
+
+-- ─────────────────────────────────────────────────────────────
 -- §4. The moves the flow allows
 -- ─────────────────────────────────────────────────────────────
 create or replace function public.authorization_transition()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_staff uuid := public.current_staff_id();
-  v_name  text;
-  v_legal boolean;
+  v_staff   uuid := public.current_staff_id();
+  v_name    text;
+  v_legal   boolean;
+  v_missing text;
 begin
   if tg_op = 'UPDATE' and new.status is distinct from old.status then
     -- Forward, or Closed, or the two ways reality goes backwards.
@@ -176,6 +215,32 @@ begin
          and new.period > date_trunc('month', new.end_date)::date then
         raise exception 'That month is after the authorization ends on %', new.end_date
           using errcode = 'check_violation';
+      end if;
+
+      /**
+       * The USOR forms the service requires have to be finished.
+       *
+       * This rule already existed, on the invoice: check_invoice_forms
+       * refused to send one while a required form was outstanding. The
+       * invoice is going (§10), and the rule has to come with it rather than
+       * be rediscovered the first time a packet reaches USOR without its
+       * 93 and 95 attached. §12.3 will tick this on the checklist; the block
+       * belongs in the database either way.
+       */
+      select string_agg(t.usor, ' + ' order by t.sort_order) into v_missing
+        from public.form_templates t
+       where t.required_for_billing
+         and new.service_type = any (t.services)
+         and not exists (
+           select 1 from public.forms f
+            where f.auth_id = new.id
+              and f.template_id = t.id
+              and f.status <> 'Draft');
+      if v_missing is not null then
+        raise exception 'Not ready to send: % still outstanding for %',
+          v_missing, coalesce(nullif(new.number, ''), new.service_type)
+          using hint = 'Finish and sign the USOR forms, then submit.',
+                errcode = 'check_violation';
       end if;
 
       if public.authorization_blocked_from(new.stale_date) is not null
@@ -481,3 +546,20 @@ comment on function public.billing_worklist is
 
 revoke all on function public.billing_worklist(date) from anon, authenticated;
 grant execute on function public.billing_worklist(date) to authenticated;
+
+-- ── the automated accounts stay read-only here too ─────────
+--
+-- Two new tables arrived with this brief. verify_system_account named them
+-- both, which is what it is for: the deploy check and the document agent
+-- read the CRM and never write to it.
+do $$
+declare r record;
+begin
+  for r in
+    select c.oid::regclass as t
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+  loop
+    perform public.apply_system_read_only(r.t);
+  end loop;
+end $$;

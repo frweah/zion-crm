@@ -40,7 +40,7 @@ begin
   values ('ZZ Two Client', 'Job Coaching', 'Active', v_js, v_bill) returning id into v_client;
   -- Out of hours: the alert a client's authorization raises for Billing.
   insert into public.authorizations (client_id, number, service_type, total_hours, carried_used, rate_type, rate, status)
-  values (v_client, 'V0000882', 'Job Coaching', 10, 10, 'Hourly', 45, 'Open') returning id into v_auth;
+  values (v_client, 'V0000882', 'Job Coaching', 10, 10, 'Hourly', 45, 'Authorized') returning id into v_auth;
   insert into public.tasks (client_id, assigned_staff_id, title, due, status)
   values (v_client, v_js, 'ZZ two task', public.practice_today() - 1, 'Open');
 

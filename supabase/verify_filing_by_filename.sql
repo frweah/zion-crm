@@ -60,11 +60,11 @@ begin
   values ('ZZ Filing Two', 'Job Coaching', 'Active', v_admin) returning id into v_b;
 
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_a, 'ZQ9800001', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_authA;
+  values (v_a, 'ZQ9800001', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_authA;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status, start_date)
-  values (v_a, 'ZQ9800002', 'Job Development', 'Flat Fee', 560, 'Open', date '2025-01-01') returning id into v_authA2;
+  values (v_a, 'ZQ9800002', 'Job Development', 'Flat Fee', 560, 'Authorized', date '2025-01-01') returning id into v_authA2;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_b, 'ZQ9800003', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_authB;
+  values (v_b, 'ZQ9800003', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_authB;
 
   insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path, size_bytes)
   values ('zy' || repeat('1', 62), 'ZZ Filing One', 'ZZ Filing One/a.pdf', 'Feb job coach.pdf', v_a, 'USOR form', 'Pending', 'inbox/zy/1.pdf', 10)
@@ -233,7 +233,7 @@ begin
   -- ── read by OCR ────────────────────────────────────────────
   perform set_config('role', 'postgres', true);
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-  values (v_a, 'ZQ9800004', 'Job Placement', 'Flat Fee', 2250, 'Open') returning id into v_authO;
+  values (v_a, 'ZQ9800004', 'Job Placement', 'Flat Fee', 2250, 'Authorized') returning id into v_authO;
   insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path)
   values ('zy' || repeat('8', 62), 'ZZ Filing One', 'ZZ Filing One/h.pdf', '19 ZQ9800004 JP.pdf', v_a, 'Unreadable', 'Pending', 'inbox/zy/ocr-1.pdf')
   returning id into v_docO;

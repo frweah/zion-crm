@@ -43,11 +43,11 @@ begin
   values ('ZZ Placeholder Two', 'Job Coaching', 'Active', v_admin) returning id into v_b;
 
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, carried_used, status)
-  values (v_a, '(workbook) coaching ZZ01', 'Job Coaching', 'Hourly', 45, 40, 12.5, 'Open') returning id into v_ph;
+  values (v_a, '(workbook) coaching ZZ01', 'Job Coaching', 'Hourly', 45, 40, 12.5, 'Authorized') returning id into v_ph;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_b, '(workbook) coaching ZZ02', 'Job Coaching', 'Hourly', 45, 40, 'Open') returning id into v_phB;
+  values (v_b, '(workbook) coaching ZZ02', 'Job Coaching', 'Hourly', 45, 40, 'Authorized') returning id into v_phB;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_a, 'ZQ9700001', 'Job Coaching', 'Hourly', 45, 20, 'Open') returning id into v_real;
+  values (v_a, 'ZQ9700001', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_real;
 
   insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path)
   values ('zx' || repeat('1', 62), 'ZZ Placeholder One', 'ZZ Placeholder One/a.pdf', 'Job coaching auth.pdf', v_a,
@@ -108,7 +108,7 @@ begin
   end;
 
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_a, '(workbook) coaching ZZ03', 'Job Coaching', 'Hourly', 45, 40, 'Open') returning id into v_phB;
+  values (v_a, '(workbook) coaching ZZ03', 'Job Coaching', 'Hourly', 45, 40, 'Authorized') returning id into v_phB;
   begin
     perform public.replace_placeholder_authorization(v_doc2, v_phB, 'zq-970 0001');
     failures := failures || 'FAILED: a placeholder was given a number already on file'::text;

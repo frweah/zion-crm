@@ -655,3 +655,221 @@ $$;
 
 revoke all on function public.billing_office_reconciliation(uuid, integer) from anon, authenticated;
 grant execute on function public.billing_office_reconciliation(uuid, integer) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────
+-- The billing item is frozen until §10 removes it
+--
+-- Its data now lives on the authorization. The table stays for one more
+-- deploy so the §7 verification can hold the two to equal totals, and the
+-- old Items screen stays reachable until §9 replaces it - which leaves a
+-- window where somebody could change an item and the authorization would
+-- not follow. Two records disagreeing about what was billed is the exact
+-- failure this whole brief exists to end, so for that window the item is
+-- readable and nothing more.
+--
+-- Frozen rather than dropped because §7's test needs it, and deleted rather
+-- than left frozen because §13.17 says so. §10 does that.
+-- ─────────────────────────────────────────────────────────────
+create or replace function public.billing_items_frozen()
+returns trigger language plpgsql as $$
+begin
+  raise exception 'The billing item has been folded into the authorization'
+    using hint = 'Open the authorization and change it there; this record is history now.',
+          errcode = 'check_violation';
+end;
+$$;
+
+comment on function public.billing_items_frozen is
+  'Refuses any change to a billing item (Billing Simplification Brief §1). Its facts live on the authorization now, and two records disagreeing is what the brief exists to end.';
+
+drop trigger if exists billing_items_frozen on public.billing_items;
+create trigger billing_items_frozen before insert or update or delete on public.billing_items
+  for each row execute function public.billing_items_frozen();
+
+-- ─────────────────────────────────────────────────────────────
+-- Confirming an authorization from a document
+--
+-- The inbox route that turns a confirmed PDF into an authorization set the
+-- status to Open, which no longer exists. One word, and it is the route §12.1
+-- will build on - the PDF is already where authorizations come from here.
+--
+-- The rest is the live definition, dumped and untouched.
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.confirm_authorization_document(p_attachment uuid DEFAULT NULL::uuid, p_doc uuid DEFAULT NULL::uuid, p_auth uuid DEFAULT NULL::uuid, p_number text DEFAULT NULL::text, p_service_type text DEFAULT NULL::text, p_rate_type text DEFAULT NULL::text, p_rate numeric DEFAULT NULL::numeric, p_total_hours numeric DEFAULT NULL::numeric, p_start date DEFAULT NULL::date, p_end date DEFAULT NULL::date)
+ RETURNS TABLE(authorization_id uuid, auth_number text, created boolean, attachment_id uuid, start_filled boolean, end_filled boolean, conflicts text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_role    text := public.current_staff_role();
+  v_staff   uuid := public.current_staff_id();
+  v_name    text;
+  v_client  uuid;
+  v_att     public.attachments%rowtype;
+  v_doc     public.inbox_documents%rowtype;
+  v_auth    public.authorizations%rowtype;
+  v_norm    text;
+  v_type    text := coalesce(nullif(btrim(p_rate_type), ''), 'Hourly');
+  v_created boolean := false;
+  v_sfill   boolean := false;
+  v_efill   boolean := false;
+  v_conf    text[] := '{}';
+begin
+  if (v_role is null or v_role not in ('Admin', 'Billing')) and not public.staff_has_area('billing', 'edit') then
+    raise exception 'Only Admin and Billing confirm an authorization.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- Admin's inbox, except the authorizations Billing confirms (0103).
+  if p_doc is not null and not public.inbox_document_open_to_me(p_doc) then
+    raise exception 'That document is the administrator''s to deal with in Admin → Documents.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if (p_attachment is null) = (p_doc is null) then
+    raise exception 'Say which document: a file on record or an inbox document, and only one.'
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  select name into v_name from public.staff where id = v_staff;
+
+  -- ── the document ─────────────────────────────────────────
+  if p_doc is not null then
+    select * into v_doc from public.inbox_documents where id = p_doc;
+    if not found then
+      raise exception 'That document is not in the inbox.' using errcode = 'no_data_found';
+    end if;
+    if v_doc.client_id is null then
+      raise exception 'Say whose folder that document came from first.' using errcode = 'check_violation';
+    end if;
+    if v_doc.storage_path is null then
+      raise exception 'That document has no stored file.' using errcode = 'check_violation';
+    end if;
+
+    select * into v_att from public.attachments
+     where storage_path = v_doc.storage_path and client_id = v_doc.client_id
+     order by created_at
+     limit 1;
+
+    if not found then
+      insert into public.attachments
+        (client_id, storage_path, filename, mime_type, size_bytes, category, note,
+         uploaded_by, uploaded_by_name)
+      values
+        (v_doc.client_id, v_doc.storage_path, v_doc.filename, 'application/pdf', v_doc.size_bytes,
+         'Authorization', 'From the documents folder', v_staff, coalesce(v_name, ''))
+      returning * into v_att;
+    end if;
+  else
+    select * into v_att from public.attachments where id = p_attachment;
+    if not found then
+      raise exception 'That file is not on record.' using errcode = 'no_data_found';
+    end if;
+  end if;
+
+  v_client := v_att.client_id;
+
+  if v_att.restricted and not public.can_see_restricted(v_client) then
+    raise exception 'That file is restricted.' using errcode = 'insufficient_privilege';
+  end if;
+
+  -- ── the authorization ────────────────────────────────────
+  if p_auth is not null then
+    select * into v_auth from public.authorizations where id = p_auth;
+    if not found then
+      raise exception 'That authorization does not exist.' using errcode = 'no_data_found';
+    end if;
+  else
+    v_norm := public.normalize_auth_number(p_number);
+    if v_norm = '' then
+      raise exception 'An authorization needs its number.' using errcode = 'check_violation';
+    end if;
+
+    select * into v_auth from public.authorizations
+     where public.normalize_auth_number(number) = v_norm;
+
+    if not found then
+      if coalesce(btrim(p_service_type), '') = '' then
+        raise exception 'A new authorization needs its service.' using errcode = 'check_violation';
+      end if;
+      if p_rate is null or p_rate <= 0 then
+        raise exception 'A new authorization needs its rate or fee.' using errcode = 'check_violation';
+      end if;
+      if v_type = 'Hourly' and (p_total_hours is null or p_total_hours <= 0) then
+        raise exception 'An hourly authorization needs the hours USOR authorized.'
+          using errcode = 'check_violation';
+      end if;
+
+      insert into public.authorizations
+        (client_id, number, service_type, rate_type, rate, total_hours, start_date, end_date, status)
+      values
+        (v_client, btrim(p_number), btrim(p_service_type), v_type, p_rate,
+         case when v_type = 'Hourly' then p_total_hours end, p_start, p_end, 'Authorized')
+      returning * into v_auth;
+
+      v_created := true;
+      v_sfill := p_start is not null;
+      v_efill := p_end is not null;
+    end if;
+  end if;
+
+  -- The one mistake this exists to make impossible: one client's PDF on
+  -- another client's authorization.
+  if v_auth.client_id <> v_client then
+    raise exception 'Authorization % is on file for a different client. Nothing was changed.', v_auth.number
+      using errcode = 'check_violation';
+  end if;
+
+  if v_att.auth_id is not null and v_att.auth_id <> v_auth.id then
+    raise exception 'That file is already attached to another authorization. Nothing was changed.'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.attachments set auth_id = v_auth.id where id = v_att.id;
+
+  -- ── dates: fill a blank, never overwrite ─────────────────
+  if not v_created then
+    if p_start is not null then
+      if v_auth.start_date is null then
+        update public.authorizations set start_date = p_start where id = v_auth.id;
+        v_sfill := true;
+      elsif v_auth.start_date <> p_start then
+        v_conf := v_conf || format('start date on file is %s, the PDF says %s', v_auth.start_date, p_start);
+      end if;
+    end if;
+
+    if p_end is not null then
+      if v_auth.end_date is null then
+        update public.authorizations set end_date = p_end where id = v_auth.id;
+        v_efill := true;
+      elsif v_auth.end_date <> p_end then
+        v_conf := v_conf || format('end date on file is %s, the PDF says %s', v_auth.end_date, p_end);
+      end if;
+    end if;
+  end if;
+
+  -- ── the inbox ────────────────────────────────────────────
+  -- A document still waiting is now dealt with. One somebody already decided
+  -- about keeps that decision and its wording.
+  update public.inbox_documents
+     set state = 'Filed',
+         decided_by = v_staff,
+         decided_at = now(),
+         outcome = format('Linked to authorization %s', v_auth.number)
+   where storage_path = v_att.storage_path
+     and client_id = v_client
+     and state = 'Pending';
+
+  return query
+    select v_auth.id, v_auth.number, v_created, v_att.id, v_sfill, v_efill,
+           nullif(array_to_string(v_conf, '; '), '');
+end;
+$function$;
+
+revoke all on function public.confirm_authorization_document(uuid, uuid, uuid, text, text, text, numeric, numeric, date, date) from anon, authenticated;
+grant execute on function public.confirm_authorization_document(uuid, uuid, uuid, text, text, text, numeric, numeric, date, date) to authenticated;
+
+-- §5 replaced this with open_coaching_months_for, which makes a child
+-- authorization rather than a billing item. §13.17: delete, do not hide.
+drop function if exists public.open_coaching_items_for(date);

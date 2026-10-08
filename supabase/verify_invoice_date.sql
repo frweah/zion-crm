@@ -28,17 +28,17 @@ declare
 begin
   insert into public.clients (name, stage, status) values ('ZZ Dates Client', 'Job Coaching', 'Active') returning id into v_c;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status)
-    values (v_c, 'V9001', 'Job Coaching', 100, 'Hourly', 45, 'Open') returning id into v_jc;
+    values (v_c, 'V9001', 'Job Coaching', 100, 'Hourly', 45, 'Authorized') returning id into v_jc;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-    values (v_c, 'V9002', 'Job Placement', 'Flat Fee', 2250, 'Open') returning id into v_jp;
+    values (v_c, 'V9002', 'Job Placement', 'Flat Fee', 2250, 'Authorized') returning id into v_jp;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-    values (v_c, 'V9003', 'HQ Indicator', 'Flat Fee', 560, 'Open') returning id into v_hq;
+    values (v_c, 'V9003', 'HQ Indicator', 'Flat Fee', 560, 'Authorized') returning id into v_hq;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status)
-    values (v_c, 'V9004', 'Job Development', 'Flat Fee', 560, 'Open') returning id into v_jd;
+    values (v_c, 'V9004', 'Job Development', 'Flat Fee', 560, 'Authorized') returning id into v_jd;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status)
-    values (v_c, 'V9005', 'Life Skills', 40, 'Hourly', 30, 'Open') returning id into v_ls;
+    values (v_c, 'V9005', 'Life Skills', 40, 'Hourly', 30, 'Authorized') returning id into v_ls;
   insert into public.authorizations (client_id, number, service_type, total_hours, rate_type, rate, status)
-    values (v_c, 'V9006', 'Job Coaching', 100, 'Hourly', 45, 'Open') returning id into v_empty;
+    values (v_c, 'V9006', 'Job Coaching', 100, 'Hourly', 45, 'Authorized') returning id into v_empty;
 
   insert into public.service_entries (auth_id, date, hours, notes, non_billable, primary_code, secondary_code) values
     (v_jc, '2026-08-12', 3, 'ZZ', false, '', ''), (v_jc, '2026-08-20', 2, 'ZZ', false, '', ''),

@@ -150,9 +150,17 @@ alter table public.authorizations
   add constraint authorizations_hourly_needs_hours
   check (parent_id is not null or rate_type <> 'Hourly' or total_hours is not null);
 
--- A coaching parent has one child per month, and a child is not its own parent.
+/**
+ * A coaching parent has one child per month.
+ *
+ * Not a partial index. A null parent_id is distinct from every other null,
+ * so authorizations that are not children are unaffected - and "on conflict
+ * (parent_id, period)" can name this index, which it cannot do for a partial
+ * one. The same trap caught the recurring vendor bills in 0148.
+ */
+drop index if exists authorizations_one_child_per_month;
 create unique index if not exists authorizations_one_child_per_month
-  on public.authorizations (parent_id, period) where parent_id is not null;
+  on public.authorizations (parent_id, period);
 
 alter table public.authorizations
   drop constraint if exists authorizations_child_has_a_period;
