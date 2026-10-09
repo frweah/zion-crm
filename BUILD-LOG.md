@@ -1711,3 +1711,59 @@ and it still fails; it just no longer fails by reading too early.
 
 Production was not rolled back: only the smoke job does that, and smoke passed.
 
+---
+
+## End-to-end on production, as Billing
+
+9 Oct 2026. One fix: the service the PDF reader claims to have found.
+
+Run against the production database as a real Billing member - `authenticated`
+with their claims, so RLS, the grants, the triggers and the submit gate all
+applied as they do for them - inside one transaction, rolled back. Checked
+afterwards that nothing survived: no ZZ authorization, no hours, no journal, and
+the books-start I borrowed back at 1 Jan 2027.
+
+    1.  read the PDF                     works
+    1b. kept and filed in storage        works
+    2.  confirm it from the folder       works
+    3.  change its end date and bill-by  works
+    4.  log hours against it             works
+    5.  submit it                        works (the record's move; no email)
+    6.  open it from the client record   works
+
+**Not covered, and not pretended otherwise.** Signing in as a person needs
+their password, which is not mine to type, so the HTTP layer and the server
+actions were not exercised - the screens themselves are covered by the smoke
+test, which opens them on every deploy and now clicks Open on the confirm queue.
+And Submit emails the packet to USOR about a real client: the record's own move
+is proven, the send is not, and it should not be proven by sending one.
+
+**One real defect, found and fixed: the service was being invented.** The
+reader's label for the service is the bare word "service", which is all over a
+USOR authorization in prose, and the value was any three-to-sixty letters after
+it. Over 186 real authorizations it claimed a service on nineteen, and most of
+those nineteen were wrong - an email address, "services/materials. Final
+invoices must be submitted within ninety (90)", "services at $45.00 per hour".
+The service decides which USOR forms are required and the day the work must be
+billed by, and it arrived on the confirm form looking as though the document had
+said it. It is matched against the services the practice bills now, longest
+first so "Job Development + HQ Indicator" is not read as "Job Development", and
+anything else is left for the person to pick. Nothing had ever been saved from
+it - the import action refuses a service that is not on the list - so what was
+wrong was the reading.
+
+**What the reader actually manages on real forms,** now that I have looked:
+the authorization number off 136 of 186, start dates off 180, end dates off 177,
+the client off 165. The hours and the rate it does not read at all - 131 of the
+186 report both as missing - which is worth knowing, because the screen's own
+warning is about a rate keyed as 4.50 instead of 45.00 and that rate is being
+typed every time.
+
+**Two things I got wrong on the way, both the same mistake.** I twice declared a
+defect from querying the wrong field key - first `number` instead of
+`authNumber` against the stored parses ("136 of 186" read as "none of 186"),
+then the same key in my own harness, which made a working parser look broken.
+Both times the fix was to print what the code actually returns instead of
+assuming what it is called. The service defect is the one that survived
+checking.
+

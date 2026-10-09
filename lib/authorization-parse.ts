@@ -1,3 +1,5 @@
+import { SERVICE_TYPES } from "./constants";
+
 /**
  * Reading a USOR authorization.
  *
@@ -118,10 +120,36 @@ const RULES: Rule[] = [
   },
   {
     key: "serviceType",
+    /**
+     * The service, and only one the practice actually bills.
+     *
+     * The label is the bare word "service", which appears all over a USOR
+     * authorization in prose - and the value was any three-to-sixty letters
+     * following it. Across 186 real authorizations that read a service off
+     * nineteen, and most of the nineteen were wrong: an email address
+     * (service@...), "services/materials. Final invoices must be submitted
+     * within ninety (90)", "services at $45.00 per hour".
+     *
+     * A service prefilled wrongly is worse than one left blank. It decides
+     * which USOR forms are required and the day the work has to be billed by,
+     * and it arrives on the confirm form looking as though the document said
+     * it. Nothing was ever saved from it - createFromImport refuses a service
+     * that is not on the list - so what this corrects is the reading.
+     *
+     * Matched against the list, longest first so "Job Development + HQ
+     * Indicator" is not read as "Job Development". Anything else is left for
+     * the person to pick, which is what the select is for.
+     */
     name: "service",
     labels: [/service\s*(?:type|provided|authorized)?/i, /^service\b/i],
-    value: /([A-Za-z][A-Za-z()+\-/ ]{3,60})/,
-    clean: (v) => v.replace(/\s{2,}/g, " ").trim(),
+    value: new RegExp(
+      `(${[...SERVICE_TYPES]
+        .sort((a, b) => b.length - a.length)
+        .map((t) => t.replace(/[+()]/g, (ch) => "\\" + ch))
+        .join("|")})`,
+      "i",
+    ),
+    clean: (v) => SERVICE_TYPES.find((t) => t.toLowerCase() === v.trim().toLowerCase()) ?? v.trim(),
   },
   {
     key: "totalHours",
