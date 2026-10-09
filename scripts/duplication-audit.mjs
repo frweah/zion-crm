@@ -97,21 +97,57 @@ for (const f of FACTS) {
   console.log(`    lives in   ${f.home}`);
   console.log(`    also in    ${f.copies.join(" | ")}`);
   console.log(`    disagree   ${disagree}`);
-  note("fields", `${f.fact}: ${f.home} is also kept in ${f.copies.join(", ")}; ${disagree} row(s) disagree`);
+  /**
+   * A finding is drift, not the mere existence of a second place.
+   *
+   * Each entry above names where a fact lives, where else it is written, and
+   * the query that would prove the two had come apart. Noting every entry
+   * whatever that query returned meant the audit reported a fact as duplicated
+   * while saying in the same breath that nothing disagreed - and a count that
+   * could not be taken was reported in the same words as a count of zero,
+   * which is the more dangerous of the two.
+   */
+  if (typeof disagree !== "number") {
+    note("fields", `${f.fact}: the check for drift could not be run - ${disagree}`);
+  } else if (disagree > 0) {
+    note("fields", `${f.fact}: ${f.home} is also kept in ${f.copies.join(", ")}; ${disagree} row(s) disagree`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
 // 2. Documents stored more than once
+//
+// §11: "One document store. A PDF exists once, in the client's file. An
+// authorization, a form, a note, a warrant line, a records request *reference*
+// it; none holds a copy."
+//
+// So what this forbids is a copy - the same bytes stored at two paths. It does
+// not forbid two rows pointing at one object: that is the reference §11 asks
+// for, and it is how an arrival in the inbox and its filing on the client both
+// name one PDF.
+//
+// The first version of this section counted references and reported ten
+// findings, none of which was a copy. Worse, three of them compared a view
+// against the table it reads - inbox_pending over inbox_documents,
+// staff_documents over staff_files - so the same rows were counted as two
+// stores of the same file. Views are excluded now, and the question asked is
+// the one §11 asks.
 // ─────────────────────────────────────────────────────────────
 console.log("");
 console.log("  ── 2. where documents are kept ──");
+
+// The inventory, for the picture. Tables only: a view holding a path column is
+// its table's path column.
 const { rows: pathCols } = await client.query(`
-  select table_name, column_name
-    from information_schema.columns
-   where table_schema = 'public'
-     and (column_name like '%_path' or column_name like '%path'
-          or column_name in ('object_name', 'storage_path', 'file_name', 'filename'))
-   order by table_name, column_name
+  select c.table_name, c.column_name
+    from information_schema.columns c
+    join information_schema.tables t
+      on t.table_schema = c.table_schema and t.table_name = c.table_name
+   where c.table_schema = 'public'
+     and t.table_type = 'BASE TABLE'
+     and (c.column_name like '%_path' or c.column_name like '%path'
+          or c.column_name in ('object_name', 'storage_path', 'file_name', 'filename'))
+   order by c.table_name, c.column_name
 `);
 const byTable = new Map();
 for (const c of pathCols) {
@@ -119,61 +155,60 @@ for (const c of pathCols) {
   byTable.get(c.table_name).push(c.column_name);
 }
 for (const [t, cols] of byTable) console.log(`    ${t.padEnd(26)} ${cols.join(", ")}`);
-console.log(`    ${pathCols.length} column(s) across ${byTable.size} table(s) hold a path to a file.`);
-note(
-  "documents",
-  `${pathCols.length} columns across ${byTable.size} tables hold a file path: ${[...byTable.keys()].join(", ")}. A PDF referenced from two of them is stored twice.`,
+console.log(
+  `    ${pathCols.length} column(s) across ${byTable.size} table(s) hold a path to a file. Several rows naming one object is a reference, which is what §11 asks for.`,
 );
 
-// The same stored object named by two different rows.
-//
-// A path, not a filename. Two clients can both have an "authorization.pdf" and
-// that is not a duplicate of anything; two rows pointing at the same object in
-// storage is. The filename columns are listed above for the picture, and
-// excluded here for that reason.
-const PATHLIKE = /(storage_path|relative_path|image_path|attachment_path|document_path|photo_path|pdf_path)$/;
-for (const [t, cols] of byTable) {
-  for (const col of cols.filter((c) => PATHLIKE.test(c))) {
-    try {
-      const { rows } = await client.query(
-        `select count(*)::int as n from (
-           select ${col} from public.${t} where ${col} is not null and ${col} <> ''
-           group by ${col} having count(*) > 1) d`,
-      );
-      if (rows[0].n > 0) {
-        console.log(`    ${t}.${col}: ${rows[0].n} object(s) pointed at by more than one row`);
-        note("documents", `${t}.${col} has ${rows[0].n} stored object(s) referenced by more than one row`);
-      }
-    } catch {
-      // Not a table we can read this way; the column list above is the point.
+/**
+ * A copy: the same bytes at more than one path.
+ *
+ * Only asked where a fingerprint is kept, because without one the question
+ * cannot be answered - and the tables that take files from outside all keep
+ * one.
+ */
+const FINGERPRINTED = [
+  ["inbox_documents", "sha256", "storage_path"],
+  ["warrant_documents", "sha256", "relative_path"],
+  ["tax_form_submissions", "pdf_sha256", "pdf_path"],
+  ["staff_policy_signatures", "pdf_sha256", null],
+];
+for (const [table, fp, path] of FINGERPRINTED) {
+  if (!path || !byTable.has(table)) continue;
+  try {
+    const { rows } = await client.query(
+      `select count(*)::int as n from (
+         select ${fp} from public.${table}
+          where ${fp} is not null and ${path} is not null and ${path} <> ''
+          group by ${fp} having count(distinct ${path}) > 1) d`,
+    );
+    if (rows[0].n > 0) {
+      console.log(`    ${table}: ${rows[0].n} file(s) stored at more than one path`);
+      note("documents", `${table} holds ${rows[0].n} file(s) stored at more than one path`);
     }
+  } catch {
+    // The shape is not what this expects; the inventory above is the point.
   }
 }
 
-// And the same object held in two different tables, which is the one §11
-// actually forbids: a PDF exists once, in the client's file, and everything
-// else references it.
-const STORES = [...byTable.entries()].flatMap(([t, cols]) =>
-  cols.filter((c) => PATHLIKE.test(c)).map((c) => [t, c]),
-);
-for (let i = 0; i < STORES.length; i++) {
-  for (let j = i + 1; j < STORES.length; j++) {
-    const [t1, c1] = STORES[i];
-    const [t2, c2] = STORES[j];
-    try {
-      const { rows } = await client.query(
-        `select count(*)::int as n
-           from public.${t1} a join public.${t2} b on a.${c1} = b.${c2}
-          where a.${c1} is not null and a.${c1} <> ''`,
-      );
-      if (rows[0].n > 0) {
-        console.log(`    ${t1}.${c1} and ${t2}.${c2} point at ${rows[0].n} of the same object(s)`);
-        note("documents", `${t1}.${c1} and ${t2}.${c2} both point at ${rows[0].n} stored object(s)`);
-      }
-    } catch {
-      // Different shapes of path; nothing to compare.
-    }
-  }
+/**
+ * And the rule that keeps it that way.
+ *
+ * §11: "If the same file arrives twice (agent, upload, email), the fingerprint
+ * matches and the second copy is dropped with a note." That is a unique index
+ * on the fingerprint, and it is the thing that would be quiet if it went.
+ */
+const { rows: fpUnique } = await client.query(`
+  select count(*)::int as n
+    from pg_constraint
+   where conrelid = 'public.inbox_documents'::regclass
+     and contype = 'u'
+     and pg_get_constraintdef(oid) ilike '%sha256%'
+`);
+if (fpUnique[0].n === 0) {
+  console.log("    a document arriving twice is no longer refused by its fingerprint");
+  note("documents", "inbox_documents.sha256 is not unique, so the same file can arrive twice");
+} else {
+  console.log("    a file arriving twice is refused by its fingerprint, so it is stored once");
 }
 
 // ─────────────────────────────────────────────────────────────

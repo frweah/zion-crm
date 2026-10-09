@@ -1647,3 +1647,67 @@ treated a fragment as a reason to skip. A check is worth what it catches, and
 the only way to know is to put the fault back and watch it fail - which is now
 how each of these got signed off.
 
+---
+
+## §11's file-path pass: the rule already held, the audit was asking wrong
+
+Deployed 9 Oct 2026. No migration.
+
+Ten findings, and **not one of them was a copy.** §11 forbids a file stored
+twice - "a PDF exists once, in the client's file; an authorization, a form, a
+note, a warrant line, a records request *reference* it" - and the audit was
+counting references, which is the thing §11 asks for.
+
+Measured properly:
+
+- **No duplicate objects anywhere.** No fingerprint appears at two paths, in the
+  inbox, the warrant documents or the tax submissions.
+- **`inbox_documents.sha256` is UNIQUE**, so the same file arriving twice is
+  refused by the database - which is §11's "the fingerprint matches and the
+  second copy is dropped". The verify suite has asserted it all along: "the same
+  file in two folders is one document, whatever it is called."
+- The 647-object "overlap" between `attachments` and `inbox_documents` is one
+  object named by its arrival and by its filing. That is the reference.
+
+And three of the ten were worse than wrong: **the audit was comparing views
+against the tables they read.** `inbox_pending` is a view over
+`inbox_documents`, `staff_documents` over `staff_files`, `updates_for_me` over
+`updates` - so the same rows were being reported as two stores of one file.
+
+So the pass is a rewrite of the question rather than a change to the data:
+tables only, the same bytes at more than one path, and the fingerprint rule
+asserted so it cannot go quietly. The column inventory stays as information.
+
+**One more of the same mistake, found while here.** Section 1 noted every fact
+it knew about whatever the drift query returned - so it reported a fact as
+duplicated while saying in the same breath that nothing disagreed, and a count
+that *could not be taken* was reported in the same words as a count of zero.
+A finding is drift now. A count that fails to run says so.
+
+**The audit finds none**, and `--check` passes, which is what §11 asks for. It
+is not in `prebuild`: it needs the database, and a build that cannot reach the
+database would fail for the wrong reason.
+
+**Why check 2 was wrong in the first place.** It is the third section of this
+audit I have had to rewrite for the same reason: it measured something easy to
+count rather than the thing the rule forbids. Section 3 counted screens that
+read a record. Section 1 counted facts rather than drift. Section 2 counted
+references rather than copies. The lesson is cheap to state and I keep paying
+for it: write the check against the sentence in the brief, not against the
+shape of the data.
+
+---
+
+## The idle check was racing the sidebar
+
+The idle check failed on a healthy deployment: "signed in, but the sidebar
+offered no links to follow", three seconds in, on the same commit where the
+smoke test opened forty screens and passed. It reads `nav.side a[href]` as soon
+as `quiet()` returns, and `quiet()` returns as soon as no request has been made
+for a moment - which is a beat before the sidebar is in the DOM.
+
+It waits for the links now. If the sidebar genuinely has none the wait times out
+and it still fails; it just no longer fails by reading too early.
+
+Production was not rolled back: only the smoke job does that, and smoke passed.
+

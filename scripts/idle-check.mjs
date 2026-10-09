@@ -81,6 +81,15 @@ try {
 
   // Every screen this account's navigation offers, reached the way a person
   // reaches it: by clicking the link, not by typing the address.
+  //
+  // Waited for, not read the moment the network goes quiet. quiet() returns as
+  // soon as no request has been made for a moment, and the sidebar is in the
+  // DOM a beat after that - so this read the page too early and failed with
+  // "the sidebar offered no links", three seconds in, on a deployment that was
+  // perfectly healthy (9 Oct 2026; the smoke test opened forty screens on the
+  // same commit). The wait makes the assertion real: if the sidebar truly has
+  // no links, it still fails, just not by racing it.
+  await page.waitForSelector("nav.side a[href]", { timeout: 15000 }).catch(() => {});
   const links = await page.$$eval("nav.side a[href]", (as) =>
     [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => h && h.startsWith("/")))],
   );
