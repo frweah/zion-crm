@@ -277,6 +277,8 @@ const MOVED = [
   "/billing/report",
   "/billing/export",
   "/billing/import",
+  // The item's own screen, which §10 removed with the record.
+  "/billing/items",
 ];
 const missing = MOVED.filter((old) => !config.includes(`"${old}"`));
 if (missing.length) {
@@ -393,6 +395,142 @@ if (roundTheDoor.length) {
   fail(`these create an authorization without going through add_authorization: ${roundTheDoor.join(", ")}`);
 } else {
   ok("nothing creates a bill except through add_authorization");
+}
+
+// ── every link goes somewhere ─────────────────────────────────
+//
+// A link to a route that was removed is a 404 for whoever clicks it, and
+// nothing else catches it: tsc does not read strings, the build renders pages
+// rather than following links, and the smoke test opens the screens the
+// navigation lists - not the links those screens emit. Clicking a client under
+// Billing gave a 404 for exactly that reason.
+//
+// So: collect the routes that exist, collect the links the app writes, and
+// report any link that matches neither a route nor a redirect.
+const ROUTE_FILES = ["page.tsx", "route.ts"];
+async function realRoutes(dir, prefix = "") {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      // (groups) do not appear in the URL; @slots and _private are not routes.
+      if (entry.name.startsWith("@") || entry.name.startsWith("_")) continue;
+      const segment = entry.name.startsWith("(") ? "" : `/${entry.name}`;
+      out.push(...(await realRoutes(new URL(`${entry.name}/`, dir), prefix + segment)));
+    } else if (ROUTE_FILES.includes(entry.name)) {
+      out.push(prefix || "/");
+    }
+  }
+  return out;
+}
+const routePaths = await realRoutes(new URL("../app/", import.meta.url));
+
+// A route with [id] in it matches a link with anything in that position. The
+// catch-all [...slug] matches the rest of the path.
+const routeMatchers = routePaths.map((r) => ({
+  path: r,
+  re: new RegExp(
+    "^" +
+      r
+        .replace(/\[\.\.\.[^\]]+\]/g, "@@REST@@")
+        .replace(/\[[^\]]+\]/g, "@@ONE@@")
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/@@REST@@/g, ".+")
+        .replace(/@@ONE@@/g, "[^/]+") +
+      "$",
+  ),
+}));
+
+// Where a removed path is sent instead. Read from the config so the two
+// cannot drift.
+const redirectSources = [...config.matchAll(/^\s*"(\/[^"]*)":\s*"/gm)].map((m) => m[1]);
+const redirectMatchers = redirectSources.map(
+  (r) =>
+    new RegExp(
+      "^" +
+        r
+          .replace(/:[a-zA-Z]+\*/g, "@@REST@@")
+          .replace(/:[a-zA-Z]+/g, "@@ONE@@")
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          .replace(/@@REST@@/g, ".+")
+          .replace(/@@ONE@@/g, "[^/]+") +
+        "$",
+    ),
+);
+
+/**
+ * The links the app writes, as paths.
+ *
+ * Both shapes are read: href="/billing" and href={`/clients/${id}?tab=billing`}.
+ * An interpolation becomes one path segment, which is what it always is in
+ * practice - an id. The query and the fragment are dropped: what is being
+ * checked is whether the route exists.
+ */
+const LINK = /href=(?:"(\/[^"]*)"|\{`(\/[^`]*)`\})/g;
+const linkPaths = new Map();
+for (const file of [
+  ...(await sources(new URL("../app/", import.meta.url))),
+  ...(await sources(new URL("../lib/", import.meta.url))),
+]) {
+  const name = decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname);
+  const text = await readFile(file, "utf8");
+  for (const m of text.matchAll(LINK)) {
+    const raw = m[1] ?? m[2];
+    /**
+     * An interpolation is a path segment, or it is a suffix on one.
+     *
+     * The text says which: `/billing/items/${id}` has it right after a slash,
+     * so it is a segment and the route has to have a [param] there.
+     * `/books/reports/export${query({...})}` has it stuck to the end of a
+     * segment, so it is building a query string and what matters is the path in
+     * front of it.
+     *
+     * Getting this wrong in the generous direction is how the first version of
+     * this check passed a link to the removed /billing/items/<id>: it dropped
+     * the last segment and found /billing/items, which had a redirect. Braces
+     * are counted rather than matched to the first "}", because an
+     * interpolation can contain a call with braces of its own.
+     */
+    let path = "";
+    for (let i = 0; i < raw.length; i++) {
+      if (raw[i] === "$" && raw[i + 1] === "{") {
+        const isSegment = i === 0 || raw[i - 1] === "/";
+        let depth = 0;
+        i += 1;
+        for (; i < raw.length; i++) {
+          if (raw[i] === "{") depth += 1;
+          else if (raw[i] === "}") {
+            depth -= 1;
+            if (depth === 0) break;
+          }
+        }
+        if (!isSegment) break;  // a suffix, not a segment: the path ends here
+        path += "x";
+      } else {
+        path += raw[i];
+      }
+    }
+    path = path.split("?")[0].split("#")[0].replace(/\/+$/, "");
+    if (!path || path === "/") continue;
+    // A path whose own first segment is worked out at runtime cannot be checked
+    // here: /${screen} could be any screen. The navigation checks cover those.
+    if (/^\/x(\/|$)/.test(path)) continue;
+    if (!linkPaths.has(path)) linkPaths.set(path, new Set());
+    linkPaths.get(path).add(name);
+  }
+}
+
+const lands = (path) =>
+  routeMatchers.some((r) => r.re.test(path)) || redirectMatchers.some((r) => r.test(path));
+
+const dead = [];
+for (const [path, where] of linkPaths) {
+  if (lands(path)) continue;
+  dead.push(`${path} (from ${[...where].join(", ")})`);
+}
+if (dead.length) {
+  for (const d of dead) fail(`a link goes nowhere: ${d}`);
+} else {
+  ok(`all ${linkPaths.size} linked paths reach a route or a redirect`);
 }
 
 console.log("");

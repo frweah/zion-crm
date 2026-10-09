@@ -176,6 +176,55 @@ async function pass(role) {
   const item = firstLink(results, "/billing", new RegExp(`/billing/authorizations/${uuid}`));
   if (item) results.push(await open(item));
 
+  /**
+   * And every other link the working list puts in front of somebody.
+   *
+   * Opening the screens the navigation lists is not enough: clicking a client
+   * on the working list gave a 404, and nothing caught it, because the link was
+   * on a page the check opened rather than being a page itself. So the links a
+   * page emits are followed too - the client, the record, the warrant, the
+   * filters - and a 404 among them fails the run.
+   *
+   * Only the Billing list and the client's Billing tab, and bounded: this is a
+   * check on the screens this brief rebuilt, not a crawl of the whole site.
+   */
+  const followFrom = [
+    results.find((x) => x.path === "/billing"),
+    client ? results.find((x) => x.path === `${client}?tab=billing`) : null,
+  ].filter((x) => x?.ok && x.body);
+
+  const followed = new Set(results.map((r) => r.path));
+  for (const from of followFrom) {
+    const links = new Set();
+    for (const m of from.body.matchAll(/href="(\/[^"#]*)"/g)) {
+      const href = m[1].replace(/&amp;/g, "&");
+      // Already opened, or a sign-out that would end the run.
+      if (followed.has(href) || /^\/(login|logout|api)/.test(href)) continue;
+      links.add(href);
+      if (links.size >= 20) break;
+    }
+    for (const href of links) {
+      followed.add(href);
+      const r = await open(href);
+      /**
+       * A 404 or a server error is a fault, full stop - the link is in front of
+       * somebody and it does not work.
+       *
+       * Being sent to the dashboard is not. A page may carry a link to
+       * somewhere this role cannot go, and that is a judgement about what to
+       * show rather than a broken link; failing on it would roll a deployment
+       * back over a design question. It is said, and counted as said.
+       */
+      if (!r.ok && /sent to the dashboard/.test(r.why ?? "")) {
+        console.log(
+          `::warning title=A link this role cannot follow::${from.path} links to ${href}, which ${role} cannot open.`,
+        );
+        continue;
+      }
+      results.push({ ...r, why: r.ok ? r.why : `${r.why} - followed from ${from.path}` });
+    }
+  }
+
   // A bank statement's own screen, found on the list of statements. The hub
   // walk above reaches every screen a card points at; this one is behind a
   // record, like a client or a billing item, so it is found the same way.

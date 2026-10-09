@@ -6,10 +6,13 @@ const nextConfig = {
     "/api/**": ["./assets/irs-forms/**"],
     // pdf.js's worker and fonts. The worker no longer depends on this entry:
     // lib/pdf-text.ts imports it with a literal specifier, which is what gets
-    // it traced. This entry never delivered it - the build trace for
-    // /billing/import listed neither the worker nor any font - and it is kept
-    // only as a marker until the fonts are shipped some other way.
-    "/billing/import": [
+    // it traced. This entry never delivered it - the build trace listed
+    // neither the worker nor any font - and it is kept only as a marker until
+    // the fonts are shipped some other way.
+    //
+    // It named /billing/import, which §12.1 removed: the PDF is read on
+    // /billing now, where the drop lives.
+    "/billing": [
       "./node_modules/pdfjs-dist/legacy/build/**",
       "./node_modules/pdfjs-dist/standard_fonts/**",
     ],
@@ -79,6 +82,20 @@ const nextConfig = {
       // authorization, on Billing itself. A second screen showing the same
       // thing is the duplication §11 is about.
       "/billing/import": "/billing#new-authorization",
+      /**
+       * The billing item's own screen (§§9, 10).
+       *
+       * Not to an authorization, because it cannot be: a billing item's id is
+       * not an authorization's, and the item table is gone, so there is nothing
+       * left to look the pairing up in. The working list is where that work
+       * lives now, and it is the honest destination for an old link.
+       *
+       * This was the one route removed in the billing work without a
+       * redirect - so a bookmark, or a tab left open on the old Items table,
+       * answered with a 404 rather than with the list.
+       */
+      "/billing/items": "/billing",
+      "/billing/items/:id": "/billing",
       "/admin/exports": "/billing/export",
       // Paths that never had a page but were typed or linked anyway (punch
       // list #14, 20 Sept 2026): Admin opens on People, and the documents

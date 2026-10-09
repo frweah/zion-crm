@@ -1519,3 +1519,60 @@ lives, and the cash floor for the alert.
 - Melanie's Outlook connection for billing@zionvocrehab.com still has no
   connection row, so mail from that address cannot be verified from here.
 
+---
+
+## The 404 under Billing, and the checks that were not running
+
+Deployed 8 Oct 2026. No migration.
+
+**What I could and could not reproduce.** Every link on the Billing working list
+and on the client's Billing tab resolves: the client link, the record link, the
+filters, the warrant review, the confirm queue. I checked them against the real
+route map, and checked the data too - as a Billing user, under RLS, the
+authorization record and the client record both return rows for every row on the
+worklist. So I could not reproduce a 404 from the code as it stands, and I am
+not going to claim a fix for something I did not find.
+
+**What I did find is one removed route with no redirect.** Five routes came out
+in the billing work; four got a redirect and `/billing/items/:id` did not. For
+anybody with a bookmark, or a tab left open on the old Items table, clicking a
+row answered 404 - which is the most likely thing that happened, and is a fault
+either way. It redirects to the working list now. Not to an authorization,
+because it cannot: a billing item's id is not an authorization's, and the item
+table is gone, so there is nothing left to look the pairing up in.
+
+**Then the part that matters more than the bug.** `check-nav` ran nowhere. Not
+in `prebuild`, not in a workflow - the only workflow is the smoke test. So every
+check I have added to it in this session gated nothing: the one that refuses an
+offer to raise an invoice, the one that refuses a bill written round the door,
+and the nav checks that predate them. I had been running them by hand and saying
+"the build will catch it next time", and the build would not have.
+
+Every file-only check is in `prebuild` now - nav, exports, agent routes,
+filename rules, screens - so they run on `npm run build`, which is what Vercel
+runs, which means a deploy fails rather than a reviewer noticing.
+
+**And a dead-link check,** because this class needs one: tsc does not read
+strings, the build renders pages rather than following links, and the smoke test
+opens the screens the navigation lists rather than the links those screens emit.
+It collects every route that exists and every redirect, extracts every link the
+app writes, and reports any that reaches neither. 41 linked paths, all of them
+landing.
+
+**Two things about writing that check, both of them mine.** Its first version
+reported two findings that were artifacts of my own extractor, and it passed a
+link to the removed `/billing/items/<id>` - because it dropped a trailing
+interpolated segment and found `/billing/items`. An interpolation after a slash
+is a path segment and an interpolation stuck to the end of one is building a
+query string; the text says which, and the check now tells them apart. I only
+know it works because I put the bug back and watched the build fail on it, which
+is the only way to know a check works.
+
+**The smoke test follows the links now.** It already reached the authorization
+record from the list rather than by URL; what it did not do was follow anything
+else the list offers. It follows up to twenty links from the Billing list and
+from the client's Billing tab, and a 404 or a server error among them fails the
+run. A link this role cannot open is said as an annotation instead of failing:
+that is a judgement about what to show somebody, and rolling a deployment back
+over it would be wrong.
+
