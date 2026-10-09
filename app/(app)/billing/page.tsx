@@ -237,9 +237,26 @@ export default async function BillingPage({
       {canBill && (
         <PendingAuthorizations
           selected={rawDoc && /^[0-9a-f-]{36}$/.test(rawDoc) ? rawDoc : null}
+          /**
+           * Where Open on a row of the confirm queue goes: this page, with the
+           * document chosen, which is the view with its PDF and the
+           * pick-and-confirm form beside it (§9).
+           *
+           * Built with URLSearchParams rather than by appending "&doc=". It
+           * used to append, which worked while the base was
+           * "/billing?tab=authorizations" and always carried a "?" - and §9
+           * made the base "/billing". The href became
+           * "/billing&doc=<id>#from-documents", where "&doc=<id>" is part of
+           * the path and not a parameter, so every row of the queue answered
+           * 404. Composing the query means there is no arrangement of the
+           * filters where the separator is wrong.
+           */
           hrefFor={(docId) => {
-            const base = withBo(showAll ? "/billing?show=all" : "/billing", bo);
-            return docId ? `${base}&doc=${docId}#from-documents` : `${base}#from-documents`;
+            const params = new URLSearchParams();
+            if (showAll) params.set("show", "all");
+            if (docId) params.set("doc", docId);
+            const query = params.toString();
+            return withBo(`/billing${query ? `?${query}` : ""}`, bo) + "#from-documents";
           }}
         />
       )}

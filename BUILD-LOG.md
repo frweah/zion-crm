@@ -1605,3 +1605,45 @@ navigation checks' business. The sidebar's own entries are skipped. An
 annotation that fires every time is an annotation nobody reads, which is the
 same argument that got the duplication audit's third section rewritten.
 
+---
+
+## The 404 was Open on the documents-folder queue
+
+Deployed 9 Oct 2026. No migration.
+
+**Found, and it was mine.** Open on every row of "From the documents folder"
+emitted `/billing&doc=<id>#from-documents`. The href was built by appending
+"&doc=" to a base that came from `withBo(...)`, and that worked for as long as
+the base was `/billing?tab=authorizations`, which always carried a "?". §9 made
+the base `/billing`, and from that moment "&doc=<id>" was part of the path
+rather than a parameter. Eighty documents, every row, 404.
+
+It is composed with URLSearchParams now, so there is no arrangement of the two
+filters where the separator can be wrong - checked against all four.
+
+**Why nothing caught it, including the checks I had just written.** The link
+comes out of a callback rather than out of an `href="..."`, so the dead-link
+check could not see it: that check reads the links written out, and this one is
+built. And the smoke test's link follower refused any href carrying a fragment -
+so the one link on the page that was broken was the one link it skipped. Both
+of those were my blind spots, written the day before.
+
+Three things close it:
+
+- **A rule about building links.** In a URL-shaped template literal, "&name="
+  must have a "?" in front of it; where it cannot, the query belongs in
+  URLSearchParams, which gets the separator right by construction. Proven by
+  putting the bug back and watching the build fail on it.
+- **The follower drops the fragment** instead of refusing the link.
+- **Open is clicked on purpose.** The first row's href is read off the page and
+  opened, and the assertion is not just that it answers: the row that was
+  clicked has to come back showing as the open one, which is what says the
+  document view - its PDF and the pick-and-confirm form - actually came up.
+
+**What I keep learning the hard way.** Twice now a check I added has been
+written against the shape of the code I was looking at rather than the shape of
+the bug: the dead-link check that read only literal hrefs, and a follower that
+treated a fragment as a reason to skip. A check is worth what it catches, and
+the only way to know is to put the fault back and watch it fail - which is now
+how each of these got signed off.
+

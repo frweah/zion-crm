@@ -552,6 +552,41 @@ if (dead.length) {
   ok(`all ${linkPaths.size} linked paths reach a route or a redirect`);
 }
 
+// ── a parameter needs a ? to hang off ────────────────────────
+//
+// The dead-link check above reads the links it can see written out. This one
+// catches the links that are built: `${base}&doc=${id}` is a parameter appended
+// to something that may carry no query at all, and when it does not, "&doc=<id>"
+// is part of the path. That is what Open on every row of the documents-folder
+// queue emitted after §9 changed the base from "/billing?tab=authorizations" to
+// "/billing" - eighty rows, each answering 404, and the link was invisible to
+// every check because it came out of a callback rather than out of an href.
+//
+// The rule: in a URL-shaped template literal, a "&name=" must have a "?" in
+// front of it. Where it cannot, the query belongs in URLSearchParams, which
+// gets the separator right by construction.
+const PARAM_LITERAL = /`((?:\/|\$\{)[^`]{0,200}?)`/g;
+const loose = [];
+for (const file of [
+  ...(await sources(new URL("../app/", import.meta.url))),
+  ...(await sources(new URL("../lib/", import.meta.url))),
+]) {
+  const text = await readFile(file, "utf8");
+  for (const m of text.matchAll(PARAM_LITERAL)) {
+    const lit = m[1];
+    const amp = lit.search(/&[a-zA-Z_]+=/);
+    if (amp < 0) continue;
+    const q = lit.indexOf("?");
+    if (q >= 0 && q < amp) continue;
+    loose.push(`${rel(file)}: \`${lit}\``);
+  }
+}
+if (loose.length) {
+  for (const l of loose) fail(`a parameter is added with & to something that may have no query: ${l}`);
+} else {
+  ok("every built link puts its parameters behind a ?, or composes them");
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

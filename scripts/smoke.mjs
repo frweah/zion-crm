@@ -204,8 +204,13 @@ async function pass(role) {
   const followed = new Set(results.map((r) => r.path));
   for (const from of followFrom) {
     const links = new Set();
-    for (const m of from.body.matchAll(/href="(\/[^"#]*)"/g)) {
-      const href = m[1].replace(/&amp;/g, "&");
+    for (const m of from.body.matchAll(/href="(\/[^"]*)"/g)) {
+      // The fragment is dropped, not refused. Refusing any href that carried
+      // one is why this never followed Open on the documents-folder queue:
+      // that link ends "#from-documents", so the one link that was 404ing was
+      // the one link the follower skipped.
+      const href = m[1].replace(/&amp;/g, "&").split("#")[0];
+      if (!href) continue;
       // Already opened, or a sign-out that would end the run.
       if (followed.has(href) || /^\/(login|logout|api)/.test(href)) continue;
       // The sidebar is in every page's HTML, so its own entries are not this
@@ -237,6 +242,38 @@ async function pass(role) {
       }
       results.push({ ...r, why: r.ok ? r.why : `${r.why} - followed from ${from.path}` });
     }
+  }
+
+  /**
+   * Open, on the first row of "From the documents folder" (§9).
+   *
+   * Clicked rather than guessed at: the href is read off the page, which is the
+   * only way to catch a link that is built wrong. Every row of this queue
+   * answered 404 for eighty documents, and nothing noticed - the screens the
+   * navigation lists were all fine, and this link is on one of them rather than
+   * being one of them.
+   *
+   * The assertion is not just that it answers. The row that was clicked shows
+   * as the open one, which is what says the document view - its PDF and the
+   * pick-and-confirm form - actually came up.
+   */
+  const billingBody = results.find((x) => x.path === "/billing")?.body ?? "";
+  const openHref = billingBody.match(/href="(\/billing\?[^"]*doc=[0-9a-f-]{36}[^"]*)"/)?.[1];
+  if (openHref) {
+    const opened = await open(openHref.replace(/&amp;/g, "&").split("#")[0]);
+    results.push(opened);
+    if (opened.ok && !/chip gold">Open/.test(opened.body ?? "")) {
+      results.push({
+        path: `${openHref} (the document view)`,
+        ok: false,
+        why: "the row opened but the document was not shown as the open one",
+      });
+    }
+  } else if (role === "Billing") {
+    console.log(
+      "::warning title=Nothing to confirm::" +
+        'No row of "From the documents folder" offered an Open link, so the pending-document view was not opened by this run.',
+    );
   }
 
   // A bank statement's own screen, found on the list of statements. The hub
