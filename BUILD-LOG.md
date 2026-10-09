@@ -1576,3 +1576,32 @@ run. A link this role cannot open is said as an annotation instead of failing:
 that is a judgement about what to show somebody, and rolling a deployment back
 over it would be wrong.
 
+**And then the checks failed the deploy, which is the point of them.** Putting
+the file-only checks into `prebuild` broke the Vercel build, so that commit
+never shipped and production stayed where it was. Two of the five only ever
+worked in my own working copy:
+
+`check-screens` worked out a file's project-relative path by splitting the
+absolute path on "/zion-crm/". In a checkout named anything else - a worktree,
+or the clone a deployment builds from - the split found nothing, the path stayed
+absolute, and the exemptions, which compare against "app/(app)/page-head.tsx",
+matched nothing; the check then reported the four components it exists to
+exempt. **That is the "screens check fails inside a worktree" note I have been
+carrying as a quirk for weeks.** It was a bug, and writing it down as a quirk is
+what kept it alive. Paths come from the script's own location now.
+
+`check-agent-routes` looked for one exact newline and four spaces between two
+calls. A Windows clone gets CRLF from git by default and matched neither.
+
+Both verified the way the first attempt should have been: in a fresh clone, with
+CRLF line endings, prebuild runs all ten green - and then the real deploy
+succeeded and the smoke test opened six authorization records reached from the
+list.
+
+**One more pass on the smoke test.** Following every link on a page also follows
+the sidebar, which is in every page's HTML, so it warned three times a run about
+hub roots a role cannot open - a question about the sidebar, and already the
+navigation checks' business. The sidebar's own entries are skipped. An
+annotation that fires every time is an annotation nobody reads, which is the
+same argument that got the duplication audit's third section rewritten.
+

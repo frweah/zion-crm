@@ -25,7 +25,7 @@
 import { readFileSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
 import { readdir } from "node:fs/promises";
-import { reachableFor, navPath } from "../lib/roles.ts";
+import { reachableFor, navPath, NAV_GROUPS } from "../lib/roles.ts";
 import { CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const env = (k) => {
@@ -117,6 +117,14 @@ async function routes(dir = new URL("../app/(app)/", import.meta.url), prefix = 
 }
 
 
+/** Every path the sidebar offers, to any role, including the hub roots. */
+const NAVIGATION = new Set(
+  NAV_GROUPS.flatMap((g) => [
+    ...(g.hub ? [navPath(g.hub)] : []),
+    ...g.items.map((i) => navPath(i.href)),
+  ]),
+);
+
 const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf8").matchAll(/\{ key: "([a-z]+)", label:/g)].map((m) => m[1]);
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const firstLink = (results, path, re) => results.find((x) => x.path === path)?.body?.match(re)?.[0] ?? null;
@@ -200,6 +208,12 @@ async function pass(role) {
       const href = m[1].replace(/&amp;/g, "&");
       // Already opened, or a sign-out that would end the run.
       if (followed.has(href) || /^\/(login|logout|api)/.test(href)) continue;
+      // The sidebar is in every page's HTML, so its own entries are not this
+      // page's links: following them warned three times a run about hub roots
+      // a role cannot open, which is a question about the sidebar and is
+      // already the navigation checks' business. An annotation that fires every
+      // time is an annotation nobody reads.
+      if (NAVIGATION.has(navPath(href))) continue;
       links.add(href);
       if (links.size >= 20) break;
     }
