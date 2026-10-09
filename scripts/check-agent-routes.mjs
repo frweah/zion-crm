@@ -198,9 +198,13 @@ if (!/parsed = \{ reason: classification\.reason \}/.test(fileRoute)) {
 // recorded, never before: a filing that fails must leave the document waiting,
 // not lose it. And refiling reads a stored document for its text only - it is
 // not a back door to replacing the recorded reading.
-const insertAt = fileRoute.indexOf('.from("inbox_documents")\n    .insert(');
+// Matched on the two calls with whatever whitespace sits between them, rather
+// than on one exact newline and four spaces: a checkout with CRLF line endings
+// - which is what git gives a Windows clone by default - found neither, and the
+// check failed for a reason that had nothing to do with the code.
+const insertAt = fileRoute.search(/\.from\("inbox_documents"\)\s*\.insert\(/);
 const arrivalFiling = fileRoute.indexOf("await fileArrival(supabase, row, reading)");
-const refileBlock = fileRoute.match(/if \(refile\) \{([\s\S]*?)\n  \}/);
+const refileBlock = fileRoute.match(/if \(refile\) \{([\s\S]*?)\r?\n  \}/);
 if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
   fail("a new arrival is no longer filed by its name after it is recorded");
 } else if (!/try \{[\s\S]*fileByName\([\s\S]*catch/.test(fileRoute)) {

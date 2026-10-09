@@ -233,6 +233,25 @@ for (const role of ["Job Search", "Reports", "Billing"]) {
 }
 ok("no grant opens Admin (People, Documents, System), Capacity or Statement approvals");
 
+/**
+ * A path relative to the project, worked out from this script's own location.
+ *
+ * This used to split an absolute path on "/zion-crm/" and take what followed,
+ * which only works in a checkout whose directory happens to be named that. In
+ * a git worktree, or in the clone a deployment builds from, the split found
+ * nothing and fell back to the absolute path - so check-screens' exemptions,
+ * which compare against "app/(app)/page-head.tsx", matched nothing and the
+ * check reported the very components it exists to exempt. That is the
+ * long-standing "the screens check fails inside a worktree" fault, and it is
+ * what broke the build the moment these checks were made to gate it.
+ */
+const PROJECT = new URL("../", import.meta.url).pathname;
+const rel = (url) => {
+  const p = decodeURIComponent(url.pathname);
+  const root = decodeURIComponent(PROJECT);
+  return p.startsWith(root) ? p.slice(root.length) : p;
+};
+
 // ── everything that moved still answers ──────────────────────
 const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
 const MOVED = [
@@ -327,7 +346,7 @@ for (const file of [
   ...(await sources(new URL("../app/", import.meta.url))),
   ...(await sources(new URL("../lib/", import.meta.url))),
 ]) {
-  if (oldLink.test(await readFile(file, "utf8"))) staleLinks.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
+  if (oldLink.test(await readFile(file, "utf8"))) staleLinks.push(rel(file));
 }
 if (staleLinks.length) fail(`links to a client tab that moved: ${staleLinks.join(", ")}`);
 if (CLIENT_TABS.length <= 7 && !unmapped.length && !staleLinks.length) {
@@ -359,7 +378,7 @@ for (const file of [
 ]) {
   const text = await readFile(file, "utf8");
   if (OFFERS.some((re) => re.test(text))) {
-    offenders.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
+    offenders.push(rel(file));
   }
 }
 if (offenders.length) {
@@ -388,7 +407,7 @@ for (const file of [
   ...(await sources(new URL("../lib/", import.meta.url))),
 ]) {
   if (DIRECT_WRITE.test(await readFile(file, "utf8"))) {
-    roundTheDoor.push(decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname));
+    roundTheDoor.push(rel(file));
   }
 }
 if (roundTheDoor.length) {
@@ -471,7 +490,7 @@ for (const file of [
   ...(await sources(new URL("../app/", import.meta.url))),
   ...(await sources(new URL("../lib/", import.meta.url))),
 ]) {
-  const name = decodeURIComponent(file.pathname.split("/zion-crm/")[1] ?? file.pathname);
+  const name = rel(file);
   const text = await readFile(file, "utf8");
   for (const m of text.matchAll(LINK)) {
     const raw = m[1] ?? m[2];

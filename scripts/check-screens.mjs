@@ -39,7 +39,24 @@ async function files(dir) {
   return out;
 }
 
-const rel = (url) => decodeURIComponent(url.pathname).split("/zion-crm/")[1] ?? url.pathname;
+/**
+ * A path relative to the project, worked out from this script's own location.
+ *
+ * This used to split an absolute path on "/zion-crm/" and take what followed,
+ * which only works in a checkout whose directory happens to be named that. In
+ * a git worktree, or in the clone a deployment builds from, the split found
+ * nothing and fell back to the absolute path - so check-screens' exemptions,
+ * which compare against "app/(app)/page-head.tsx", matched nothing and the
+ * check reported the very components it exists to exempt. That is the
+ * long-standing "the screens check fails inside a worktree" fault, and it is
+ * what broke the build the moment these checks were made to gate it.
+ */
+const PROJECT = new URL("../", import.meta.url).pathname;
+const rel = (url) => {
+  const p = decodeURIComponent(url.pathname);
+  const root = decodeURIComponent(PROJECT);
+  return p.startsWith(root) ? p.slice(root.length) : p;
+};
 const all = await Promise.all((await files(APP)).map(async (url) => ({ path: rel(url), src: await readFile(url, "utf8") })));
 
 // ── one header ───────────────────────────────────────────────
