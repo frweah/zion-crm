@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp } from "@/lib/constants";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { PolicySignForm } from "../onboarding/steps";
 
 /**
@@ -33,7 +33,11 @@ export default async function PolicyPage() {
   if (!policy) {
     return (
       <>
-        <PageHead title="Data-handling policy" context="Nothing to sign." />
+        <RecordHeader
+          back={{ href: "/paperwork", label: "Paperwork" }}
+          title="Data-handling policy"
+          standing="Nothing to sign."
+        />
         <p className="empty">No policy is in force.</p>
       </>
     );
@@ -45,9 +49,10 @@ export default async function PolicyPage() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/paperwork", label: "Paperwork" }}
         title={`${policy.title}, version ${policy.version}`}
-        context={
+        standing={
           signedNow
             ? `You signed this version on ${fmtStamp(signedNow.signed_at)}.`
             : "The policy has changed since you last signed it. Read it and sign this version to carry on."

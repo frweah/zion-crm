@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../../page-head";
+import { RecordHeader } from "../../../record-header";
 import { WebChatSettingsForm, type WebChatSettings } from "../../system/web-chat";
 
 /**
@@ -38,7 +38,11 @@ export default async function WebsiteChatSettings() {
 
   return (
     <>
-      <PageHead title="Website chat" context="Who takes it, when it is offered, and what it says" />
+      <RecordHeader
+        back={{ href: "/admin/settings-hub", label: "Settings" }}
+        title="Website chat"
+        standing="Who takes it, when it is offered, and what it says"
+      />
       <p className="sub">
         The bubble on zionrehabcenter.com. What somebody says there arrives in{" "}
         <Link href="/messages/texts?tab=web">Website chat</Link>, beside the texts, and joins a client&apos;s record as

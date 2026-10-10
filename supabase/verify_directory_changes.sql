@@ -30,6 +30,8 @@ declare
   v_client    uuid;
   v_before    bigint;
   v_n         bigint;
+  v_fixture   uuid;
+  v_real      uuid;
   r           record;
   v_move      record;
   v_dt        uuid;
@@ -48,8 +50,13 @@ begin
   perform set_config('role', 'authenticated', true);
 
   -- ── adding and editing a counselor is logged ───────────────
+  -- This counselor is deliberately NOT named by the ZZ convention, because
+  -- 0179 stops the log recording a name that is - and what is being checked
+  -- here is that a real change *is* recorded. The example.test address is what
+  -- keeps it detectable if this script ever leaks: verify_zz_no_fixtures asks
+  -- counselors for that as well as for the name.
   perform set_config('request.jwt.claims', json_build_object('sub', v_bil_uid, 'role', 'authenticated')::text, true);
-  insert into public.counselors (name, office, email) values ('ZZ Dir Counselor', 'Salt Lake City', 'zz-dir@example.test')
+  insert into public.counselors (name, office, email) values ('Oakley Dir Testperson', 'Salt Lake City', 'zz-dir@example.test')
   returning id into v_k;
 
   if not exists (select 1 from public.directory_changes
@@ -168,6 +175,39 @@ begin
     failures := failures || 'FAILED: somebody wrote to the directory log by hand'::text;
   exception when insufficient_privilege then
     raise notice 'ok  the log is written by the database alone, and never changed or deleted';
+  end;
+
+  -- ── the log is for real people ─────────────────────────────
+  -- Six rows reading "ZZ Report Test Counselor" sat in Recent changes for a
+  -- fortnight because nothing stopped a test write from being recorded. Both
+  -- halves are tried: an invented counselor leaves no entry, and a real one
+  -- still does - a guard that quietly stopped logging everything would pass a
+  -- test that only checked the first half.
+  perform set_config('role', 'postgres', true);
+  insert into public.counselors (name, email) values ('ZQ Log Testperson', 'zq-log@example.test')
+  returning id into v_fixture;
+  if exists (select 1 from public.directory_changes where entity_key = v_fixture::text) then
+    failures := failures || 'FAILED: an invented counselor was written into the directory log'::text;
+  else
+    raise notice 'ok  somebody invented for a test leaves no entry in the log';
+  end if;
+
+  insert into public.counselors (name, email) values ('Rowan Log Testperson', 'zq-log-real@example.test')
+  returning id into v_real;
+  if not exists (select 1 from public.directory_changes
+                  where entity_key = v_real::text and action = 'Added') then
+    failures := failures || 'FAILED: a real counselor is no longer recorded in the log'::text;
+  else
+    raise notice 'ok  and a real one still is, so the guard is not simply off';
+  end if;
+
+  -- Removing one is the correction the owner asked for, and only an invented
+  -- one may be removed. The log's own entry for a real counselor is refused.
+  begin
+    delete from public.directory_changes where entity_key = v_real::text;
+    failures := failures || 'FAILED: a real entry can be deleted from the log'::text;
+  exception when insufficient_privilege then
+    raise notice 'ok  a real entry still cannot be removed, which is what the log is for';
   end;
 
   perform set_config('request.jwt.claims', '', true);

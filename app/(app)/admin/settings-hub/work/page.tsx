@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
 import { ROLE_NAMES, ROLE_LABEL } from "@/lib/roles";
-import { PageHead } from "../../../page-head";
+import { RecordHeader } from "../../../record-header";
 import { MileageRateForm } from "../../../hours/expenses";
 
 /**
@@ -26,7 +26,11 @@ export default async function WorkSettings() {
 
   return (
     <>
-      <PageHead title="Work and hours" context="What people log against, and what a mile is worth" />
+      <RecordHeader
+        back={{ href: "/admin/settings-hub", label: "Settings" }}
+        title="Work and hours"
+        standing="What people log against, and what a mile is worth"
+      />
 
       <section className="page-section">
         <h2 className="h2">Categories</h2>

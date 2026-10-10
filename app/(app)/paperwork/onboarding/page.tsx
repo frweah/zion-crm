@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp, today } from "@/lib/constants";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
 import { W4Form } from "../w4-form";
 import { W9Form } from "../w9-form";
@@ -133,7 +133,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
 
   return (
     <>
-      <PageHead title="Onboarding" context={intro} />
+      <RecordHeader
+        back={{ href: "/paperwork", label: "Paperwork" }}
+        title="Onboarding"
+        standing={intro}
+      />
 
       <ol className="card" style={{ listStyle: "none", padding: 12, margin: "0 0 14px", display: "flex", flexWrap: "wrap", gap: 8 }}>
         {STEPS.map((s, i) => {

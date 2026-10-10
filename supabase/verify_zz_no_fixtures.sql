@@ -63,6 +63,16 @@ begin
   select count(*) into v_n from public.vendors where name like 'ZZ %' or name like 'ZQ %';
   if v_n > 0 then found := found || format('vendors (%s)', v_n); end if;
 
+  -- The directory's change log, which is where six of these were actually
+  -- found - in a screen the owner reads, named "ZZ Report Test Counselor",
+  -- committed by hand in Sept 2026. This script was written and did not ask
+  -- this table, which is the whole reason the sweep came back clean. It asks
+  -- through is_fixture_name, the same predicate the log now checks on the way
+  -- in, so what is detected and what is refused cannot drift apart.
+  select count(*) into v_n from public.directory_changes
+   where public.is_fixture_name(entity_name);
+  if v_n > 0 then found := found || format('directory_changes (%s)', v_n); end if;
+
   -- The logins, which are how a fixture staff member would still be able to
   -- sign in, and which live in another schema.
   select count(*) into v_n from auth.users

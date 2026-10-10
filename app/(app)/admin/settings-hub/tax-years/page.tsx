@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../../page-head";
+import { RecordHeader } from "../../../record-header";
 import { TaxYearEditor, type TaxYearRow } from "../../contractors/contractor-forms";
 
 /** What a 1099 run depends on (Design language, §3). */
@@ -32,7 +32,11 @@ export default async function TaxYearSettings() {
 
   return (
     <>
-      <PageHead title="Tax years" context="What a 1099 run depends on" />
+      <RecordHeader
+        back={{ href: "/admin/settings-hub", label: "Settings" }}
+        title="Tax years"
+        standing="What a 1099 run depends on"
+      />
       <p className="sub">
         The federal 1099-NEC threshold and the Utah state copy for each year. A 1099 run will not build on a year whose
         threshold nobody has confirmed.

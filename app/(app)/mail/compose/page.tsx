@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { myMailAccess } from "@/lib/mail-access";
 import { clientTag } from "@/lib/graph";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { ComposeForm } from "../mail-forms";
 
 /**
@@ -70,9 +70,10 @@ export default async function ComposePage({
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/mail", label: "Mail" }}
         title="New message"
-        context={about || "From your own Outlook, when you press Send"}
+        standing={about || "From your own Outlook, when you press Send"}
         actions={
           <Link className="btn ghost" href="/mail" style={{ textDecoration: "none" }}>
             Back to Mail

@@ -1902,3 +1902,107 @@ A bank statement goes back to the statement list it came from rather than two
 levels up past it. `check-screens` holds the line: all 63 screens draw the
 shared screen or record header.
 
+---
+
+## The ZZ rows, and a way back off every screen
+
+Deployed 9 Oct 2026. Migration 0179, thirteen screens, one new check.
+
+### The test counselor was real, and I had said it was not
+
+Last deploy I reported that a sweep of every text column found no leftover
+fixture rows, so nothing was deleted. That was wrong, and the owner was right:
+six rows reading **"ZZ Report Test Counselor"** were sitting in Recent changes
+on Counselors → Directory. Three Added/Removed pairs, ninety seconds apart, 21
+Sept 2026.
+
+Two separate failures put them there and kept them there:
+
+1. **`verify_zz_no_fixtures.sql` never asked `directory_changes`.** It is
+   written out table by table, from the list of tables the verification scripts
+   write to - and the change log is written by a *trigger*, so it is on none of
+   their inserts. The sweep came back clean because it did not look.
+
+2. **The dynamic version had found them, and I threw the finding away.** The
+   first draft of that script looped over `information_schema` and reported
+   `directory_changes.entity_name` among its hits. I decided it was crying wolf
+   and rewrote it by hand without that table. It was not crying wolf about this
+   one. A detector reporting two things, one true and one false, is not a
+   detector that can be dismissed as a whole, and I dismissed it as a whole.
+
+**Where they came from decides what prevents the next one.** That name appears
+nowhere in this repository and never has in any commit - so they were not left
+by a verification script at all. They were committed by hand, by me in an
+earlier session, inserting and deleting a test counselor while the counselor
+report was being built.
+
+Which means the guard the owner asked for - *stop the log recording rows
+written inside a rolled-back transaction* - cannot be the mechanism: a log row
+written by a trigger inside a transaction that rolls back goes with it, so
+there is nothing there to stop. What put these in front of somebody was a write
+outside any transaction, and the only thing that catches that is the name.
+
+**So the log asks what it is being asked to record.** `directory_change_log`
+now returns without writing when the name follows the fixture convention. It
+holds however the write arrives: a script that forgot its rollback, a statement
+run by hand, a probe left open. The convention is written down once, as
+`is_fixture_name(text)`, and both the log and the no-fixtures check read it -
+so what is refused on the way in and what is detected afterwards cannot drift
+apart.
+
+**The log had to be allowed to let them go.** `directory_changes` is
+append-only, which is right, and it refused the delete - an append-only rule
+protecting test data in a screen that could not be corrected. The guard learned
+the same shape of exception the access log learned in 0178: a row the log would
+now refuse to *write* may be removed. Nothing real can match it, because the
+predicate deciding what goes in is the predicate deciding what may come out.
+
+Six rows removed. One real entry left in the log (Melanie's, 8 Oct), untouched.
+
+**Both halves are tested, and the detection half was proven by leaking a row on
+purpose:** a committed `ZQ Leaked Log Row` makes `verify_zz_no_fixtures` fail,
+and removing it makes it pass. `verify_directory_changes` checks that an
+invented counselor leaves no entry **and that a real one still does** - a guard
+that had quietly stopped logging everything would pass a test that only checked
+the first half.
+
+One consequence worth recording: the counselor that script asserts logging on
+had to stop being `ZZ Dir Counselor`, since the log now skips that name. It is
+`Oakley Dir Testperson` with a `zz-dir@example.test` address, which is the other
+half of the same convention and is what `verify_zz_no_fixtures` already sweeps
+counselors for - so if that script ever leaks, the counselor is still caught.
+
+### A way back off every screen, not just Books
+
+The sidebar gets somebody *to* a hub's screens. It never got them *off* one: a
+sub-tab or a record page is reached by clicking into it, and the only way out
+was the browser's own button or guessing which sidebar entry came closest.
+
+Thirteen screens now draw `RecordHeader`'s back arrow, pointing at the screen
+directly above:
+
+| Screen | Goes back to |
+|---|---|
+| Settings → Mailboxes, Note headings, The practice, Tax years, Website chat, Work and hours | Settings |
+| Billing → the authorization record, Warrants | Authorizations |
+| Today → Needs attention | Today |
+| Mail → New message | Mail |
+| Paperwork → Onboarding, the policy | Paperwork |
+| Knowledge base → Where do I…? | Knowledge base |
+
+With the eleven Books pages and the six record pages that already had one, all
+**30 screens below a hub** have the way back.
+
+**The check is the point, and it checks the thing that is easy to get wrong.**
+`check-screens` now reads `NAV_GROUPS` for what the sidebar can already reach,
+and for every other screen requires the arrow **and** that it points at the
+nearest screen above - which for a record's sub-page is the record, not the list
+two levels up. Checking only that `back=` appears would pass an arrow aimed at
+the wrong screen, and that is the mistake that looks right until somebody
+clicks it.
+
+Both faults were put back to prove it: removing the arrow from Where do I…?
+fails with *"screens below a hub with no back arrow"*, and pointing the bank
+statement at `/books` instead of `/books/bank` fails with *"back arrows pointing
+past the screen above"*. Both were restored.
+

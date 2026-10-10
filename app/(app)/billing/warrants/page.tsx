@@ -5,7 +5,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, fmtStamp } from "@/lib/constants";
 import { WarrantsToReview } from "./review-section";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { DataTable, type DataRow } from "../../data-table";
 
 /**
@@ -99,9 +99,10 @@ export default async function WarrantsPage() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/billing", label: "Authorizations" }}
         title="Warrants"
-        context="What USOR paid, read from the stubs in the _Warrants folder and reconciled against the authorizations and invoices on file"
+        standing="What USOR paid, read from the stubs in the _Warrants folder and reconciled against the authorizations and invoices on file"
         actions={
           <Link href="/insights/money#paid-and-outstanding" className="btn ghost" style={{ textDecoration: "none" }}>
             Paid &amp; outstanding

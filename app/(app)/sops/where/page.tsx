@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import type { Role } from "@/lib/roles";
 import { canReach, AREA_LABEL, LEVEL_LABEL } from "@/lib/roles";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
 
 /**
@@ -401,9 +401,10 @@ export default async function WhereDoIPage() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/sops", label: "Knowledge base" }}
         title="Where do I…?"
-        context={
+        standing={
           <>
             The {count} things people ask for most, and where each one lives. Everything here exists
             today — <Link href="/sops">the written procedures</Link> say how to do them properly.

@@ -21,6 +21,7 @@
  *   than a list says so with data-layout="why".
  */
 import { readdir, readFile } from "node:fs/promises";
+import { NAV_GROUPS, navPath } from "../lib/roles.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -84,6 +85,116 @@ const pages = all.filter((f) => f.path.endsWith("/page.tsx"));
 const headless = pages.filter((f) => !drawsHeader(f));
 if (headless.length) fail(`screens with no PageHead or RecordHeader: ${headless.map((f) => f.path).join(", ")}`);
 else ok(`all ${pages.length} screens draw the shared screen or record header`);
+
+// ── every screen below a hub has the way back ────────────────
+//
+// The sidebar gets somebody to a hub's screens. What it never did was get them
+// off one: a sub-tab or a record page is reached by clicking into it, and the
+// only way out was the browser's own button or guessing which sidebar entry
+// came closest. Books had this fixed first; the owner asked for the rest.
+//
+// So: a screen that is not itself a sidebar entry or a hub page must draw the
+// back arrow, and the arrow must point at the screen directly above it - the
+// nearest screen that exists, which for a record's sub-page is the record
+// itself rather than the list two levels up.
+//
+// Pointing *somewhere* is not enough, and checking only that `back=` appears
+// would pass an arrow aimed at the wrong screen - which is the mistake worth
+// catching, because it looks right until somebody clicks it.
+const route = (path) => {
+  const inner = path.slice("app/(app)/".length, -"page.tsx".length);
+  const segs = inner
+    .split("/")
+    .filter((seg) => seg && !seg.startsWith("(") && !seg.startsWith("@") && !seg.startsWith("_"));
+  return "/" + segs.join("/");
+};
+
+// Where the sidebar can already take somebody: every entry, and every hub.
+const hubLevel = new Set(["/"]);
+for (const group of NAV_GROUPS) {
+  if (group.hub) hubLevel.add(group.hub);
+  for (const item of group.items) hubLevel.add(navPath(item.href));
+}
+
+/** A route and a written href compared on shape, so [id] and ${id} are one. */
+const shape = (s) =>
+  s
+    .split(/[?#]/)[0]
+    .replace(/\[[^\]]+\]/g, "*")
+    .replace(/\$\{[^}]*\}/g, "*")
+    .replace(/\/+$/, "") || "/";
+
+/**
+ * The href a screen's back arrow points at — written on the header, or held in
+ * a constant, or on a header the screen draws through a component of its own.
+ */
+const BACK_HREF = /back=\{\{\s*href:\s*(?:"([^"]*)"|`([^`]*)`)/;
+const backHref = (src, seen = new Set()) => {
+  const direct = src.match(BACK_HREF);
+  if (direct) return direct[1] ?? direct[2];
+  const named = src.match(/back=\{([A-Za-z_$][\w$]*)\}/);
+  if (named) {
+    const held = src.match(
+      new RegExp(`const\\s+${named[1]}\\s*=\\s*\\{\\s*href:\\s*(?:"([^"]*)"|\`([^\`]*)\`)`),
+    );
+    if (held) return held[1] ?? held[2];
+  }
+  return null;
+};
+
+const screens = pages.map((f) => ({ ...f, route: route(f.path) }));
+const allRoutes = new Set(screens.map((s) => s.route));
+const noWayBack = [];
+const wrongWayBack = [];
+let below = 0;
+
+for (const screen of screens) {
+  if (hubLevel.has(screen.route)) continue;
+  below++;
+
+  // The screen directly above: the nearest ancestor that is itself a screen.
+  const segs = screen.route.split("/").filter(Boolean);
+  let above = null;
+  for (let n = segs.length - 1; n >= 1; n--) {
+    const candidate = "/" + segs.slice(0, n).join("/");
+    if (allRoutes.has(candidate)) {
+      above = candidate;
+      break;
+    }
+  }
+
+  // Written on the page, or on a component beside it that draws the header.
+  let href = backHref(screen.src);
+  if (href === null) {
+    const dir = screen.path.slice(0, screen.path.lastIndexOf("/") + 1);
+    for (const m of screen.src.matchAll(/from\s+"\.(\.?)\/([^"]+)"/g)) {
+      const base = m[1] ? dir.slice(0, dir.lastIndexOf("/", dir.length - 2) + 1) : dir;
+      const beside = byPath.get(`${base}${m[2]}.tsx`);
+      if (beside) {
+        href = backHref(beside);
+        if (href !== null) break;
+      }
+    }
+  }
+
+  if (href === null) {
+    noWayBack.push(`${screen.route} (should go back to ${above ?? "its hub"})`);
+  } else if (above && shape(href) !== shape(above)) {
+    wrongWayBack.push(`${screen.route} goes back to ${href} rather than ${above}`);
+  }
+}
+
+if (noWayBack.length) {
+  fail(
+    `screens below a hub with no back arrow — give them RecordHeader's back: ${noWayBack.join(", ")}`,
+  );
+}
+if (wrongWayBack.length) {
+  fail(`back arrows pointing past the screen above: ${wrongWayBack.join(", ")}`);
+}
+if (!noWayBack.length && !wrongWayBack.length) {
+  ok(`all ${below} screens below a hub go back to the screen directly above`);
+}
 
 // ── tabs move between screens, and never stack ──────────────
 const TABS_ALLOWED = ["app/(app)/group-tabs.tsx", "app/(app)/clients/[id]/page.tsx"];

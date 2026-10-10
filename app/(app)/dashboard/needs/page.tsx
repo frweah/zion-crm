@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { NEEDS, loadNeed, countNeeds, type NeedKey } from "@/lib/needs";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
 
 /**
@@ -45,9 +45,10 @@ export default async function NeedsPage({
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/dashboard", label: "Today" }}
         title="Needs attention"
-        context={`${me.role === "Admin" ? "Across everybody." : "Yours."} ${explain[key]}`}
+        standing={`${me.role === "Admin" ? "Across everybody." : "Yours."} ${explain[key]}`}
       />
 
       <div className="segmented no-print" style={{ marginBottom: 14 }}>

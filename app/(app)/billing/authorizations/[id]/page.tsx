@@ -5,7 +5,7 @@ import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { money, fmtStamp } from "@/lib/constants";
 import { STATUS_MEANING, type AuthorizationStatus } from "@/lib/billing";
-import { PageHead } from "../../../page-head";
+import { RecordHeader } from "../../../record-header";
 import { AuthorizationFiles } from "../../../clients/[id]/authorization-files";
 import { AuthorizationPayments } from "../../../clients/[id]/authorization-payments";
 import { readPayments } from "@/lib/payments";
@@ -130,9 +130,10 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/billing", label: "Authorizations" }}
         title={`${rec.client_name} — ${rec.service_type}${monthName ? `, ${monthName}` : ""}`}
-        context={`${rec.number || "no USOR number"} · ${rec.status} — ${
+        standing={`${rec.number || "no USOR number"} · ${rec.status} — ${
           STATUS_MEANING[rec.status as AuthorizationStatus] ?? ""
         }`}
       />
