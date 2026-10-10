@@ -2478,3 +2478,62 @@ a hire creates no *authorization*, because that is USOR's to issue. So the
 block went from two assertions to three and still guards the part that matters
 about money.
 
+---
+
+## The intake is on, and the first run found a gap in it
+
+10 Oct 2026. `zion-intake` switched on by the owner. Migration 0187.
+
+**What the first run did: nothing.** Nineteen messages looked at, nothing sent,
+no client created, no authorization, no notification. Thirteen were not from
+utah.gov (the practice's own domain, gmail, yahoo, three advocacy
+organisations) and were left alone entirely. Four were from utah.gov with no
+PDF - two invoice replies, a résumé request. Two carried a PDF that was neither
+a referral nor an authorization.
+
+The thing that had been worried about - a morning of thank-yous to counselors
+for mail already handled by hand - did not happen, because the recent mail
+contained no referrals or authorizations at all.
+
+**And one of those two PDFs showed that the brief was not finished.**
+`rlhill@utah.gov` sent "Fwd: Scanned image from State of Utah", read as
+Unreadable: a scan with no text layer. The Timing section says "Scanned PDFs:
+queue for OCR, run the rules when text is available", and only the first half
+was built. A scan is stored with no text, which is exactly what
+`/api/agent/ocr-wanted` looks for, so the queueing needed no code - but nothing
+looked at the document again once the agent sent the text back. A referral
+arriving as a scan would have been read and then left sitting, creating no
+client and telling nobody.
+
+This was reported as complete in part two. It was not.
+
+**What it needed.** `intake_scans_now_readable()` lists documents the intake
+could not read which now have OCR text, and `intake_rules_ran_late()` records
+what was decided and claims the reply that was never owed while the document
+was unreadable. The intake route looks at that list on every run.
+
+Deliberately narrow: only a document the intake *could not read* is offered
+again. One it read and decided was 'other' was genuinely read, and asking again
+every quarter of an hour forever is work that never ends.
+
+**The risk this created, and what guards it.** A scan decided later is a second
+place the rules are asked from, and two copies of "is this a referral" is the
+one thing this whole pipeline cannot afford. So the decision was lifted out of
+`onePdf` into `askTheRules`, which both callers use, and `check-intake.mjs`
+fails the build if the rules are called directly more than the three times that
+function contains, or if there is no single function at all.
+
+The reply went the same way. There is now exactly one `replyOwn` call site in
+the system - `replyToCounselor` in `lib/intake-mail.ts` - so what an automated
+reply says can be read in one place, and the check holds every reply call to
+THANKS.
+
+`verify_the_intake.sql` is seventeen checks now: a scan is offered again only
+once the agent has read it, and not a third time once the rules have run.
+
+**Noted for the owner, unrelated to the gap:** two of the four utah.gov
+messages with no PDF were counselors replying about invoices (Vicki Khun - Job
+Placement Invoice, Carl Wilkins - Job Development Invoice). service@ is being
+used for billing correspondence as well as referrals. Harmless, since the
+intake only acts on PDFs, but worth knowing.
+

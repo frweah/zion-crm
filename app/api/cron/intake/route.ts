@@ -12,6 +12,7 @@ import { INBOX_BUCKET, STORAGE_MAX_BYTES, inboxStoragePath } from "@/lib/inbox-s
 import { INTAKE_MAILBOX } from "@/lib/intake-source";
 import {
   readIntakeMailbox,
+  replyToCounselor,
   type IntakeHandler,
   type IntakeMessage,
   type IntakePdf,
@@ -179,7 +180,54 @@ async function handle(request: NextRequest) {
 
   const run = await readIntakeMailbox(token, where.mailbox, handler);
 
-  return NextResponse.json({ mailbox: INTAKE_MAILBOX, ...run, emailed, looked });
+  // ── scans the agent has since read ───────────────────────
+  // The brief's Timing section: "queue for OCR, run the rules when text is
+  // available." The queueing needed nothing - a scan is stored with no text,
+  // which is what /api/agent/ocr-wanted looks for - but nothing used to look
+  // at the document again once the text came back, so a referral that arrived
+  // as a scan was read and then left sitting.
+  const late: Record<string, unknown>[] = [];
+  const { data: readable } = await admin.rpc("intake_scans_now_readable", {});
+  for (const scan of (readable ?? []) as {
+    document_id: string;
+    message_id: string;
+    sha256: string;
+    ocr_text: string;
+  }[]) {
+    try {
+      const filed = await askTheRules(admin, scan.document_id, scan.ocr_text, "Unreadable", true);
+      const { data: owed } = await admin.rpc("intake_rules_ran_late", {
+        p_message: scan.message_id,
+        p_sha256: scan.sha256,
+        p_decision: filed.action,
+        p_detail: filed.candidates ?? "read from the scan",
+        p_client: filed.client_id,
+        p_reply: filed.reply,
+      });
+      if (owed) {
+        await replyToCounselor(token, scan.message_id);
+        run.replied += 1;
+      }
+      for (const who of filed.notify) {
+        if (!who.email || !emailConfigured()) continue;
+        await sendEmail({
+          to: who.email,
+          subject: "Zion CRM — intake",
+          text: `${who.message}\n\nFiled automatically from ${INTAKE_MAILBOX} (read from scan — check it).`,
+        });
+        emailed.push(who.email);
+      }
+      late.push({ document: scan.document_id, decision: filed.action, replied: Boolean(owed) });
+    } catch (err) {
+      late.push({
+        document: scan.document_id,
+        decision: "still not filed",
+        why: err instanceof Error ? err.message : "failed",
+      });
+    }
+  }
+
+  return NextResponse.json({ mailbox: INTAKE_MAILBOX, ...run, emailed, looked, late });
 }
 
 /** One PDF: read it, keep it, and let the rules decide what it is. */
@@ -237,48 +285,7 @@ async function onePdf(
 
   // ── and let the rules decide ───────────────────────────────
   const scanned = reading.kind === "Unreadable" || Boolean(reading.ocr);
-  let filed: Filed;
-
-  if (classification.referral) {
-    const read = parseReferralText(reading.text);
-    const name = read.fields.clientName?.value ?? "";
-    // The one document that may create a client, so a name read off the wrong
-    // line would create one. Nothing is filed without a name.
-    if (!name) throw new Error("a referral with no client name read off it was not filed");
-    const { data, error } = await admin.rpc("intake_referral", {
-      p_doc: docId,
-      p_name: name,
-      p_counselor: read.fields.counselor?.value ?? "",
-      p_office: read.fields.office?.value ?? "",
-      p_date: read.fields.referralDate?.value ?? null,
-      p_phone: read.fields.phone?.value ?? "",
-    });
-    if (error) throw new Error(error.message);
-    filed = data as unknown as Filed;
-  } else if (reading.kind === "Authorization") {
-    const read = parseAuthorizationText(reading.text, { pages: 0, scanned });
-    const { data, error } = await admin.rpc("intake_authorization", {
-      p_doc: docId,
-      p_number: read.fields.authNumber?.value ?? "",
-      p_name: read.fields.clientName?.value ?? "",
-      p_service: read.fields.serviceType?.value ?? "",
-      p_start: read.fields.startDate?.value ?? null,
-      p_end: read.fields.endDate?.value ?? null,
-      p_from_scan: scanned,
-    });
-    if (error) throw new Error(error.message);
-    filed = data as unknown as Filed;
-  } else {
-    // Rule 3: everything else. Filed against the client if the client is
-    // clear, left in the queue if not, and nobody is told either way.
-    const read = parseAuthorizationText(reading.text, { pages: 0, scanned });
-    const { data, error } = await admin.rpc("intake_other", {
-      p_doc: docId,
-      p_name: read.fields.clientName?.value ?? "",
-    });
-    if (error) throw new Error(error.message);
-    filed = data as unknown as Filed;
-  }
+  const filed = await askTheRules(admin, docId, reading.text, reading.kind, scanned);
 
   // Whether the counselor is thanked is the database's to say: one reply per
   // document, a re-send getting the same reply, so two overlapping polls
@@ -307,4 +314,66 @@ async function onePdf(
       notified: filed.notify?.length ?? 0,
     },
   };
+}
+
+/**
+ * What the rules make of a document, whatever brought it here.
+ *
+ * Lifted out of onePdf when the brief's Timing section turned out to have a
+ * second half - "run the rules when text is available" - because a scan read
+ * later has to be decided by exactly the same rules as one read on arrival.
+ * Two copies of this would be two answers to "is this a referral", which is
+ * the question the whole intake rests on.
+ */
+async function askTheRules(
+  admin: Supabase,
+  docId: string,
+  text: string,
+  kind: string,
+  scanned: boolean,
+): Promise<Filed> {
+  const classification = classifyDocument(text);
+
+  if (classification.referral) {
+    const read = parseReferralText(text);
+    const name = read.fields.clientName?.value ?? "";
+    // The one document that may create a client, so a name read off the wrong
+    // line would create one. Nothing is filed without a name.
+    if (!name) throw new Error("a referral with no client name read off it was not filed");
+    const { data, error } = await admin.rpc("intake_referral", {
+      p_doc: docId,
+      p_name: name,
+      p_counselor: read.fields.counselor?.value ?? "",
+      p_office: read.fields.office?.value ?? "",
+      p_date: read.fields.referralDate?.value ?? null,
+      p_phone: read.fields.phone?.value ?? "",
+    });
+    if (error) throw new Error(error.message);
+    return data as unknown as Filed;
+  }
+
+  if (kind === "Authorization" || classification.kind === "Authorization") {
+    const read = parseAuthorizationText(text, { pages: 0, scanned });
+    const { data, error } = await admin.rpc("intake_authorization", {
+      p_doc: docId,
+      p_number: read.fields.authNumber?.value ?? "",
+      p_name: read.fields.clientName?.value ?? "",
+      p_service: read.fields.serviceType?.value ?? "",
+      p_start: read.fields.startDate?.value ?? null,
+      p_end: read.fields.endDate?.value ?? null,
+      p_from_scan: scanned,
+    });
+    if (error) throw new Error(error.message);
+    return data as unknown as Filed;
+  }
+
+  // Rule 3: everything else. Filed against the client if the client is clear,
+  // left in the queue if not, and nobody is told either way.
+  const read = parseAuthorizationText(text, { pages: 0, scanned });
+  const { data, error } = await admin.rpc("intake_other", {
+    p_doc: docId,
+    p_name: read.fields.clientName?.value ?? "",
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as Filed;
 }

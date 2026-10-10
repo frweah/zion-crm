@@ -195,6 +195,31 @@ if (!route.includes("INTAKE_MAILBOX")) {
   }
 }
 
+// ── a scan is decided by the same rules, later ──────────────
+//
+// The brief's Timing section has two halves and only the first needed no code:
+// a scan is stored with no text, which is what /api/agent/ocr-wanted looks
+// for. The second - "run the rules when text is available" - is a second place
+// the rules are asked from, which makes one copy of them the thing to guard.
+{
+  const asks = (route.match(/askTheRules\(/g) ?? []).length;
+  const direct = (route.match(/rpc\("intake_(referral|authorization|other)"/g) ?? []).length;
+
+  if (!/intake_scans_now_readable/.test(route)) {
+    fail("the intake never looks again at a scan the agent has since read, so a scanned referral is lost");
+  } else if (asks < 2) {
+    fail(`the rules are asked from ${asks} place(s); a scan read later must go through the same ones`);
+  } else if (!/async function askTheRules\(/.test(route)) {
+    fail("there is no one function that asks the rules");
+  } else if (direct > 3) {
+    fail(`the rules are called directly ${direct} times - they belong behind askTheRules`);
+  } else if (!/intake_rules_ran_late/.test(route)) {
+    fail("a scan filed late is not recorded, so the counselor is never thanked for it");
+  } else {
+    ok("a scan read later is decided by the same rules, recorded, and the counselor thanked then");
+  }
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

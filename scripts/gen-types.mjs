@@ -284,6 +284,8 @@ const RPC_FUNCTIONS = [
   "placement_clock_started",
   "referral_received_on",
   "notify_person",
+  "intake_scans_now_readable",
+  "intake_rules_ran_late",
 ];
 
 const { rows: fns } = await client.query(

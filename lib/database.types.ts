@@ -6240,6 +6240,14 @@ export type Database = {
         Args: { p_doc: string | null; p_name: string | null; p_counselor?: string | null; p_office?: string | null; p_date?: string | null; p_phone?: string | null };
         Returns: Json;
       };
+      intake_rules_ran_late: {
+        Args: { p_message: string | null; p_sha256: string | null; p_decision: string | null; p_detail?: string | null; p_client?: string | null; p_reply?: boolean | null };
+        Returns: boolean;
+      };
+      intake_scans_now_readable: {
+        Args: Record<string, never>;
+        Returns: { document_id: string | null; message_id: string | null; from_address: string | null; subject: string | null; received_at: string | null; sha256: string | null; ocr_text: string | null }[];
+      };
       is_active_staff: {
         Args: Record<string, never>;
         Returns: boolean;

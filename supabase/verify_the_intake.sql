@@ -291,6 +291,37 @@ begin
     raise notice 'ok  told twice, recorded once - a poll that overlaps the last one is harmless';
   end if;
 
+  -- ── a scan is owed a second look ───────────────────────────
+  -- The brief's Timing section: queue for OCR, run the rules when the text is
+  -- there. A document the intake could not read is offered again once it has
+  -- text; one it read and decided is not, because asking again forever is work
+  -- that never ends.
+  perform public.intake_record_mail('zz-scan-1', 'dana@utah.gov', 'ZZ scanned referral',
+                                    now(), 'unreadable', 'no text in the file',
+                                    repeat('3', 64), v_doc9, null, false);
+  if exists (select 1 from public.intake_scans_now_readable() where document_id = v_doc9) then
+    failures := failures || 'FAILED: a scan with no OCR yet is already being offered'::text;
+  else
+    update public.inbox_documents set ocr_text = 'ZZ the text the agent read', ocr_at = now()
+     where id = v_doc9;
+    if not exists (select 1 from public.intake_scans_now_readable() where document_id = v_doc9) then
+      failures := failures || 'FAILED: a scan the agent has read is not offered for a second look'::text;
+    else
+      raise notice 'ok  a scan is offered again only once the agent has read it';
+    end if;
+  end if;
+
+  -- And once the rules have run, it is not offered a third time.
+  if not public.intake_rules_ran_late('zz-scan-1', repeat('3', 64), 'other', '', null, false) then
+    if exists (select 1 from public.intake_scans_now_readable() where document_id = v_doc9) then
+      failures := failures || 'FAILED: a scan already decided is still being offered'::text;
+    else
+      raise notice 'ok  and not again once the rules have run on it';
+    end if;
+  else
+    failures := failures || 'FAILED: filing a scan that needed no reply claimed one'::text;
+  end if;
+
   perform set_config('request.jwt.claims', '', true);
 
   if array_length(failures, 1) > 0 then

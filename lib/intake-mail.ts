@@ -22,6 +22,19 @@ import { isFromUtahGov } from "@/lib/intake-source";
  */
 export const THANKS = "Received, thank you.";
 
+/**
+ * Thank the counselor for a document, which is the whole of Rule 4.
+ *
+ * The one reply call in the system, so there is one place that can be read to
+ * see what an automated reply says. Called from the sweep below when a
+ * document is filed on arrival, and from the intake route when a scan is filed
+ * later - the counselor who sent a scan is owed the same thanks, just not
+ * until it could be read.
+ */
+export async function replyToCounselor(token: string, messageId: string): Promise<void> {
+  await replyOwn(token, messageId, THANKS, false);
+}
+
 export type IntakeMessage = {
   id: string;
   from: string;
@@ -100,7 +113,7 @@ export async function readIntakeMailbox(
       try {
         const { reply } = await handler.pdf(message, pdf);
         if (reply) {
-          await replyOwn(token, m.id, THANKS, false);
+          await replyToCounselor(token, m.id);
           replied += 1;
         }
       } catch (err) {
