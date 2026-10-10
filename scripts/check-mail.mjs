@@ -74,22 +74,46 @@ for (const [f] of usesSend) {
   if (f !== ACTIONS && f !== INTAKE) fail(`${f} uses ${SEND}; only ${ACTIONS} and ${INTAKE} may`);
 }
 
-// ── and the automated one says one thing ────────────────────
+// ── and the automated one composes nothing ──────────────────
+//
+// Two things leave here without a person pressing Send: the reply to a
+// document (Rule 4) and the nudge about a referral with no authorization
+// (Rule 6). The rule is not "one message" any more, so it is the thing that
+// actually matters instead - this file composes no prose. THANKS is a
+// constant; the nudge's words are built in the database beside the rule that
+// decides a nudge is owed, and are handed in. Anything else sent from here
+// would be the practice saying something nobody can find the source of.
 if (src.has(INTAKE)) {
   const i = src.get(INTAKE);
   const bare = i.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
   const replies = (bare.match(/replyOwn\(/g) ?? []).length;
   const withThanks = (bare.match(/replyOwn\([^)]*\bTHANKS\b[^)]*\)/g) ?? []).length;
+  // What reaches a send call, rather than every string in the file - the first
+  // version of this flagged the module's own "a nudge with no words in it",
+  // which is an error message and never leaves the building. What matters is
+  // that the subject and the body passed to sendNew are identifiers: handed
+  // in, not written here.
+  //
+  // The first version matched on `));` where the call ends `});`, so it found
+  // no send calls at all and passed without checking anything - which a
+  // deliberately composed message then sailed through. Hence the second half:
+  // finding none is a failure, not a pass.
+  const sends = bare.match(/sendNew\([\s\S]{0,300}?\}\);/g) ?? [];
+  const prose = sends.filter((call) => !/subject,\s*text:\s*body\s*\}/.test(call));
   if (!/export const THANKS = "Received, thank you\.";/.test(i)) {
     fail(`${INTAKE} does not hold the one sentence the brief specifies`);
   } else if (replies === 0 || replies !== withThanks) {
     fail(`${INTAKE} has ${replies} reply call(s) and ${withThanks} that send THANKS - they must be the same`);
-  } else if (/(sendNew|forwardOwn|moveToDeletedItems)/.test(bare)) {
-    fail(`${INTAKE} may only reply - it must not send, forward or delete mail`);
+  } else if (/(forwardOwn|moveToDeletedItems)/.test(bare)) {
+    fail(`${INTAKE} forwards or deletes mail; it may only reply and send the nudge`);
+  } else if (sends.length === 0) {
+    fail(`${INTAKE} has no send call this check can read, so it is checking nothing`);
+  } else if (prose.length) {
+    fail(`${INTAKE} composes what it sends - the subject and body must be handed in, not written here`);
   } else if (/supabase|createAdminClient/i.test(bare)) {
     fail(`${INTAKE} reaches for the database; it holds a mail token and must not`);
   } else {
-    ok(`${INTAKE} is the one automated sender, and can only reply "Received, thank you."`);
+    ok(`${INTAKE} is the one automated sender, and composes nothing it sends`);
   }
 }
 

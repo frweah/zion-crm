@@ -795,6 +795,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      chase_sent: {
+        Row: {
+          id: string;
+          rule: string;
+          client_id: string | null;
+          auth_id: string | null;
+          nth: number;
+          to_address: string;
+          sent_at: string;
+        };
+        Insert: {
+          id?: string;
+          rule: string;
+          client_id?: string | null;
+          auth_id?: string | null;
+          nth?: number;
+          to_address?: string;
+          sent_at?: string;
+        };
+        Update: {
+          id?: string;
+          rule?: string;
+          client_id?: string | null;
+          auth_id?: string | null;
+          nth?: number;
+          to_address?: string;
+          sent_at?: string;
+        };
+        Relationships: [];
+      };
       checklist_tasks: {
         Row: {
           id: string;
@@ -2962,6 +2992,7 @@ export type Database = {
           require_forms_to_submit: boolean;
           intake_staff_id: string | null;
           placement_staff_id: string | null;
+          billing_notify_staff_id: string | null;
         };
         Insert: {
           id?: boolean;
@@ -2984,6 +3015,7 @@ export type Database = {
           require_forms_to_submit?: boolean;
           intake_staff_id?: string | null;
           placement_staff_id?: string | null;
+          billing_notify_staff_id?: string | null;
         };
         Update: {
           id?: boolean;
@@ -3006,6 +3038,7 @@ export type Database = {
           require_forms_to_submit?: boolean;
           intake_staff_id?: string | null;
           placement_staff_id?: string | null;
+          billing_notify_staff_id?: string | null;
         };
         Relationships: [];
       };
@@ -5991,6 +6024,10 @@ export type Database = {
         Args: { p_auth: string | null };
         Returns: string;
       };
+      authorizations_ending_soon: {
+        Args: { p_today?: string | null };
+        Returns: { auth_id: string | null; client_id: string | null; client_name: string | null; auth_number: string | null; service_type: string | null; end_date: string | null; days_left: number | null; hours_left: number | null; counselor_name: string | null; counselor_email: string | null; body: string | null }[];
+      };
       authorizations_fall_due: {
         Args: { p_today?: string | null };
         Returns: number;
@@ -6379,6 +6416,10 @@ export type Database = {
         Args: { p_type: string | null };
         Returns: string;
       };
+      notify_person: {
+        Args: { p_staff: string | null; p_kind: string | null; p_text: string | null; p_ref: string | null; p_href?: string | null; p_client?: string | null; p_task_title?: string | null; p_due?: string | null; p_level?: string | null; p_source?: string | null };
+        Returns: { staff_name: string | null; email: string | null; message: string | null; task_id: string | null; already: boolean | null }[];
+      };
       offboard_staff: {
         Args: { p_staff_id: string | null; p_last_day: string | null; p_reason?: string | null; p_successor?: string | null; p_note?: string | null };
         Returns: { clients_moved: number | null; tasks_moved: number | null; timer_discarded: boolean | null }[];
@@ -6406,6 +6447,10 @@ export type Database = {
       period_start: {
         Args: { d: string | null };
         Returns: string;
+      };
+      placement_clock_started: {
+        Args: { p_match: string | null };
+        Returns: Json;
       };
       policy_signature_due: {
         Args: Record<string, never>;
@@ -6487,6 +6532,10 @@ export type Database = {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null };
         Returns: { client_id: string | null; action: string | null }[];
       };
+      record_referral_nudge: {
+        Args: { p_client: string | null; p_nth: number | null; p_to: string | null };
+        Returns: boolean;
+      };
       records_request_bundle: {
         Args: { p_client: string | null; p_purpose?: string | null };
         Returns: Json;
@@ -6494,6 +6543,14 @@ export type Database = {
       referral_from_conversation: {
         Args: { p_conversation: string | null; p_name: string | null };
         Returns: string;
+      };
+      referral_received_on: {
+        Args: { p_client: string | null };
+        Returns: string;
+      };
+      referrals_without_authorization: {
+        Args: { p_today?: string | null };
+        Returns: { client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; received_on: string | null; days_waiting: number | null; nth: number | null; send: boolean | null; body: string | null }[];
       };
       refresh_microsoft_tokens: {
         Args: { p_access: string | null; p_refresh: string | null; p_expires_at: string | null };

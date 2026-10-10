@@ -126,21 +126,41 @@ begin
     raise notice 'ok  a rejection records the day it happened';
   end if;
 
-  -- ── Hired does not create a placement by itself ────────────
+  -- ── Hired starts the placement, and not the authorization ──
+  --
+  -- This block used to assert the opposite - "Hired creates no placement, that
+  -- stays a separate decision" - and that was the owner's decision until the
+  -- Intake Automation Brief (Rule 8, 10 Oct 2026) reversed it: "When a job
+  -- match is set to Hired: set placement start = the hire date". There is
+  -- nothing to set a start date on unless the placement exists, so the hire
+  -- now makes one.
+  --
+  -- The half of the old rule the brief keeps is the half about money, and it
+  -- is still checked below: a hire creates no *authorization*. That is USOR's
+  -- to issue, and the brief says so in as many words.
   select count(*) into v_before from public.placements where client_id = v_client;
+  select count(*) into v_notes from public.authorizations where client_id = v_client;
   update public.lead_matches set status = 'Hired', decided_on = current_date where id = v_match;
-  select count(*) into v_notes from public.placements where client_id = v_client;
 
-  if v_notes <> v_before then
-    failures := failures || 'FAILED: marking Hired created a placement on its own'::text;
+  if (select count(*) from public.placements where client_id = v_client) <> v_before + 1 then
+    failures := failures || 'FAILED: marking Hired did not start exactly one placement'::text;
+  elsif (select start_date from public.placements
+          where client_id = v_client order by created_at desc limit 1) <> current_date then
+    failures := failures || 'FAILED: the placement did not start on the hire date'::text;
   else
-    raise notice 'ok  Hired creates no placement — that stays a separate decision';
+    raise notice 'ok  Hired starts the placement, on the hire date (Rule 8)';
   end if;
 
-  if (select placement_id from public.lead_matches where id = v_match) is not null then
-    failures := failures || 'FAILED: a placement was linked without anybody creating one'::text;
+  if (select placement_id from public.lead_matches where id = v_match) is null then
+    failures := failures || 'FAILED: the hire was not linked to the placement it started'::text;
   else
-    raise notice 'ok  nothing is linked until somebody creates the placement';
+    raise notice 'ok  and the match points at it';
+  end if;
+
+  if (select count(*) from public.authorizations where client_id = v_client) <> v_notes then
+    failures := failures || 'FAILED: marking Hired created an authorization'::text;
+  else
+    raise notice 'ok  but no authorization — that is still USOR''s to issue';
   end if;
 
   -- ── the job reaches the timeline and the panel ─────────────

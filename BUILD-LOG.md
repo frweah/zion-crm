@@ -2338,3 +2338,143 @@ did. What the verification proves instead is that the item is addressed to
 Margaret, open, and due the next business day - which is the day My day will
 show it, since My day lists what is due today or earlier.
 
+---
+
+## Intake automation, part three: chasing what has not arrived
+
+10 Oct 2026. Migrations 0184-0185, one new route, one new verification. Rules
+6, 7 and 8 - the last of the brief.
+
+Rules 1-5 were about what arrives. These three are about what does not.
+
+### Rule 6 — a referral with no authorization
+
+Day seven and day fourteen, and no other day. The counselor is emailed from
+service@ with Margaret copied in; after the second one it is a task and no more
+email, because a third identical message is nagging rather than chasing.
+
+**Reading it as "day 7 and day 14" rather than "7 days or more" is the whole
+difference on the day it goes live.** The brief says "Repeat once at 14 days
+with the same text; after that, task only" - so a client who has been at
+Referral for three months has had both days pass and gets the task alone. The
+other reading would have emailed every counselor in the practice about every
+referral ever left open. Checked against the live data before committing to it:
+**22 clients are waiting on an authorization today, and 0 of them would be
+emailed.** From tomorrow it chases new referrals as they age.
+
+The date a referral arrived comes from three places that disagree, so the
+earliest wins: the contact log entry the intake writes (which carries the date
+off the form), the stage history's arrival at Referral, and failing both the
+day the record was made.
+
+What was sent is counted in its own table rather than read back out of the
+contact log. The log is what a person reads and it says a nudge went; counting
+prose is how something gets sent three times.
+
+### Rule 7 — an authorization about to run out
+
+Thirty days before the end date, with hours left or a flat fee not yet
+submitted: Margaret gets the task and the drafted request, billing@ hears too,
+and **nothing is emailed to the counselor**. That is the brief's decision and a
+good one - a renewal is a conversation and the practice's side of it should not
+arrive by itself.
+
+"Still has hours remaining" is read off `authorization_economics`, which
+already knows that a coaching parent's hours are logged on its months (0172).
+One ending in forty-five days is left alone; one with its hours used up is left
+alone however close the end date, because there is nothing to continue.
+
+### Rule 8 — the placement starts the clock
+
+A hire now starts four things by itself. **This reverses a deliberate earlier
+decision** and it is worth saying so: the screen used to read "Create the
+placement when you are ready - it is a separate step on purpose." The brief
+reverses that, so a hire records its date, starts the placement on it, sets the
+four-week milestone and puts the first day of work on the placement
+authorization.
+
+**Two of the four needed nothing written at all, which is the good news:**
+
+- **Bill-by is not written.** Job Placement's bill-by anchor is already
+  `first_work_day` plus 28 days in `bill_by_defaults`, and `bill_by_for`
+  computes it. So the one fact recorded is the first day of work, and "start +
+  28" follows from it - the only arrangement where the two can never disagree.
+- **USOR 60 and 92 are already outstanding.** `form_templates` marks both
+  `required_for_billing` for Job Placement and `authorization_missing_forms`
+  reads that. The verification asserts it instead of writing it a second time.
+
+The milestone is set as the match's own follow-up date and nothing more:
+`sync_match_reminders` (0117) already turns that field into a task and a
+calendar entry and pushes it to Outlook.
+
+**And that is where the one real bug was.** The first version set
+`follow_up_on` in a BEFORE trigger, and nothing reached the calendar. The
+reason is exact: `lead_matches_reminders` fires `after update of ...
+follow_up_on`, and `update of` is about **the columns a statement names**, not
+about what changed. A BEFORE trigger assigning the field does not fire it. So
+the milestone is now set by its own `update` statement naming the column, from
+the function that runs after the hire - and the verification watches for the
+calendar row rather than for the date alone, which is what caught it.
+
+Rule 8 runs on an AFTER trigger rather than from the screen, because the brief
+says "when a job match is set to Hired" - not "when somebody hires through the
+client record". A hire recorded any other way starts the same clock. A hire
+with no placement authorization creates none and asks Margaret for one, which
+is the brief's own carve-out: an authorization is USOR's to issue.
+
+### The mail rule, widened once more and narrowed again
+
+Rule 6 is the second thing that sends mail without somebody pressing Send, so
+`check-mail.mjs`'s rule - which part two had narrowed to "this file may only
+reply, and only with THANKS" - stopped being true. It now says the thing that
+actually matters: **this file composes nothing it sends.** THANKS is a
+constant; the nudge's words are built in the database beside the rule that
+decides a nudge is owed, and handed in.
+
+That check was wrong twice before it was right, and both are worth recording:
+
+1. It flagged the module's own error strings ("a nudge with no words in it") as
+   composed prose. Those never leave the building. It now looks only at what
+   reaches a send call.
+2. The fix matched on `));` where the call ends `});`, so it found **no send
+   calls at all** and passed without checking anything - and a deliberately
+   composed subject and body sailed straight through. The same shape of mistake
+   as the dead-link check and the back-arrow check before it. Finding no send
+   call is now itself a failure.
+
+Both faults were put back and both now fail.
+
+### What holds it
+
+`verify_the_chasing_rules.sql` - seventeen checks, including the three that
+decide whether this is safe to switch on: a client waiting three months gets no
+email, a day between seven and fourteen gets no email, and a nudge already sent
+is not offered again.
+
+`check-intake.mjs` gained two: the chase route carries the words the rules
+wrote and composes none of its own, and Rule 6's nudge is the only outbound
+mail in it - so Rule 7 cannot quietly grow a send.
+
+### Scheduling
+
+`zion-chase` runs daily and is **left active**, because its first run provably
+sends nothing (22 waiting, 0 emailable). The migration prints those two numbers
+as it schedules, so the decision is visible at the moment it is made.
+
+`zion-intake` - the fifteen-minute mailbox poll from part two - is still
+**inactive** and still the owner's to switch on. Its first run would reply to
+mail already handled by hand, which is a different risk entirely.
+
+### One verification had to change its mind
+
+`verify_job_tracker.sql` asserted the decision Rule 8 reverses, in as many
+words: *"ok Hired creates no placement - that stays a separate decision"*. The
+suite failed on it, which is the check doing its job.
+
+It is rewritten rather than deleted, and it says in the script why: the brief
+is the later decision and it is explicit, so a hire now starts the placement on
+the hire date. **The half of the old rule the brief keeps is still checked** -
+a hire creates no *authorization*, because that is USOR's to issue. So the
+block went from two assertions to three and still guards the part that matters
+about money.
+

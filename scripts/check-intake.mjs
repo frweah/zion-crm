@@ -31,6 +31,7 @@ const route = src("app/api/cron/intake/route.ts");
 // (lib/intake-mail.ts holds the token, the route holds the database), so each
 // rule below is asked of the file that is responsible for it.
 const reader = src("lib/intake-mail.ts");
+const chase = src("app/api/cron/chase/route.ts");
 
 // ── whose mail is acted on ───────────────────────────────────
 //
@@ -152,6 +153,45 @@ if (!route.includes("INTAKE_MAILBOX")) {
     fail("the reply to the counselor is not the sentence the brief specifies");
   } else {
     ok('the reply is "Received, thank you.", sent only when the database says this run claimed it');
+  }
+}
+
+// ── chasing sends what the rules say, and nothing else ──────
+//
+// Rule 6 emails the counselor; Rule 7 emails nobody and gives Margaret the
+// draft. The failure to guard against is the chase route writing its own
+// words, which would put the practice's voice in two places, or Rule 7
+// quietly growing a send.
+{
+  const invented = [
+    [/we received .*referral/i, "writes the nudge's words"],
+    [/wanted to check whether/i, "writes the nudge's words"],
+    [/Could we arrange a renewal/i, "writes the renewal request's words"],
+  ].filter(([re]) => re.test(chase));
+
+  if (invented.length) {
+    for (const [, what] of invented) {
+      fail(`the chase route ${what} - they belong beside the rule, in the database`);
+    }
+  } else if (!/w\.body/.test(chase)) {
+    fail("the chase route does not send the words the rule returned");
+  } else if (!/sendReferralNudge\(/.test(chase)) {
+    fail("the chase route does not send the nudge through the one automated sender");
+  } else {
+    ok("the chase route carries the words the rules wrote and composes none of its own");
+  }
+
+  // Rule 7 is Margaret's to send. The only Graph send in this route is the
+  // Rule 6 nudge; anything else would be the renewal going out by itself.
+  const graphSends = (chase.match(/sendReferralNudge\(|sendNew\(|replyOwn\(/g) ?? []).length;
+  if (graphSends !== 1) {
+    fail(`the chase route makes ${graphSends} outbound mail call(s); Rule 6's nudge is the only one`);
+  } else if (!/record_referral_nudge/.test(chase)) {
+    fail("the nudge is not claimed before it is sent, so a second run could send it again");
+  } else if (!/dry/.test(chase)) {
+    fail("the chase route cannot be asked what it would do without doing it");
+  } else {
+    ok("Rule 6's nudge is the one thing sent, claimed before sending, and the run can be tried dry");
   }
 }
 

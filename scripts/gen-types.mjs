@@ -277,6 +277,13 @@ const RPC_FUNCTIONS = [
   "intake_other",
   "intake_record_mail",
   "intake_find_client",
+  // Chasing what has not arrived (Intake Automation Brief, 0184).
+  "referrals_without_authorization",
+  "record_referral_nudge",
+  "authorizations_ending_soon",
+  "placement_clock_started",
+  "referral_received_on",
+  "notify_person",
 ];
 
 const { rows: fns } = await client.query(

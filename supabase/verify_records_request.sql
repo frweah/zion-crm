@@ -104,7 +104,12 @@ declare
     -- is entitled to is the document, which is in attachments, and the fact
     -- that the referral was received, which is in the contact log. Neither is
     -- this row.
-    'intake_mail'
+    'intake_mail',
+    -- How many times the counselor has been chased (0184). What the client is
+    -- entitled to is that the practice asked, which is in contact_log and in
+    -- the bundle above as counselor_contacts. This is the number beside it,
+    -- kept because counting prose is how something gets sent three times.
+    'chase_sent'
   ];
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff

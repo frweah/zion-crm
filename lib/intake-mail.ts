@@ -1,6 +1,6 @@
 import "server-only";
 import { listMessages, listAttachments, fetchAttachment } from "@/lib/mail";
-import { replyOwn } from "@/lib/mail-send";
+import { replyOwn, sendNew } from "@/lib/mail-send";
 import { isFromUtahGov } from "@/lib/intake-source";
 
 /**
@@ -13,10 +13,12 @@ import { isFromUtahGov } from "@/lib/intake-source";
  * callback, where a mistake cannot be a mail bug writing to a client's record.
  *
  * It is the one place in the system that sends mail without somebody pressing
- * Send, and it can say exactly one thing (THANKS). That is narrower than the
- * rule it widens: before this, mail was only ever sent by a person, and the
- * check in scripts/check-mail.mjs now names this file and holds it to that one
- * sentence rather than trusting it with mail in general.
+ * Send, and it can say two things and no others: THANKS, in reply to a
+ * document that arrived (Rule 4), and a nudge whose words it is handed
+ * (Rule 6). It composes neither - THANKS is a constant and the nudge is built
+ * in the database beside the rule that decides a nudge is owed, for the same
+ * reason the notifications are. The check in scripts/check-mail.mjs holds this
+ * file to exactly that, rather than trusting it with mail in general.
  */
 export const THANKS = "Received, thank you.";
 
@@ -108,4 +110,25 @@ export async function readIntakeMailbox(
   }
 
   return { lookedAt: messages.length, replied, pdfs };
+}
+
+/**
+ * The nudge to a counselor about a referral with no authorization (Rule 6).
+ *
+ * The words arrive already written - `referrals_without_authorization` builds
+ * them beside the rule that decides a nudge is owed - so there is one place
+ * that says what the practice says. Margaret is copied in, which is the
+ * brief's instruction and also what makes an automated email answerable: the
+ * reply comes back to a person who knows the case.
+ */
+export async function sendReferralNudge(
+  token: string,
+  to: string,
+  cc: string[],
+  subject: string,
+  body: string,
+): Promise<void> {
+  if (!to.trim()) throw new Error("a nudge with nobody to send it to");
+  if (!body.trim()) throw new Error("a nudge with no words in it");
+  await sendNew(token, { to: [to], cc, subject, text: body });
 }
