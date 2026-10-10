@@ -1,6 +1,13 @@
 /** Roles and navigation, ported from the prototype's ROLES / ROLE_LABEL. */
 
-export const ROLE_NAMES = ["Admin", "Job Search", "Reports", "Billing"] as const;
+export const ROLE_NAMES = [
+  "Admin",
+  "Job Search",
+  "Reports",
+  "Billing",
+  "Job Coach",
+  "Case Manager",
+] as const;
 export type Role = (typeof ROLE_NAMES)[number];
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -8,6 +15,12 @@ export const ROLE_LABEL: Record<Role, string> = {
   "Job Search": "Job Search",
   Reports: "Intake & Client Reports",
   Billing: "Billing",
+  // Both see every client and neither sees Billing's money or Admin (Intake
+  // Automation Brief, 10 Oct 2026). Job Coach is Job Search plus logging
+  // billable hours on a coaching authorization; Case Manager is Reports,
+  // under the name that says what the person actually does.
+  "Job Coach": "Job Coach",
+  "Case Manager": "Case Manager",
 };
 
 /**
@@ -57,6 +70,8 @@ export const ROLE_AREAS: Record<Role, Partial<Record<Area, Level>>> = {
   "Job Search": { tasks: "edit", counselors: "edit" },
   Reports: { tasks: "edit" },
   Billing: { counselors: "edit", billing: "edit" },
+  "Job Coach": { tasks: "edit", counselors: "edit" },
+  "Case Manager": { tasks: "edit" },
 };
 
 const asAccess = (who: Role | Access): Access => (typeof who === "string" ? { role: who, grants: [] } : who);

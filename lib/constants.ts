@@ -29,7 +29,7 @@ export const NOTE_TYPES = [
 export const FUNDING_SOURCES = ["Utah VR", "HCBS Medicaid", "Private Pay", "Other"] as const;
 
 /** Who may edit client records and pipeline. Matches the prototype's canEditClients. */
-export const CAN_EDIT_CLIENTS = ["Admin", "Job Search", "Reports"];
+export const CAN_EDIT_CLIENTS = ["Admin", "Job Search", "Reports", "Job Coach", "Case Manager"];
 
 /** Who may edit authorizations, the service log and invoices. canEditBilling. */
 export const CAN_EDIT_BILLING = ["Admin", "Billing"];
@@ -213,7 +213,19 @@ export function arBuckets(
  * Who may log service hours. Wider than CAN_EDIT_BILLING: job coaches log
  * their own hours, per the "Logging service hours" SOP, confirmed by the owner.
  */
-export const CAN_LOG_HOURS = ["Admin", "Billing", "Job Search"];
+export const CAN_LOG_HOURS = ["Admin", "Billing", "Job Search", "Job Coach"];
+
+/**
+ * Which authorizations a Job Coach may log hours against.
+ *
+ * The role is "Job Search permissions plus logging billable hours on coaching
+ * authorizations" (Intake Automation Brief), and the second half is the point
+ * of it - so it is a filter on the authorization rather than an unqualified
+ * yes. Everybody else who may log hours may log them against anything.
+ */
+export const COACHING_SERVICES = ["Job Coaching"];
+export const isCoachingService = (service: string | null | undefined) =>
+  COACHING_SERVICES.some((s) => (service ?? "").startsWith(s));
 
 /** Median, rounded. Null for an empty set — never 0, which would read as a real figure. */
 export function median(values: number[]): number | null {

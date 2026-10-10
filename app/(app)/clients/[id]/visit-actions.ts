@@ -26,6 +26,12 @@ function friendly(message: string): string {
     return "That would take the authorization past its authorized hours. Ask the counselor for more before logging it.";
   }
   if (/future/i.test(message)) return "That date has not happened yet.";
+  // The database refuses a Job Coach any authorization that is not coaching
+  // (0180). Its own wording is about row-level security, which tells the
+  // person nothing about what they did.
+  if (/row-level security/i.test(message)) {
+    return "A Job Coach logs hours against a coaching authorization. That one is not coaching.";
+  }
   return message;
 }
 

@@ -2111,3 +2111,80 @@ coarse rule back makes exactly those two cases fail:
     FAILED  the way back is wrong: Billing on /billing?tab=hours goes back to nowhere, not /billing
     FAILED  the way back is wrong: Job Search on /requests goes back to /requests, not nowhere
 
+---
+
+## Intake automation, part one: the roles and the one reader
+
+10 Oct 2026. Migration 0180, one module moved, one classifier question added.
+Groundwork for the Intake Automation Brief rather than the intake itself.
+
+### Job Coach and Case Manager
+
+Two roles the practice had been working around. Both see every client; neither
+sees Billing's money or Admin. Case Manager is what the database already calls
+'Reports' under a name that says what the person does. **Rispah is a Case
+Manager** - her record and invite were already there, so only the role was set.
+
+Job Coach is Job Search plus one thing, and that one thing is the role: logging
+billable hours against a **coaching** authorization. So it is a rule in the
+database and not a checkbox on a screen - the client record offers a Job Coach
+only their coaching authorizations, and `service_entries`' row rules refuse the
+rest however the request arrives.
+
+**Two things about that rule were wrong before the verification caught them,
+and both are the kind that would have shipped quietly.**
+
+1. The first version asked `exists (select 1 from authorizations ...)` inside
+   the policy. A subquery in a policy runs as the person being checked, so it
+   reads `authorizations` through `authorizations`' own row rules - and a Job
+   Coach who cannot select the row gets `false`. It refused the coaching hours
+   the role exists to log. Now a `security definer` helper answers.
+
+2. That helper was `stable`, and that was subtler. Logging coaching hours fires
+   `route_entry_to_month` (0172), a BEFORE trigger that opens that month's
+   child authorization and points the entry at it. So by the time the row rules
+   are checked, the authorization being asked about was created earlier in the
+   *same statement* - and a `stable` function reads the snapshot from the start
+   of the statement, where that row does not exist. It answered "not coaching"
+   about a coaching authorization. It is `volatile` now.
+
+   This took a bisect to find: pre-creating the month child as postgres made
+   the coach's insert succeed, which pointed at the child's creation rather
+   than at the check.
+
+**The "Billing (to be assigned)" seat is gone.** The brief said to reassign
+anything referencing it to Melanie first - checked across all 130 foreign keys
+to `staff`, and the only references were its own two HR records, its onboarding
+checklist and its employment row, which went with it. Nothing of anybody
+else's pointed at it, so nothing was reassigned. The migration raises an
+exception rather than deleting quietly if that ever stops being true.
+
+`verify_job_coach_and_case_manager.sql`: eight checks, including that the four
+roles that already existed are unchanged.
+
+### One reader, because mail is a second way in
+
+`readDocument` lived inside `app/api/agent/file/route.ts`, which was right
+while the agent was the only way a PDF arrived. Mail from a counselor is a
+second way, and a second copy of that function would be a second answer to "is
+this an authorization" - the question the whole intake rests on. So it is
+`lib/read-document.ts` now and both callers use it. Nothing about the reading
+changed; `check-agent-routes` holds the same rules, asked of the file that now
+holds them.
+
+**The classifier answers one more question rather than gaining a kind.** A
+referral is a USOR form - 94 or 98 - or a WSA referral that names no form at
+all, so `Classification` carries `referral` alongside `kind`. The kinds are
+what the document inbox stores and files by, and adding one would have meant
+touching that; the question intake actually asks is "does this start a case",
+which is now answered by the same classifier that answers everything else.
+
+Seven cases hold it, and the ones that matter are the noes: a USOR 95 monthly
+report is not a referral, and neither is an authorization whose own text says
+"this authorization follows the referral dated...". Either read as a referral
+would create a client from a document that is not one.
+
+The WSA mark is words rather than a form number, which is the weakest kind of
+mark there is - so it is asked last, only of a document nothing else has
+claimed, and it can never take one from an authorization or a form.
+

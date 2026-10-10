@@ -33,6 +33,13 @@ const fail = (m) => problems.push(m);
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const pdfText = src("lib/pdf-text.ts");
 const fileRoute = src("app/api/agent/file/route.ts");
+// What a document *is* was lifted out of the route into lib/read-document.ts
+// when mail became a second way a PDF arrives (Intake Automation Brief) - one
+// reader, called by both. The rules below are about the reading, so they are
+// asked of the reader; the ones about what the route does with it stay on the
+// route. Read together, so a rule cannot be satisfied by the wrong file.
+const reader = src("lib/read-document.ts");
+const reading = [fileRoute, reader].join("\n");
 const uploadRoute = src("app/api/agent/upload-url/route.ts");
 const agent = src("agent/zion-agent.ps1");
 
@@ -178,7 +185,7 @@ if (!rereadUpdate || /\b(state|decided_by|decided_at|outcome)\b/.test(rereadUpda
 }
 
 // ── an authorization is matched to the ones on file ──────────
-if (!fileRoute.includes("authorizationsMentioned(")) {
+if (!reader.includes("authorizationsMentioned(")) {
   fail("an authorization is no longer checked against that client's authorizations on file");
 } else if (fileRoute.indexOf('rpc("match_inbox_folder"') > fileRoute.indexOf("const reading = await readDocument(bytes, supabase, clientId,")) {
   fail("a new document is read before its client is known, so it cannot be matched to their authorizations");
@@ -187,7 +194,7 @@ if (!fileRoute.includes("authorizationsMentioned(")) {
 }
 
 // ── an "Unreadable" says why ─────────────────────────────────
-if (!/parsed = \{ reason: classification\.reason \}/.test(fileRoute)) {
+if (!/parsed = \{ reason: classification\.reason \}/.test(reader)) {
   fail("an Unreadable document no longer records why, which is what hid the missing worker");
 } else {
   ok("an Unreadable document keeps the reason, so a wrong one leads to its cause");
@@ -224,11 +231,11 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
   const ocrWanted = read("../app/api/agent/ocr-wanted/route.ts");
   const ocrModule = read("../agent/zion-ocr.ps1");
 
-  if (!fileRoute.includes('const fromOcr = !readError && Boolean(ocr?.text.trim()) && text.replace(/\\s/g, "").length < 40;')) {
+  if (!reader.includes('const fromOcr = !readError && Boolean(ocr?.text.trim()) && text.replace(/\\s/g, "").length < 40;')) {
     fail("OCR text can be read in place of a text layer, or for a PDF the server could not open");
   } else if (!/\.\.\.\(reading\.ocr && ocrPayload/.test(fileRoute) || !/if \(!reading\.ocr && reading\.kind !== "Unreadable"\)/.test(fileRoute)) {
     fail("OCR text is kept for a document that has text of its own");
-  } else if (!/text_source: "OCR"/.test(fileRoute)) {
+  } else if (!/text_source: "OCR"/.test(reading)) {
     fail("a reading made from OCR text is not marked as OCR");
   } else {
     ok("OCR is read only for a PDF with no text layer, kept only then, and marked as OCR");

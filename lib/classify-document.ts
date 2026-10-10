@@ -28,6 +28,14 @@ export type Classification = {
   warrantNumber?: string;
   /** Every USOR number seen, for the record. */
   seen: string[];
+  /**
+   * A referral: the document that starts a case (Intake Automation Brief,
+   * Rule 1). Not a kind of its own, because what it *is* is a USOR form -
+   * 94 or 98 - and the kinds are what the document inbox stores and files by.
+   * This is the one extra question intake asks of the same answer, so that
+   * creating a client never depends on a second classifier.
+   */
+  referral?: boolean;
 };
 
 /** DWS-USOR 93, USOR-95, "DWS USOR 148" — the practice writes it every way. */
@@ -41,6 +49,14 @@ const AUTHORIZATION_MARKS = [
   /\bauthorization\s+for\s+services\b/i,
   /\bauthorized\s+(?:units|hours)\b/i,
 ];
+
+/**
+ * The forms that start a case: USOR 94 (the referral) and USOR 98 (returned
+ * by the counselor to open services). A WSA referral names neither and says
+ * so in words instead.
+ */
+const REFERRAL_FORMS = ["94", "98"];
+const WSA_REFERRAL = /\bwsa\b.{0,40}\breferral\b|\breferral\b.{0,40}\bwsa\b/is;
 
 const WARRANT_MARKS = [
   /\bwarrant\s*(?:#|no\.?|number)/i,
@@ -98,12 +114,32 @@ export function classifyDocument(text: string): Classification {
   // authorization is a rate on a client's record copied off a monthly report.
   // USOR's own authorizations name no USOR form, so this costs them nothing.
   if (seen.length === 1) {
-    return { kind: "USOR form", reason: `names ${seen[0]} and nothing else`, usor: seen[0], seen };
+    const number = seen[0].replace(/\D/g, "");
+    return {
+      kind: "USOR form",
+      reason: `names ${seen[0]} and nothing else`,
+      usor: seen[0],
+      seen,
+      referral: REFERRAL_FORMS.includes(number),
+    };
   }
 
   const auth = AUTHORIZATION_MARKS.find((r) => r.test(text));
   if (auth) {
     return { kind: "Authorization", reason: `matched ${auth.source}`, seen };
+  }
+
+  // A WSA referral last, and only once nothing else has claimed the document.
+  // It is recognised by words rather than by a form number, which is the
+  // weakest kind of mark there is - so it answers for a document that is
+  // otherwise "Other" and never takes one from an authorization or a form.
+  if (WSA_REFERRAL.test(text)) {
+    return {
+      kind: "USOR form",
+      reason: "reads as a WSA referral, naming no USOR form",
+      seen,
+      referral: true,
+    };
   }
 
   return {

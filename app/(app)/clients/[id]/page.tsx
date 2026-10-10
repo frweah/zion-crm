@@ -26,7 +26,7 @@ import { JobsPanel, type JobRow } from "./jobs-panel";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { formsLabel, periodLabel, type ItemRow } from "@/lib/billing-items";
 import { WhatsNext, StatusLine, type NextAction } from "./whats-next";
-import { COACHING_CODES, CAN_LOG_HOURS } from "@/lib/constants";
+import { COACHING_CODES, CAN_LOG_HOURS, isCoachingService } from "@/lib/constants";
 import type { BillOption, VisitAuth } from "./record-actions";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
 import { TextThread } from "./messages-tab";
@@ -168,7 +168,12 @@ export default async function ClientPage({
 
   const withAuthPdf = new Set((authFiles ?? []).map((f) => f.auth_id).filter(Boolean) as string[]);
 
-  const visitAuths: VisitAuth[] = (openAuths ?? []).map((a) => ({ id: a.id, label: authLabel(a) }));
+  // A Job Coach logs hours against a coaching authorization and nothing else -
+  // that addition is what the role is for (Intake Automation Brief). The
+  // database says the same, so this is the offer and not the rule.
+  const visitAuths: VisitAuth[] = (openAuths ?? [])
+    .filter((a) => me.role !== "Job Coach" || isCoachingService(a.service_type))
+    .map((a) => ({ id: a.id, label: authLabel(a) }));
 
   // Which form each authorization bills on, and whether it is still wanted.
   const billingForms = paperworkRows ?? [];

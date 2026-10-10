@@ -66,6 +66,71 @@ for (const [what, text, expected] of cases) {
 }
 if (!problems.length) ok("an authorization, a warrant, a USOR form and a letter are told apart");
 
+// ── which of them starts a case ──────────────────────────────
+//
+// A referral is the one document that may create a client (Intake Automation
+// Brief, Rule 1), so the question "is this a referral" is asked of the same
+// classifier rather than a second one - and the cases that matter are the
+// ones where the answer must be no. A monthly report has the word "referral"
+// nowhere near it but a USOR number that is not 94 or 98; an authorization
+// for a client who was referred says "referral" in its own text. Either read
+// as a referral would create a client from a document that is not one.
+const referral94 = pad(`
+DWS-USOR 94
+VOCATIONAL REHABILITATION REFERRAL
+Client Name: Jordan Sample
+Counselor: Dana Lee
+Office: Salt Lake City
+Referral Date: 03/04/2026
+`);
+
+const usor98 = pad(`
+USOR 98
+Counselor response - services may begin
+Client: Jordan Sample
+`);
+
+const wsaReferral = pad(`
+WSA REFERRAL FOR SERVICES
+Utah State Office of Rehabilitation
+Client Name: Jordan Sample
+Counselor: Dana Lee
+Referral Date: 03/04/2026
+`);
+
+const authAfterReferral = pad(`
+UTAH STATE OFFICE OF REHABILITATION
+AUTHORIZATION FOR SERVICES
+Authorization #: VR-2026-004418
+Client Name: Jordan Sample
+Service Type: Job Placement
+This authorization follows the referral dated 03/04/2026.
+`);
+
+const referralCases = [
+  ["a USOR 94", referral94, true],
+  ["a USOR 98", usor98, true],
+  ["a WSA referral naming no form", wsaReferral, true],
+  ["a USOR 95 monthly report", usorForm, false],
+  ["an authorization that mentions the referral", authAfterReferral, false],
+  ["a covering letter", letter, false],
+  ["a remittance advice", warrant, false],
+];
+const referralWrong = [];
+for (const [what, text, expected] of referralCases) {
+  const got = classifyDocument(text);
+  if (Boolean(got.referral) !== expected) {
+    referralWrong.push(
+      `${what} reads as ${got.referral ? "a referral" : "not a referral"} (${got.kind}: ${got.reason})`,
+    );
+  }
+}
+if (referralWrong.length) {
+  for (const w of referralWrong) fail(`the referral rule is wrong: ${w}`);
+} else {
+  ok(`all ${referralCases.length} cases agree on what starts a case and what does not`);
+}
+
 // ── a warrant listing authorizations is still a warrant ──────
 // This is the case that decides the rule order. A remittance advice names the
 // authorizations it pays, so it carries both sets of marks; what matters
