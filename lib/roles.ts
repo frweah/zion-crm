@@ -311,6 +311,42 @@ export function navFor(who: Role | Access): { group: NavGroup; items: NavItem[] 
   );
 }
 
+/**
+ * The way back off a hub's tab: where that hub opens, or null if this screen
+ * is the landing and so has nowhere above it.
+ *
+ * One definition, because three things need the same answer and they were
+ * drifting: the arrow the layout draws, the deploy check that asserts the
+ * arrow arrived, and check-nav's cases below. The first version of the deploy
+ * check asked two questions that were merely near this one, and was wrong
+ * about two screens on production.
+ *
+ * Two subtleties, both learned from those two screens. Which items a hub has
+ * depends on the role, so Purchase requests - the only Billing screen a Job
+ * Search person can open - is that role's Billing landing and gets no arrow,
+ * since the arrow would point at a screen they cannot open. And several tabs
+ * are query strings on one route, so the current tab decides and not the path:
+ * /billing?tab=hours has a way back, /billing and /billing?doc=<id> do not.
+ */
+export function hubBack(
+  groups: { group: NavGroup; items: NavItem[] }[],
+  pathname: string,
+  tab: string | null,
+): { href: string; label: string } | null {
+  // Only on a hub's own screens. A record under one of them carries its own.
+  const current = groups.find(({ items }) => items.some((i) => pathname === navPath(i.href)));
+  if (!current) return null;
+
+  const landing = current.group.hub ?? current.items[0]?.href;
+  if (!landing) return null;
+
+  // A hub with a landing page of cards is never one of its own tabs. Without
+  // one, the hub's first screen is the landing.
+  if (!current.group.hub && currentItemHref(current.items, pathname, tab) === landing) return null;
+
+  return { href: landing, label: current.group.label };
+}
+
 /** Every item a person may open, flattened — what canReach reads. */
 export function reachableFor(who: Role | Access): NavItem[] {
   return navFor(who).flatMap((g) => g.items);

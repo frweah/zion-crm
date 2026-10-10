@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { currentItemHref, navPath, type NavGroup, type NavItem } from "@/lib/roles";
+import { hubBack, type NavGroup, type NavItem } from "@/lib/roles";
 import { BackLink } from "./back-link";
 
 /**
@@ -27,18 +27,7 @@ export function HubBack({ groups }: { groups: { group: NavGroup; items: NavItem[
   const pathname = usePathname();
   const tab = useSearchParams().get("tab");
 
-  // Only on a hub's own screens, exactly as the tab strip is. A record under
-  // one of them has its own header and its own way back.
-  const current = groups.find(({ items }) => items.some((i) => pathname === navPath(i.href)));
-  if (!current) return null;
-
-  const landing = current.group.hub ?? current.items[0]?.href;
-  if (!landing) return null;
-
-  // With no landing page of its own, the hub's first screen is the landing.
-  if (!current.group.hub && currentItemHref(current.items, pathname, tab) === landing) {
-    return null;
-  }
-
-  return <BackLink href={landing} label={current.group.label} />;
+  const back = hubBack(groups, pathname, tab);
+  if (!back) return null;
+  return <BackLink href={back.href} label={back.label} />;
 }

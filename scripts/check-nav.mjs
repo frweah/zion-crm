@@ -16,7 +16,7 @@
  *   email, every note somebody wrote down.
  */
 import { readdir, readFile } from "node:fs/promises";
-import { NAV_GROUPS, navFor, navPath, reachableFor, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
+import { NAV_GROUPS, navFor, navPath, hubBack, reachableFor, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
 import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const problems = [];
@@ -585,6 +585,61 @@ if (loose.length) {
   for (const l of loose) fail(`a parameter is added with & to something that may have no query: ${l}`);
 } else {
   ok("every built link puts its parameters behind a ?, or composes them");
+}
+
+// ── the way back off a hub's tab ─────────────────────────────
+//
+// One function decides this (hubBack), three things read it: the arrow the
+// layout draws, the deploy check that asserts the arrow arrived, and these
+// cases. Written as cases because the first version of the deploy check asked
+// a question merely near this one and was wrong about two live screens - and a
+// rule with two subtleties in it needs the subtleties written down where they
+// fail the build, not discovered on production again.
+const BACK_CASES = [
+  // A hub with a landing page of cards: every tab goes back to it.
+  ["Admin", "/clients", null, "/work"],
+  ["Job Search", "/tasks", null, "/work"],
+  ["Admin", "/mail", null, "/communication"],
+  ["Job Search", "/messages/texts", "texts", "/communication"],
+  ["Job Search", "/messages/texts", "web", "/communication"],
+  ["Admin", "/sops", null, "/hr"],
+  ["Admin", "/hours", "approvals", "/hr"],
+  // A hub with no landing page: its first screen is the landing, and the tab
+  // decides, because several of these tabs are one route.
+  ["Admin", "/dashboard", null, null],
+  ["Admin", "/my-day", null, "/dashboard"],
+  ["Billing", "/billing", null, null],
+  ["Billing", "/billing", "authorizations", null],
+  ["Billing", "/billing", "hours", "/billing"],
+  ["Billing", "/books", null, "/billing"],
+  ["Admin", "/admin/documents", null, null],
+  ["Admin", "/admin/system", null, "/admin/documents"],
+  ["Admin", "/insights/money", null, "/admin/documents"],
+  // Purchase requests is everybody's. For a role that can open the rest of
+  // Billing it is a tab; for one that cannot it is that role's whole Billing
+  // group, so it is the landing and an arrow would point where they cannot go.
+  ["Billing", "/requests", null, "/billing"],
+  ["Job Search", "/requests", null, null],
+  // The pending-document view is the Authorizations tab with a document
+  // picked, so it is still the landing.
+  ["Billing", "/billing", null, null],
+  // A record is not a hub tab at all: its own header carries the way back.
+  ["Admin", "/clients/abc", null, null],
+  ["Admin", "/books/reports", null, null],
+];
+const backWrong = [];
+for (const [role, pathname, tab, expected] of BACK_CASES) {
+  const got = hubBack(navFor(role), pathname, tab)?.href ?? null;
+  if (got !== expected) {
+    backWrong.push(
+      `${role} on ${pathname}${tab ? `?tab=${tab}` : ""} goes back to ${got ?? "nowhere"}, not ${expected ?? "nowhere"}`,
+    );
+  }
+}
+if (backWrong.length) {
+  for (const w of backWrong) fail(`the way back is wrong: ${w}`);
+} else {
+  ok(`all ${BACK_CASES.length} cases of the way back off a hub tab land where they should`);
 }
 
 console.log("");

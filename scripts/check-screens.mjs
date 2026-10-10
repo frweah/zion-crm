@@ -155,21 +155,24 @@ const ownBack = (src) => {
 };
 
 // The hub arrow is only real if the layout draws it — and it has to be handed
-// the same navigation the tab strip is handed, and decide which tab is current
-// by the same rule, or the arrow and the tabs can disagree about where
-// somebody is.
+// the same navigation the tab strip is handed, and work out where it goes with
+// lib/roles' hubBack, which is the one definition the deploy check and
+// check-nav's cases also read. A second copy of that rule here is how the
+// arrow and the tabs would come to disagree about where somebody is.
 const layout = byPath.get("app/(app)/layout.tsx") ?? "";
-const hubBack = byPath.get("app/(app)/hub-back.tsx") ?? "";
+const hubBackSrc = byPath.get("app/(app)/hub-back.tsx") ?? "";
 const handedTo = (component) =>
   (layout.match(new RegExp(`<${component}\\s+groups=\\{([A-Za-z_$][\\w$]*)\\}`)) ?? [])[1];
 if (!/<HubBack\b/.test(layout)) {
   fail("the layout does not draw HubBack, so no hub tab has a way back");
 } else if (!handedTo("HubBack") || handedTo("HubBack") !== handedTo("GroupTabs")) {
   fail("HubBack and GroupTabs are not given the same navigation, so the arrow can disagree with the tabs");
-} else if (!/\bcurrentItemHref\b/.test(hubBack)) {
-  fail("hub-back.tsx does not use currentItemHref, so it can disagree about which tab is current");
+} else if (!/\bhubBack\b/.test(hubBackSrc)) {
+  fail(
+    "hub-back.tsx does not use lib/roles' hubBack, so the arrow can disagree with the deploy check and check-nav's cases",
+  );
 } else {
-  ok("the hub's way back is drawn once in the layout, from the same navigation as the tabs");
+  ok("the hub's way back is drawn once in the layout, by the one rule the checks read");
 }
 
 // One definition of the arrow itself, so the two kinds cannot look different.

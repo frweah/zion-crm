@@ -2075,3 +2075,39 @@ The code has six navigation groups, three of which (Work, Communication, HR)
 have a landing page of cards and three of which (Home, Billing, Admin) open on
 their first screen.
 
+### What the deployment said, and the correction
+
+`ed315aa` deployed successfully and the arrow was there on both screens the
+owner named — the smoke log reads `Billing: /billing?tab=hours has the way
+back` and `Job Search: /messages/texts?tab=texts has the way back`, across 43
+hub tabs.
+
+**And the new assertion failed on two screens, both because the assertion was
+coarser than the component.** It is worth writing down which, because both are
+real distinctions I had not seen:
+
+- **Purchase requests is everybody's screen.** For a role that can open the
+  rest of Billing it is a tab, and gets "← Billing". For a Job Search person it
+  is the *only* Billing screen they can open, so it is that role's Billing
+  landing — and an arrow there would point at `/billing`, a screen they cannot
+  open. Which items a hub has depends on the role, and my assertion read the
+  unfiltered navigation.
+- **`/billing?doc=<id>` is the Authorizations tab with a document picked**, not
+  a tab of its own. No `tab` means the first tab, which is the landing, so it
+  correctly shows none. My assertion string-matched the href against a list of
+  landings and `/billing?doc=…` is not literally `/billing`.
+
+So the component was right twice and the check was wrong twice — the same shape
+of mistake as §11's audit and the dead-link check before it: a check that asks
+a question *near* the rule instead of the rule.
+
+**The fix is one definition, not a better copy.** `hubBack(groups, pathname,
+tab)` now lives in `lib/roles.ts` and three things read it: the arrow the
+layout draws, the deploy check that asserts the arrow arrived, and twenty-one
+cases in `check-nav` — including the two screens that failed on production, so
+the subtleties fail the build rather than being rediscovered live. Putting the
+coarse rule back makes exactly those two cases fail:
+
+    FAILED  the way back is wrong: Billing on /billing?tab=hours goes back to nowhere, not /billing
+    FAILED  the way back is wrong: Job Search on /requests goes back to /requests, not nowhere
+

@@ -25,7 +25,7 @@
 import { readFileSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
 import { readdir } from "node:fs/promises";
-import { reachableFor, navPath, NAV_GROUPS } from "../lib/roles.ts";
+import { reachableFor, navFor, navPath, hubBack, NAV_GROUPS } from "../lib/roles.ts";
 import { CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const env = (k) => {
@@ -298,11 +298,33 @@ async function pass(role) {
    * the owner named (Billing → Hours and Communication → Texts) are reported
    * by name, because a check that silently skipped them would still pass.
    */
-  const LANDINGS = new Set(NAV_GROUPS.map((g) => g.hub ?? g.items[0].href));
+  /**
+   * Whether this screen promises a way back, by the rule the component uses.
+   *
+   * The first version of this asked two coarser questions - is the path in the
+   * navigation, and is the href literally a landing - and both were wrong on
+   * the deployment, which is where it was caught:
+   *
+   *   Purchase requests is the only Billing screen a Job Search person can
+   *   open, so for that role it IS the group's first screen, and an arrow
+   *   would point at /billing - a screen that role cannot open.
+   *
+   *   /billing?doc=<id> is the pending-document view, which is the
+   *   Authorizations tab with a document picked. No tab means the first tab,
+   *   which is the landing, so it shows none.
+   *
+   * Both are the component behaving correctly. So this asks what the component
+   * asks - navFor for this role, currentItemHref for which tab is current -
+   * rather than something near it.
+   */
+  const nav = navFor(role);
+  const promisesBack = (path) => {
+    const [pathname, query] = path.split("?");
+    return hubBack(nav, pathname, new URLSearchParams(query ?? "").get("tab")) !== null;
+  };
+
   const ARROW = /class="sub record-back no-print"/;
-  const hubTabs = results.filter(
-    (r) => r.ok && NAVIGATION.has(navPath(r.path)) && !LANDINGS.has(r.path),
-  );
+  const hubTabs = results.filter((r) => r.ok && promisesBack(r.path));
   for (const r of hubTabs) {
     if (!ARROW.test(r.body ?? "")) {
       results.push({
