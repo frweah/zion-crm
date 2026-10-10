@@ -1,7 +1,7 @@
 import { requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { AssetRegister } from "./asset-register";
 
 /**
@@ -35,9 +35,10 @@ export default async function Assets() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Equipment"
-        context={`${((register ?? []) as { status: string }[]).filter((a) => a.status !== "Disposed").length} on the register`}
+        standing={`${((register ?? []) as { status: string }[]).filter((a) => a.status !== "Disposed").length} on the register`}
       />
       <AssetRegister
         assets={(register ?? []) as never}

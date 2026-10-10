@@ -4,7 +4,13 @@ import { notFound, redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { CAN_EDIT_CLIENTS, money, periodRange, today } from "@/lib/constants";
-import { StageControl, DetailsForm, RestrictedPanel, type ClientDetail } from "./client-detail";
+import {
+  StageControl,
+  DetailsForm,
+  RestrictedPanel,
+  DeleteClient,
+  type ClientDetail,
+} from "./client-detail";
 import { NotesTab, type NoteRow } from "./notes-tab";
 import { AuthorizationFiles } from "./authorization-files";
 import { type TaskRow } from "./tasks-tab";
@@ -747,6 +753,7 @@ export default async function ClientPage({
             visible={canSeeRestricted}
             canEdit={canEdit}
           />
+          {isAdmin && <DeleteClient clientId={detail.id} clientName={detail.name} />}
           {canEdit && (
             <div id="intake">
               {openIntake ? (

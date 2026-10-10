@@ -92,7 +92,13 @@ declare
     -- client: it holds no fact about them that is not already on the record,
     -- and the reads that are disclosable - somebody opening the restricted
     -- tier - are in access_log, which is in the bundle above.
-    'client_recents'
+    'client_recents',
+    -- What the practice removed and why (0178). It can only hold somebody who
+    -- no longer has a record, and a records request is one of the things that
+    -- refuses the delete in the first place - so a request for a live client
+    -- can never find a row here. It is the practice's account of its own
+    -- decision, kept where the delete cannot reach it.
+    'client_deletions'
   ];
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff

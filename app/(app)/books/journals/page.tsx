@@ -3,7 +3,7 @@ import { readChart, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { DataTable, type DataRow } from "../../data-table";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { CorrectEntry, WriteEntry } from "./journal-forms";
 
 /**
@@ -68,7 +68,11 @@ export default async function Journals({
 
   return (
     <>
-      <PageHead title="Journal entries" context="Newest first" />
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
+        title="Journal entries"
+        standing="Newest first"
+      />
 
       {me.role === "Admin" && <WriteEntry accounts={accounts.filter((a) => a.active)} />}
       {me.role === "Admin" && correcting && <CorrectEntry id={correcting.id} memo={correcting.memo} />}

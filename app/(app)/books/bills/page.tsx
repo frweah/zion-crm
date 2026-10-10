@@ -1,7 +1,7 @@
 import { readChart, readSettings, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { BillList } from "./bill-list";
 
 /**
@@ -50,9 +50,10 @@ export default async function Bills({
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Bills"
-        context={
+        standing={
           settings?.bill_approval_limit
             ? `Billing approves up to ${settings.bill_approval_limit}; above that, an Admin`
             : "An Admin approves every bill until a limit is set"

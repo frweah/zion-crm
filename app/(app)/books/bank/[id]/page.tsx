@@ -3,7 +3,7 @@ import { money } from "@/lib/constants";
 import { readChart, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../../page-head";
+import { RecordHeader } from "../../../record-header";
 import { StatementLines } from "./statement-lines";
 
 /**
@@ -62,9 +62,10 @@ export default async function Statement({ params }: { params: Promise<{ id: stri
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books/bank", label: "Bank statements" }}
         title={`${s.bank_accounts?.name ?? "Statement"} · ${s.period_start} to ${s.period_end}`}
-        context={
+        standing={
           s.reconciled_at
             ? `Reconciled ${s.reconciled_at.slice(0, 10)}`
             : where

@@ -1,7 +1,7 @@
 import { readChart, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { ChartView } from "./chart-view";
 
 /**
@@ -28,9 +28,10 @@ export default async function Chart() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Chart of accounts"
-        context={`${accounts.filter((a) => a.active).length} in use`}
+        standing={`${accounts.filter((a) => a.active).length} in use`}
       />
       <ChartView
         accounts={accounts}

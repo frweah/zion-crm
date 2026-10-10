@@ -269,6 +269,8 @@ const RPC_FUNCTIONS = [
   "billing_worklist",
   "authorizations_fall_due",
   "close_empty_coaching_months",
+  // Removing a client who should never have been a record (0178).
+  "delete_client",
 ];
 
 const { rows: fns } = await client.query(

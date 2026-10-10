@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { setStage, updateClient, updateRestricted, type DetailState } from "./actions";
+import { deleteClient, setStage, updateClient, updateRestricted, type DetailState } from "./actions";
 import { STAGES, CLIENT_STATUSES } from "@/lib/constants";
 
 const initial: DetailState = { error: null, ok: null };
@@ -373,3 +373,89 @@ export function RestrictedPanel({
     </div>
   );
 }
+
+/**
+ * Removing a client, which is almost never what somebody wants.
+ *
+ * Closing is the right answer for a client whose work is finished: the record
+ * stays, the history reads true, and their work leaves the billing list. This
+ * is for the other thing - somebody who should never have been a record at
+ * all, a duplicate typed twice, a referral entered against the wrong person.
+ *
+ * So the panel says what closing does first, and offers it as a link, because
+ * most of the people who open this wanted that. What is left is deliberately
+ * slow: a reason, and the client's name typed out. The name is not security -
+ * it is the step that makes you read which record you are on, which is the
+ * mistake this is most likely to be.
+ *
+ * Every refusal comes from the database and is shown as it arrives. It knows
+ * which authorization is still Submitted; this screen does not, and a second
+ * copy of the rule here would be a second thing to keep right.
+ */
+export function DeleteClient({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [state, action, pending] = useActionState(deleteClient, initial);
+  const matches = typed.trim().toLowerCase() === clientName.trim().toLowerCase();
+
+  return (
+    <div className="card">
+      <h3>Delete this client</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Almost always the thing you want is <strong>Closed</strong>, on the status above: it keeps
+        the record and takes their work off the billing list. Deleting is for a record that should
+        never have existed — a duplicate, or somebody entered against the wrong person. It takes
+        their notes, tasks, forms, files and authorizations with them and cannot be undone.
+      </p>
+      {state.error && <div className="alert bad">{state.error}</div>}
+      {!open ? (
+        <button className="btn ghost" type="button" onClick={() => setOpen(true)}>
+          Delete this client…
+        </button>
+      ) : (
+        <form action={action}>
+          <input type="hidden" name="id" value={clientId} />
+          <input type="hidden" name="name" value={clientName} />
+          <label className="field">
+            Why is it being deleted?
+            <input
+              name="reason"
+              required
+              autoFocus
+              placeholder="Duplicate of another record, entered twice on 4 Oct"
+            />
+          </label>
+          <label className="field">
+            Type <strong>{clientName}</strong> to confirm
+            <input
+              name="confirm_name"
+              required
+              autoComplete="off"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </label>
+          <div className="row2" style={{ marginTop: 10 }}>
+            <button className="btn danger" type="submit" disabled={pending || !matches}>
+              {pending ? "Deleting…" : `Delete ${clientName}`}
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setTyped("");
+              }}
+            >
+              Keep this client
+            </button>
+          </div>
+          <p className="lock" style={{ marginBottom: 0 }}>
+            Recorded against your name, with the reason, before anything is removed.
+          </p>
+        </form>
+      )}
+    </div>
+  );
+}
+

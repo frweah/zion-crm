@@ -834,6 +834,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_deletions: {
+        Row: {
+          id: string;
+          seq: number;
+          client_id: string;
+          client_name: string;
+          client_no: number | null;
+          agency_id: string;
+          stage: string;
+          status: string;
+          reason: string;
+          carried: Json;
+          cleared: Json;
+          deleted_by: string | null;
+          deleted_by_name: string;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          client_id: string;
+          client_name: string;
+          client_no?: number | null;
+          agency_id?: string;
+          stage?: string;
+          status?: string;
+          reason: string;
+          carried?: Json;
+          cleared?: Json;
+          deleted_by?: string | null;
+          deleted_by_name?: string;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          client_id?: string;
+          client_name?: string;
+          client_no?: number | null;
+          agency_id?: string;
+          stage?: string;
+          status?: string;
+          reason?: string;
+          carried?: Json;
+          cleared?: Json;
+          deleted_by?: string | null;
+          deleted_by_name?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
       client_private: {
         Row: {
           client_id: string;
@@ -5976,6 +6027,10 @@ export type Database = {
       };
       current_staff_role: {
         Args: Record<string, never>;
+        Returns: string;
+      };
+      delete_client: {
+        Args: { p_client: string | null; p_reason: string | null };
         Returns: string;
       };
       delete_staff_pay: {

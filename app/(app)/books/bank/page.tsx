@@ -4,7 +4,7 @@ import { readChart, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { DataTable, type DataRow } from "../../data-table";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { BankForms } from "./bank-forms";
 
 /**
@@ -45,7 +45,11 @@ export default async function Bank() {
 
   return (
     <>
-      <PageHead title="Bank statements" context={`${(accounts ?? []).length} account(s)`} />
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
+        title="Bank statements"
+        standing={`${(accounts ?? []).length} account(s)`}
+      />
 
       {me.role === "Admin" && (
         <BankForms

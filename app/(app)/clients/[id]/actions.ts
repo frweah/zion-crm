@@ -3,6 +3,7 @@
 import { can } from "@/lib/roles";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { isOnlyTemplate } from "@/lib/note-template";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
@@ -456,3 +457,42 @@ export async function setSmsConsent(
         : "Consent withdrawn. Nothing further will be sent to this client.",
   };
 }
+
+/**
+ * Delete a client, with a reason.
+ *
+ * Almost nobody should be deleted - closing is the right answer for a client
+ * whose work is finished, and it keeps the record. This is for somebody who
+ * should never have been a record at all: a duplicate typed twice, a referral
+ * entered against the wrong person.
+ *
+ * Every rule lives in delete_client, which refuses what should be refused and
+ * writes what was removed before removing it. Nothing is checked twice here -
+ * the message the database gives is the message the person reads, because it
+ * is the one that knows which authorization to close.
+ */
+export async function deleteClient(_prev: DetailState, formData: FormData): Promise<DetailState> {
+  const me = await getCurrentStaff();
+  if (!me || me.role !== "Admin") {
+    return { error: "Only an Admin deletes a client.", ok: null };
+  }
+
+  const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  const typed = String(formData.get("confirm_name") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+
+  if (!reason) return { error: "Say why this client is being deleted.", ok: null };
+  if (typed.toLowerCase() !== name.toLowerCase()) {
+    return { error: `Type the client's name exactly - "${name}" - to confirm.`, ok: null };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_client", { p_client: id, p_reason: reason });
+  if (error) return { error: [error.message, error.hint].filter(Boolean).join(" "), ok: null };
+
+  revalidatePath("/clients");
+  revalidatePath("/billing");
+  redirect(`/clients?deleted=${encodeURIComponent(name)}`);
+}
+

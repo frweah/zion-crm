@@ -3,7 +3,7 @@ import { periodFrom, presets, readChart, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { DataTable, type DataRow } from "../../data-table";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { BudgetGrid } from "./budget-grid";
 
 /**
@@ -56,9 +56,10 @@ export default async function Budget({
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Budget"
-        context={`${period.from} to ${period.to}`}
+        standing={`${period.from} to ${period.to}`}
         actions={
           <a
             className="btn ghost"

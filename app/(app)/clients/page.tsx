@@ -53,6 +53,9 @@ export default async function ClientsPage({
   const raw = await searchParams;
   const filters = parseFilters(raw);
   const activeViewId = typeof raw.view === "string" ? raw.view : null;
+  // A deleted client has no record left to say what happened on, so the list
+  // they have just been sent back to says it instead.
+  const deleted = typeof raw.deleted === "string" ? raw.deleted : null;
 
   const supabase = await createClient();
 
@@ -336,6 +339,12 @@ export default async function ClientsPage({
           </>
         }
       />
+
+      {deleted && (
+        <div className="alert ok">
+          {deleted} was deleted, with your reason on the record.
+        </div>
+      )}
 
       {/* The counts in sight while moving through the list (21 Sept 2026). */}
       <CaseloadSummary caseload={await loadCaseload(supabase, me)} slim />

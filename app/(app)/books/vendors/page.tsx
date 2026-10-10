@@ -1,7 +1,7 @@
 import { readChart, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { VendorList } from "./vendor-list";
 
 /**
@@ -33,9 +33,10 @@ export default async function Vendors() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Vendors"
-        context={`${rows.filter((v) => v.active).length} in use`}
+        standing={`${rows.filter((v) => v.active).length} in use`}
       />
       <VendorList
         vendors={(vendors ?? []) as never}

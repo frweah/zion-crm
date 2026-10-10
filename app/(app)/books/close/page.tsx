@@ -1,7 +1,7 @@
 import { readSettings, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { ClosingForms } from "./closing-forms";
 
 /**
@@ -43,9 +43,10 @@ export default async function Closing() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Closing"
-        context={
+        standing={
           settings ? `${settings.basis} basis, open from ${settings.books_start}` : "Not set up yet"
         }
       />

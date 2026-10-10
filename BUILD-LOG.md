@@ -1767,3 +1767,138 @@ Both times the fix was to print what the code actually returns instead of
 assuming what it is called. The service defect is the one that survived
 checking.
 
+---
+
+## Four fixes: the test rows, deleting a client, the list, and the way back
+
+Deployed 9 Oct 2026. Migrations 0177 and 0178, two new checks, one new screen
+panel, eleven headers.
+
+### 1. The test counselor in the directory
+
+**Nothing was found in production, and that is the honest answer.** Every text
+column in the database was swept — 517 of them across every table, plus
+`auth.users` — for ZZ, ZQ, V0000 and the other fixture shapes. Zero matches.
+Counselors, clients, staff, authorizations, service entries, attachments,
+documents, notes, contact log, tasks, work sessions, vendors: clean. So there
+was nothing to delete, and nothing was deleted.
+
+What was wrong was that this could not be *shown* before, which is the half
+worth keeping:
+
+**`verify_zz_no_fixtures.sql`** asks the question directly and fails if a
+fixture-shaped row is ever committed. It is static SQL rather than generated,
+because the first version was generated and it cried wolf: `format()` built
+predicates that reported six hits in `directory_changes.entity_name` and five
+in `inbox_documents.ocr_text` which three separate checks in node disproved. A
+check that reports findings nobody can reproduce is worse than no check. The
+rewritten one was proven the other way round — a leaked `ZQ Leaked Counselor`
+was inserted and committed, and it caught it.
+
+**`scripts/check-verify-scripts.mjs`**, now in `prebuild`, makes the leak
+impossible at the source: every verification script that writes must have
+exactly one `begin;`, exactly one `rollback;`, no `commit;`, and nothing after
+the rollback. It reads all 84 of them and reports: 79 that write all roll back,
+none commits, 5 are read-only and need no transaction. A script that forgets its
+rollback now fails the build rather than leaving a row behind.
+
+### 2. Deleting a client
+
+Admin can remove a client. This needed care, because a delete is the one
+operation nobody can inspect afterwards.
+
+**The rules, in `delete_client(client, reason)`** — Admin only; a reason
+required and a reason of spaces refused; refused while any authorization is
+Submitted or Paid, and the refusal *names which ones*, because "close those
+first" is useless without them; refused while a legal hold stands or a records
+request exists. Recorded before anything is removed, in `client_deletions`,
+which has no foreign key to clients on purpose — the row has to outlive the
+thing it is about. And DELETE on `clients` is revoked from everybody, so the
+function is the only door: a delete that goes around it would carry no reason
+and leave nothing saying it happened.
+
+**What it ran into.** Thirty-three tables name a client. Twenty-one cascade,
+which is the point — their notes, tasks, forms, files, authorizations. Eight
+keep their row and let the client go, because they are the practice's record of
+what it did rather than the client's. Three of those eight are append-only, and
+an emptied pointer is still an update, so they refused:
+
+| | |
+|---|---|
+| `access_log` | refuses every update, full stop |
+| `journal_lines` | refuses every update, full stop |
+| `work_sessions` | refuses any change to the fields that make a claim |
+
+Which meant **a client who had ever been looked at could not be deleted** — and
+every real client has been looked at. The first working version of this feature
+did not work on a single live record. The test found it, not a screen.
+
+Two different answers, because the two cases are not alike:
+
+- **The ledger keeps its rule and the delete is refused instead.** A client the
+  books name is not deleted; they are closed. Nothing about `ledger_append_only`
+  changed.
+- **The access log and time records learned one narrow exception**: a
+  `client_id` may go from a value to null, and only to null, and only when that
+  client no longer exists. Nothing a row asserts is touched — the log still says
+  who opened what and when, the time record still says who worked which hours on
+  which day. Only the pointer to a record the practice decided was never real is
+  emptied, and `client_deletions` keeps that name and id.
+
+  The exception cannot be used as an edit, which is the whole reason it is
+  phrased that way: from a screen the client still exists, so the guard refuses
+  exactly as before. Only the referential action, firing after the parent row
+  has gone, ever sees the state that allows it. Both directions are tested.
+
+**What the record says.** `client_deletions` carries the name, the client
+number, the stage and status, the reason, who, when — and two counts read from
+the catalogue rather than from a list somebody keeps up to date: `carried` (what
+went with them) and `cleared` (what kept its own row with the pointer emptied).
+So "it cascaded cleanly" is a number somebody can read rather than a claim. A
+real delete in the test records `{"notes": 2, "tasks": 1, "legal_holds": 1,
+"authorizations": 1, "client_stage_history": 1}` carried and `{"access_log": 1,
+"work_sessions": 1}` cleared.
+
+**The screen.** On the client's profile, Admin only. It says what Closed does
+first and points at it, because that is what almost everybody who opens this
+actually wanted. What is left is deliberately slow: a reason, and the client's
+name typed out. The typing is not security — it is the step that makes you read
+which record you are on, which is the mistake this is most likely to be. Every
+refusal comes from the database and is shown as it arrives; the screen holds no
+second copy of the rules, because it does not know which authorization is still
+Submitted and the database does.
+
+**`verify_client_deletion.sql`** — eighteen checks: each refusal from the
+direction that would break it, the exception tried as an edit and refused, the
+cascade counted both ways, the merged record keeping its life, and the audit row
+reading true. The ledger case posts a real line rather than asserting the rule,
+and unwinds it by failing the block it was made in — which is the only way to
+take something back out of a ledger that refuses a delete as firmly as an edit.
+
+### 3. What leaves the working list
+
+Migration 0177. §9 says "if a row needs no action from the person looking at it,
+it doesn't show", and two things did show: an authorization belonging to a
+client the practice had closed, whatever its own status. `billing_worklist` now
+excludes them. Live effect: 16 rows down to 14.
+
+Closing the client does not rewrite the authorizations — they keep their own
+status and stay readable on the record, so the history still reads true. They
+are simply not work any more. And reopening the client brings its live work
+back, because the decision that took them off is the only thing that put them
+there.
+
+**`verify_the_list_is_actionable.sql`** proves all five: Closed leaves at once,
+Paid leaves at once, a closed client takes all their work off, the statuses are
+not rewritten, the dashboard count agrees with the list, and reopening restores
+it.
+
+### 4. The way back out of Books
+
+Every sub-page under Billing → Books — Reports, Journals, Chart, Bank, Bills,
+Vendors, Budget, Forecast, Assets, Close — now draws the shared `RecordHeader`
+with a back arrow to the Books overview, instead of `PageHead`, which has none.
+A bank statement goes back to the statement list it came from rather than two
+levels up past it. `check-screens` holds the line: all 63 screens draw the
+shared screen or record header.
+

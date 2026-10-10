@@ -63,11 +63,19 @@ begin
   if v_n <> 0 then
     failures := failures || 'FAILED: the system account changed a client'::text;
   end if;
-  delete from public.clients where id = v_client;
-  get diagnostics v_n = row_count;
-  if v_n <> 0 then
-    failures := failures || 'FAILED: the system account removed a client'::text;
-  end if;
+  -- Deleting a client stopped being a matter of row rules for anybody in 0178:
+  -- DELETE came off the table entirely, so this is refused outright rather
+  -- than matching no rows. Both answers say the same thing - the bot cannot
+  -- remove a client - and both are accepted, because which one arrives is
+  -- about where the rule lives rather than about the bot.
+  begin
+    delete from public.clients where id = v_client;
+    get diagnostics v_n = row_count;
+    if v_n <> 0 then
+      failures := failures || 'FAILED: the system account removed a client'::text;
+    end if;
+  exception when insufficient_privilege then null;
+  end;
 
   -- ── a person with the same role still writes ─────────────
   perform set_config('request.jwt.claims', json_build_object('sub', v_person_uid, 'role', 'authenticated')::text, true);

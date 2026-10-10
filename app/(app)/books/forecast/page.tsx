@@ -3,7 +3,7 @@ import { readSettings, requireBooks } from "@/lib/books";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { DataTable, type DataRow } from "../../data-table";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 import { ForecastSettings } from "./forecast-settings";
 
 /**
@@ -71,9 +71,10 @@ export default async function Forecast() {
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Forecast"
-        context={`Ninety days, on what USOR has taken ${lag ?? 30} days to pay`}
+        standing={`Ninety days, on what USOR has taken ${lag ?? 30} days to pay`}
       />
 
       {dips && (

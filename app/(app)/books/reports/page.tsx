@@ -14,7 +14,7 @@ import {
   type Row,
 } from "@/lib/books";
 import { DataTable, type DataRow } from "../../data-table";
-import { PageHead } from "../../page-head";
+import { RecordHeader } from "../../record-header";
 
 /**
  * The reports (ERP brief, E1).
@@ -79,9 +79,10 @@ export default async function BooksReports({
 
   return (
     <>
-      <PageHead
+      <RecordHeader
+        back={{ href: "/books", label: "Books" }}
         title="Reports"
-        context={report.note}
+        standing={report.note}
         actions={
           <a className="btn ghost" href={`/books/reports/export${query({})}`}>
             Download CSV
