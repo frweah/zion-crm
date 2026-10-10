@@ -271,6 +271,12 @@ const RPC_FUNCTIONS = [
   "close_empty_coaching_months",
   // Removing a client who should never have been a record (0178).
   "delete_client",
+  // Intake from the counselor's email (Intake Automation Brief, 0181-0182).
+  "intake_referral",
+  "intake_authorization",
+  "intake_other",
+  "intake_record_mail",
+  "intake_find_client",
 ];
 
 const { rows: fns } = await client.query(

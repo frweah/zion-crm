@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/check-theme.mjs && node scripts/check-verify-scripts.mjs && node scripts/check-nav.mjs && node scripts/check-exports.mjs && node scripts/check-agent-routes.mjs && node scripts/check-filename-rules.mjs && node scripts/check-screens.mjs && node scripts/check-mail.mjs && node scripts/check-client-imports.mjs && node scripts/check-upload-limits.mjs && node scripts/check-words.mjs",
+    "prebuild": "node scripts/check-theme.mjs && node scripts/check-verify-scripts.mjs && node scripts/check-intake.mjs && node scripts/check-referral-parse.mjs && node scripts/check-nav.mjs && node scripts/check-exports.mjs && node scripts/check-agent-routes.mjs && node scripts/check-filename-rules.mjs && node scripts/check-screens.mjs && node scripts/check-mail.mjs && node scripts/check-client-imports.mjs && node scripts/check-upload-limits.mjs && node scripts/check-words.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

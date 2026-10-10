@@ -1995,6 +1995,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      intake_mail: {
+        Row: {
+          id: string;
+          seq: number;
+          message_id: string;
+          from_address: string;
+          subject: string;
+          received_at: string | null;
+          decision: string;
+          detail: string;
+          sha256: string | null;
+          document_id: string | null;
+          client_id: string | null;
+          replied_at: string | null;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          message_id: string;
+          from_address?: string;
+          subject?: string;
+          received_at?: string | null;
+          decision: string;
+          detail?: string;
+          sha256?: string | null;
+          document_id?: string | null;
+          client_id?: string | null;
+          replied_at?: string | null;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          message_id?: string;
+          from_address?: string;
+          subject?: string;
+          received_at?: string | null;
+          decision?: string;
+          detail?: string;
+          sha256?: string | null;
+          document_id?: string | null;
+          client_id?: string | null;
+          replied_at?: string | null;
+          at?: string;
+        };
+        Relationships: [];
+      };
       intakes: {
         Row: {
           id: string;
@@ -2912,6 +2960,8 @@ export type Database = {
           stale_grace_days: number;
           stale_soon_days: number;
           require_forms_to_submit: boolean;
+          intake_staff_id: string | null;
+          placement_staff_id: string | null;
         };
         Insert: {
           id?: boolean;
@@ -2932,6 +2982,8 @@ export type Database = {
           stale_grace_days?: number;
           stale_soon_days?: number;
           require_forms_to_submit?: boolean;
+          intake_staff_id?: string | null;
+          placement_staff_id?: string | null;
         };
         Update: {
           id?: boolean;
@@ -2952,6 +3004,8 @@ export type Database = {
           stale_grace_days?: number;
           stale_soon_days?: number;
           require_forms_to_submit?: boolean;
+          intake_staff_id?: string | null;
+          placement_staff_id?: string | null;
         };
         Relationships: [];
       };
@@ -6128,6 +6182,26 @@ export type Database = {
       inbox_seen: {
         Args: { p_hashes: string[] | null };
         Returns: { sha256: string | null; known: boolean | null }[];
+      };
+      intake_authorization: {
+        Args: { p_doc: string | null; p_number: string | null; p_name: string | null; p_service?: string | null; p_start?: string | null; p_end?: string | null; p_from_scan?: boolean | null };
+        Returns: Json;
+      };
+      intake_find_client: {
+        Args: { p_name: string | null };
+        Returns: { client_id: string | null; client_name: string | null; how: string | null }[];
+      };
+      intake_other: {
+        Args: { p_doc: string | null; p_name?: string | null };
+        Returns: Json;
+      };
+      intake_record_mail: {
+        Args: { p_message: string | null; p_from: string | null; p_subject: string | null; p_received: string | null; p_decision: string | null; p_detail?: string | null; p_sha256?: string | null; p_doc?: string | null; p_client?: string | null; p_reply?: boolean | null };
+        Returns: boolean;
+      };
+      intake_referral: {
+        Args: { p_doc: string | null; p_name: string | null; p_counselor?: string | null; p_office?: string | null; p_date?: string | null; p_phone?: string | null };
+        Returns: Json;
       };
       is_active_staff: {
         Args: Record<string, never>;

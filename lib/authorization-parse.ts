@@ -1,4 +1,4 @@
-import { SERVICE_TYPES } from "./constants";
+import { SERVICE_TYPES } from "./constants.ts";
 
 /**
  * Reading a USOR authorization.
@@ -59,13 +59,15 @@ export type ParsedAuthorization = {
  * nearest-match, because "almost matched" is how a parser quietly invents a
  * rate.
  */
-type Rule = {
-  key: FieldKey;
+export type FieldRule<K extends string> = {
+  key: K;
   name: string;
   labels: RegExp[];
   value: RegExp;
   clean?: (raw: string) => string | null;
 };
+
+type Rule = FieldRule<FieldKey>;
 
 const DATE = /((?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2})/;
 const MONEY = /\$?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/;
@@ -198,7 +200,16 @@ const RULES: Rule[] = [
 /** Fields an authorization cannot be created without. */
 export const REQUIRED: FieldKey[] = ["clientName", "serviceType", "rate"];
 
-function applyRule(rule: Rule, lines: string[]): Found | null {
+/**
+ * Read one labelled field off a form's lines.
+ *
+ * Exported because a referral form is read the same way an authorization is
+ * (lib/referral-parse.ts): a label, the rest of its line, then the line below.
+ * The rules differ between the two forms; how a label is recognised does not,
+ * and the two hard-won parts of that - what counts as a label, and reading the
+ * line below only when it is not itself a label - should exist once.
+ */
+export function applyFieldRule<K extends string>(rule: FieldRule<K>, lines: string[], others: FieldRule<K>[] = []): Found | null {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     for (const label of rule.labels) {
@@ -230,7 +241,8 @@ function applyRule(rule: Rule, lines: string[]): Found | null {
 
       // Then the line below, for forms that put the label above the box.
       const below = lines[i + 1];
-      if (below && !RULES.some((r) => r.labels.some((l) => l.test(below)))) {
+      const labels = others.length ? others : (RULES as unknown as FieldRule<K>[]);
+      if (below && !labels.some((r) => r.labels.some((l) => l.test(below)))) {
         const under = below.match(rule.value);
         if (under) {
           const value = rule.clean ? rule.clean(under[1]) : under[1].trim();
@@ -268,7 +280,7 @@ export function parseAuthorizationText(
   }
 
   for (const rule of RULES) {
-    const found = applyRule(rule, lines);
+    const found = applyFieldRule(rule, lines);
     if (found) fields[rule.key] = found;
   }
 

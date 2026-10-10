@@ -98,7 +98,13 @@ declare
     -- refuses the delete in the first place - so a request for a live client
     -- can never find a row here. It is the practice's account of its own
     -- decision, kept where the delete cannot reach it.
-    'client_deletions'
+    'client_deletions',
+    -- Which email a document arrived in and what the automation decided about
+    -- it (0182). Plumbing, the same as inbox_documents above: what the client
+    -- is entitled to is the document, which is in attachments, and the fact
+    -- that the referral was received, which is in the contact log. Neither is
+    -- this row.
+    'intake_mail'
   ];
 begin
   select id, user_id into v_admin, v_adm_uid from public.staff

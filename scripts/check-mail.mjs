@@ -42,6 +42,13 @@ const src = new Map(files.map((f) => [rel(f), readFileSync(f, "utf8")]));
 const READ = "lib/mail.ts";
 const SEND = "lib/mail-send.ts";
 const ACTIONS = "app/(app)/mail/actions.ts";
+// The one place that sends mail without somebody pressing Send: the intake's
+// reply to the counselor (Intake Automation Brief, Rule 4). It is allowed
+// here and then held to much less than ACTIONS is - one fixed sentence, as a
+// reply and nothing else - because "mail is only sent by a person" stopped
+// being the whole truth and a rule that is nearly true is worse than one that
+// says exactly what it means.
+const INTAKE = "lib/intake-mail.ts";
 const DB_WRITE = /\.(insert|update|upsert|delete)\(|\.rpc\(/;
 
 // ── bodies are never stored ──────────────────────────────────
@@ -64,20 +71,45 @@ for (const [f, s] of src) {
   }
 }
 for (const [f] of usesSend) {
-  if (f !== ACTIONS) fail(`${f} uses ${SEND}; only ${ACTIONS} may`);
+  if (f !== ACTIONS && f !== INTAKE) fail(`${f} uses ${SEND}; only ${ACTIONS} and ${INTAKE} may`);
 }
-if (src.has(ACTIONS)) {
-  const a = src.get(ACTIONS);
-  const exported = [...a.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  const stray = exported.filter((n) => !/^(send|reply|forward|delete)[A-Z]/.test(n));
-  if (stray.length) fail(`${ACTIONS} exports ${stray.join(", ")} - only send*, reply*, forward* and delete* belong there`);
+
+// ── and the automated one says one thing ────────────────────
+if (src.has(INTAKE)) {
+  const i = src.get(INTAKE);
+  const bare = i.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const replies = (bare.match(/replyOwn\(/g) ?? []).length;
+  const withThanks = (bare.match(/replyOwn\([^)]*\bTHANKS\b[^)]*\)/g) ?? []).length;
+  if (!/export const THANKS = "Received, thank you\.";/.test(i)) {
+    fail(`${INTAKE} does not hold the one sentence the brief specifies`);
+  } else if (replies === 0 || replies !== withThanks) {
+    fail(`${INTAKE} has ${replies} reply call(s) and ${withThanks} that send THANKS - they must be the same`);
+  } else if (/(sendNew|forwardOwn|moveToDeletedItems)/.test(bare)) {
+    fail(`${INTAKE} may only reply - it must not send, forward or delete mail`);
+  } else if (/supabase|createAdminClient/i.test(bare)) {
+    fail(`${INTAKE} reaches for the database; it holds a mail token and must not`);
+  } else {
+    ok(`${INTAKE} is the one automated sender, and can only reply "Received, thank you."`);
+  }
 }
-if (!problems.some((p) => /send path|uses lib\/mail-send|exports/.test(p))) ok("mail is sent, or moved to Deleted Items, only by the Send, Reply, Forward and Delete actions");
 
 // ── shared mailboxes through one door ───────────────────────
 const readers = usesMail.filter(([, s]) => /\b(listMessages|getMessage|listAttachments|fetchAttachment)\(/.test(s));
 for (const [f, s] of readers) {
-  if (!/resolveMailbox\(/.test(s)) fail(`${f} reads mail without resolveMailbox deciding whose mailbox`);
+  if (f === INTAKE) {
+    // resolveMailbox answers "may this person open that mailbox", and the
+    // intake has no person - it runs behind a cron secret with nobody signed
+    // in. So it is held to the stricter thing instead: it is handed its
+    // mailbox and cannot choose one, and the only name its caller may pass is
+    // the fixed INTAKE_MAILBOX (scripts/check-intake.mjs holds that end).
+    if (/searchParams|request\.|requested/.test(s)) {
+      fail(`${INTAKE} takes a mailbox from the request; it may only read the one it is handed`);
+    } else if (!/mailbox: string \| null/.test(s)) {
+      fail(`${INTAKE} does not take its mailbox as an argument, so nothing decides it`);
+    }
+  } else if (!/resolveMailbox\(/.test(s)) {
+    fail(`${f} reads mail without resolveMailbox deciding whose mailbox`);
+  }
 }
 if (!problems.some((p) => p.includes("resolveMailbox"))) ok(`every mail read goes through resolveMailbox (${readers.length} files)`);
 

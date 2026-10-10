@@ -2188,3 +2188,153 @@ The WSA mark is words rather than a form number, which is the weakest kind of
 mark there is - so it is asked last, only of a document nothing else has
 claimed, and it can never take one from an authorization or a form.
 
+---
+
+## Intake automation, part two: email to client to authorization
+
+10 Oct 2026. Migrations 0181-0183, one new route, three new modules, three new
+checks. Rules 1-5 of the Intake Automation Brief, and Rule 4's reply.
+
+### Where it reads, and what it leaves alone
+
+Only **service@zionvocrehab.com**, and no personal inbox. It turned out to need
+no new permission at all: service@ is already connected, as Francis's own
+Microsoft connection, with Mail.Read and Mail.Send granted. A shared-mailbox
+registration is read first in case that changes, so the connection can move
+without the code knowing.
+
+Only **@utah.gov** senders are acted on. Thirteen cases hold that, and the ones
+that matter are the noes: `dana@utah.gov.example.com`, `dana@notutah.gov`,
+`dana@utah.gov.co`, `utah.gov@gmail.com`. A referral is the one document that
+can create a client, so the cheapest way in is the one worth closing. Everything
+else is left alone - not read, not recorded against anybody, nobody notified -
+and **the skip is logged**, which is how somebody answers "did the counselor's
+email arrive" without guessing.
+
+### Three parts, with a boundary between each
+
+This is the shape the codebase already had for the nightly sweep, and following
+it is what kept the thing readable:
+
+- **`lib/intake-mail.ts`** holds the mail token. It reads, hands over each PDF,
+  and thanks the counselor when told to. It never sees the database.
+- **`app/api/cron/intake/route.ts`** holds the database client. Per PDF it reads
+  with the one reader, stores it the way the agent stores one, and asks the
+  rules what it is.
+- **The rules are in the database** (0182). Client created, document attached,
+  task raised and notification written in one transaction - so a client created
+  without the task raised cannot happen. They hand back the words to email.
+
+That split is why the rules are testable without a mailbox, which is the whole
+point: they are the part that can be wrong in a way nobody notices.
+
+### One notification, three places
+
+`notify_person` writes the bell row, the My day item and returns the words for
+the email. All three already existed and none knew about the others.
+
+The useful discovery was that **the My day item and the intake task are the same
+row**. My day reads `tasks` for the person, open, due today or earlier - so Rule
+1's "raise the intake task" and Rule 5's "a My day item" were one sentence
+written twice, which is exactly what Rule 5 says. One call, one task.
+
+It is idempotent on its reference, because the mailbox is polled: a poll that
+overlaps the last one must notify nobody twice. The task is keyed on the
+assignee as well as the document, because a placement authorization is
+Margaret's to confirm *and* Rei's to act on - two items, not a collision.
+
+### What the rules refuse
+
+- **A referral** creates the client only when none is on file; attaches and says
+  "re-sent" when one is; and on an ambiguous name **creates nothing** and asks.
+  Two records for one client splits their authorizations, hours and forms, and
+  the splitting is only noticed when a bill is short.
+- Known aliases are the names of records merged away - a merge already keeps the
+  old row pointing at the surviving one, so the old name is already recorded as
+  another way of saying the same person. That is why there is no aliases table.
+- **An authorization never creates a client.** The name on it may be a
+  misspelling of somebody who exists, and a client created from it is the
+  duplicate Rule 1 goes to such lengths to avoid.
+- A re-send **overwrites nothing**. What is on the record was put there by
+  somebody; a form is not a correction. Blank fields are filled, nothing else.
+
+### Four things the schema and the rules disagreed about
+
+Each of these was found by the verification refusing something that had to work.
+
+1. **The one door had to admit the intake.** `add_authorization` is the only way
+   a bill comes into being (0168) and its guard is "Admin and Billing" - the
+   intake is neither, running as the service role with nobody signed in. The
+   guard now also admits `filing_caller_role() = 'service_role'`, the name this
+   codebase already uses for that caller. The alternative was an insert of its
+   own inside the intake, which is precisely what 0168 existed to remove.
+
+2. **An authorization must carry a rate, and the brief says not to read one.**
+   `rate` is NOT NULL and an hourly authorization must carry hours. So what is
+   written says nothing rather than guessing: rate 0, which is the column's own
+   default and means "nobody has said", hours 0 for the same reason, and the
+   note says in words that they were not read. Whether it is hourly or flat is
+   *not* a guess - `billing_service_rules.billing_type` already records it per
+   service. The submission gate already refuses an authorization with no amount
+   and no dates, so a figure nobody typed cannot reach an invoice.
+
+3. **A policy's subquery runs as the person being checked.** Not intake - the
+   Job Coach rule in part one - but the same lesson twice in one day.
+
+4. **`min(uuid)` is not a function**, and `tasks.source_ref` is a uuid while a
+   notification's dedupe key is text. One document can be the reason for two
+   notifications to two people, so those are now two separate parameters.
+
+### The reply, and the rule it widened
+
+Rule 4: reply "Received, thank you." from service@, one per document, a re-send
+getting the same reply.
+
+Whether a reply is owed is a fact about the record, so **the database claims
+it** - `intake_record_mail` records what was decided and returns whether this
+run is the one that should send. Two overlapping polls cannot both thank the
+counselor.
+
+This is the first thing in the system that sends mail without somebody pressing
+Send, and `check-mail.mjs` said so: *"only app/(app)/mail/actions.ts may"*. That
+rule was right until today and is now not the whole truth, so it was widened
+deliberately and the new sender is held to **much less** than the old one: it
+may only *reply*, only with `THANKS`, never send or forward or delete, and never
+touch the database. The check asserts every one of those. A rule that is nearly
+true is worse than one that says exactly what it means.
+
+The `resolveMailbox` rule needed the same treatment for the opposite reason:
+that function answers "may this person open that mailbox", and the intake has no
+person. So it is held to the stricter thing - it cannot choose a mailbox at all,
+only read the one it is handed.
+
+### What holds it
+
+- **`verify_the_intake.sql`** - fifteen checks, the brief's own list.
+- **`scripts/check-intake.mjs`** - the sender cases, and that there is one
+  reader, one classifier, no OCR path of its own, and no notification wording in
+  the route. Proven by putting both faults back: adding `extractPdfText` to the
+  route and writing "New referral:" into it each fail.
+- **`scripts/check-referral-parse.mjs`** - five cases, including that the office
+  is not read out of "UTAH STATE OFFICE OF REHABILITATION" (the trap the
+  authorization parser fell into on real forms) and that a referral with no name
+  on it says so rather than inventing one.
+- Both new checks are in `prebuild`.
+
+A side effect worth noting: `scripts/check-auth-parse.mjs` had been **dead**,
+failing on a module it could not resolve, and adding an explicit `.ts` to one
+import fixed it. It passes now.
+
+### Not done in this pass
+
+Rules 6, 7 and 8 - the missing-authorization nudge at 7 and 14 days, the
+authorization-ending chase at 30 days, and Hired starting the placement clock.
+They are scheduled rules rather than mail handling, and they are next.
+
+The brief's smoke step ("Margaret's My day shows the item after a fixture
+referral") is not done as written: the smoke account is read-only by design
+(0120) and cannot raise a referral, and it could not see Margaret's My day if it
+did. What the verification proves instead is that the item is addressed to
+Margaret, open, and due the next business day - which is the day My day will
+show it, since My day lists what is due today or earlier.
+
