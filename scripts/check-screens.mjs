@@ -86,21 +86,31 @@ const headless = pages.filter((f) => !drawsHeader(f));
 if (headless.length) fail(`screens with no PageHead or RecordHeader: ${headless.map((f) => f.path).join(", ")}`);
 else ok(`all ${pages.length} screens draw the shared screen or record header`);
 
-// ── every screen below a hub has the way back ────────────────
+// ── every screen says how to get out of it ───────────────────
 //
-// The sidebar gets somebody to a hub's screens. What it never did was get them
-// off one: a sub-tab or a record page is reached by clicking into it, and the
-// only way out was the browser's own button or guessing which sidebar entry
-// came closest. Books had this fixed first; the owner asked for the rest.
+// The sidebar gets somebody to a screen. What it never did was get them off
+// one, and there are two kinds of screen with two different answers:
 //
-// So: a screen that is not itself a sidebar entry or a hub page must draw the
-// back arrow, and the arrow must point at the screen directly above it - the
-// nearest screen that exists, which for a record's sub-page is the record
-// itself rather than the list two levels up.
+//   A hub's tab goes back to where the hub opens, which the navigation already
+//   knows. One component in the layout draws that arrow for all of them
+//   (hub-back.tsx), beside the tab strip and for the same reason - one list,
+//   one rule, and a screen added to a hub does not need somebody to remember
+//   an arrow for it.
 //
-// Pointing *somewhere* is not enough, and checking only that `back=` appears
-// would pass an arrow aimed at the wrong screen - which is the mistake worth
-// catching, because it looks right until somebody clicks it.
+//   A screen below a tab - a record, a sub-page - goes back to the screen
+//   directly above, which only that screen knows. It draws its own, on
+//   RecordHeader.
+//
+// The only screens with no way out are the hubs' landings: where Work,
+// Communication and HR open on a page of cards, and the first screen of Home,
+// Billing and Admin, which have no such page.
+//
+// Checked, rather than assumed: that each screen is covered by one of the two,
+// that the layout really draws the hub arrow, that a screen does not draw two,
+// and - for the ones that draw their own - that it points at the screen
+// directly above. Checking only that `back=` appears somewhere would pass an
+// arrow aimed at the wrong screen, which is the mistake that looks right until
+// somebody clicks it.
 const route = (path) => {
   const inner = path.slice("app/(app)/".length, -"page.tsx".length);
   const segs = inner
@@ -109,11 +119,12 @@ const route = (path) => {
   return "/" + segs.join("/");
 };
 
-// Where the sidebar can already take somebody: every entry, and every hub.
-const hubLevel = new Set(["/"]);
+// Where each hub opens, and the screens it reaches through its tab strip.
+const landings = new Set(["/"]);
+const onATabStrip = new Map();
 for (const group of NAV_GROUPS) {
-  if (group.hub) hubLevel.add(group.hub);
-  for (const item of group.items) hubLevel.add(navPath(item.href));
+  landings.add(navPath(group.hub ?? group.items[0].href));
+  for (const item of group.items) onATabStrip.set(navPath(item.href), group);
 }
 
 /** A route and a written href compared on shape, so [id] and ${id} are one. */
@@ -125,11 +136,12 @@ const shape = (s) =>
     .replace(/\/+$/, "") || "/";
 
 /**
- * The href a screen's back arrow points at — written on the header, or held in
- * a constant, or on a header the screen draws through a component of its own.
+ * The href a screen's own back arrow points at — written on the header, held
+ * in a constant, or on a header the screen draws through a component of its
+ * own folder.
  */
 const BACK_HREF = /back=\{\{\s*href:\s*(?:"([^"]*)"|`([^`]*)`)/;
-const backHref = (src, seen = new Set()) => {
+const ownBack = (src) => {
   const direct = src.match(BACK_HREF);
   if (direct) return direct[1] ?? direct[2];
   const named = src.match(/back=\{([A-Za-z_$][\w$]*)\}/);
@@ -142,15 +154,62 @@ const backHref = (src, seen = new Set()) => {
   return null;
 };
 
+// The hub arrow is only real if the layout draws it — and it has to be handed
+// the same navigation the tab strip is handed, and decide which tab is current
+// by the same rule, or the arrow and the tabs can disagree about where
+// somebody is.
+const layout = byPath.get("app/(app)/layout.tsx") ?? "";
+const hubBack = byPath.get("app/(app)/hub-back.tsx") ?? "";
+const handedTo = (component) =>
+  (layout.match(new RegExp(`<${component}\\s+groups=\\{([A-Za-z_$][\\w$]*)\\}`)) ?? [])[1];
+if (!/<HubBack\b/.test(layout)) {
+  fail("the layout does not draw HubBack, so no hub tab has a way back");
+} else if (!handedTo("HubBack") || handedTo("HubBack") !== handedTo("GroupTabs")) {
+  fail("HubBack and GroupTabs are not given the same navigation, so the arrow can disagree with the tabs");
+} else if (!/\bcurrentItemHref\b/.test(hubBack)) {
+  fail("hub-back.tsx does not use currentItemHref, so it can disagree about which tab is current");
+} else {
+  ok("the hub's way back is drawn once in the layout, from the same navigation as the tabs");
+}
+
+// One definition of the arrow itself, so the two kinds cannot look different.
+const BACK_MARKUP = 'className="sub record-back no-print"';
+const drawsArrow = all.filter((f) => f.path !== "app/(app)/back-link.tsx" && f.src.includes(BACK_MARKUP));
+if (drawsArrow.length) {
+  fail(`the back arrow is written out instead of using BackLink: ${drawsArrow.map((f) => f.path).join(", ")}`);
+}
+
 const screens = pages.map((f) => ({ ...f, route: route(f.path) }));
 const allRoutes = new Set(screens.map((s) => s.route));
 const noWayBack = [];
 const wrongWayBack = [];
-let below = 0;
+const twoWaysBack = [];
+let viaLayout = 0;
+let viaHeader = 0;
 
 for (const screen of screens) {
-  if (hubLevel.has(screen.route)) continue;
-  below++;
+  if (landings.has(screen.route)) continue;
+
+  // Written on the page, or on a component beside it that draws the header.
+  let href = ownBack(screen.src);
+  if (href === null) {
+    const dir = screen.path.slice(0, screen.path.lastIndexOf("/") + 1);
+    for (const m of screen.src.matchAll(/from\s+"\.(\.?)\/([^"]+)"/g)) {
+      const base = m[1] ? dir.slice(0, dir.lastIndexOf("/", dir.length - 2) + 1) : dir;
+      const beside = byPath.get(`${base}${m[2]}.tsx`);
+      if (beside) {
+        href = ownBack(beside);
+        if (href !== null) break;
+      }
+    }
+  }
+
+  if (onATabStrip.has(screen.route)) {
+    // The layout draws this one. Its own arrow would be a second one.
+    if (href !== null) twoWaysBack.push(`${screen.route} (the layout already draws one)`);
+    else viaLayout++;
+    continue;
+  }
 
   // The screen directly above: the nearest ancestor that is itself a screen.
   const segs = screen.route.split("/").filter(Boolean);
@@ -163,37 +222,28 @@ for (const screen of screens) {
     }
   }
 
-  // Written on the page, or on a component beside it that draws the header.
-  let href = backHref(screen.src);
-  if (href === null) {
-    const dir = screen.path.slice(0, screen.path.lastIndexOf("/") + 1);
-    for (const m of screen.src.matchAll(/from\s+"\.(\.?)\/([^"]+)"/g)) {
-      const base = m[1] ? dir.slice(0, dir.lastIndexOf("/", dir.length - 2) + 1) : dir;
-      const beside = byPath.get(`${base}${m[2]}.tsx`);
-      if (beside) {
-        href = backHref(beside);
-        if (href !== null) break;
-      }
-    }
-  }
-
   if (href === null) {
     noWayBack.push(`${screen.route} (should go back to ${above ?? "its hub"})`);
   } else if (above && shape(href) !== shape(above)) {
     wrongWayBack.push(`${screen.route} goes back to ${href} rather than ${above}`);
+  } else {
+    viaHeader++;
   }
 }
 
 if (noWayBack.length) {
-  fail(
-    `screens below a hub with no back arrow — give them RecordHeader's back: ${noWayBack.join(", ")}`,
-  );
+  fail(`screens with no way back — give them RecordHeader's back: ${noWayBack.join(", ")}`);
 }
 if (wrongWayBack.length) {
   fail(`back arrows pointing past the screen above: ${wrongWayBack.join(", ")}`);
 }
-if (!noWayBack.length && !wrongWayBack.length) {
-  ok(`all ${below} screens below a hub go back to the screen directly above`);
+if (twoWaysBack.length) {
+  fail(`screens drawing a second back arrow under the layout's: ${twoWaysBack.join(", ")}`);
+}
+if (!noWayBack.length && !wrongWayBack.length && !twoWaysBack.length) {
+  ok(
+    `every screen says how to get out of it — ${viaLayout} hub tabs from the layout, ${viaHeader} records and sub-pages from their own header, ${landings.size - 1} hub landings need none`,
+  );
 }
 
 // ── tabs move between screens, and never stack ──────────────

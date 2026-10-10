@@ -2006,3 +2006,72 @@ fails with *"screens below a hub with no back arrow"*, and pointing the bank
 statement at `/books` instead of `/books/bank` fails with *"back arrows pointing
 past the screen above"*. Both were restored.
 
+---
+
+## Every screen says how to get out of it
+
+Deployed 10 Oct 2026. One component, one layout line, one check extended, two
+smoke assertions. No per-screen edits.
+
+The last pass gave the thirty screens *below* a hub's tabs a back arrow and
+left the tabs themselves without one — so Billing → Hours, Communication →
+Texts, Clients, Books and twenty-three others still had no way out but the
+browser's own button. Now every screen has one except the hubs' landings.
+
+**Two kinds of screen, two different answers.** A record page goes back to
+something only that page knows — this client, this statement, this request — so
+it draws its own arrow on `RecordHeader`. A hub's tab goes back to where the
+hub opens, which the navigation already knows, so a single component in the
+layout draws that one for all twenty-seven of them. That is the argument
+`group-tabs.tsx` already makes for itself and it applies unchanged: one list,
+one rule for which tab is current, and adding a twenty-eighth screen to a hub
+should not mean remembering a twenty-eighth arrow.
+
+`HubBack` is handed the same `nav` the tab strip is handed and decides the
+current tab with the same `currentItemHref`, so the arrow and the tabs cannot
+disagree about where somebody is. The arrow itself moved into `back-link.tsx`
+and `RecordHeader` draws that instead of its own copy — two definitions of one
+affordance is how the records and the tabs came to have different answers in
+the first place (§11).
+
+**Which screens show none, and why it had to be decided rather than assumed.**
+Work, Communication and HR open on a page of cards, which is not one of their
+tabs — so every tab there gets an arrow and the landing is never one of them.
+Home, Billing and Admin have no such page and open on their first screen, so
+that screen is the one without an arrow. Six landings: Today, My work,
+Communication, HR, Authorizations, Documents.
+
+That last part is the whole reason this needed asking. **Billing → Hours is not
+its own screen** — it is `/billing?tab=hours`, the same route as Billing →
+Authorizations, and the same is true of HR's Statement approvals and
+Certifications, Admin's Contractors, and Communication's Website chat. An arrow
+"on Hours" is an arrow on the Billing landing unless the tab decides it, and
+the owner's instruction said the landing should have none. So the tab decides:
+`/billing` shows nothing, `/billing?tab=hours` shows "← Billing".
+
+**What the check can prove, and what it cannot.** `check-screens` now reads the
+navigation and requires every screen to be covered by one of the two
+mechanisms: 27 hub tabs from the layout, 30 records and sub-pages from their
+own header, 6 landings needing none — 63 in all. It also refuses a screen that
+draws a second arrow under the layout's, and still refuses one whose own arrow
+points past the screen directly above.
+
+But it reads files. It can say the layout draws the arrow; it cannot say the
+arrow *arrives*, because `HubBack` is a client component reading the current
+tab and whether it reaches the HTML depends on how the route renders. A missing
+arrow would look exactly like a screen that is fine. So the smoke test asserts
+it on the screens as served — every hub tab each account reaches, with Billing →
+Hours and Communication → Texts named, and a failure if either was never
+opened by anybody.
+
+Three faults were put back to prove the check: dropping `<HubBack>` from the
+layout fails with *"the layout does not draw HubBack"*; handing it a different
+navigation from the tabs fails with *"the arrow can disagree with the tabs"*;
+and giving Knowledge base its own arrow on top of the layout's fails with
+*"screens drawing a second back arrow under the layout's"*. All three restored.
+
+One correction to the previous entry: there are **six** hub landings, not eight.
+The code has six navigation groups, three of which (Work, Communication, HR)
+have a landing page of cards and three of which (Home, Billing, Admin) open on
+their first screen.
+

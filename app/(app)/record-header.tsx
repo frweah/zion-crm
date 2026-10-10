@@ -1,5 +1,6 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+
+import { BackLink } from "./back-link";
 
 /**
  * The header of a record - a client, a counselor, a member of staff, a job
@@ -32,9 +33,7 @@ export function RecordHeader({
   const parts = (identity ?? []).filter((p) => p !== null && p !== undefined && p !== false && p !== "");
   return (
     <header className="record-head">
-      <p className="sub record-back no-print">
-        <Link href={back.href}>← {back.label}</Link>
-      </p>
+      <BackLink href={back.href} label={back.label} />
       <div className="page-head">
         <div>
           <h1 className="h1">

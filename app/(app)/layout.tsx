@@ -8,6 +8,7 @@ import { NavLinks } from "./nav-links";
 import { HintBar } from "./hint-bar";
 import { QuickAdd } from "./quick-add";
 import { GroupTabs } from "./group-tabs";
+import { HubBack } from "./hub-back";
 import { SidebarToggle } from "./sidebar-toggle";
 import { HeaderBar } from "./header-bar";
 import { BottomBar } from "./bottom-bar";
@@ -154,6 +155,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
 
         <Suspense fallback={null}>
+          <HubBack groups={nav} />
           <GroupTabs groups={nav} />
         </Suspense>
 

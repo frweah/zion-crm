@@ -129,6 +129,9 @@ const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const firstLink = (results, path, re) => results.find((x) => x.path === path)?.body?.match(re)?.[0] ?? null;
 
+/** Every hub tab either account found a way back on, across both passes. */
+const backChecked = [];
+
 async function pass(role) {
   const paths = [...new Set(reachableFor(role).map((i) => i.href))];
   if (role === "Job Search") {
@@ -282,6 +285,49 @@ async function pass(role) {
   const statement = firstLink(results, "/books/bank", new RegExp(`/books/bank/${uuid}`));
   if (statement) results.push(await open(statement));
 
+  /**
+   * The way back off a hub's tab, in the page rather than in the source.
+   *
+   * check-screens reads the files and can say that the layout draws the arrow.
+   * It cannot say that the arrow arrives: it is a client component reading the
+   * current tab, so whether it is in the HTML somebody is served depends on
+   * how the route renders, and a missing arrow would look exactly like a
+   * screen that is fine. So it is asserted here, on the screens as served.
+   *
+   * Every hub tab this role reaches is checked, not a chosen few - and the two
+   * the owner named (Billing → Hours and Communication → Texts) are reported
+   * by name, because a check that silently skipped them would still pass.
+   */
+  const LANDINGS = new Set(NAV_GROUPS.map((g) => g.hub ?? g.items[0].href));
+  const ARROW = /class="sub record-back no-print"/;
+  const hubTabs = results.filter(
+    (r) => r.ok && NAVIGATION.has(navPath(r.path)) && !LANDINGS.has(r.path),
+  );
+  for (const r of hubTabs) {
+    if (!ARROW.test(r.body ?? "")) {
+      results.push({
+        path: r.path,
+        ok: false,
+        why: "no way back off this hub tab - the layout's back arrow is not in the page",
+      });
+    }
+  }
+  for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
+    const seen = hubTabs.find((r) => r.path === named);
+    if (seen) {
+      console.log(`  ${role}: ${named} has the way back`);
+    } else if (results.some((r) => r.path === named && r.ok)) {
+      results.push({
+        path: named,
+        ok: false,
+        why: "opened but not checked for a back arrow - it is a hub landing, or the navigation no longer offers it",
+      });
+    }
+  }
+  // Between them the two accounts must have opened both. Said per role, and
+  // counted across roles at the end.
+  backChecked.push(...hubTabs.map((r) => r.path));
+
   await supabase.auth.signOut().catch(() => {});
   return { results, client, item, statement };
 }
@@ -330,6 +376,25 @@ if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {
     `::warning title=Screens nobody opened::${unseen.length} screens only Billing can reach were not opened, because SMOKE_BILLING_EMAIL and SMOKE_BILLING_PASSWORD are not set: ${unseen.join(", ")}`,
   );
 }
+
+/**
+ * And the two screens the owner named were actually reached by somebody.
+ *
+ * Billing → Hours needs the Billing account and Communication → Texts does
+ * not, so neither pass can confirm both. Said across the passes, and a
+ * warning rather than a failure when the Billing account is not configured -
+ * the run already says, loudly, which screens nobody opened.
+ */
+for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
+  if (backChecked.includes(named)) continue;
+  const line = `${named} was not opened by any account, so its way back is unconfirmed`;
+  if (named.startsWith("/billing") && !process.env.SMOKE_BILLING_EMAIL) {
+    console.log(`::warning title=Back arrow unconfirmed::${line}`);
+  } else {
+    all.push({ ok: false, role: "all", path: named, why: "its way back was never checked" });
+  }
+}
+console.log(`  the way back was asserted on ${backChecked.length} hub tab(s)`);
 
 const failed = all.filter((r) => !r.ok);
 for (const r of all) console.log(`  ${r.ok ? "ok    " : "FAILED"}  ${r.role.padEnd(10)} ${r.path}${r.ok ? "" : `  - ${r.why}`}`);
