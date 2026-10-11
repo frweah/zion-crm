@@ -15,11 +15,16 @@
 --      nobody, and nothing is emailed to the counselor from here.
 --
 --   8. A hire records its date, starts the placement, sets the four-week
---      milestone as the match's own follow-up (which the existing reminder
---      sync turns into a task and a calendar entry), and puts the first day of
---      work on the placement authorization - from which its bill-by is
---      computed rather than written. USOR 60 and 92 are already outstanding
---      for a placement, so that is asserted rather than written.
+--      retention milestone as the match's own follow-up (which the existing
+--      reminder sync turns into a task and a calendar entry), and puts the
+--      first day of work on the placement authorization - from which its
+--      bill-by is computed rather than written. USOR 60 and 92 are already
+--      outstanding for a placement, so that is asserted rather than written.
+--
+--      The two dates are deliberately different numbers now (0188): bill-by is
+--      the first day of work plus seven, and the retention milestone is plus
+--      twenty-eight. They were the same number once, so both are asserted
+--      here - a change to either must not quietly move the other.
 --
 -- Everything is rolled back.
 
@@ -213,7 +218,7 @@ begin
 
   select follow_up_on into v_date from public.lead_matches where id = v_match;
   if v_date <> v_today - 2 + 28 then
-    failures := failures || format('FAILED: the four-week milestone is %s, expected %s',
+    failures := failures || format('FAILED: the retention milestone is %s, expected %s (it is four weeks, and not the bill-by)',
                                    v_date, v_today - 2 + 28)::text;
   elsif not exists (select 1 from public.calendar_events
                      where source_match_id = v_match and source_kind = 'Follow-up') then
@@ -241,10 +246,11 @@ begin
     failures := failures || format('FAILED: the first day of work is %s', v_date)::text;
   else
     select bill_by into v_date from public.authorizations where number = 'ZZ-CH-3';
-    if v_date <> v_today - 2 + 28 then
-      failures := failures || format('FAILED: bill-by is %s, not the first work day plus 28', v_date)::text;
+    if v_date <> v_today - 2 + 7 then
+      failures := failures ||
+        format('FAILED: bill-by is %s, not the first work day plus 7 (0188)', v_date)::text;
     else
-      raise notice 'ok  the first day of work is recorded, and bill-by follows from it (+28)';
+      raise notice 'ok  the first day of work is recorded, and bill-by follows from it (+7)';
     end if;
   end if;
 

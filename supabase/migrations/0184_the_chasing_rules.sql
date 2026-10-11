@@ -302,10 +302,12 @@ grant execute on function public.authorizations_ending_soon(date) to authenticat
 --   a milestone on the calendar is a second thing to keep right.
 --
 --   The placement authorization gets the first day of work, which is what its
---   bill-by is already derived from: Job Placement's bill-by anchor is
---   'first_work_day' plus 28 days (bill_by_defaults). So "bill-by = start + 28
---   days" is not written here - it is computed by bill_by_for from the one
---   fact this records, which is the only way the two can never disagree.
+--   bill-by is derived from: Job Placement's bill-by anchor is
+--   'first_work_day' in bill_by_defaults, plus however many days that row
+--   says - seven, since 0188. The number is not written here; it is computed
+--   by bill_by_for from the one fact this records, which is the only way the
+--   two can never disagree and the reason 0188 had to change nothing but a
+--   row.
 --
 --   The outstanding forms are *already* USOR 60 and 92. form_templates marks
 --   both required_for_billing for Job Placement, and authorization_missing_forms
@@ -399,14 +401,21 @@ begin
   select * into v_client from public.clients where id = m.client_id;
 
   v_hired := coalesce(m.decided_on, public.practice_today());
+
+  -- Four weeks, and this is the retention milestone only: whether the
+  -- placement held. It was the same number as the bill-by until 0188 moved
+  -- that to seven days, which is exactly why the two are now named apart -
+  -- one number serving two purposes is one of them changing and breaking the
+  -- other. Billing's date is computed from bill_by_defaults, below.
   v_due := v_hired + 28;
 
   select l.title, e.name into v_title, v_employer
     from public.job_leads l join public.employers e on e.id = l.employer_id
    where l.id = m.lead_id;
 
-  -- ── the four-week milestone ────────────────────────────────
-  -- Set as the match's own follow-up date and nothing more: the existing
+  -- ── the four-week retention milestone ──────────────────────
+  -- Rei's check on whether the placement held, and nothing to do with when
+  -- the bill goes out (0188). Set as the match's own follow-up date: the existing
   -- reminder sync (0117) turns that field into a task and a calendar entry and
   -- pushes it to Outlook. Written as its own update statement naming the
   -- column, because that sync fires on `update of ... follow_up_on` - which is
@@ -456,7 +465,8 @@ begin
     end loop;
   else
     -- The first day of work is the fact; the bill-by follows from it, computed
-    -- by the same function the rest of the billing uses.
+    -- by the same function the rest of the billing uses - a week, since 0188,
+    -- and nothing here needs to know that.
     update public.authorizations a set
       first_work_day = coalesce(a.first_work_day, v_hired),
       bill_by = public.bill_by_for(a.service_type, coalesce(a.received_on, a.created_at::date),
