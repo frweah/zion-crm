@@ -1,6 +1,13 @@
 import "server-only";
 import type { createAdminClient } from "@/lib/supabase/admin";
-import { planDocument, vKey, type AuthLite, type Plan } from "@/lib/filename-rules";
+import {
+  planDocument,
+  vKey,
+  type AuthLite,
+  type Category,
+  type NameReading,
+  type Plan,
+} from "@/lib/filename-rules";
 import { parseAuthorizationText } from "@/lib/authorization-parse";
 import type { Json } from "@/lib/database.types";
 
@@ -40,7 +47,16 @@ export type FilingInput = {
   ocr?: { confidence: number | null } | null;
 };
 
-export type FilingResult = { action: Plan["action"] | "skipped"; detail: string };
+export type FilingResult = {
+  action: Plan["action"] | "skipped";
+  detail: string;
+  /**
+   * The document was filed, and names an authorization that is not on file.
+   * The paper is put away; somebody still has to decide whether an
+   * authorization is owed, so the caller raises that once rather than per file.
+   */
+  needsAPerson?: boolean;
+};
 
 const asObject = (v: Json): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -72,6 +88,117 @@ function summarize(plan: Plan): Json {
         ? { why: plan.why }
         : {}),
   } as Json;
+}
+
+
+/**
+ * What to do with a document the name rules could not settle.
+ *
+ * Owner decision, 10 Oct 2026: clear the queue in bulk, no per-file questions.
+ * Before this, a document the rules could only *propose* - an authorization or
+ * an invoice whose number is not on file - waited in the inbox for somebody,
+ * and 133 of them had been waiting. They are mostly paper for records that
+ * already exist: 67 of the 79 waiting authorization documents belonged to
+ * clients who already had authorizations.
+ *
+ * So the paper gets filed and the queue clears. What is deliberately *not*
+ * done is decide anything about money: nothing here creates an authorization,
+ * an invoice or an amount. A document named as an authorization that is not on
+ * file is still a thing a person should look at, so it is filed **and** said
+ * out loud (needsAPerson), rather than filed quietly or left waiting forever.
+ *
+ *   An invoice goes on the client's Paid authorization when exactly one of
+ *   them is the obvious match - that is history, which is what the owner asked
+ *   for - and otherwise on the client, because guessing which of three
+ *   authorizations a scan belongs to is how a payment ends up against the
+ *   wrong service.
+ *
+ *   Everything else goes to the client's Documents under the category the name
+ *   suggests, or Other.
+ *
+ *   With no client it cannot be filed at all. It stays waiting and shows on
+ *   the "Needs a person" list with its folder name.
+ */
+async function fileAsTheOwnerAsked(
+  supabase: Supabase,
+  doc: FilingInput["doc"],
+  reading: NameReading,
+  named: "Authorization" | "Invoice" | null,
+  why: string,
+): Promise<FilingResult> {
+  const storagePath = doc.storage_path;
+  if (!doc.client_id || !storagePath) {
+    return { action: "leave", detail: `${why} — needs a person` };
+  }
+
+  const { data: meta } = await supabase
+    .from("inbox_documents")
+    .select("size_bytes")
+    .eq("id", doc.id)
+    .maybeSingle();
+
+  // An invoice, on the one Paid authorization it can only be.
+  let authId: string | null = null;
+  if (named === "Invoice") {
+    const { data: paid } = await supabase
+      .from("authorizations")
+      .select("id, service_type")
+      .eq("client_id", doc.client_id)
+      .eq("status", "Paid")
+      .is("parent_id", null);
+    const all = paid ?? [];
+    const byService = reading.families.length
+      ? all.filter((a) => reading.families.some((f: string) => (a.service_type ?? "").startsWith(f)))
+      : [];
+    if (byService.length === 1) authId = byService[0].id;
+    else if (all.length === 1) authId = all[0].id;
+  }
+
+  const category: Category = named === "Invoice" ? "Invoice" : (reading.category ?? "Other");
+  const note = authId
+    ? "From the documents folder — kept as history against the paid authorization"
+    : `From the documents folder — ${why}`;
+
+  const { data: already } = await supabase
+    .from("attachments")
+    .select("id")
+    .eq("storage_path", storagePath)
+    .eq("client_id", doc.client_id)
+    .limit(1);
+
+  if (!already?.length) {
+    const { error } = await supabase.from("attachments").insert({
+      client_id: doc.client_id,
+      storage_path: storagePath,
+      filename: doc.filename,
+      mime_type: "application/pdf",
+      size_bytes: meta?.size_bytes ?? 0,
+      category,
+      auth_id: authId,
+      note,
+      uploaded_by_name: "Documents folder",
+    });
+    if (error) return { action: "leave", detail: `not attached: ${error.message}` };
+  }
+
+  const outcome = authId
+    ? `Filed as ${category} against the paid authorization (${why})`
+    : `Filed as ${category} on the client (${why})`;
+
+  await supabase
+    .from("inbox_documents")
+    .update({ state: "Filed", decided_at: new Date().toISOString(), outcome })
+    .eq("id", doc.id)
+    .eq("state", "Pending");
+
+  // An authorization nobody has on file is money that has not been entered.
+  // Filed so the queue clears, and said so once so it is not lost with it.
+  const needsAPerson = named === "Authorization";
+  return {
+    action: authId ? "link" : "attach",
+    detail: outcome,
+    needsAPerson,
+  };
 }
 
 export async function fileByName(supabase: Supabase, input: FilingInput): Promise<FilingResult> {
@@ -217,10 +344,12 @@ export async function fileByName(supabase: Supabase, input: FilingInput): Promis
 
     case "propose":
       await remember();
-      return { action: "propose", detail: `${plan.named}: ${plan.why}` };
+      // Filed rather than left waiting (owner, 10 Oct 2026), and said out loud
+      // when what it was named is an authorization nobody has on file.
+      return fileAsTheOwnerAsked(supabase, doc, plan.reading, plan.named, plan.why);
 
     case "leave":
       await remember();
-      return { action: "leave", detail: plan.why };
+      return fileAsTheOwnerAsked(supabase, doc, plan.reading, null, plan.why);
   }
 }
