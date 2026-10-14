@@ -34,12 +34,25 @@ export default async function MyClientsPage() {
   const { data: clients } = await q;
 
   const list = clients ?? [];
-  const due = await Promise.all(
-    list.map(async (c) => {
-      const { data } = await supabase.rpc("client_next_actions", { p_client: c.id });
-      return { client: c, items: (data ?? []) as Due[] };
-    }),
-  );
+  // One call for the whole list, not one per client.
+  //
+  // This was `Promise.all(list.map(... rpc("client_next_actions") ...))`, which
+  // opened a connection per client: sixty clients meant sixty concurrent
+  // questions from a single page load. On 14 Oct 2026 that path was asked
+  // 1,278 times in five minutes and took the database's p95 from 800ms to 58
+  // seconds, and the site answered 504s. client_next_actions_for is a lateral
+  // join over the same function (0189), so the rules are unchanged and the
+  // cost is one round trip.
+  const { data: dueRows } = await supabase.rpc("client_next_actions_for", {
+    p_clients: list.map((c) => c.id),
+  });
+  const byClient = new Map<string, Due[]>();
+  for (const row of (dueRows ?? []) as (Due & { client_id: string })[]) {
+    const list = byClient.get(row.client_id);
+    if (list) list.push(row);
+    else byClient.set(row.client_id, [row]);
+  }
+  const due = list.map((c) => ({ client: c, items: byClient.get(c.id) ?? [] }));
 
   // Somebody with something due, most pressing first; then the rest, so the
   // caseload is all here and the page is not two screens.

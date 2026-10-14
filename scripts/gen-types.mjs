@@ -284,6 +284,8 @@ const RPC_FUNCTIONS = [
   "placement_clock_started",
   "referral_received_on",
   "notify_person",
+  // One call for a whole caseload rather than one per client (0189).
+  "client_next_actions_for",
   "intake_scans_now_readable",
   "intake_rules_ran_late",
 ];

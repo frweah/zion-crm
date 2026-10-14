@@ -249,6 +249,43 @@ if (!noWayBack.length && !wrongWayBack.length && !twoWaysBack.length) {
   );
 }
 
+// ── no screen asks one question per record ───────────────────
+//
+// On 14 Oct 2026 the dashboard and My clients each called
+// client_next_actions once per client inside Promise.all. One page load with a
+// full caseload opened sixty concurrent connections; the path was asked 1,278
+// times in five minutes, the database's p95 went from 800ms to 58 seconds, and
+// production answered 504 on every request until the load dropped.
+//
+// It is an easy thing to write and an expensive thing to ship, and it reads
+// perfectly well in review - which is why it is checked rather than
+// remembered. A per-record question inside a map over records has to become
+// one call for the list; client_next_actions_for (0189) is that call, and it
+// is a lateral join over the same function so no rule is duplicated.
+{
+  // Allowed, with the reason and the number. hqi_for_placement is asked per
+  // placement on one client's own record, and a client has one or two: 29
+  // placements across 29 clients, most for any one of them 2, average 1.03.
+  // That is a bounded loop on a single record, not a caseload - the thing this
+  // check exists to stop is a question per *client* across a list.
+  const ALLOWED = [["app/(app)/clients/[id]/page.tsx", "hqi_for_placement"]];
+  const perRecord = [];
+  for (const f of all) {
+    // The call and the loop on the same expression: `.map(` ... `rpc("x"` with
+    // no closing of the map in between. Looked for over a short window so an
+    // rpc somewhere else in a long file is not blamed on a map above it.
+    for (const m of f.src.matchAll(/\.map\(\s*async[\s\S]{0,400}?\.rpc\(\s*"([a-z_]+)"/g)) {
+      if (ALLOWED.some(([file, fn]) => file === f.path && fn === m[1])) continue;
+      perRecord.push(`${f.path} asks ${m[1]} once per item in a map`);
+    }
+  }
+  if (perRecord.length) {
+    for (const p of perRecord) fail(`a screen asks one question per record: ${p}`);
+  } else {
+    ok("no screen asks the database one question per record inside a loop");
+  }
+}
+
 // ── tabs move between screens, and never stack ──────────────
 const TABS_ALLOWED = ["app/(app)/group-tabs.tsx", "app/(app)/clients/[id]/page.tsx"];
 const strayTabs = all.filter((f) => !TABS_ALLOWED.includes(f.path) && /className="tabs"/.test(f.src));

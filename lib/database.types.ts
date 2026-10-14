@@ -6084,6 +6084,10 @@ export type Database = {
         Args: { p_client: string | null };
         Returns: { kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
       };
+      client_next_actions_for: {
+        Args: { p_clients: string[] | null };
+        Returns: { client_id: string | null; kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
+      };
       close_empty_coaching_months: {
         Args: { p_today?: string | null };
         Returns: number;

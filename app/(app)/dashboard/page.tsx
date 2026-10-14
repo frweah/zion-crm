@@ -274,12 +274,25 @@ export default async function DashboardPage({
   const mine = hasCaseload
     ? clients.filter((c) => c.status === "Active" && (c.assigned_staff_id === me.id || c.billing_staff_id === me.id))
     : [];
-  const due = await Promise.all(
-    mine.map(async (c) => {
-      const { data } = await supabase.rpc("client_next_actions", { p_client: c.id });
-      return { client: c, items: (data ?? []) as Due[] };
-    }),
-  );
+  // One call for the whole caseload, not one per client.
+  //
+  // This was `Promise.all(mine.map(... rpc("client_next_actions") ...))`, which
+  // opened a connection per client: sixty clients meant sixty concurrent
+  // questions from a single page load. On 14 Oct 2026 that path was asked
+  // 1,278 times in five minutes and took the database's p95 from 800ms to 58
+  // seconds, and the site answered 504s. client_next_actions_for is a lateral
+  // join over the same function (0189), so the rules are unchanged and the
+  // cost is one round trip.
+  const { data: dueRows } = await supabase.rpc("client_next_actions_for", {
+    p_clients: mine.map((c) => c.id),
+  });
+  const byClient = new Map<string, Due[]>();
+  for (const row of (dueRows ?? []) as (Due & { client_id: string })[]) {
+    const list = byClient.get(row.client_id);
+    if (list) list.push(row);
+    else byClient.set(row.client_id, [row]);
+  }
+  const due = mine.map((c) => ({ client: c, items: byClient.get(c.id) ?? [] }));
   const clientsDue = due
     .filter((d) => d.items.length > 0)
     .sort((a, b) => (a.items[0]?.urgency ?? 9) - (b.items[0]?.urgency ?? 9));
