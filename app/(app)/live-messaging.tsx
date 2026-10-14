@@ -51,6 +51,31 @@ const OUTSIDE_MS = 2 * 60 * 1000;
 const IDLE_MS = 5 * 60 * 1000;
 const BEAT_MS = 60 * 1000;
 
+/**
+ * What happens when the server stops answering.
+ *
+ * These two polls did not cause the outage of 14 Oct 2026, but they fed it: a
+ * fixed setInterval keeps firing at the same rate whether or not anything is
+ * coming back, so once the database was saturated every open tab kept adding
+ * to the pile - and the catch below silently kept its last number, so nothing
+ * even counted the failures. The hour saw 16,957 database calls against a
+ * normal 300.
+ *
+ * So each poll now waits longer each time it fails - doubling, with a little
+ * jitter so a roomful of tabs does not retry in lockstep - and goes back to
+ * its normal rate the moment a call succeeds. A tab nobody is looking at does
+ * not poll at all.
+ */
+const BACKOFF_CAP_MS = 10 * 60 * 1000;
+const JITTER = 0.25;
+
+/** The next wait after `failures` consecutive failures, with jitter. */
+function backoff(base: number, failures: number): number {
+  if (failures === 0) return base;
+  const grown = Math.min(base * 2 ** failures, BACKOFF_CAP_MS);
+  return Math.round(grown * (1 + (Math.random() * 2 - 1) * JITTER));
+}
+
 type Toast = { id: string; who: string; conversationId: string };
 
 export function LiveMessaging({ myId }: { myId: string }) {
@@ -66,31 +91,100 @@ export function LiveMessaging({ myId }: { myId: string }) {
     };
     const events = ["pointerdown", "keydown", "touchstart", "wheel"] as const;
     events.forEach((e) => window.addEventListener(e, touched, { passive: true }));
-    const beat = () => {
+    // Self-scheduling rather than setInterval, so a failure can change when
+    // the next one happens. An interval cannot: it fires on the clock whatever
+    // came back, which is the behaviour that turned a slow database into a
+    // rising pile of requests.
+    let beatFailures = 0;
+    let beatTimer = 0;
+    let stopped = false;
+
+    const beat = async () => {
+      if (stopped) return;
+      // Nobody is looking: say nothing and come back later. A hidden tab
+      // reporting its presence every minute is pure cost.
+      if (document.visibilityState === "hidden") {
+        beatTimer = window.setTimeout(() => void beat(), BEAT_MS);
+        return;
+      }
       const state = Date.now() - lastInput.current > IDLE_MS ? "away" : "online";
-      void supabase.rpc("presence_heartbeat", { p_state: state }).then(({ error }) => {
-        if (error) console.warn("Presence heartbeat refused:", error.message);
-      });
+      try {
+        const { error } = await supabase.rpc("presence_heartbeat", { p_state: state });
+        if (error) throw new Error(error.message);
+        beatFailures = 0;
+      } catch (err) {
+        beatFailures += 1;
+        if (beatFailures === 1) {
+          console.warn("Presence heartbeat refused:", err instanceof Error ? err.message : err);
+        }
+      }
+      if (!stopped) beatTimer = window.setTimeout(() => void beat(), backoff(BEAT_MS, beatFailures));
     };
-    beat();
-    const timer = window.setInterval(beat, BEAT_MS);
+    void beat();
 
     // ── unread and toasts ────────────────────────────────────
     // One number, worked out in one place (waitingConversations below), so
     // chat is never counted twice on its way to the badge.
-    const refreshOutside = async () => {
+    let outsideFailures = 0;
+    let outsideTimer = 0;
+    let inFlight = false;
+    let askedAgain = false;
+
+    const refreshOutside = async (): Promise<void> => {
+      if (stopped) return;
+      // One at a time, and a request that arrives while one is in flight is
+      // remembered rather than sent. A burst of realtime events used to mean a
+      // burst of queries; now it means one, then one more if anything changed
+      // while that was running.
+      if (inFlight) {
+        askedAgain = true;
+        return;
+      }
+      inFlight = true;
       try {
         // waitingConversations already counts this person's chat as well, so
         // the live half above is replaced rather than added to.
         const [waiting, mail] = await Promise.all([waitingConversations(), mailWaiting(0)]);
         setWaiting(waiting + mail.count);
-      } catch {
-        // A badge that cannot be worked out keeps its last number.
+        outsideFailures = 0;
+      } catch (err) {
+        // A badge that cannot be worked out keeps its last number - but the
+        // failure is counted now, so the next attempt waits longer. Said once
+        // per run of failures rather than every two minutes forever.
+        outsideFailures += 1;
+        if (outsideFailures === 1) {
+          console.warn("The waiting count could not be read:", err instanceof Error ? err.message : err);
+        }
+      } finally {
+        inFlight = false;
+      }
+      if (askedAgain && !stopped) {
+        askedAgain = false;
+        void refreshOutside();
       }
     };
+
+    const pollOutside = async () => {
+      if (stopped) return;
+      if (document.visibilityState === "hidden") {
+        outsideTimer = window.setTimeout(() => void pollOutside(), OUTSIDE_MS);
+        return;
+      }
+      await refreshOutside();
+      if (!stopped) {
+        outsideTimer = window.setTimeout(() => void pollOutside(), backoff(OUTSIDE_MS, outsideFailures));
+      }
+    };
+
     const refreshUnread = () => void refreshOutside();
-    void refreshOutside();
-    const outsideTimer = window.setInterval(() => void refreshOutside(), OUTSIDE_MS);
+    void pollOutside();
+
+    // Coming back to a tab should show the truth at once rather than up to two
+    // minutes later - and this is also what makes pausing while hidden safe.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshOutside();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     const channel = supabase
       .channel("messages-live")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
@@ -116,9 +210,13 @@ export function LiveMessaging({ myId }: { myId: string }) {
       .subscribe();
 
     return () => {
+      // `stopped` as well as clearing the timers: a call already in flight
+      // would otherwise schedule the next one after the component has gone.
+      stopped = true;
       events.forEach((e) => window.removeEventListener(e, touched));
-      window.clearInterval(timer);
-      window.clearInterval(outsideTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearTimeout(beatTimer);
+      window.clearTimeout(outsideTimer);
       void supabase.removeChannel(channel);
     };
   }, [myId]);

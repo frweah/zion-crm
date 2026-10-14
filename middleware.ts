@@ -88,6 +88,22 @@ const PUBLIC_PATHS = [
  */
 const SESSION_TIMEOUT_MS = 2000;
 
+/**
+ * How often a signed-in person's token is checked against the Auth service.
+ *
+ * Verifying the signature locally cannot tell that a session was signed out
+ * elsewhere or revoked - the token stays valid until it expires. Asking the
+ * Auth service can, and asking it on *every* request is what took the site
+ * down. So it is asked occasionally: at most once a minute per session, from
+ * a cookie this sets, and bounded by the same timeout as everything else.
+ *
+ * The exposure is therefore a minute rather than an hour, and the cost is one
+ * round trip a minute per person instead of one per request. During the
+ * incident that would have been 34 calls rather than 2,031.
+ */
+const REVOCATION_EVERY_MS = 60 * 1000;
+const REVOCATION_COOKIE = "zion-auth-checked";
+
 /** Is there a Supabase auth cookie at all? Reading cookie names costs nothing. */
 function hasSessionCookie(request: NextRequest): boolean {
   return request.cookies.getAll().some((c) => /^sb-.*-auth-token(\.\d+)?$/.test(c.name));
@@ -146,12 +162,11 @@ export async function middleware(request: NextRequest) {
   // person this way; the middleware was the one place still asking the network
   // on every single request, and that is what hung.
   //
-  // What is given up is promptness about a *revoked* session: a token that was
-  // signed out elsewhere stays valid here until it expires, where asking the
-  // Auth service would have caught it at once. Bounded, and small - the staff
-  // row is still looked up on every page with active = true, so somebody
-  // deactivated is locked out immediately, and RLS answers to the same claims.
-  // A dead site is the worse failure.
+  // On its own this says nothing about a session that was signed out elsewhere
+  // or revoked - the token stays valid until it expires. So the Auth service is
+  // still asked, below, about once a minute per session rather than on every
+  // request. That keeps the exposure to a minute while costing a round trip a
+  // minute per person instead of one per request.
   let signedIn = false;
   let timedOut = false;
   try {
@@ -184,6 +199,53 @@ export async function middleware(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // ── and once a minute, is it still a session? ──────────────
+  //
+  // The signature says the token was ours and has not expired. It cannot say
+  // the person did not sign out on another machine, or that an Admin did not
+  // revoke them. Only the Auth service knows that, so it is asked - rarely,
+  // and never in a way that can hold the request open.
+  //
+  // On a failure or a timeout the request goes on: not knowing whether a
+  // session was revoked is not a reason to serve nobody, and the layout still
+  // has to find an active staff row before anything is shown.
+  const checkedAt = Number(request.cookies.get(REVOCATION_COOKIE)?.value ?? 0);
+  if (!Number.isFinite(checkedAt) || Date.now() - checkedAt > REVOCATION_EVERY_MS) {
+    let revoked = false;
+    try {
+      const asked = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise<"timeout">((resolve) =>
+          setTimeout(() => resolve("timeout"), SESSION_TIMEOUT_MS),
+        ),
+      ]);
+      if (asked !== "timeout") revoked = !asked.data.user;
+    } catch {
+      // Unreachable or slow. Left alone until the next request.
+    }
+
+    if (revoked) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", pathname);
+      const away = NextResponse.redirect(url);
+      away.cookies.delete(REVOCATION_COOKIE);
+      return away;
+    }
+
+    // Stamped only when the answer was good, so a timeout does not buy
+    // another minute of not asking.
+    if (!revoked) {
+      response.cookies.set(REVOCATION_COOKIE, String(Date.now()), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: true,
+        path: "/",
+        maxAge: Math.ceil(REVOCATION_EVERY_MS / 1000),
+      });
+    }
   }
 
   return response;
