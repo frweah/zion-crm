@@ -6064,6 +6064,14 @@ export type Database = {
         Args: { p_by: string | null };
         Returns: { id: string | null; vendor: string | null; number: string | null; due_date: string | null; amount: number | null; status: string | null; late: boolean | null }[];
       };
+      bulk_close: {
+        Args: { p_auths: string[] | null; p_reason: string | null };
+        Returns: { auth_id: string | null; auth_number: string | null; client_name: string | null; outcome: string | null; detail: string | null }[];
+      };
+      bulk_mark_paid: {
+        Args: { p_auths: string[] | null; p_received?: string | null };
+        Returns: { auth_id: string | null; auth_number: string | null; client_name: string | null; outcome: string | null; detail: string | null }[];
+      };
       can_see_restricted: {
         Args: { p_client_id: string | null };
         Returns: boolean;
@@ -6139,6 +6147,10 @@ export type Database = {
       dispose_asset: {
         Args: { p_asset: string | null; p_on: string | null; p_reason: string | null; p_proceeds?: number | null };
         Returns: string;
+      };
+      edit_authorization: {
+        Args: { p_auth: string | null; p_fields: Json | null; p_reason?: string | null };
+        Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
       };
       edit_message: {
         Args: { p_message: string | null; p_body: string | null };
@@ -6544,6 +6556,10 @@ export type Database = {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null };
         Returns: { client_id: string | null; action: string | null }[];
       };
+      record_payment: {
+        Args: { p_auth: string | null; p_received?: string | null; p_amount?: number | null; p_warrant?: string | null; p_voucher?: string | null };
+        Returns: string;
+      };
       record_referral_nudge: {
         Args: { p_client: string | null; p_nth: number | null; p_to: string | null };
         Returns: boolean;
@@ -6611,6 +6627,10 @@ export type Database = {
       service_date_for: {
         Args: { p_auth: string | null };
         Returns: { on_date: string | null; basis: string | null }[];
+      };
+      set_authorization_status: {
+        Args: { p_auth: string | null; p_status: string | null; p_reason?: string | null; p_received?: string | null };
+        Returns: string;
       };
       set_checklist_item: {
         Args: { p_staff_id: string | null; p_task_id: string | null; p_done: boolean | null; p_note?: string | null };

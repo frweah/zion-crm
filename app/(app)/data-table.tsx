@@ -62,6 +62,7 @@ export function DataTable({
   initialSort = null,
   sortBy = false,
   pageSize,
+  choose,
 }: {
   columns: DataColumn[];
   rows: DataRow[];
@@ -76,6 +77,22 @@ export function DataTable({
   sortBy?: boolean;
   /** Rows to a page, with "Show all" below. Unset: every row, as before. */
   pageSize?: number;
+  /**
+   * Let rows be chosen, and draw something above them while any are.
+   *
+   * The owner asked for bulk clear on the working list (14 Oct 2026), and it
+   * belongs here rather than in that screen: this is the one table, and a
+   * second one with its own checkboxes is how two lists stop behaving alike.
+   *
+   * What to do with the chosen rows is the screen's business, so it is passed
+   * in - this gives it the keys and a way to let go of them, and knows
+   * nothing about paying or closing anything.
+   *
+   * Choosing follows the filter: "all showing" means the rows a person can
+   * see, never the ones a filter is hiding, because a batch that quietly
+   * included hidden rows is the worst thing a screen like this can do.
+   */
+  choose?: (chosen: string[], clear: () => void) => ReactNode;
 }) {
   const sortId = useId();
   const [query, setQuery] = useState("");
@@ -83,6 +100,7 @@ export function DataTable({
   const showFilter = filter ?? rows.length > 8;
   const [page, setPage] = useState(0);
   const [all, setAll] = useState(false);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -124,6 +142,22 @@ export function DataTable({
   function toggle(key: string) {
     setPage(0);
     setSort((s) => (!s || s.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+  }
+
+  // Rows that are chosen but no longer showing cannot be acted on without
+  // somebody being surprised, so the filter is the limit of a batch.
+  const showingKeys = shown.map((r) => r.key);
+  const chosenShowing = showingKeys.filter((k) => chosen.has(k));
+  const allShowing = showingKeys.length > 0 && chosenShowing.length === showingKeys.length;
+  const clearChosen = () => setChosen(new Set());
+
+  function pick(key: string, on: boolean) {
+    setChosen((was) => {
+      const next = new Set(was);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
   }
 
   const sortableColumns = columns.filter((c) => c.sortable !== false);
@@ -170,10 +204,33 @@ export function DataTable({
           </span>
         </div>
       )}
+      {choose && chosenShowing.length > 0 && (
+        <div className="card no-print" style={{ marginBottom: 8 }}>
+          <p className="lock">
+            {chosenShowing.length} of {shown.length} chosen.{" "}
+            <button type="button" className="btn ghost" onClick={clearChosen}>
+              Choose none
+            </button>
+          </p>
+          {choose(chosenShowing, clearChosen)}
+        </div>
+      )}
       <div className="table-wrap">
         <table className="t">
           <thead>
             <tr>
+              {choose && (
+                <th style={{ width: "1%" }}>
+                  <input
+                    type="checkbox"
+                    checked={allShowing}
+                    aria-label={`Choose all ${shown.length} ${label ?? "rows"} showing`}
+                    onChange={(e) =>
+                      setChosen(e.target.checked ? new Set(showingKeys) : new Set())
+                    }
+                  />
+                </th>
+              )}
               {columns.map((c) => {
                 const sortable = c.sortable !== false && rows.length > 1;
                 const active = sort?.key === c.key;
@@ -200,20 +257,30 @@ export function DataTable({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="empty">
+                <td colSpan={columns.length + (choose ? 1 : 0)} className="empty">
                   {empty}
                 </td>
               </tr>
             )}
             {rows.length > 0 && shown.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="empty">
+                <td colSpan={columns.length + (choose ? 1 : 0)} className="empty">
                   Nothing matches &ldquo;{query}&rdquo;.
                 </td>
               </tr>
             )}
             {visible.map((r) => (
               <tr key={r.key}>
+                {choose && (
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={chosen.has(r.key)}
+                      aria-label={`Choose this ${label ? label.replace(/s$/, "") : "row"}`}
+                      onChange={(e) => pick(r.key, e.target.checked)}
+                    />
+                  </td>
+                )}
                 {columns.map((c) => (
                   <td key={c.key} className={c.align === "right" ? "num" : undefined}>
                     {r.cells[c.key]}

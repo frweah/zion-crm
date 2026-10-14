@@ -23,6 +23,11 @@ import { ReportTab } from "./report-tab";
 import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
 import { JobsPanel, type JobRow } from "./jobs-panel";
+import {
+  DirectoryHistory,
+  DIRECTORY_CHANGE_COLUMNS,
+  type DirectoryChange,
+} from "../../counselors/directory-history";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { formsLabel, periodLabel, type ItemRow } from "@/lib/billing-items";
 import { WhatsNext, StatusLine, type NextAction } from "./whats-next";
@@ -94,7 +99,7 @@ export default async function ClientPage({
     supabase
     .from("clients")
     .select(
-      "id, name, client_no, agency_id, funding_source, phone, email, counselor_id, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, billing_staff_id, status, stage, wsa_tier, wsa_completed, import_review",
+      "id, name, client_no, agency_id, funding_source, gender, ce, phone, email, counselor_id, referring_office, caseload, unit, schedule, target_jobs, preferred_locations, job_search_email, assigned_staff_id, billing_staff_id, status, stage, wsa_tier, wsa_completed, wsa_submitted, wsa_paid, import_review",
     )
     .eq("id", id)
     .maybeSingle(),
@@ -115,6 +120,17 @@ export default async function ClientPage({
   }
 
   const detail = client as ClientDetail;
+
+  // What has changed on this record, from the one change log (0192). Asked
+  // for by id, so it is this client's history and not the practice's.
+  const { data: changeRows } = await supabase
+    .from("directory_changes")
+    .select(DIRECTORY_CHANGE_COLUMNS)
+    .eq("entity", "Client")
+    .eq("entity_key", id)
+    .order("seq", { ascending: false })
+    .limit(50);
+  const changeLog = (changeRows ?? []) as DirectoryChange[];
 
   // ── what this record needs, and what can be done to it ─────
   // Asked together, after the client is known: each one needs the id, and
@@ -563,6 +579,7 @@ export default async function ClientPage({
         )}
 
         <Worklist
+          canClear={canBill}
           rows={mine}
           withClient={false}
           empty="Nothing is being billed for this client. Authorizations are added from Billing, and a coaching month opens itself."
@@ -758,6 +775,27 @@ export default async function ClientPage({
             visible={canSeeRestricted}
             canEdit={canEdit}
           />
+          {/* ── what has changed on this record (0192) ──
+              The database has logged every field change on a client since the
+              owner's unlock, the same way it has logged a counselor's since
+              0099. This is where it is read: collapsed, because it is the
+              answer to a question somebody asks occasionally, and on the
+              details tab because that is the screen the changes were made on. */}
+          {canEditDetails && (
+            <details className="card">
+              <summary>
+                What has changed on this record{changeLog.length ? ` (${changeLog.length})` : ""}
+              </summary>
+              <div style={{ marginTop: 8 }}>
+                <DirectoryHistory
+                  changes={changeLog}
+                  billingNames={new Map()}
+                  showWhat={false}
+                  empty="Nothing has changed since this record was added."
+                />
+              </div>
+            </details>
+          )}
           {isAdmin && <DeleteClient clientId={detail.id} clientName={detail.name} />}
           {canEdit && (
             <div id="intake">

@@ -5,9 +5,14 @@ import { DataTable } from "../data-table";
 /**
  * The directory's change log (0099), as people read it.
  *
- * The database writes every entry itself - a counselor, a billing office or an
- * office added, edited, moved or removed - with each field's before and after.
- * This only puts names on the fields and "blank" where there was nothing.
+ * The database writes every entry itself - a counselor, a billing office, an
+ * office or, since 0192, a client added, edited, moved or removed - with each
+ * field's before and after. This only puts names on the fields and "blank"
+ * where there was nothing.
+ *
+ * A field with no name in LABELS below is not shown, which keeps the log off
+ * the plumbing columns. It also means a table joining this log has to be read
+ * here as well, or its edits arrive with nothing under them.
  */
 export type DirectoryChange = {
   id: string;
@@ -40,6 +45,30 @@ const LABELS: Record<string, string> = {
   contact_name: "Contact",
   contact_title: "Contact's title",
   contact_email: "Contact's email",
+  // Clients joined this log in 0192. Without a name here describeChange()
+  // filters the field out, and an edit reads "Edited" with nothing under it -
+  // which is how a log comes to look like it is working while saying nothing.
+  agency_id: "Agency number",
+  funding_source: "Funding source",
+  gender: "Gender",
+  ce: "Community employment",
+  caseload: "Caseload",
+  unit: "Unit",
+  schedule: "Schedule",
+  target_jobs: "Target jobs",
+  preferred_locations: "Preferred locations",
+  job_search_email: "Job-search address",
+  counselor_id: "Counselor",
+  referring_office: "Referring office",
+  assigned_staff_id: "Assigned to",
+  billing_staff_id: "Billed by",
+  status: "Status",
+  stage: "Stage",
+  wsa_tier: "WSA tier",
+  wsa_completed: "WSA completed",
+  wsa_submitted: "WSA submitted",
+  wsa_paid: "WSA paid",
+  client_no: "Client number",
 };
 
 type Diff = Record<string, { from: unknown; to: unknown }>;
@@ -95,8 +124,15 @@ export function DirectoryHistory({
             at: <span style={{ whiteSpace: "nowrap" }}>{fmtStamp(c.at)}</span>,
             what: (
               <>
-                {c.entity === "Counselor" && c.action !== "Removed" ? (
-                  <Link href={`/counselors/${c.entity_key}`} style={{ color: "var(--teal)" }}>
+                {c.action !== "Removed" && (c.entity === "Counselor" || c.entity === "Client") ? (
+                  <Link
+                    href={
+                      c.entity === "Client"
+                        ? `/clients/${c.entity_key}`
+                        : `/counselors/${c.entity_key}`
+                    }
+                    style={{ color: "var(--teal)" }}
+                  >
                     <b>{c.entity_name}</b>
                   </Link>
                 ) : (

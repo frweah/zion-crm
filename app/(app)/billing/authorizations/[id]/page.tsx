@@ -3,13 +3,24 @@ import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
-import { money, fmtStamp } from "@/lib/constants";
+import { money, fmtStamp, today } from "@/lib/constants";
 import { STATUS_MEANING, type AuthorizationStatus } from "@/lib/billing";
 import { RecordHeader } from "../../../record-header";
 import { AuthorizationFiles } from "../../../clients/[id]/authorization-files";
 import { AuthorizationPayments } from "../../../clients/[id]/authorization-payments";
 import { readPayments } from "@/lib/payments";
-import { SubmitPacket, MarkDue, ServiceDates, MoveStale, CloseIt, ZeroHours, Forms } from "./panel";
+import {
+  SubmitPacket,
+  MarkDue,
+  ServiceDates,
+  MoveStale,
+  CloseIt,
+  ZeroHours,
+  Forms,
+  RecordPayment,
+  EditEverything,
+  SetStatus,
+} from "./panel";
 
 /**
  * One authorization: what it is, whether it can be billed, and what has
@@ -336,7 +347,16 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               }
               attached={packet.length}
             />
+            {rec.status === "Submitted" || rec.status === "Due" ? (
+              <RecordPayment
+                authId={rec.id as string}
+                amount={Number(rec.amount ?? 0)}
+                priced={Number(rec.amount ?? 0) > 0}
+                today={today()}
+              />
+            ) : null}
             {rec.status === "Authorized" ? <MarkDue authId={rec.id as string} /> : null}
+            <SetStatus authId={rec.id as string} status={rec.status as string} />
             <ServiceDates
               authId={rec.id as string}
               start={(rec.service_start as string) ?? null}
@@ -345,6 +365,58 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
             <MoveStale authId={rec.id as string} staleDate={(rec.stale_date as string) ?? null} />
             <CloseIt authId={rec.id as string} />
           </div>
+        </section>
+      ) : null}
+
+      {/* ── every field, whatever the status (owner, 14 Oct 2026) ──
+          Shown on a settled record as well as a live one. A corrected USOR
+          number arriving after payment is the ordinary case: the owner's own
+          test for this is editing the number on a paid authorization and
+          finding its PDF still attached. */}
+      {canBill ? (
+        <section className="page-section">
+          <EditEverything
+            authId={rec.id as string}
+            rec={{
+              number: (rec.number as string) ?? "",
+              service_type: rec.service_type as string,
+              funding_source: (rec.funding_source as string) ?? "Utah VR",
+              total_hours: rec.authorized_hours == null ? null : Number(rec.authorized_hours),
+              rate_type: rec.rate_type as string,
+              rate: Number(rec.rate ?? 0),
+              start_date: (rec.start_date as string) ?? null,
+              end_date: (rec.end_date as string) ?? null,
+              received_on: (rec.received_on as string) ?? null,
+              bill_by: (rec.bill_by as string) ?? null,
+              service_start: (rec.service_start as string) ?? null,
+              service_end: (rec.service_end as string) ?? null,
+              recipient: (rec.recipient as string) ?? null,
+              paid_on: (rec.paid_on as string) ?? null,
+              paid_amount: rec.paid_amount == null ? null : Number(rec.paid_amount),
+              warrant: (rec.warrant as string) ?? null,
+              note: (rec.note as string) ?? "",
+            }}
+          />
+          {(corrections ?? []).length > 0 ? (
+            <details className="card" style={{ marginTop: 12 }}>
+              <summary>Corrections to this record ({(corrections ?? []).length})</summary>
+              <table className="t" data-layout="corrections to this authorization: when, which field, from what to what, why, and who">
+                <tbody>
+                  {(corrections ?? []).map((c, n) => (
+                    <tr key={n}>
+                      <td className="lock">{fmtStamp(c.at as string)}</td>
+                      <td>
+                        {c.field}: {(c.was_value as string) || "nothing"} &rarr;{" "}
+                        {(c.new_value as string) || "nothing"}
+                      </td>
+                      <td className="lock">{c.reason as string}</td>
+                      <td className="lock">{(c.staff_name as string) ?? "the system"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          ) : null}
         </section>
       ) : null}
 

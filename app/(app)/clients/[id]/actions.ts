@@ -40,6 +40,18 @@ export async function setStage(_prev: DetailState, formData: FormData): Promise<
  * Billing edits these too, on any client (0121): who a client is assigned to
  * decides nothing about what Billing may change, and no Billing seat is ever
  * the assigned one. The database says the same (clients_update).
+ *
+ * Every change is written to the directory log by the database as of 0192 -
+ * which field, from what to what, by whom - the same way a counselor's has
+ * been since 0099. It is a trigger rather than a line in here on purpose: the
+ * sweeps, the imports and the agent write this table too, and a log that only
+ * covers the one screen that remembered to call it is not a log.
+ *
+ * The fields below are the ones a person owns. Left out, deliberately:
+ * client_no is the practice's own numbering and assigned in order; legacy_id,
+ * ghl_id, merged_into and import_review are plumbing, written by the import,
+ * the texting service and the merge. Stage has its own action above, and
+ * status is the owner's call.
  */
 export async function updateClient(_prev: DetailState, formData: FormData): Promise<DetailState> {
   const me = await getCurrentStaff();
@@ -70,6 +82,14 @@ export async function updateClient(_prev: DetailState, formData: FormData): Prom
     billing_staff_id: orNull(str("billing_staff_id")),
     wsa_tier: str("wsa_tier") ? Number(str("wsa_tier")) : null,
     wsa_completed: orNull(str("wsa_completed")),
+    // Opened up by the owner's unlock of 14 Oct 2026: these were on the
+    // record and on no screen, so a wrong one could only be corrected in the
+    // database.
+    funding_source: str("funding_source"),
+    gender: str("gender"),
+    ce: formData.get("ce") !== null,
+    wsa_submitted: orNull(str("wsa_submitted")),
+    wsa_paid: orNull(str("wsa_paid")),
   };
 
   // Closing or holding a case is the owner's call — the prototype disables the

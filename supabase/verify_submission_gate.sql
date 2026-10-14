@@ -264,7 +264,14 @@ begin
   -- amendment: USOR reduces an authorization to fewer hours than have already
   -- been worked. That is a conversation to have, and until it is had the work
   -- cannot be submitted.
+  --
+  -- Since 0190 the amendment itself has to say why, which is the same point
+  -- this section is making: it is a conversation to have, and the database
+  -- now keeps the record of having had it.
+  perform set_config('zion.correction_reason',
+                     'ZZ USOR reduced the authorization to 8 hours', true);
   update public.authorizations set total_hours = 8 where id = v_hourly;
+  perform set_config('zion.correction_reason', '', true);
   if public.authorization_can_submit(v_hourly) then
     failures := failures || 'FAILED: ten hours worked against eight now authorized was said to be submittable'::text;
   else

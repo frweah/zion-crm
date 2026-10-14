@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { SERVICE_TYPES, FUNDING_SOURCES } from "@/lib/constants";
 import {
   generateForm,
   markDue,
@@ -9,6 +10,9 @@ import {
   moveStaleDate,
   recordServiceDates,
   resolveZeroHours,
+  recordPayment,
+  editAuthorization,
+  setStatus,
   type ActionState,
 } from "../actions";
 
@@ -242,5 +246,283 @@ export function Forms({
       )}
       <Said state={state} />
     </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+ * The unlock (owner, 14 Oct 2026)
+ * ══════════════════════════════════════════════════════════ */
+
+/**
+ * Record what arrived.
+ *
+ * On anything Submitted or Due, which is the point: the flow used to want a
+ * submission before it would hear about a payment, and the practice has a
+ * queue of work settled long before this system existed.
+ *
+ * Both defaults are filled in rather than described - today, and what the
+ * authorization comes to - because the common act is to glance at them and
+ * press the button. The warrant number is blank and says it may stay blank.
+ */
+export function RecordPayment({
+  authId,
+  amount,
+  priced,
+  today,
+}: {
+  authId: string;
+  amount: number;
+  priced: boolean;
+  today: string;
+}) {
+  const [state, action, pending] = useActionState(recordPayment, EMPTY);
+  return (
+    <form action={action} className="card">
+      <input type="hidden" name="auth_id" value={authId} />
+      <h3 className="h2">Record a payment</h3>
+      <p className="lock">
+        {priced
+          ? "Sets this one authorization to Paid. Not the client, not its other authorizations."
+          : "This authorization comes to nothing yet, so the amount has to be typed. Put the rate and hours on the record and it will price itself."}
+      </p>
+      <div className="grid">
+        <label className="field">
+          <span>Date received</span>
+          <input type="date" name="received" defaultValue={today} required />
+        </label>
+        <label className="field">
+          <span>Amount</span>
+          <input
+            name="amount"
+            inputMode="decimal"
+            defaultValue={priced ? amount.toFixed(2) : ""}
+            placeholder="0.00"
+            required={!priced}
+          />
+        </label>
+      </div>
+      <label className="field">
+        <span>Warrant or check number</span>
+        <input name="warrant" placeholder="If the stub has not arrived yet, leave this blank" />
+      </label>
+      <button className="btn gold" disabled={pending}>
+        {pending ? "Recording…" : "Record the payment"}
+      </button>
+      <Said state={state} />
+    </form>
+  );
+}
+
+/**
+ * Every field, including on a record that is already settled.
+ *
+ * Settled deliberately does not hide this. The owner's own test is editing
+ * the number on a paid authorization and finding its PDF still attached -
+ * because a corrected USOR number arriving after payment is the ordinary
+ * case, not an exception.
+ *
+ * The reason is one field at the bottom rather than a prompt per field. The
+ * database decides which changes require it, and refuses with a message that
+ * names the field and both values - so nobody has to guess in advance which
+ * of these is the one that asks.
+ */
+export function EditEverything({
+  authId,
+  rec,
+}: {
+  authId: string;
+  rec: {
+    number: string;
+    service_type: string;
+    funding_source: string;
+    total_hours: number | null;
+    rate_type: string;
+    rate: number;
+    start_date: string | null;
+    end_date: string | null;
+    received_on: string | null;
+    bill_by: string | null;
+    service_start: string | null;
+    service_end: string | null;
+    recipient: string | null;
+    paid_on: string | null;
+    paid_amount: number | null;
+    warrant: string | null;
+    note: string;
+  };
+}) {
+  const [state, action, pending] = useActionState(editAuthorization, EMPTY);
+  return (
+    <form action={action} className="card">
+      <input type="hidden" name="auth_id" value={authId} />
+      <h2 className="h2">The record itself</h2>
+      <p className="lock">
+        Everything here is Billing&rsquo;s to change. Changing the number, the authorized hours,
+        the rate or the amount paid asks why, and that answer is kept with the record.
+      </p>
+
+      <div className="grid">
+        <label className="field">
+          <span>USOR number</span>
+          <input name="number" defaultValue={rec.number} placeholder="no number yet" />
+        </label>
+        <label className="field">
+          <span>Service</span>
+          <select name="service_type" defaultValue={rec.service_type}>
+            {SERVICE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Funding source</span>
+          <select name="funding_source" defaultValue={rec.funding_source}>
+            {FUNDING_SOURCES.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="grid">
+        <label className="field">
+          <span>Priced as</span>
+          <select name="rate_type" defaultValue={rec.rate_type}>
+            <option value="Flat Fee">Flat Fee</option>
+            <option value="Hourly">Hourly</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Rate</span>
+          <input name="rate" inputMode="decimal" defaultValue={Number(rec.rate ?? 0).toFixed(2)} />
+        </label>
+        <label className="field">
+          <span>Authorized hours</span>
+          <input
+            name="total_hours"
+            inputMode="decimal"
+            defaultValue={rec.total_hours == null ? "" : String(rec.total_hours)}
+            placeholder="flat fee"
+          />
+        </label>
+      </div>
+
+      <div className="grid">
+        <label className="field">
+          <span>Authorized from</span>
+          <input type="date" name="start_date" defaultValue={rec.start_date ?? ""} />
+        </label>
+        <label className="field">
+          <span>Authorized to</span>
+          <input type="date" name="end_date" defaultValue={rec.end_date ?? ""} />
+        </label>
+        <label className="field">
+          <span>Received</span>
+          <input type="date" name="received_on" defaultValue={rec.received_on ?? ""} required />
+        </label>
+        <label className="field">
+          <span>Bill by</span>
+          <input type="date" name="bill_by" defaultValue={rec.bill_by ?? ""} />
+        </label>
+      </div>
+
+      <div className="grid">
+        <label className="field">
+          <span>Work started</span>
+          <input type="date" name="service_start" defaultValue={rec.service_start ?? ""} />
+        </label>
+        <label className="field">
+          <span>Work finished</span>
+          <input type="date" name="service_end" defaultValue={rec.service_end ?? ""} />
+        </label>
+        <label className="field">
+          <span>Submitted to</span>
+          <input name="recipient" defaultValue={rec.recipient ?? ""} placeholder="the billing office" />
+        </label>
+      </div>
+
+      {/* The money, on the same screen as everything else: a payment entered
+          against the wrong month is corrected here rather than undone. */}
+      <div className="grid">
+        <label className="field">
+          <span>Paid on</span>
+          <input type="date" name="paid_on" defaultValue={rec.paid_on ?? ""} />
+        </label>
+        <label className="field">
+          <span>Amount paid</span>
+          <input
+            name="paid_amount"
+            inputMode="decimal"
+            defaultValue={rec.paid_amount == null ? "" : Number(rec.paid_amount).toFixed(2)}
+          />
+        </label>
+        <label className="field">
+          <span>Warrant</span>
+          <input name="warrant" defaultValue={rec.warrant ?? ""} />
+        </label>
+      </div>
+
+      <label className="field">
+        <span>Note</span>
+        <textarea name="note" rows={2} defaultValue={rec.note} />
+      </label>
+
+      <label className="field">
+        <span>Why, if this is a correction</span>
+        <input
+          name="reason"
+          placeholder="USOR reissued it with a corrected number"
+        />
+      </label>
+
+      <button className="btn" disabled={pending}>
+        {pending ? "Saving…" : "Save the record"}
+      </button>
+      <Said state={state} />
+    </form>
+  );
+}
+
+/**
+ * Setting the status, which used to be the one thing no screen offered.
+ *
+ * Paid is not here: it goes through Record a payment above, because an
+ * authorization that says Paid with no payment behind it is the state this
+ * practice already has 139 of and does not need more of. Closed asks why.
+ */
+export function SetStatus({ authId, status }: { authId: string; status: string }) {
+  const [state, action, pending] = useActionState(setStatus, EMPTY);
+  const open = ["Authorized", "Due", "Submitted"].filter((s) => s !== status);
+  return (
+    <form action={action} className="card">
+      <input type="hidden" name="auth_id" value={authId} />
+      <h3 className="h2">Set the status</h3>
+      <p className="lock">
+        It is {status} now. Paid is Record a payment, so that the two cannot say different things.
+      </p>
+      <label className="field">
+        <span>To</span>
+        <select name="status" defaultValue={open[0] ?? "Closed"}>
+          {open.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+          <option value="Closed">Closed</option>
+        </select>
+      </label>
+      <label className="field">
+        <span>Why (needed to close)</span>
+        <input name="reason" placeholder="Client withdrew before placement" />
+      </label>
+      <button className="btn" disabled={pending}>
+        {pending ? "…" : "Set it"}
+      </button>
+      <Said state={state} />
+    </form>
   );
 }

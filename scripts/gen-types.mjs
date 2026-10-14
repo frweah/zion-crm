@@ -288,6 +288,12 @@ const RPC_FUNCTIONS = [
   "client_next_actions_for",
   "intake_scans_now_readable",
   "intake_rules_ran_late",
+  // Billing stops being a one-way street (0190-0194).
+  "record_payment",
+  "edit_authorization",
+  "set_authorization_status",
+  "bulk_mark_paid",
+  "bulk_close",
 ];
 
 const { rows: fns } = await client.query(

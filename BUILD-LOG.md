@@ -2537,3 +2537,139 @@ Placement Invoice, Carl Wilkins - Job Development Invoice). service@ is being
 used for billing correspondence as well as referrals. Harmless, since the
 intake only acts on PDFs, but worth knowing.
 
+
+---
+
+## Billing unlocked — 14 October 2026
+
+*Owner: "Billing is too locked down. Build all of this together."*
+
+Five asks, all built. Migrations 0190–0194, and `verify_billing_unlocked.sql`
+alongside them — 36 assertions, including the owner's own three.
+
+### What was actually locked
+
+Not the permissions. RLS has let Billing write every column of
+`authorizations` since 0121. The lock was in three places nobody would have
+guessed from the brief:
+
+1. **The state machine refused `Due → Paid`.** So clearing an old item meant
+   stepping it through Submitted — and the Submitted gate checks the service
+   dates against the authorized period and refuses anything more than 90 days
+   past its end date. Which is exactly the backlog. The gate exists to stop a
+   packet going out that USOR will return; recording money that already
+   arrived sends nothing.
+2. **`correct_authorization` was Admin-only and handled two fields** — service
+   and client. Everything else could be changed in principle and on no screen.
+3. **No screen offered any of it.**
+
+### A blocker that turned out not to be one
+
+`ledger_period_open()` raises when an entry is dated before `books_start`, and
+`books_start` is 1 January 2027. A payment recorded today looked like it would
+be refused by the ledger.
+
+It is not: `post_journal` returns null before the books open, so a payment
+recorded now posts nothing and raises nothing. The ledger stays untouched
+until January, which is what the owner's rule 5 asks for anyway. Tested
+directly rather than reasoned about, because the whole of asks 1 and 3 rested
+on it.
+
+### What changed
+
+**The receivable is raised on the way past.** This is the part that would have
+lost money quietly. `post_authorization` debits AR at Submitted and credits it
+at Paid. A record going straight to Paid never met the first, so the second
+would have credited a receivable nobody raised — the trial balance would still
+balance and AR would be short by the amount, silently, forever. So reaching
+Paid from anything but Submitted now makes the Submitted posting first.
+
+Nothing posts today, because the books are shut. The wiring is proven against
+a temporary start date, the way 0157 did it.
+
+**A reason is asked for at the moment the value moves,** by a trigger rather
+than by the screens — because the sweeps, the imports, the agent and three
+screens all write this table, and a rule that lives in one caller is a rule
+the next caller does not have.
+
+And it is asked for on a *correction*, not a first entry. Filling in a number
+that was blank is recording what the paperwork says; changing a number that
+was already there is a correction. That distinction is load-bearing: warrant
+reconciliation writes `paid_amount` where there was none, and requiring a
+reason for that would have stopped every payment the warrant reader records.
+
+**A payment recorded by hand is not paid twice.** Clearing a months-old item
+usually means a remittance with no warrant number — the stub arrives weeks
+later in a scan. The warrant reader now recognises a by-hand payment with no
+warrant number, claims it, and writes the number it never had onto both the
+payment and the record. An exact warrant match still wins.
+
+**Bulk clear reports per row.** Each row is its own savepoint, so one row that
+cannot be priced does not take the other nine down. Six of the twenty-one open
+authorizations come to nothing (hourly, no hours logged) — those are named,
+with what stopped them, rather than passed over in silence.
+
+**Clients joined the directory change log** (0192) instead of getting one of
+their own. Their stage changes were kept; everything else — the counselor they
+are assigned to, the billing office they are billed through, their phone
+number — could change and leave no trace. Counselors have had this since 0099.
+
+Two things made that more than adding a table name. The entity CASE ended in
+`else 'Office'`, so a client would have been filed as an office — a default
+branch that does not fail, it mislabels. And `LABELS` in the history component
+had no client field names, so a client edit would have read "Edited" with
+nothing under it: a log that looks like it is working while saying nothing.
+
+### What the verification suite caught that review would not have
+
+Four real faults, all found by running all 91 scripts rather than the new one:
+
+- **`authorization_corrections.field` is a closed list** — Service, Client,
+  Number, Document. A correction to a rate or an amount violated the check and
+  raised. The new tests only exercised the number, so they passed;
+  `verify_client_deletion.sql` found it by clearing an amount in its own setup.
+- **`authorization_corrections.reason` must not be blank,** and the trigger was
+  willing to write a row with no reason. Fixing that properly was better than
+  widening the constraint: this is the *correction* log, and a change with no
+  reason is not a correction.
+- **The append-only guard broke client deletion** — the same mistake 0179
+  corrected in the directory log, an append-only rule standing in front of the
+  one deletion that is sanctioned. The corrections cascade off the
+  authorization; the guard now lets a row go when the authorization it
+  describes has already gone, which only the cascade can arrange.
+- **Giving a placeholder its real number was refused.** A "(workbook)"
+  placeholder has a number already there — that is what a placeholder is — so
+  importing a confirmed authorization PDF stopped working. The function was
+  already writing its own correction-log line with a better reason than a
+  person would type, so it hands that reason over and its manual insert comes
+  out. One copy of the rule rather than two racing.
+
+### An assertion that had to be rewritten, not deleted
+
+`verify_authorization_is_the_bill.sql` asserted that `Authorized → Paid` is
+refused — the behaviour the owner has reversed. Rewritten to assert the new
+rule, keeping the half that was really at stake: both ledger legs, so the
+receivable cannot be credited without being debited. Then the fault was put
+back and the check watched to fail (AR debited 0 times, revenue 0) before
+being restored.
+
+Worth recording: the assertion "AR nets to nothing" passed *with the fault
+present*, because the AR credit still happens. The debit and revenue
+assertions are what have teeth. A check sitting near the rule passes the bug
+it was written for — the fourth time that lesson has come up in this project.
+
+Three fixtures in other scripts were cutting hours or wiping an amount paid
+silently, which production should no longer allow. They now say why, the way
+the screen makes a person say why.
+
+### Left for the owner
+
+- **`client_no`, `legacy_id`, `ghl_id`, `merged_into`, `import_review`** are
+  not editable. They are the practice's own numbering and the plumbing written
+  by the import, the texting service and the merge. Say so if any of them
+  should be.
+- **`Paid → Due` is still refused.** Undoing a payment goes back through
+  Submitted, which is the move the ledger reverses off.
+- **A payment is recorded on Submitted or Due,** as the brief says. An
+  authorization still at Authorized is set to Paid from the status control
+  instead, which records the payment the same way.

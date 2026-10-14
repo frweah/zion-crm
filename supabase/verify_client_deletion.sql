@@ -144,10 +144,19 @@ begin
   end;
 
   -- Closed is the thing the refusal asks for, so Closed must let it through.
+  --
+  -- Taking the amount paid back off the record is a correction, and since
+  -- 0190 the database asks why at the moment it happens - so this fixture
+  -- says why, the way the screen now makes a person say why. Without the
+  -- reason the write is refused, which is the point: an amount already
+  -- recorded does not quietly become nothing.
   perform set_config('role', 'postgres', true);
+  perform set_config('zion.correction_reason',
+                     'ZZ entered against the wrong person; the payment was not theirs', true);
   update public.authorizations set status = 'Closed', closed_reason = 'ZZ wrong person',
          closed_at = now(), closed_by = v_admin, paid_on = null, paid_amount = null
    where id = v_auth;
+  perform set_config('zion.correction_reason', '', true);
 
   -- ── not while the books name them ──────────────────────────
   -- A posting is made rather than asserted, because the refusal has to be the

@@ -10,12 +10,26 @@ import { today } from "@/lib/constants";
 import { createForm } from "../../clients/[id]/forms/actions";
 
 /**
- * What can be done to an authorization (Billing Simplification Brief §§4, 12.4).
+ * What can be done to an authorization (Billing Simplification Brief §§4,
+ * 12.4, and the owner's billing unlock of 14 Oct 2026).
  *
- * There are five moves and no way to type a status. Submit is what sending the
- * packet does; Paid is what a warrant does; the rest are a decision somebody
- * made and had to give a reason for. A status that can be typed is a status
- * that stops meaning anything.
+ * The first half of this file is the flow: submit is what sending the packet
+ * does, and each move is a decision somebody made and had to give a reason
+ * for. That was once the whole file, on the principle that a status which can
+ * be typed is a status that stops meaning anything.
+ *
+ * The owner has overruled that, and was right to. The principle described an
+ * authorization being worked now; the practice also has 139 already paid and
+ * a queue of work settled months ago that the flow gave no way to say was
+ * settled. So the second half of this file records payments, edits every
+ * field, and clears rows in batches.
+ *
+ * What replaces the principle is not nothing. A status is still never a free
+ * text field: Paid goes through record_payment, so there is no authorization
+ * saying Paid with no payment behind it, and Closed still needs its reason.
+ * A correction to the number, the hours, the rate or the amount paid is
+ * refused without a reason, and written to the correction log by the database
+ * rather than by this file - so it is written however the change arrives.
  *
  * Every refusal in here is the database's. The checklist on the record says in
  * advance what the trigger would say after - they read the same tests - so a
@@ -318,4 +332,217 @@ export async function generateForm(_prev: ActionState, formData: FormData): Prom
   // signs it. A redirect from a server action throws, so there is nothing after
   // this line on the happy path.
   return createForm({ error: null, ok: null }, body);
+}
+
+/* ════════════════════════════════════════════════════════════
+ * The unlock (owner, 14 Oct 2026)
+ * ══════════════════════════════════════════════════════════ */
+
+/**
+ * Money that arrived, recorded against one authorization.
+ *
+ * The date defaults to today and the amount to what the authorization comes
+ * to, both in the database rather than here, so the working list's bulk clear
+ * and this form cannot disagree about what a default is. The warrant number is
+ * optional because the common case - clearing something settled months ago -
+ * is a remittance that says what arrived and when, with the stub still to
+ * come. When the stub does arrive, the warrant reader recognises this payment
+ * and claims it rather than paying the authorization twice (0191).
+ */
+export async function recordPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await billingHands();
+  const id = String(formData.get("auth_id") ?? "");
+  const received = String(formData.get("received") ?? "").trim();
+  const amount = String(formData.get("amount") ?? "").trim();
+  const warrant = String(formData.get("warrant") ?? "").trim();
+
+  if (received && !/^\d{4}-\d{2}-\d{2}$/.test(received)) {
+    return { error: "That date does not look right.", ok: null };
+  }
+  if (amount && !/^\d+(\.\d{1,2})?$/.test(amount)) {
+    return { error: "That amount does not look like money.", ok: null };
+  }
+
+  const { error } = await supabase.rpc("record_payment", {
+    p_auth: id,
+    p_received: received || null,
+    p_amount: amount ? Number(amount) : null,
+    p_warrant: warrant || null,
+    p_voucher: null,
+  });
+  if (error) return refusal(error.message);
+
+  done(id);
+  return { error: null, ok: "Recorded, and this authorization is Paid. Nothing else moved." };
+}
+
+/**
+ * Every field on the record.
+ *
+ * The form sends what it shows and the database touches only the keys it is
+ * given, so a screen that grows a field needs no change here. The reason is
+ * always offered and only sometimes required - the database decides which,
+ * because it is the one that knows whether the old value was empty, and
+ * filling in a blank is not a correction.
+ */
+const EDITABLE = [
+  "number",
+  "service_type",
+  "funding_source",
+  "total_hours",
+  "rate_type",
+  "rate",
+  "start_date",
+  "end_date",
+  "received_on",
+  "bill_by",
+  "service_start",
+  "service_end",
+  "recipient",
+  "paid_on",
+  "paid_amount",
+  "warrant",
+  "note",
+] as const;
+
+export async function editAuthorization(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { supabase } = await billingHands();
+  const id = String(formData.get("auth_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const fields: Record<string, string> = {};
+  for (const key of EDITABLE) {
+    // Absent is not the same as empty: a field the form did not show is left
+    // alone, and one it showed blank is being cleared on purpose.
+    if (formData.has(key)) fields[key] = String(formData.get(key) ?? "").trim();
+  }
+  if (Object.keys(fields).length === 0) return { error: "Nothing was sent to change.", ok: null };
+
+  const { data, error } = await supabase.rpc("edit_authorization", {
+    p_auth: id,
+    p_fields: fields,
+    p_reason: reason || null,
+  });
+  if (error) return refusal(error.message);
+
+  done(id);
+  const changed = (data ?? []) as { field: string | null }[];
+  if (changed.length === 0) return { error: null, ok: "Nothing had changed." };
+  return {
+    error: null,
+    ok: "Saved: " + changed.map((c) => c.field).filter(Boolean).join(", ") + ".",
+  };
+}
+
+/** Straight to Paid or Closed, from the record or from a row on the list. */
+export async function setStatus(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await billingHands();
+  const id = String(formData.get("auth_id") ?? "");
+  const status = String(formData.get("status") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  const received = String(formData.get("received") ?? "").trim();
+
+  if (status === "Closed" && !reason) {
+    return { error: "Say why it is being closed. Somebody will ask.", ok: null };
+  }
+
+  const { data, error } = await supabase.rpc("set_authorization_status", {
+    p_auth: id,
+    p_status: status,
+    p_reason: reason || null,
+    p_received: received || null,
+  });
+  if (error) return refusal(error.message);
+
+  done(id);
+  return { error: null, ok: data ?? "Saved." };
+}
+
+/* ── clearing a batch ────────────────────────────────────────
+ *
+ * The rows that did not go through come back with the result, because a batch
+ * where some rows were left alone is the normal case rather than the
+ * exception: six of the practice's twenty-one open authorizations come to
+ * nothing, and a person told "10 of 13 cleared" and nothing else has to go
+ * looking for the three.
+ */
+export type BatchState = {
+  error: string | null;
+  ok: string | null;
+  rows: { auth_number: string; client_name: string; outcome: string; detail: string }[];
+};
+
+export const EMPTY_BATCH: BatchState = { error: null, ok: null, rows: [] };
+
+type BatchRow = {
+  auth_id: string | null;
+  auth_number: string | null;
+  client_name: string | null;
+  outcome: string | null;
+  detail: string | null;
+};
+
+function batchResult(rows: BatchRow[], did: string): BatchState {
+  const shown = rows.map((r) => ({
+    auth_number: r.auth_number ?? "",
+    client_name: r.client_name ?? "",
+    outcome: r.outcome ?? "",
+    detail: r.detail ?? "",
+  }));
+  const went = shown.filter((r) => r.outcome === did).length;
+  const held = shown.filter((r) => r.outcome !== did);
+  const one = held.length === 1;
+  return {
+    error: null,
+    ok:
+      held.length === 0
+        ? `${went} ${went === 1 ? "row" : "rows"} ${did}.`
+        : `${went} of ${shown.length} ${did}. The ${one ? "other is" : "others are"} below, with what stopped ${one ? "it" : "them"}.`,
+    rows: held,
+  };
+}
+
+/** Mark several paid, with one received date. */
+export async function bulkMarkPaid(_prev: BatchState, formData: FormData): Promise<BatchState> {
+  const { supabase } = await billingHands();
+  const ids = formData.getAll("auth_ids").map(String).filter(Boolean);
+  const received = String(formData.get("received") ?? "").trim();
+
+  if (ids.length === 0) return { ...EMPTY_BATCH, error: "Choose the rows to mark paid." };
+  if (received && !/^\d{4}-\d{2}-\d{2}$/.test(received)) {
+    return { ...EMPTY_BATCH, error: "That date does not look right." };
+  }
+
+  const { data, error } = await supabase.rpc("bulk_mark_paid", {
+    p_auths: ids,
+    p_received: received || null,
+  });
+  if (error) return { ...EMPTY_BATCH, error: refusal(error.message).error };
+
+  revalidatePath("/billing");
+  for (const id of ids) revalidatePath(`/billing/authorizations/${id}`);
+  return batchResult((data ?? []) as BatchRow[], "paid");
+}
+
+/** Close several, with one reason. */
+export async function bulkCloseAuthorizations(
+  _prev: BatchState,
+  formData: FormData,
+): Promise<BatchState> {
+  const { supabase } = await billingHands();
+  const ids = formData.getAll("auth_ids").map(String).filter(Boolean);
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (ids.length === 0) return { ...EMPTY_BATCH, error: "Choose the rows to close." };
+  if (!reason) return { ...EMPTY_BATCH, error: "Say why they are being closed. Somebody will ask." };
+
+  const { data, error } = await supabase.rpc("bulk_close", { p_auths: ids, p_reason: reason });
+  if (error) return { ...EMPTY_BATCH, error: refusal(error.message).error };
+
+  revalidatePath("/billing");
+  for (const id of ids) revalidatePath(`/billing/authorizations/${id}`);
+  return batchResult((data ?? []) as BatchRow[], "closed");
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { deleteClient, setStage, updateClient, updateRestricted, type DetailState } from "./actions";
-import { STAGES, CLIENT_STATUSES } from "@/lib/constants";
+import { STAGES, CLIENT_STATUSES, FUNDING_SOURCES } from "@/lib/constants";
 
 const initial: DetailState = { error: null, ok: null };
 
@@ -45,6 +45,10 @@ export type ClientDetail = {
   stage: string;
   wsa_tier: number | null;
   wsa_completed: string | null;
+  wsa_submitted: string | null;
+  wsa_paid: string | null;
+  gender: string | null;
+  ce: boolean | null;
   import_review: string;
 };
 
@@ -123,6 +127,31 @@ export function DetailsForm({
           <label className="field">
             Agency client ID
             <input name="agency_id" defaultValue={client.agency_id} disabled={!canEdit} />
+          </label>
+          <label className="field">
+            Funding source
+            <select name="funding_source" defaultValue={client.funding_source ?? "Utah VR"} disabled={!canEdit}>
+              {FUNDING_SOURCES.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Gender
+            <input name="gender" defaultValue={client.gender ?? ""} disabled={!canEdit} />
+          </label>
+          <label className="field">
+            {/* Community employment: on the record since the import and on no
+                screen until now. */}
+            <span>Community employment</span>
+            <input
+              type="checkbox"
+              name="ce"
+              defaultChecked={Boolean(client.ce)}
+              disabled={!canEdit}
+            />
           </label>
           <label className="field">
             Status
@@ -266,6 +295,24 @@ export function DetailsForm({
                 name="wsa_completed"
                 type="date"
                 defaultValue={client.wsa_completed ?? ""}
+                disabled={!canEdit}
+              />
+            </label>
+            <label className="field">
+              WSA submitted
+              <input
+                name="wsa_submitted"
+                type="date"
+                defaultValue={client.wsa_submitted ?? ""}
+                disabled={!canEdit}
+              />
+            </label>
+            <label className="field">
+              WSA paid
+              <input
+                name="wsa_paid"
+                type="date"
+                defaultValue={client.wsa_paid ?? ""}
                 disabled={!canEdit}
               />
             </label>

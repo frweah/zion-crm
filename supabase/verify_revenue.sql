@@ -134,7 +134,15 @@ begin
   -- ── an amendment downward does not become negative money ───
   -- A counselor can amend an authorization to fewer hours than have already
   -- been worked. That is a conversation to have, not a negative number.
+  --
+  -- And since 0190 it is a conversation the database wants on the record:
+  -- cutting the authorized hours changes what the authorization comes to, so
+  -- it asks why at the moment it happens. The fixture says why, the way the
+  -- screen now makes a person say why.
+  perform set_config('zion.correction_reason',
+                     'ZZ counselor amended the authorization down to 2 hours', true);
   update public.authorizations set total_hours = 2 where id = v_hourly;
+  perform set_config('zion.correction_reason', '', true);
 
   select * into r from public.authorization_economics where auth_id = v_hourly;
   if r.committed <> 0 or r.hours_left <> 0 then
@@ -144,7 +152,11 @@ begin
     raise notice 'ok  amended below what was already worked, it shows nothing left rather than less than nothing';
   end if;
 
+  -- Put back for what follows, which is also a correction and also says why.
+  perform set_config('zion.correction_reason',
+                     'ZZ the amendment was withdrawn; back to the 10 authorized', true);
   update public.authorizations set total_hours = 10 where id = v_hourly;
+  perform set_config('zion.correction_reason', '', true);
 
   -- ── flat fee earns on completion, not on effort ────────────
   insert into public.authorizations (client_id, number, service_type, rate, rate_type,

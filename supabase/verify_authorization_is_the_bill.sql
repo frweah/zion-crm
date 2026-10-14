@@ -5,7 +5,10 @@
 --   Every authorization has a status and a bill-by, and the money that was
 --   on the billing items is still there to the penny. §7's own test.
 --
---   The status moves the way the work moves and no other way.
+--   The status moves the way the work moves and no other way - except that
+--   money which already arrived can be recorded on an authorization this
+--   practice never submitted, and the receivable is raised on the way past so
+--   the ledger cannot credit an AR nobody debited.
 --
 --   Submitting is refused when the work happened outside the authorized
 --   period, and refused when the authorization is more than the grace past
@@ -35,6 +38,7 @@ declare
   v_staff    uuid;
   v_adm_uid  uuid := gen_random_uuid();
   v_auth     uuid;
+  v_straight uuid;
   v_parent   uuid;
   v_child    uuid;
   v_ar       uuid;
@@ -121,12 +125,85 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
 
+  /**
+   * Straight to Paid, which this script used to refuse (owner, 14 Oct 2026).
+   *
+   * It was refused for a good reason - an authorization should not skip the
+   * flow by accident - and the owner has overruled it for a better one: the
+   * practice has 139 authorizations already paid and a queue of settled work
+   * it could not say was settled. The submission gates guard a packet going
+   * out, and money that already arrived is a fact.
+   *
+   * What still has to hold is the half that was really at stake. A record
+   * that reaches Paid without passing through Submitted never met the
+   * posting that raises the receivable, so clearing it would credit an AR
+   * nobody debited - the trial balance would still balance and AR would be
+   * short by the amount, silently, forever. So both legs are checked here,
+   * and that check is why widening the state machine is safe.
+   *
+   * Tried on an authorization of its own, so the flow below still starts
+   * from Authorized.
+   */
+  -- Entered as the database, like the first one above: what is being tried
+  -- here is the move, not who may add a row.
+  perform set_config('role', 'postgres', true);
+  insert into public.authorizations (
+    client_id, number, service_type, rate_type, rate, start_date, end_date, received_on
+  ) values (
+    v_client, 'ZZ-A-STRAIGHT', 'Job Coaching', 'Flat Fee', 400,
+    date '2026-09-01', date '2026-12-31', date '2026-10-01'
+  ) returning id into v_straight;
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
+
+  update public.authorizations
+     set status = 'Paid', paid_on = date '2026-10-10', paid_amount = 400
+   where id = v_straight;
+
+  if (select status from public.authorizations where id = v_straight) <> 'Paid' then
+    failures := failures || 'FAILED: an authorization could not be paid without being submitted first'::text;
+  else
+    raise notice 'ok  an authorization can be paid without a submission of ours, which is the backlog';
+  end if;
+
+  select count(*) into v_n from public.journal_lines l
+    join public.journals j on j.id = l.journal_id
+   where j.source_kind = 'Authorization' and j.source_id = v_straight
+     and l.account_id = v_ar and l.debit = 400;
+  if v_n <> 1 then
+    failures := failures || format('FAILED: paying an unsubmitted authorization debited AR %s times, not once', v_n)::text;
+  else
+    raise notice 'ok  and the receivable was raised on the way past';
+  end if;
+
+  select count(*) into v_n from public.journal_lines l
+    join public.journals j on j.id = l.journal_id
+   where j.source_kind = 'Authorization' and j.source_id = v_straight
+     and l.account_id = v_ar and l.credit = 400;
+  if v_n <> 1 then
+    failures := failures || format('FAILED: paying an unsubmitted authorization credited AR %s times, not once', v_n)::text;
+  else
+    raise notice 'ok  then cleared, so AR nets to nothing rather than going short';
+  end if;
+
+  select coalesce(sum(l.credit), 0) into v_amount from public.journal_lines l
+    join public.journals j on j.id = l.journal_id
+   where j.source_kind = 'Authorization' and j.source_id = v_straight
+     and l.account_id = v_rev;
+  if v_amount <> 400 then
+    failures := failures || format('FAILED: revenue for a straight-to-Paid authorization is %s, not 400', v_amount)::text;
+  else
+    raise notice 'ok  and the revenue was recognised exactly once';
+  end if;
+
+  -- A payment is still not undone by going back to Due. That way round is
+  -- Paid to Submitted, which the ledger reverses off the move itself.
   begin
-    update public.authorizations set status = 'Paid', paid_on = public.practice_today()
-     where id = v_auth;
-    failures := failures || 'FAILED: an authorization jumped from Authorized to Paid'::text;
+    update public.authorizations set status = 'Due' where id = v_straight;
+    failures := failures || 'FAILED: a paid authorization went straight back to Due'::text;
   exception when check_violation then
-    raise notice 'ok  an authorization does not jump from Authorized to Paid';
+    raise notice 'ok  undoing a payment still goes back through Submitted';
   end;
 
   update public.authorizations set status = 'Due' where id = v_auth;

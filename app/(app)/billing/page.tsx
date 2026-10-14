@@ -321,6 +321,7 @@ export default async function BillingPage({
       </div>
 
       <Worklist
+        canClear={canBill}
         rows={shown}
         withClient
         empty={

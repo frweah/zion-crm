@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { money } from "@/lib/constants";
+import { money, today } from "@/lib/constants";
 import { DataTable, type DataRow } from "../data-table";
+import { WorklistTable } from "./worklist-table";
 
 /**
  * The working list, in one place (Billing Simplification Brief §§9, 12.2, 12.6).
@@ -110,20 +111,29 @@ export function Worklist({
   rows,
   withClient,
   empty,
+  canClear = false,
 }: {
   rows: WorklistRow[];
   withClient: boolean;
   empty: string;
+  /**
+   * Whether this reader may clear rows in bulk (owner, 14 Oct 2026).
+   *
+   * Off by default, so a screen that shows the list without thinking about it
+   * shows a list and not a set of controls. Billing passes it on; the
+   * client's record passes it on too, because a person looking at one client
+   * has the same right to clear that client's settled rows.
+   */
+  canClear?: boolean;
 }) {
   return (
     <div className="card" style={{ padding: 0, marginBottom: 14 }}>
-      <DataTable
-        label="authorizations being worked"
-        sortBy
-        pageSize={50}
+      <WorklistTable
         columns={worklistColumns(withClient)}
         rows={worklistRows(rows, withClient)}
         empty={empty}
+        canClear={canClear}
+        today={today()}
       />
     </div>
   );
