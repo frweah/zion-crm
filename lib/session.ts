@@ -33,9 +33,15 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
 
   // Verified here against the project's published signing key (ES256, cached
   // for ten minutes per server) rather than by asking the Auth service - one
-  // network wait fewer on every page. The middleware still asks the Auth
-  // service on every request, which is what catches a signed-out or revoked
-  // session; and the staff row below still has to be active.
+  // network wait fewer on every page.
+  //
+  // The middleware used to ask the Auth service on every request, which is
+  // what caught a signed-out or revoked session promptly. It no longer does:
+  // awaiting that round trip with no timeout is what turned a slow evening
+  // into 504s on every request (14 Oct 2026), so it verifies the same way this
+  // does. A revoked token therefore lasts until it expires - and the staff row
+  // below still has to be active, which is what locks a deactivated person out
+  // at once.
   const { data: verified } = await supabase.auth.getClaims();
   const userId = verified?.claims?.sub;
   if (!userId) return null;

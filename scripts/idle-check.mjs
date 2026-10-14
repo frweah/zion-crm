@@ -30,6 +30,13 @@ const PASSWORD = process.env.SMOKE_PASSWORD;
 const BUDGET_MS = Number(process.env.IDLE_BUDGET_MS ?? 2000);
 const CEILING_MS = Number(process.env.IDLE_CEILING_MS ?? 8000);
 const QUIET_MS = 500;
+// What the middleware may add before a page is even reached. It runs on every
+// request, so whatever it costs is paid by everything; on 14 Oct 2026 it
+// awaited an auth round trip with no timeout and production answered nothing
+// at all for part of an evening. The ceiling is well under Vercel's own limit,
+// because by the time it hits that the site is already down.
+const MIDDLEWARE_BUDGET_MS = Number(process.env.MIDDLEWARE_BUDGET_MS ?? 400);
+const MIDDLEWARE_CEILING_MS = Number(process.env.MIDDLEWARE_CEILING_MS ?? 2500);
 
 if (!EMAIL || !PASSWORD) {
   console.log("  note  no SMOKE_EMAIL, so no screen was timed");
@@ -156,6 +163,53 @@ try {
 
   await lap(false);
   await lap(true);
+
+  // ── and what the middleware costs ────────────────────────
+  //
+  // Measured on a path that does nothing else, so what is timed is the gate
+  // rather than a page: /api/version is behind the middleware, answers one
+  // string, and touches no database. Whatever that takes is close to pure
+  // middleware.
+  //
+  // Timed signed in and signed out, because they are different paths through
+  // it: a request with no auth cookie is answered without Supabase being
+  // asked at all, and one with a cookie verifies the token. The slow one is
+  // the one that matters, and the incident was the second.
+  //
+  // It is here rather than in the fetch-based deploy check because this is
+  // where timing lives, and a number nobody looks at on every deploy is a
+  // number that drifts until it is an outage.
+  for (const [who, context] of [
+    ["signed in", page],
+    ["a stranger", await browser.newPage()],
+  ]) {
+    const samples = [];
+    for (let i = 0; i < 5; i++) {
+      const started = Date.now();
+      const res = await context.request.get(`${BASE}/api/version`, { failOnStatusCode: false });
+      const took = Date.now() - started;
+      // A 504 here is the incident itself, and it is a failure whatever it took.
+      if (res.status() >= 500) {
+        failures.push(`the middleware answered HTTP ${res.status()} for ${who} on /api/version`);
+        break;
+      }
+      samples.push(took);
+    }
+    if (!samples.length) continue;
+
+    // The slowest of five, not the average: the complaint is never about the
+    // median request.
+    const worst = Math.max(...samples);
+    const label = `middleware (${who})`;
+    if (worst > MIDDLEWARE_CEILING_MS) {
+      failures.push(`${label} took ${worst}ms, over the ${MIDDLEWARE_CEILING_MS}ms ceiling`);
+    } else if (worst > MIDDLEWARE_BUDGET_MS) {
+      slow.push(`${label} ${worst}ms`);
+      console.log(`  slow    ${label.padEnd(34)} ${worst}ms (target ${MIDDLEWARE_BUDGET_MS}ms)`);
+    } else {
+      console.log(`  ok      ${label.padEnd(34)} ${worst}ms`);
+    }
+  }
 } catch (err) {
   // Anything the walk did not expect - a link that moved, a click that never
   // landed - becomes a finding like any other, because a bare stack trace in
@@ -182,4 +236,6 @@ if (failures.length) {
   console.log(`::error title=Click to quiet::${failures.join(" %0A ")}`);
   process.exit(1);
 }
-console.log(`--- EVERY SCREEN WENT QUIET WITHIN ${CEILING_MS}ms (${BASE}) ---`);
+console.log(
+  `--- EVERY SCREEN WENT QUIET WITHIN ${CEILING_MS}ms, AND THE MIDDLEWARE WITHIN ${MIDDLEWARE_CEILING_MS}ms (${BASE}) ---`,
+);
