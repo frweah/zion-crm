@@ -166,6 +166,27 @@ begin
     raise notice 'ok  and a client there has no billing address, so nothing is sent to the wrong one';
   end if;
 
+  /**
+   * And the same when the billing office exists but has no address.
+   *
+   * This is the live state as of 0197: every office bills through a district
+   * CRP, and seventeen of those CRPs have no published address yet. So the
+   * refusal has to come from the blank address rather than from the missing
+   * billing office - a different path to the same place, and the one the
+   * practice is actually in.
+   */
+  perform set_config('role', 'postgres', true);
+  insert into public.billing_offices (name, billing_email, has_group_address, notes)
+  values ('ZZ Addressless CRP', '', false, 'ZZ no address published') returning id into v_bo;
+  update public.offices set billing_office_id = v_bo where name = 'ZZ Nowhere';
+
+  select billing_office_email into v_text from public.authorization_record where id = v_auth;
+  if coalesce(v_text, '') <> '' then
+    failures := failures || format('FAILED: a client at a CRP with no address was given %s', v_text)::text;
+  else
+    raise notice 'ok  and one whose CRP has no address published is refused the same way';
+  end if;
+
   -- ── a billing address may be blank, but not wrong ──────────
   insert into public.billing_offices (name, billing_email, has_group_address, notes)
   values ('ZZ Central', '', false, 'ZZ no group address published') returning id into v_bo;

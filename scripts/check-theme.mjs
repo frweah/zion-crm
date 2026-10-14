@@ -25,7 +25,23 @@
  *   ease-in-out, and names no duration of its own.
  *
  *   Text is never faded: no opacity below 1. No glass: no backdrop-filter,
- *   and the one translucent token (--scrim) is never a border. No dark mode.
+ *   and the one translucent token (--scrim) is never a border.
+ *
+ * And from the green theme (owner, 14 Oct 2026):
+ *
+ *   There are two palettes now, light and dark, and every contrast pair is
+ *   checked in both. A pair that reads in light and not in dark is the bug
+ *   this would otherwise have waved through - which is the whole reason the
+ *   token parser below reads each block separately instead of regexing the
+ *   file and letting the last value win.
+ *
+ *   The dark values appear twice in tokens.css, because a viewer who has
+ *   chosen nothing is a different selector from one who chose dark. The two
+ *   blocks must declare the same tokens with the same values, which is
+ *   asserted here rather than hoped for.
+ *
+ *   Only tokens.css may name the theme. A component that branches on
+ *   prefers-color-scheme or data-theme is a second palette by another name.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -123,24 +139,69 @@ for (const file of [...sources.filter((f) => /\.(css|tsx)$/.test(f)), TOKENS]) {
       say("fade", `${at} uses the fill gold as text; use var(--accent-text)`);
     if (/backdrop-filter/.test(line)) say("glass", `${at} uses backdrop-filter; no glass`);
     if (/border[a-z-]*\s*:[^;]*var\(--scrim\)/.test(line)) say("glass", `${at} draws a border with --scrim; no translucent borders`);
-    if (/prefers-color-scheme|data-theme/.test(line)) say("dark", `${at} adds a dark mode; there is none`);
+    // Dark mode belongs to tokens.css and nowhere else (owner, 14 Oct 2026).
+    // A component that branches on the theme itself is a second palette.
+    if (!isTokens && /prefers-color-scheme:\s*dark|data-theme/.test(line))
+      say("dark", `${at} names the theme itself; dark mode lives in tokens.css, as token values`);
   });
 }
 if (rule.size === 0) ok(`every font size is on the ${scale.length}-step scale (${scale.map((t) => t.px).join(" / ")} px)`);
 if (rule.motion === 0) ok("every transition and animation runs on --motion (200ms ease-in-out)");
-if (rule.fade + rule.glass + rule.dark === 0) ok("no faded text, no glass, no translucent borders, no dark mode");
+if (rule.fade + rule.glass + rule.dark === 0)
+  ok("no faded text, no glass, no translucent borders, and no screen naming the theme itself");
 for (const k of Object.keys(rule)) if (rule[k] > 8) fail(`...and ${rule[k] - 8} more like that`);
 
-// ── contrast ─────────────────────────────────────────────────
-const tokens = new Map();
-for (const m of readFileSync(TOKENS, "utf8").matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) {
-  tokens.set(m[1], m[2].trim());
+// ── contrast, in both palettes ───────────────────────────────
+const css = readFileSync(TOKENS, "utf8");
+
+/** The body of the first rule whose selector starts with `selector`. */
+function bodyOf(selector) {
+  const i = css.indexOf(selector);
+  if (i < 0) throw new Error(`tokens.css has no ${selector} block`);
+  const open = css.indexOf("{", i);
+  let depth = 0;
+  let j = open;
+  for (; j < css.length; j++) {
+    if (css[j] === "{") depth += 1;
+    else if (css[j] === "}") {
+      depth -= 1;
+      if (depth === 0) break;
+    }
+  }
+  return css.slice(open + 1, j);
 }
-const resolve = (name, depth = 0) => {
-  const v = tokens.get(name);
+
+const declarations = (body) => {
+  const out = new Map();
+  for (const m of body.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) out.set(m[1], m[2].trim());
+  return out;
+};
+
+const light = declarations(bodyOf(":root {"));
+const darkSystem = declarations(bodyOf(':root:not([data-theme="light"])'));
+const darkChosen = declarations(bodyOf(':root[data-theme="dark"]'));
+
+// The two dark blocks are the same palette written twice. Any drift between
+// them means the theme a person chose and the theme their machine chose are
+// different themes.
+const drift = [];
+for (const key of new Set([...darkSystem.keys(), ...darkChosen.keys()])) {
+  if (darkSystem.get(key) !== darkChosen.get(key)) {
+    drift.push(`--${key} (system "${darkSystem.get(key) ?? "unset"}", chosen "${darkChosen.get(key) ?? "unset"}")`);
+  }
+}
+if (drift.length) fail(`the two dark blocks disagree: ${drift.slice(0, 6).join(", ")}`);
+else ok(`both dark blocks declare the same ${darkSystem.size} tokens with the same values`);
+
+// Dark is light with the dark block laid over it, which is how the browser
+// sees it: a token the dark block does not mention keeps its light value.
+const dark = new Map([...light, ...darkSystem]);
+
+const resolveIn = (palette, name, depth = 0) => {
+  const v = palette.get(name);
   if (!v) throw new Error(`no token --${name}`);
   const ref = v.match(/^var\(--([a-z0-9-]+)\)$/);
-  if (ref && depth < 10) return resolve(ref[1], depth + 1);
+  if (ref && depth < 10) return resolveIn(palette, ref[1], depth + 1);
   return v;
 };
 const lum = (hex) => {
@@ -150,8 +211,8 @@ const lum = (hex) => {
   const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 };
-const ratio = (a, b) => {
-  const [x, y] = [lum(resolve(a)), lum(resolve(b))].sort((p, q) => q - p);
+const ratioIn = (palette, a, b) => {
+  const [x, y] = [lum(resolveIn(palette, a)), lum(resolveIn(palette, b))].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
 };
 
@@ -185,19 +246,29 @@ const EDGES = [
   ["side-active-ink", "side-bg"], ["side-active-ink", "side-hover"],
 ];
 
-let worst = Infinity;
-for (const [fg, bg] of TEXT) {
-  const r = ratio(fg, bg);
-  worst = Math.min(worst, r);
-  if (r < 4.5) fail(`text --${fg} on --${bg} is ${r.toFixed(2)}:1, under 4.5:1`);
-}
-if (!problems.some((p) => p.startsWith("text "))) ok(`all ${TEXT.length} text pairs reach 4.5:1 (lowest ${worst.toFixed(2)}:1)`);
+for (const [mode, palette] of [["light", light], ["dark", dark]]) {
+  const before = problems.length;
+  let worst = Infinity;
+  let worstPair = "";
+  for (const [fg, bg] of TEXT) {
+    const r = ratioIn(palette, fg, bg);
+    if (r < worst) {
+      worst = r;
+      worstPair = `--${fg} on --${bg}`;
+    }
+    if (r < 4.5) fail(`${mode}: text --${fg} on --${bg} is ${r.toFixed(2)}:1, under 4.5:1`);
+  }
+  if (problems.length === before) {
+    ok(`${mode}: all ${TEXT.length} text pairs reach 4.5:1 (lowest ${worst.toFixed(2)}:1, ${worstPair})`);
+  }
 
-for (const [fg, bg] of EDGES) {
-  const r = ratio(fg, bg);
-  if (r < 3) fail(`--${fg} against --${bg} is ${r.toFixed(2)}:1, under 3:1 for a control edge`);
+  const edgesBefore = problems.length;
+  for (const [fg, bg] of EDGES) {
+    const r = ratioIn(palette, fg, bg);
+    if (r < 3) fail(`${mode}: --${fg} against --${bg} is ${r.toFixed(2)}:1, under 3:1 for a control edge`);
+  }
+  if (problems.length === edgesBefore) ok(`${mode}: text-field edges and the focus ring reach 3:1`);
 }
-if (!problems.some((p) => p.includes("control edge"))) ok("text-field edges and the focus ring reach 3:1");
 
 console.log("");
 if (problems.length) {

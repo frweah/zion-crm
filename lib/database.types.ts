@@ -4227,6 +4227,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_emails: {
+        Row: {
+          id: string;
+          staff_id: string;
+          address: string;
+          note: string;
+          added_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          address: string;
+          note?: string;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          address?: string;
+          note?: string;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       staff_employment: {
         Row: {
           staff_id: string;
@@ -4629,6 +4656,51 @@ export type Database = {
           staff_id?: string;
           state?: string;
           last_seen?: string;
+        };
+        Relationships: [];
+      };
+      staff_record_changes: {
+        Row: {
+          id: string;
+          seq: number;
+          at: string;
+          staff_id: string | null;
+          staff_name: string;
+          part: string;
+          action: string;
+          changes: Json;
+          note: string;
+          changed_by: string | null;
+          changed_by_name: string;
+          on_behalf: boolean;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+          part: string;
+          action: string;
+          changes?: Json;
+          note?: string;
+          changed_by?: string | null;
+          changed_by_name?: string;
+          on_behalf?: boolean;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+          part?: string;
+          action?: string;
+          changes?: Json;
+          note?: string;
+          changed_by?: string | null;
+          changed_by_name?: string;
+          on_behalf?: boolean;
         };
         Relationships: [];
       };
@@ -6398,6 +6470,10 @@ export type Database = {
         Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
         Returns: boolean;
       };
+      log_staff_document: {
+        Args: { p_staff: string | null; p_action: string | null; p_changes: Json | null; p_note?: string | null };
+        Returns: undefined;
+      };
       mark_conversation_spam: {
         Args: { p_conversation: string | null; p_spam?: boolean | null };
         Returns: undefined;
@@ -6718,6 +6794,10 @@ export type Database = {
         Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note?: string | null };
         Returns: undefined;
       };
+      set_staff_change_note: {
+        Args: { p_note: string | null };
+        Returns: undefined;
+      };
       set_staff_pay: {
         Args: { p_staff_id: string | null; p_rate: number | null; p_unit: string | null; p_effective_from: string | null; p_note?: string | null };
         Returns: string;
@@ -6737,6 +6817,10 @@ export type Database = {
       staff_activity: {
         Args: { p_from: string | null; p_to: string | null };
         Returns: { staff_id: string | null; staff_name: string | null; role: string | null; employment_type: string | null; active: boolean | null; hours: number | null; sessions: number | null; days_worked: number | null; statements_submitted: number | null; statements_approved: number | null; amount_paid: number | null; clients_assigned: number | null; tasks_open: number | null; tasks_done: number | null; notes_written: number | null; leads_added: number | null }[];
+      };
+      staff_by_email: {
+        Args: { p_address: string | null };
+        Returns: string;
       };
       staff_has_area: {
         Args: { p_area: string | null; p_level?: string | null };

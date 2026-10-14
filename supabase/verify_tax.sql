@@ -285,11 +285,28 @@ begin
 
     raise notice '  % (%): file bytes=% metadata row=%', r.name, r.role, n_bytes, n_meta;
 
+    /**
+     * An Admin, and the contractor whose form it is. Nobody else.
+     *
+     * This asked for n_bytes = 0 from everybody but an Admin, including the
+     * person the W-8BEN belongs to - which was the rule until 14 Oct 2026,
+     * and the rule that stopped anybody but an Admin uploading to this bucket
+     * at all: the storage service inserts with RETURNING, and RETURNING
+     * applies the read policy, so a person who could not read their own
+     * folder could not write to it either (0198, Melanie's ID upload).
+     *
+     * The half that mattered is kept and is still checked below: a colleague
+     * cannot fetch somebody's tax paperwork.
+     */
     if r.role = 'Admin' then
       if n_bytes <> 1 then failures := failures || 'Admin cannot open staff paperwork'::text; end if;
+    elsif r.id = v_rei then
+      if n_bytes <> 1 then
+        failures := failures || format('%s cannot open their own tax paperwork', r.name);
+      end if;
     else
       if n_bytes <> 0 then
-        failures := failures || format('LEAK: %s can fetch staff paperwork bytes', r.name);
+        failures := failures || format('LEAK: %s can fetch somebody else''s staff paperwork bytes', r.name);
       end if;
     end if;
   end loop;

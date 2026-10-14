@@ -226,3 +226,113 @@ export async function recordInspection(_prev: DocumentState, formData: FormData)
   revalidatePath("/paperwork", "layout");
   return { error: null, ok: "Inspection recorded." };
 }
+
+/**
+ * Replace the file behind a document, keeping the row (owner, 14 Oct 2026).
+ *
+ * "Admin can ... upload or replace any document on their behalf (ID,
+ * certifications, signed forms), logged with who did it."
+ *
+ * The row stays, so whatever points at it still does - a certification, an
+ * authorization's packet, an I-9 inspection. What changes is the bytes, the
+ * filename and the type. The old object is removed afterwards rather than
+ * before: if the new one fails to go up, the person still has the old one.
+ *
+ * Not for a document the app generates. A signed policy or a tax form is a
+ * PDF the CRM made from what somebody signed, and swapping the bytes under
+ * one would leave a signature over a document nobody signed - so those are
+ * refused here, as they are on upload.
+ */
+export async function replaceStaffDocument(
+  _prev: DocumentState,
+  formData: FormData,
+): Promise<DocumentState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const fileId = String(formData.get("file_id") ?? "").trim();
+  const file = formData.get("file");
+
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file first.", ok: null };
+  if (file.size > MAX_BYTES) {
+    return { error: "That file is over 25MB. Scan it at a lower resolution and try again.", ok: null };
+  }
+  if (!ALLOWED.includes(file.type)) {
+    return {
+      error: "That kind of file is not accepted — a PDF, a photograph or a Word document.",
+      ok: null,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("staff_files")
+    .select("id, staff_id, storage_path, filename, category")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!row) return { error: "That document is not there any more.", ok: null };
+
+  if (row.staff_id !== me.id && me.role !== "Admin") {
+    return { error: "You can replace one on your own file; Admin can on anybody's.", ok: null };
+  }
+
+  const { data: owner } = await supabase
+    .from("staff")
+    .select("name, active")
+    .eq("id", row.staff_id)
+    .maybeSingle();
+  if (owner && !owner.active) {
+    return { error: `${owner.name} is inactive; their file is kept as it was.`, ok: null };
+  }
+
+  const { data: cat } = await supabase
+    .from("staff_file_categories")
+    .select("label, system_only")
+    .eq("key", row.category)
+    .maybeSingle();
+  if (cat?.system_only) {
+    return {
+      error: `A ${cat.label} is produced from what somebody signed. Replacing the file under it would leave a signature over a document nobody signed — complete a new one in Paperwork instead.`,
+      ok: null,
+    };
+  }
+
+  const safe = file.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-80);
+  const path = `${row.staff_id}/${Date.now()}-${safe}`;
+  const { error: uploadError } = await supabase.storage
+    .from("staff-files")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: `That did not upload. ${uploadError.message}`, ok: null };
+
+  const was = row.filename;
+  const { error } = await supabase
+    .from("staff_files")
+    .update({
+      storage_path: path,
+      filename: file.name,
+      mime_type: file.type,
+      size_bytes: file.size,
+    })
+    .eq("id", fileId);
+
+  if (error) {
+    // The row did not move, so the old file is still the document. Take the
+    // new one back out rather than leaving it orphaned in the bucket.
+    await supabase.storage.from("staff-files").remove([path]);
+    return { error: error.message, ok: null };
+  }
+
+  // Only now: the row points at the new bytes, so losing the old ones is safe.
+  await supabase.storage.from("staff-files").remove([row.storage_path]);
+
+  await supabase.rpc("log_staff_document", {
+    p_staff: row.staff_id,
+    p_action: "Edited",
+    p_changes: { filename: { from: was, to: file.name } },
+    p_note: String(formData.get("note") ?? "").trim(),
+  });
+
+  revalidatePath(`/admin/people/${row.staff_id}`);
+  revalidatePath("/paperwork");
+  return { error: null, ok: `Replaced. The record still points at it, and the change is logged.` };
+}

@@ -294,6 +294,11 @@ const RPC_FUNCTIONS = [
   "set_authorization_status",
   "bulk_mark_paid",
   "bulk_close",
+  // The directory, the staff record and the theme (0195-0200).
+  "set_staff_change_note",
+  "set_e_delivery_consent",
+  "staff_by_email",
+  "log_staff_document",
 ];
 
 const { rows: fns } = await client.query(

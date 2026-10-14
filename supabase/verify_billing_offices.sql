@@ -97,10 +97,21 @@ begin
   select string_agg(format('%s -> %s', o.name, b.name), '; ' order by o.name) into v_text
     from public.offices o join public.billing_offices b on b.id = o.billing_office_id
    where o.name not in ('Salt Lake City', 'Taylorsville', 'Tooele', 'South Jordan', 'Centerville', 'Spanish Fork');
+  -- As of 0197 the other sixteen each bill through a district CRP of their
+  -- own, which the owner asked for after being asked. What must hold is not
+  -- that they are empty but that none of them points at one of the five Salt
+  -- Lake offices - that would be the geography guess that was declined.
   if v_text is not null then
-    raise notice 'note  offices mapped since the owner''s six, which somebody should have meant: %', v_text;
+    raise notice 'note  the sixteen districts bill through their own CRP: %', v_text;
+  end if;
+  select string_agg(format('%s -> %s', o.name, b.name), '; ' order by o.name) into v_text
+    from public.offices o join public.billing_offices b on b.id = o.billing_office_id
+   where o.name not in ('Salt Lake City', 'Taylorsville', 'Tooele', 'South Jordan', 'Centerville', 'Spanish Fork')
+     and b.name in ('Downtown CRP', 'Valley West CRP', 'South Valley CRP', 'Davis CRP', 'Spanish Fork');
+  if v_text is not null then
+    failures := failures || format('FAILED: a district was attached to a Salt Lake billing office: %s', v_text)::text;
   else
-    raise notice 'ok  and nothing has guessed a billing office for the rest';
+    raise notice 'ok  and no district was attached to a Salt Lake CRP it has no relationship with';
   end if;
 
   /**

@@ -5,6 +5,7 @@ import {
   uploadStaffDocument,
   openStaffDocument,
   deleteStaffDocument,
+  replaceStaffDocument,
   recordInspection,
   type DocumentState,
 } from "./document-actions";
@@ -68,6 +69,53 @@ export function OpenButton({ id }: { id: string }) {
         {pending ? "…" : "Open"}
       </button>
       {state.error && <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</div>}
+    </form>
+  );
+}
+
+/**
+ * Replace the file behind a document, keeping the row (owner, 14 Oct 2026).
+ *
+ * Behind a confirm like Remove, because it loses the old file - and offered
+ * only where Remove is, for the same reasons. A document the app generated
+ * is not replaceable: the server refuses it, and the button is not drawn.
+ */
+function ReplaceButton({ doc }: { doc: DocRow }) {
+  const [state, action, pending] = useActionState(replaceStaffDocument, initial);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        className="btn ghost"
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{ padding: "2px 10px" }}
+      >
+        Replace
+      </button>
+    );
+  }
+
+  return (
+    <form action={action} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+      <input type="hidden" name="file_id" value={doc.id} />
+      <input
+        id={`replace-${doc.id}`}
+        name="file"
+        type="file"
+        required
+        accept="application/pdf,image/*,.doc,.docx"
+        aria-label={`A new file for ${doc.filename}`}
+      />
+      <button className="btn" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
+        {pending ? "…" : "Replace it"}
+      </button>
+      <button className="btn ghost" type="button" onClick={() => setOpen(false)} style={{ padding: "2px 10px" }}>
+        Keep it
+      </button>
+      {state.error && <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</span>}
+      {state.ok && <span style={{ color: "var(--ok)", fontSize: "var(--text-sm)" }}>{state.ok}</span>}
     </form>
   );
 }
@@ -250,6 +298,11 @@ export function StaffDocuments({
                   {canDelete && !readOnly && d.inspection_required && (
                     <span style={{ marginLeft: 4 }}>
                       <InspectButton id={d.id} />
+                    </span>
+                  )}
+                  {canDelete && !readOnly && !d.system_generated && (
+                    <span style={{ marginLeft: 4 }}>
+                      <ReplaceButton doc={d} />
                     </span>
                   )}
                   {canDelete && !readOnly && !d.system_generated && (

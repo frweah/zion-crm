@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/session";
 import { PersonalDetailsPanel } from "./personal-panel";
+import { IdentityPanel, type AliasRow } from "./identity-panel";
 import { EngagementForm } from "./engagement-form";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
@@ -28,17 +29,26 @@ import { StaffDocuments, type DocCategory, type DocRow } from "../../staff/docum
  * header a client has.
  */
 export default async function StaffRecordPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  const me = await requireAdmin();
   const { id } = await params;
   const supabase = await createClient();
 
   const { data: person } = await supabase
     .from("staff")
-    .select("id, name, email, role, active, user_id, invited_at, accepted_at, deactivated_at, is_system")
+    .select("id, name, email, phone, role, active, user_id, invited_at, accepted_at, deactivated_at, is_system")
     .eq("id", id)
     .maybeSingle();
 
   if (!person) notFound();
+
+  // The other addresses that reach them (0199). Read here rather than in the
+  // panel so the panel stays a form and nothing else.
+  const { data: aliasRows } = await supabase
+    .from("staff_emails")
+    .select("id, address, note")
+    .eq("staff_id", id)
+    .order("address");
+  const aliases = (aliasRows ?? []) as AliasRow[];
 
   const [
     payResult,
@@ -209,6 +219,24 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
               : `In the onboarding walkthrough since ${fmtStamp(walkthroughResult.data.started_at)} - the checklist above shows which steps are open.`
             : "Joined before the onboarding walkthrough; they can complete these on their Paperwork screen."}
         </p>
+        {/* ── who they are (owner, 14 Oct 2026, item 4) ──
+            The four fields this record never offered. Not shown for the
+            system account, which is not a person. */}
+        {!person.is_system && (
+          <div style={{ marginBottom: 12 }}>
+            <IdentityPanel
+              person={{
+                id: person.id as string,
+                name: person.name as string,
+                email: (person.email as string) ?? null,
+                phone: (person.phone as string) ?? null,
+                role: person.role as string,
+              }}
+              aliases={aliases}
+              isSelf={person.id === me.id}
+            />
+          </div>
+        )}
         <div className="card" style={{ marginBottom: 12 }}>
           <h3>Engaged as</h3>
           <EngagementForm

@@ -2825,3 +2825,167 @@ Manti, Moab, Ogden, Price, Provo, Richfield, Roosevelt, St. George, Vernal.
 - **The eight USOR Administration contacts are shown, not editable.** The brief
   asked for them to be recorded; maintaining them by hand can come when it is
   wanted.
+
+---
+
+## The sixteen, an upload, an alias, the green, and a staff record — 14 October 2026
+
+Five things, migrations 0197–0200, two new verify scripts, 94 passing.
+
+### The sixteen billing offices
+
+Asked rather than guessed. The CRP billing offices on file are all Salt Lake
+area and the sixteen districts span the state, so no mapping could be derived —
+and the owner's answer was one billing office per district with the address
+left blank.
+
+Worth saying plainly, because at a glance it looks like it achieves nothing: a
+packet for a client at one of these is still refused. What changed is *which*
+refusal. Before, the office had no billing office at all and there was nothing
+on screen to fill in. Now it bills through a named district CRP whose address
+is not yet known — a row somebody can type one address into — and until they
+do, submission says "there is no billing office address for X" and sends
+nothing. Neither state mails paperwork to the wrong district; this one names
+what is missing.
+
+### Melanie could not upload her ID
+
+Reproduced as her before changing anything, which is what found it. Every part
+of the database path worked: she could read her employment row, insert her own
+`staff_files` row and read it back. Storage was where it failed, and the error
+blamed the wrong thing:
+
+```
+insert into storage.objects (bucket_id, name) values ('staff-files', …)
+  -> allowed
+insert into storage.objects (bucket_id, name) values ('staff-files', …) returning id
+  -> ERROR: new row violates row-level security policy
+```
+
+The only difference is `RETURNING`, and `RETURNING` applies the **select**
+policy to the row being handed back. The select policy was `is_admin()`. The
+storage service inserts with RETURNING because it answers with the object it
+made — so this was never Melanie, or Billing, or onboarding. **No role but
+Admin could upload anything to that bucket**, and every one of them got an
+error about a policy violation on a row they were allowed to write.
+
+The fix is a read policy: a person may read their own folder, which is the
+right rule anyway — being unable to see the ID you uploaded is how you upload
+the wrong page twice. `staff_file_owner()` reads the owner out of all three
+path shapes the bucket holds.
+
+Two more faults found while in there. The insert policy was `is_active_staff()`
+and nothing else, so **any member of staff could write into anybody's folder**;
+narrowed to their own or an Admin's. And the delete policy's inactive-staff
+freeze asked `storage.foldername(s.name)` — the *person's* name, not the
+object's — so it compared "Melanie Morales" with a uuid, never matched, and
+**the freeze it exists to enforce had never once applied**.
+
+Verified across all six roles: each can upload to its own folder and read it
+back, none can touch another's, an Admin can do both. Putting the Admin-only
+read policy back fails the check naming exactly the five non-Admin roles.
+
+### Rispah's alias
+
+`staff_emails`, with `staff_by_email()` resolving a sign-in address or an alias
+to one person. Her sign-in stays `rispah@zionpersonalcareagency.com`.
+
+**One thing to know:** nothing in the CRM resolved an inbound address to a
+member of staff before this. The mail sweep matches clients and counselors and
+deliberately stores nothing else — "no match, no record" is the rule that keeps
+the rest of a mailbox out of the CRM entirely, and widening it would have
+changed what mail is stored. So the alias is recorded, resolvable and on the
+screen; what it does *not* do yet is pull mail in, because there is nothing
+asking the question. Say the word and I will wire it where you want it.
+
+### The green theme
+
+From the Zion Theme Comparison. Light is the default — white page, white cards,
+green kept to the sidebar, sand the one accent. Dark makes the green the page.
+Serif headings in both. Looked at both on the running app.
+
+`check-theme` now checks **both** palettes, where it used to check one and
+forbid dark mode outright. Its token parser had to start reading each block
+separately: regexing the file and letting the last value win would have checked
+the dark values twice and the light ones never.
+
+It found five pairs under 4.5:1 in the comparison's palette, which is the check
+doing its job:
+
+- sand hover with green ink, 3.78:1 — the hover now lifts lighter
+- muted on the sand soft fill, 4.35:1
+- dark: the red on a card, 4.32:1; on the sand hover, 3.86:1
+- dark: the sand focus ring against a strong line, 2.80:1
+
+All 37 text pairs now reach 4.5:1 in both modes (lowest 4.63 light, 4.88 dark)
+and edges 3:1. Breaking one value fails the build, which is where it was
+already wired.
+
+**One departure from the picture:** the comparison's sand button carries white
+text. White on `#B98B5A` is 2.6:1 — it fails the same rule in the same sentence
+that set it. The sand fill carries deep-green ink instead, and sand *as text*
+is the darker `--accent-text`. That is the only difference, and it moves
+towards the rule rather than away.
+
+Also added `color-scheme: light dark`, without which a dark green page opens a
+white calendar popup — and this app asks for a date on nearly every screen.
+
+### A staff record an Admin can edit
+
+Name, sign-in address, phone, role and aliases now have a form; employment,
+start date and pay already had one. Every change is logged by a trigger with
+who made it and whether it was somebody else's record — a trigger rather than a
+line in the screen, because the sweeps and imports write these tables too. A
+document can be replaced, keeping the row so whatever points at it still does.
+
+**Not the directory log.** Clients and counselors write to `directory_changes`,
+which every member of staff can read, on purpose — it is a directory. A staff
+record carries pay rates and a home phone number, and the diff keeps the old
+and new value of everything that moved. Putting staff in there would have put
+everybody's pay in front of everybody. Separate log, Admin and the person
+themselves.
+
+### The line the owner drew, and what was on the wrong side of it
+
+`sign_tax_form` **allowed an Admin to sign somebody else's W-9**. Its guard read
+`if not (is_admin() or v_owner = current_staff_id())` while raising *"You can
+only sign your own form."* The message described the rule; the code did
+something else. Corrected to what the message always claimed — an Admin can
+still prepare, correct, attach to and supersede anybody's form, and cannot sign
+one.
+
+E-delivery consent was also an Admin's to tick. Now a trigger refuses it —
+a trigger rather than a policy because the paperwork screens write through the
+service-role client in places, which bypasses RLS and not triggers.
+
+`sign_staff_policy` was already safe and is untouched: it takes no staff id at
+all, so there is no argument an Admin could pass to sign as somebody else.
+
+Two things the verify script found while settling this:
+
+- Once the Admin was stopped, **nobody** could record a consent — the only
+  people allowed to write `contractor_profiles` were the only ones forbidden to
+  write that column. An earlier draft added a function for the contractor;
+  `verify_1099.sql` knew that `set_e_delivery_consent()` had existed since the
+  1099 work, so the duplicate was dropped rather than shipped.
+- The guard has to be about *granting*, not clearing. Recording a consent
+  somebody did not give misrepresents them; recording that we do not have one
+  means their 1099 goes on paper, which is the safe fallback. An Admin may
+  always take it off and never put it on.
+
+### What the suite caught that the new scripts did not
+
+- `verify_system_account.sql` caught both new tables not refusing the agent
+  account's writes — a sweep over every table, twice.
+- `verify_1099.sql` caught the consent deadlock.
+- `verify_tax.sql` asserted that nobody but an Admin could fetch staff
+  paperwork bytes — including the contractor whose W-8BEN it is. That is the
+  old rule, and the one that broke the upload. Rewritten to keep the half that
+  matters: a *colleague* still cannot.
+- `verify_inactive_staff.sql` checked the freeze by looking for the word
+  "foldername" in the policy's text — and passed for the wrong reason, because
+  the word was there inside the subquery that never matched. Now it checks the
+  effect.
+- `verify_billing_offices.sql` asserted every office has a billing office, the
+  rule being overruled; rewritten to assert that no district was attached to a
+  Salt Lake CRP it has no relationship with.

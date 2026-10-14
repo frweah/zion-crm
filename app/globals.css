@@ -1,14 +1,30 @@
 /* ─────────────────────────────────────────────────────────────
    The shell and every shared class.
 
-   A well-set document rather than a dashboard: charcoal on bone, a serif for
-   headings and figures, a plain sans for the working text, hairline rules and
-   room around things. No colour value is written here - they all come from
-   tokens.css, and scripts/check-theme.mjs fails the build if one appears.
+   A well-set document rather than a dashboard: deep green and warm sand on
+   white, a serif for headings and figures, a plain sans for the working text,
+   hairline rules and room around things. No colour value is written here -
+   they all come from tokens.css, and scripts/check-theme.mjs fails the build
+   if one appears, or if any pair of them stops reading in either theme.
    ───────────────────────────────────────────────────────────── */
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  /**
+   * The browser's own furniture follows the theme as well.
+   *
+   * Scrollbars, a date field's calendar, a select's dropdown and the caret
+   * are drawn by the browser, not by this stylesheet. Without this line a
+   * dark green page opens a white calendar popup - and this app asks for a
+   * date on nearly every screen, so that is not a detail.
+   *
+   * Both words, in this order: light is the default and dark follows the
+   * machine, which is what the owner asked for.
+   */
+  color-scheme: light dark;
 }
 
 body {

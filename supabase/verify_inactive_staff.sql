@@ -107,20 +107,38 @@ begin
     end;
   end if;
 
-  -- ── the stored file is held as well as its row ─────────────
-  -- Storage deletes go through the storage service, so the policy is checked
-  -- here as written: Admin may delete a staff file only outside an inactive
-  -- person's folder.
-  if not exists (
-    select 1 from pg_policies
-     where schemaname = 'storage' and tablename = 'objects'
-       and policyname = 'zion delete staff files' and cmd = 'DELETE'
-       and qual ilike '%staff-files%' and qual ilike '%is_admin()%'
-       and qual ilike '%foldername%' and qual ilike '%active%'
-  ) then
+  /**
+   * ── the stored file is held as well as its row ─────────────
+   *
+   * Storage refuses a direct DELETE from SQL, so what is checked is the
+   * condition the policy is made of, for a real inactive person and a real
+   * live one.
+   *
+   * This used to look for the word "foldername" in the policy's text, which
+   * passed for the wrong reason: the policy did contain it, inside a
+   * subquery that asked about the staff member's *name* instead of the
+   * object's and therefore never matched anything (fixed in 0198). A check on
+   * the shape of a rule rather than its effect cannot tell those apart.
+   */
+  if public.staff_file_owner(v_person::text || '/zz-held.pdf') is distinct from v_person then
+    failures := failures || 'FAILED: an inactive person''s file does not resolve to them'::text;
+  elsif not exists (select 1 from public.staff s
+                     where s.id = public.staff_file_owner(v_person::text || '/zz-held.pdf')
+                       and not s.active) then
     failures := failures || 'FAILED: an inactive person''s stored documents can still be deleted directly from storage'::text;
   else
     raise notice 'ok  their stored files cannot be deleted from storage either';
+  end if;
+
+  -- And a live person's can be, so the freeze is a freeze and not a wall.
+  if exists (select 1 from public.staff s
+              where s.id = public.staff_file_owner(
+                (select id::text from public.staff where active and not is_system
+                  order by created_at, id limit 1) || '/zz-live.pdf')
+                and not s.active) then
+    failures := failures || 'FAILED: a live person''s documents read as frozen too'::text;
+  else
+    raise notice 'ok  and a live person''s still can be, so the hold is not simply a wall';
   end if;
 
   -- ── and everything still reads ─────────────────────────────
