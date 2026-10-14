@@ -2,9 +2,12 @@
 --
 -- What has to hold, each tried from the direction that would break it:
 --
---   Every counselor office bills through exactly one billing office, as the
---   owner mapped them; an office cannot be added without one, and a counselor
---   cannot be given an office that is not on file.
+--   The six counselor offices the owner mapped bill through the billing
+--   offices he put them with, and nothing has since guessed one for the
+--   sixteen the USOR roster brought in. An office may be on file before
+--   anybody knows where it bills - a counselor cannot be attached to one that
+--   is not on file, which is why leaving it out was not an option - and a
+--   counselor still cannot be given an office that does not exist.
 --
 --   A client bills through their counselor's office; with no counselor, their
 --   referring office; with neither, nothing - never a guess. Where the two
@@ -57,25 +60,66 @@ begin
   select id into v_dt from public.billing_offices where name = 'Downtown CRP';
   select id into v_davis from public.billing_offices where name = 'Davis CRP';
 
-  -- ── the owner's mapping ────────────────────────────────────
+  /**
+   * ── the owner's mapping ───────────────────────────────────
+   *
+   * Six offices, mapped by the owner, and those six must not drift. This used
+   * to be an assertion about *every* office, which was the same statement
+   * when six was all there were; importing the USOR roster made it twenty-two
+   * and the other sixteen have no billing office on purpose (owner, 14 Oct
+   * 2026: "new districts have none yet - leave billing office empty and flag
+   * them, don't guess").
+   *
+   * So the test is now the half that was really at stake: the mapping somebody
+   * confirmed is still the mapping, and a new office has not been quietly
+   * attached to whichever CRP happened to be nearest. An office with none is
+   * verify_usor_directory.sql's business, which also checks that a client
+   * there is refused an address rather than given the wrong one.
+   */
   select string_agg(format('%s -> %s', o.name, coalesce(b.name, 'nothing')), '; ' order by o.name) into v_text
     from public.offices o left join public.billing_offices b on b.id = o.billing_office_id
-   where (o.name, coalesce(b.name, '')) not in (
+   where o.name in ('Salt Lake City', 'Taylorsville', 'Tooele', 'South Jordan', 'Centerville', 'Spanish Fork')
+     and (o.name, coalesce(b.name, '')) not in (
      ('Salt Lake City', 'Downtown CRP'), ('Taylorsville', 'Valley West CRP'), ('Tooele', 'Valley West CRP'),
      ('South Jordan', 'South Valley CRP'), ('Centerville', 'Davis CRP'), ('Spanish Fork', 'Spanish Fork'));
   if v_text is not null then
     failures := failures || format('FAILED: offices not mapped as the owner confirmed: %s', v_text)::text;
-  elsif (select count(*) from public.offices) < 6 then
-    failures := failures || 'FAILED: fewer than the six counselor offices are on file'::text;
+  elsif (select count(*) from public.offices
+          where name in ('Salt Lake City', 'Taylorsville', 'Tooele', 'South Jordan', 'Centerville', 'Spanish Fork')) < 6 then
+    failures := failures || 'FAILED: one of the six offices the owner mapped is no longer on file'::text;
   else
-    raise notice 'ok  the six counselor offices bill through the five billing offices the owner confirmed';
+    raise notice 'ok  the six offices the owner mapped still bill where he put them';
   end if;
 
+  -- And a new one is not given a billing office by anybody guessing. Sixteen
+  -- of the twenty-two are waiting for a person to say; none of them has been
+  -- filled in by a sweep or an import since.
+  select string_agg(format('%s -> %s', o.name, b.name), '; ' order by o.name) into v_text
+    from public.offices o join public.billing_offices b on b.id = o.billing_office_id
+   where o.name not in ('Salt Lake City', 'Taylorsville', 'Tooele', 'South Jordan', 'Centerville', 'Spanish Fork');
+  if v_text is not null then
+    raise notice 'note  offices mapped since the owner''s six, which somebody should have meant: %', v_text;
+  else
+    raise notice 'ok  and nothing has guessed a billing office for the rest';
+  end if;
+
+  /**
+   * An office may be added without one, which is the point.
+   *
+   * This asserted the opposite until 14 Oct 2026, and it was right to: the
+   * six offices on file all existed because the practice billed into them.
+   * The roster brought sixteen whose CRP nobody has named, and refusing those
+   * would have meant either inventing a mapping or leaving the office out -
+   * and an office that is not on file is one a counselor cannot be attached
+   * to, which is the next assertion down.
+   */
   begin
-    insert into public.offices (name) values ('ZZ Nowhere Office');
-    failures := failures || 'FAILED: an office was added without a billing office'::text;
+    insert into public.offices (name, address, phone, usor_district)
+    values ('ZZ Nowhere Office', '1 ZZ Street', '(435) 000-0000', 'ZZ District (99)');
+    raise notice 'ok  an office can be added before anybody knows where it bills';
+    delete from public.offices where name = 'ZZ Nowhere Office';
   exception when not_null_violation then
-    raise notice 'ok  an office cannot be added without saying where it bills';
+    failures := failures || 'FAILED: an office still cannot be added without a billing office'::text;
   end;
 
   begin

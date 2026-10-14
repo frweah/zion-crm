@@ -57,8 +57,13 @@ export async function setOfficeBilling(_prev: BillingOfficeState, formData: Form
   const { error } = await supabase
     .from("offices")
     .update({
-      billing_office_id: String(formData.get("billing_office_id") ?? ""),
+      // Blank is an answer: sixteen offices from the USOR roster bill
+      // through a CRP nobody has named, and this column decides where an
+      // authorization packet is emailed (0195). Empty means nobody knows yet,
+      // which is safer than whichever one was first in the list.
+      billing_office_id: String(formData.get("billing_office_id") ?? "").trim() || null,
       address: String(formData.get("address") ?? "").trim(),
+      phone: String(formData.get("phone") ?? "").trim(),
       note: String(formData.get("note") ?? "").trim(),
     })
     .eq("name", office);

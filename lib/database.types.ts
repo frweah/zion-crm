@@ -612,6 +612,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      billing_office_contacts: {
+        Row: {
+          id: string;
+          billing_office_id: string;
+          name: string;
+          title: string;
+          email: string;
+          phone: string;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          billing_office_id: string;
+          name: string;
+          title?: string;
+          email?: string;
+          phone?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          billing_office_id?: string;
+          name?: string;
+          title?: string;
+          email?: string;
+          phone?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       billing_offices: {
         Row: {
           id: string;
@@ -2952,21 +2988,27 @@ export type Database = {
       offices: {
         Row: {
           name: string;
-          billing_office_id: string;
+          billing_office_id: string | null;
           address: string;
           note: string;
+          phone: string;
+          usor_district: string;
         };
         Insert: {
           name: string;
-          billing_office_id: string;
+          billing_office_id?: string | null;
           address?: string;
           note?: string;
+          phone?: string;
+          usor_district?: string;
         };
         Update: {
           name?: string;
-          billing_office_id?: string;
+          billing_office_id?: string | null;
           address?: string;
           note?: string;
+          phone?: string;
+          usor_district?: string;
         };
         Relationships: [];
       };

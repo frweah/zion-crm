@@ -23,32 +23,76 @@ export type BillingOffice = {
   notes: string;
 };
 
-export type OfficeRow = { name: string; billing_office_id: string; address: string; note: string };
+/**
+ * A counselor office.
+ *
+ * billing_office_id is nullable as of 0195: sixteen of the twenty-two offices
+ * the USOR roster brought in bill through a CRP nobody has named yet, and that
+ * column decides where an authorization packet is emailed - so it is empty
+ * rather than guessed. This type said `string` and was a cast over the top of
+ * the real shape, which is how a null reaches a Map lookup and comes back as
+ * somebody else'"'"'s billing office.
+ */
+export type OfficeRow = {
+  name: string;
+  billing_office_id: string | null;
+  address: string;
+  phone: string;
+  usor_district: string;
+  note: string;
+};
 
 /** The ?bo= value for "clients with no billing office". */
 export const NO_BILLING_OFFICE = "none";
 
+/** A named person at a billing office, for one that has several (0195). */
+export type BillingContact = {
+  id: string;
+  billing_office_id: string;
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  notes: string;
+};
+
 export async function readBillingOffices(supabase: SupabaseClient<Database>) {
-  const [{ data: bos }, { data: offices }, { data: byClient }] = await Promise.all([
+  const [{ data: bos }, { data: offices }, { data: byClient }, { data: people }] = await Promise.all([
     supabase
       .from("billing_offices")
       .select("id, name, billing_email, has_group_address, contact_name, contact_title, contact_email, notes")
       .order("name"),
-    supabase.from("offices").select("name, billing_office_id, address, note").order("name"),
+    supabase.from("offices").select("name, billing_office_id, address, phone, usor_district, note").order("name"),
     supabase.from("client_billing_office").select("client_id, billing_office_id"),
+    supabase
+      .from("billing_office_contacts")
+      .select("id, billing_office_id, name, title, email, phone, notes")
+      .order("name"),
   ]);
 
   const billingOffices = (bos ?? []) as BillingOffice[];
   const byId = new Map(billingOffices.map((b) => [b.id, b]));
   const officeRows = (offices ?? []) as OfficeRow[];
-  const officeBilling = new Map(officeRows.map((o) => [o.name, byId.get(o.billing_office_id) ?? null]));
+  const officeBilling = new Map(
+    officeRows.map((o) => [o.name, o.billing_office_id ? (byId.get(o.billing_office_id) ?? null) : null]),
+  );
   const clientBilling = new Map(
     (byClient ?? []).map((r) => [r.client_id as string, r.billing_office_id ? (byId.get(r.billing_office_id) ?? null) : null]),
   );
 
+  // USOR Administration has eight; a CRP office has none, and shows its one
+  // contact in the fields it has always had.
+  const contacts = (people ?? []) as BillingContact[];
+  const contactsByOffice = new Map<string, BillingContact[]>();
+  for (const c of contacts) {
+    contactsByOffice.set(c.billing_office_id, [...(contactsByOffice.get(c.billing_office_id) ?? []), c]);
+  }
+
   return {
     billingOffices,
     offices: officeRows,
+    contacts,
+    contactsByOffice,
     byId,
     officeBilling,
     /** A client's billing office, or null when they have none. */

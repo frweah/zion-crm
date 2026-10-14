@@ -100,9 +100,11 @@ export default async function CounselorCaseloadPage({
     ]);
 
   const billingNames = new Map((billingRows ?? []).map((b) => [b.id, b.name]));
+  // An office may not know its billing office yet (0195): sixteen of the
+  // twenty-two the USOR roster brought in are waiting for somebody to say.
   const officeOptions = (officeRows ?? []).map((o) => ({
     name: o.name,
-    billing: billingNames.get(o.billing_office_id) ?? null,
+    billing: o.billing_office_id ? (billingNames.get(o.billing_office_id) ?? null) : null,
   }));
 
   const staffName = new Map((staff ?? []).map((s) => [s.id, s.name]));

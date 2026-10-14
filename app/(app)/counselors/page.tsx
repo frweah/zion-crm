@@ -156,7 +156,7 @@ export default async function CounselorsPage({
           <AddCounselorForm
             offices={billing.offices.map((o) => ({
               name: o.name,
-              label: `${o.name} · ${billing.byId.get(o.billing_office_id)?.name ?? "no billing office"}`,
+              label: `${o.name} · ${(o.billing_office_id ? billing.byId.get(o.billing_office_id)?.name : null) ?? "no billing office"}`,
             }))}
           />
         )}
@@ -229,7 +229,13 @@ export default async function CounselorsPage({
               empty="No billing offices are on file."
             />
           </div>
-          {canEditBilling && <BillingOfficesPanel billingOffices={billing.billingOffices} offices={billing.offices} />}
+          {canEditBilling && (
+            <BillingOfficesPanel
+              billingOffices={billing.billingOffices}
+              offices={billing.offices}
+              contactsByOffice={billing.contactsByOffice}
+            />
+          )}
         </section>
 
         <section id="directory-changes" style={{ marginTop: 28 }}>

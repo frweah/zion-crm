@@ -2673,3 +2673,155 @@ the screen makes a person say why.
 - **A payment is recorded on Submitted or Due,** as the brief says. An
   authorization still at Authorized is set to Paid from the status control
   instead, which records the payment the same way.
+
+---
+
+## The USOR roster, imported — 14 October 2026
+
+*Owner: import the published offices-and-counselors CSV into the counselor
+directory, with rules.*
+
+118 rows in, 22 offices and 100 counselors out. Migrations 0195 (room for it)
+and 0196 (the data), plus `verify_usor_directory.sql` — 18 assertions.
+
+### The decision the brief did not mention
+
+The directory names offices by **city** — Centerville, Taylorsville, Tooele.
+USOR names them by **district** — "Davis District (25)" *is* Centerville. And
+63 clients and 19 counselors point at the city names as text.
+
+So importing the roster's labels verbatim would have produced 22 offices beside
+the existing 6, orphaning every one of those 63 clients from a billing office.
+The city name stays the key; the district goes in a column of its own
+(`usor_district`) rather than into the note, where it would have been prose.
+Six offices matched existing ones by city and were filled in rather than
+duplicated.
+
+The one office that is not a city: the Center of the Deaf and Hard of Hearing,
+which sits in Taylorsville and would have collided with the office already
+called that. It keeps its own name.
+
+### Three things the schema could not hold
+
+- **An office had no phone column.** The roster's phone is the office main
+  line, repeated on every row of that office. It is the office's number, so it
+  is stored on the office — and no counselor's phone was touched, because
+  several have their own direct lines on file and a switchboard would have
+  overwritten them.
+- **`offices.billing_office_id` was NOT NULL.** True of six offices that exist
+  *because* the practice bills into them; false of sixteen whose CRP nobody has
+  named. Now nullable, which the app already coped with — `readBillingOffices`
+  maps a missing one to null and "clients with no billing office" is an
+  existing filter. `verify_usor_directory.sql` asserts that a client at such an
+  office gets *no* billing address rather than the wrong one, which is what
+  makes leaving it empty safe rather than merely tidy.
+- **A billing office carried one contact.** USOR Administration is an
+  accounts-payable department: a grant manager, two financial managers, an AP
+  supervisor, two purchasing agents and two accounting techs. Eight do not fit
+  in one row, and seven stuffed into a notes field is seven people nobody can
+  look up. New table, `billing_office_contacts`.
+
+  The existing single-contact columns were **left alone** rather than folded
+  in. Two homes for one fact is a real cost; the alternative was restructuring
+  the column that decides where billing mail goes, the day after a billing
+  deploy, for an import. Written down here rather than done quietly.
+
+- And `billing_offices.billing_email` had to look like an email. USOR
+  Administration publishes no group address at all, and the table already has
+  `has_group_address` for exactly that distinction. Blank is now allowed on the
+  same terms `contact_email` always had — empty, or real, nothing in between.
+  Submission already refuses and says "there is no billing office address for
+  X" rather than mailing nowhere.
+
+### Matching, and the guesses taken back out
+
+`directory_name_key()` reduces a name to what two spellings share: accents
+stripped, brackets dropped ("Ben (William) Powers" → ben powers), gaps
+collapsed, and short forms mapped to long ones. Email is tried first and is
+exact — that is what catches Josh Madsen against the Joshua Madsen on file,
+since they share an address.
+
+The nickname map started with fifteen pairs and ended with four. The ones that
+came out had no evidence behind them, and one was confidently wrong about a
+real person: the roster's only Ben is **Ben (William) Powers at
+wpowers@utah.gov**, so `ben → benjamin` would have mismatched him. Kami could
+be Kamille or Kameron or Kimberly. What survived is only what this data shows:
+Josh/Joshua (same email), Jenny/Jennifer (the roster annotates it), Matt/Matthew
+(the Matt on file is matthewc@utah.gov), Bill/William (both forms appear).
+
+A wrong match merges two counselors and there is no undoing it, so a guess here
+is worse than no guess. The verify script asserts the four pairs collapse **and
+that the discarded ones still do not** — if somebody adds them back, it says so.
+
+### What it refused to do
+
+- **No stored email or phone was replaced.** Four matched counselors have "No
+  email published" on the roster and kept their working addresses.
+- **One row disagrees** rather than being blank: Sherida Burge, roster
+  `slhicks@utah.gov`, record `sburge@utah.gov`. Kept the one on file — it
+  matches her current surname, and a packet sent to the wrong address is not
+  recoverable by trying again. Reported, not silently resolved.
+- **A matched counselor's office is never moved.** Moving one moves the billing
+  office their clients bill through, which is why it has its own function and
+  asks for a reason. The import *raises* if a roster row would move somebody,
+  rather than choosing. All eleven were already in the right office.
+- **Sallie Muir's email was not imported**: the roster prints
+  `smuir@utan.gov` — utan, not utah. She is on file with the flag on her
+  record.
+
+### Found by running all 92 verify scripts
+
+Two things the new script would never have caught:
+
+- **`verify_billing_offices.sql` asserted that every office has a billing
+  office** — the rule the owner has now overruled. Rewritten to assert the half
+  that was really at stake: the six the owner mapped have not drifted, and
+  nothing has *guessed* one for the sixteen since.
+- **`verify_system_account.sql` caught the new table** not refusing the agent
+  account's writes. One `apply_system_read_only` call — found by a check that
+  sweeps every table rather than by anybody remembering.
+
+### And a fault in my own verify script
+
+The first `DO` block collected failures into an array and never raised them.
+Eleven assertions printed "ok" while a real failure went to the floor — and one
+was failing: I had asserted a billing contact named "ZZ Pay Person" would
+appear in the change log, when the log correctly ignores fixture names (0179).
+
+Same shape as the dead-link check, the back-arrow check and check-mail before
+it: a check sitting *near* the rule rather than on it. Both halves are now
+tried — a real name is logged, an invented one is not — and the duplicate
+check was proved by inserting a second "Josh Madsen" and watching it fire.
+
+### The report
+
+| | |
+|---|---|
+| Counselors on the roster | 100 |
+| matched to somebody on file | 11 — 6 by email, 5 by name |
+| added | 89 |
+| in the directory now | 108 (77 with an email, 31 without) |
+| Vacant posts skipped | 9 |
+| Offices on the roster | 22 |
+| added | 16 |
+| filled in (address, main line, district) | 6 |
+| **needing a billing office** | **16 — nothing guessed** |
+| USOR Administration contacts | 8, as a billing office |
+
+The sixteen waiting for a billing office are flagged on the Counselors screen
+where the decision gets made, not only in this report: Blanding, Brigham City,
+Cedar City, Center of the Deaf and Hard of Hearing, Delta, Heber City, Logan,
+Manti, Moab, Ogden, Price, Provo, Richfield, Roosevelt, St. George, Vernal.
+
+### Left for the owner
+
+- **Those sixteen billing offices.** Until one is set, a client at that office
+  gets no billing address and submission refuses — deliberately.
+- **Sallie Muir's real address**, and a glance at four more where the address
+  does not obviously match the name: Kelly Anderson (`kkay@utah.gov` — the
+  roster itself says "email as printed"), Lisa Poole (`loverby@`), Cristiane
+  Lundgreen (`alundgren@`), JoAnne Leilua (`joanneleiua@`). Normal after a name
+  change, worth checking before anyone relies on them.
+- **The eight USOR Administration contacts are shown, not editable.** The brief
+  asked for them to be recorded; maintaining them by hand can come when it is
+  wanted.

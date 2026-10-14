@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import type { BillingOffice, OfficeRow } from "@/lib/billing-offices";
+import type { BillingContact, BillingOffice, OfficeRow } from "@/lib/billing-offices";
 import { updateBillingOffice, setOfficeBilling, type BillingOfficeState } from "./billing-office-actions";
 
 const initial: BillingOfficeState = { error: null, ok: null };
@@ -12,7 +12,13 @@ function Message({ state }: { state: BillingOfficeState }) {
   return null;
 }
 
-function BillingOfficeForm({ office }: { office: BillingOffice }) {
+function BillingOfficeForm({
+  office,
+  contacts,
+}: {
+  office: BillingOffice;
+  contacts: BillingContact[];
+}) {
   const [state, action, pending] = useActionState(updateBillingOffice, initial);
   const id = (k: string) => `bo-${office.id}-${k}`;
   return (
@@ -25,7 +31,10 @@ function BillingOfficeForm({ office }: { office: BillingOffice }) {
         <div className="row2">
           <label className="field" htmlFor={id("billing_email")}>
             Billing address - the To
-            <input id={id("billing_email")} name="billing_email" type="email" defaultValue={office.billing_email} required />
+            {/* Not required since 0195: a central billing office may publish
+                named people and no shared inbox. Submission refuses rather
+                than mailing nowhere. */}
+            <input id={id("billing_email")} name="billing_email" type="email" defaultValue={office.billing_email} />
           </label>
           <label className="field" htmlFor={id("contact_name")}>
             Contact
@@ -40,6 +49,35 @@ function BillingOfficeForm({ office }: { office: BillingOffice }) {
             <input id={id("contact_email")} name="contact_email" type="email" defaultValue={office.contact_email} />
           </label>
         </div>
+        {/* The named people at this office, for one that has several. Shown
+            rather than editable: the roster put eight of them on USOR
+            Administration and nobody has asked to maintain them by hand yet. */}
+        {contacts.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <b>Who to ring</b>
+            <table className="t" data-layout="the named people at this billing office: who, their role, their address and their number">
+              <tbody>
+                {contacts.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.name}</td>
+                    <td className="lock">{c.title}</td>
+                    <td className="lock">
+                      {c.email ? (
+                        <a href={`mailto:${c.email}`} style={{ color: "var(--teal)" }}>
+                          {c.email}
+                        </a>
+                      ) : (
+                        "no email published"
+                      )}
+                    </td>
+                    <td className="lock">{c.phone}</td>
+                    <td className="lock">{c.notes}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="row2" style={{ marginTop: 10 }}>
           <label className="field" htmlFor={id("has_group_address")}>
             <input id={id("has_group_address")} name="has_group_address" type="checkbox" defaultChecked={office.has_group_address} />{" "}
@@ -64,10 +102,19 @@ function OfficeForm({ office, billingOffices }: { office: OfficeRow; billingOffi
   return (
     <form action={action} className="row2" style={{ marginTop: 8, alignItems: "flex-end" }}>
       <input type="hidden" name="office" value={office.name} />
-      <b style={{ minWidth: 120, alignSelf: "center" }}>{office.name}</b>
+      <b style={{ minWidth: 120, alignSelf: "center" }}>
+        {office.name}
+        {office.usor_district && office.usor_district !== office.name ? (
+          <div className="lock" style={{ fontWeight: 400 }}>{office.usor_district}</div>
+        ) : null}
+      </b>
       <label className="field" htmlFor={id("bo")}>
         Bills through
-        <select id={id("bo")} name="billing_office_id" defaultValue={office.billing_office_id} required>
+        {/* Blank is a real answer, not a prompt to pick something. An office
+            whose CRP nobody has named is left empty on purpose - this is the
+            field that decides where a packet is emailed. */}
+        <select id={id("bo")} name="billing_office_id" defaultValue={office.billing_office_id ?? ""}>
+          <option value="">— nobody has said yet —</option>
           {billingOffices.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
@@ -78,6 +125,10 @@ function OfficeForm({ office, billingOffices }: { office: OfficeRow; billingOffi
       <label className="field" htmlFor={id("address")} style={{ flex: 2 }}>
         Address
         <input id={id("address")} name="address" defaultValue={office.address} />
+      </label>
+      <label className="field" htmlFor={id("phone")}>
+        Main line
+        <input id={id("phone")} name="phone" defaultValue={office.phone} />
       </label>
       <label className="field" htmlFor={id("note")} style={{ flex: 2 }}>
         Note
@@ -99,10 +150,13 @@ function OfficeForm({ office, billingOffices }: { office: OfficeRow; billingOffi
 export function BillingOfficesPanel({
   billingOffices,
   offices,
+  contactsByOffice,
 }: {
   billingOffices: BillingOffice[];
   offices: OfficeRow[];
+  contactsByOffice: Map<string, BillingContact[]>;
 }) {
+  const unmapped = offices.filter((o) => !o.billing_office_id);
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <h3 style={{ marginTop: 0 }}>Change a billing office</h3>
@@ -110,13 +164,23 @@ export function BillingOfficesPanel({
         A new contact, or a group address that now exists. Changes apply to every email drafted from here on.
       </p>
       {billingOffices.map((b) => (
-        <BillingOfficeForm key={b.id} office={b} />
+        <BillingOfficeForm key={b.id} office={b} contacts={contactsByOffice.get(b.id) ?? []} />
       ))}
 
       <h3 style={{ marginTop: 22 }}>Which office bills where</h3>
       <p className="lock" style={{ margin: 0 }}>
         Every counselor, client, authorization and invoice follows its office here. Moving an office moves all of them.
       </p>
+      {/* The flag the owner asked for, where the decision gets made rather
+          than in a report nobody keeps. An office with none is not broken: it
+          is waiting for somebody who knows which CRP bills for that district. */}
+      {unmapped.length > 0 && (
+        <p className="alert">
+          {unmapped.length} {unmapped.length === 1 ? "office bills" : "offices bill"} through a CRP
+          nobody has named yet, so nothing is sent for a client there. Nothing was guessed:{" "}
+          {unmapped.map((o) => o.name).join(", ")}.
+        </p>
+      )}
       {offices.map((o) => (
         <OfficeForm key={o.name} office={o} billingOffices={billingOffices} />
       ))}

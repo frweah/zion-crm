@@ -69,6 +69,11 @@ const LABELS: Record<string, string> = {
   wsa_submitted: "WSA submitted",
   wsa_paid: "WSA paid",
   client_no: "Client number",
+  // Offices gained these in 0195, and billing contacts are a new entity in the
+  // same log. Without a name here the field is filtered out and the entry
+  // reads "Edited" with nothing under it - the same way a client's would have.
+  usor_district: "USOR district",
+  title: "Role",
 };
 
 type Diff = Record<string, { from: unknown; to: unknown }>;
