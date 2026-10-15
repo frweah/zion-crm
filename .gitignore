@@ -55,10 +55,17 @@ agent/*.log
 agent/PAUSED
 agent/ocr-failed.json
 
-# Session scratch: the desktop app's worktrees, and the .probe folder used for
-# one-off patch scripts. Neither is source. The permission allow-list is - it
-# says what may run here without asking, and that belongs with the code rather
-# than on one machine.
+# Session scratch: the desktop app's worktrees, the .probe folder used for
+# one-off patch scripts, and the files a suite's output is redirected into.
+# None of it is source. The permission allow-list is - it says what may run
+# here without asking, and that belongs with the code rather than on one
+# machine.
+#
+# .probe-*.txt is where run-sql.mjs output goes: redirected to a file so the
+# failure count can be grepped, because piping a suite to tail hides which
+# script failed. Only the folder was ignored, so one of those files was
+# committed on 14 Oct 2026 by a git add -A.
 .claude/*
 !.claude/settings.json
 .probe/
+.probe-*.txt
