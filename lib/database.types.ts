@@ -215,6 +215,8 @@ export type Database = {
           uploaded_by_name: string;
           created_at: string;
           review_note: string;
+          document_date: string;
+          sha256: string | null;
         };
         Insert: {
           id?: string;
@@ -232,6 +234,8 @@ export type Database = {
           uploaded_by_name?: string;
           created_at?: string;
           review_note?: string;
+          document_date?: string;
+          sha256?: string | null;
         };
         Update: {
           id?: string;
@@ -249,6 +253,8 @@ export type Database = {
           uploaded_by_name?: string;
           created_at?: string;
           review_note?: string;
+          document_date?: string;
+          sha256?: string | null;
         };
         Relationships: [];
       };
@@ -948,6 +954,51 @@ export type Database = {
           deleted_by?: string | null;
           deleted_by_name?: string;
           at?: string;
+        };
+        Relationships: [];
+      };
+      client_document_events: {
+        Row: {
+          id: string;
+          seq: number;
+          at: string;
+          attachment_id: string | null;
+          client_id: string | null;
+          filename: string;
+          category: string;
+          restricted: boolean;
+          action: string;
+          changes: Json;
+          staff_id: string | null;
+          staff_name: string;
+        };
+        Insert: {
+          id?: string;
+          seq?: number;
+          at?: string;
+          attachment_id?: string | null;
+          client_id?: string | null;
+          filename?: string;
+          category?: string;
+          restricted?: boolean;
+          action: string;
+          changes?: Json;
+          staff_id?: string | null;
+          staff_name?: string;
+        };
+        Update: {
+          id?: string;
+          seq?: number;
+          at?: string;
+          attachment_id?: string | null;
+          client_id?: string | null;
+          filename?: string;
+          category?: string;
+          restricted?: boolean;
+          action?: string;
+          changes?: Json;
+          staff_id?: string | null;
+          staff_name?: string;
         };
         Relationships: [];
       };
@@ -5641,6 +5692,27 @@ export type Database = {
           billing_office_id: string | null;
           billing_office: string | null;
           basis: string | null;
+        };
+        Relationships: [];
+      };
+      client_documents: {
+        Row: {
+          id: string | null;
+          client_id: string | null;
+          document_date: string | null;
+          created_at: string | null;
+          category: string | null;
+          restricted: boolean | null;
+          uploaded_by: string | null;
+          uploaded_by_name: string | null;
+          can_open: boolean | null;
+          filename: string | null;
+          note: string | null;
+          storage_path: string | null;
+          mime_type: string | null;
+          size_bytes: number | null;
+          auth_id: string | null;
+          form_id: string | null;
         };
         Relationships: [];
       };

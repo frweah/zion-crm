@@ -43,11 +43,54 @@ const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
 // One of these per account. A role only ever sees its own screens, so
 // Billing's - Invoices, Authorizations, the Service log, Export, Overview,
 // Items - are opened by the Billing account and by nothing else (0129).
-let cookie = () => "";
+/**
+ * The cookies, kept the way a browser keeps them.
+ *
+ * This used to snapshot the jar once at sign-in and send that same string on
+ * every request for the rest of the run, ignoring everything the server sent
+ * back. A browser does not do that, and the difference is not cosmetic: the
+ * middleware's session check can rotate the refresh token, and a client still
+ * holding the old one is a client the Auth service will stop vouching for.
+ *
+ * On 15 Oct 2026 that turned a real middleware fault - an error from the Auth
+ * service being read as "this session is revoked" - into eighteen screens
+ * passing and every screen after them redirecting to /login, which rolled
+ * production back over a .gitignore change. The middleware was fixed; this is
+ * the other half, so a stale refresh token cannot fail a run on its own.
+ *
+ * One jar for the process, emptied when a different account signs in - two
+ * accounts sharing a jar would send the first one's session with the second
+ * one's requests.
+ */
+const jar = new Map();
+const cookie = () => [...jar].map(([n, v]) => `${n}=${v}`).join("; ");
+
+/** Apply a response's Set-Cookie headers to the jar, additions and removals. */
+function remember(res) {
+  for (const line of res.headers.getSetCookie?.() ?? []) {
+    const [pair, ...attributes] = line.split(";");
+    const eq = pair.indexOf("=");
+    if (eq < 1) continue;
+    const name = pair.slice(0, eq).trim();
+    const value = pair.slice(eq + 1).trim();
+    // A deletion is an empty value, Max-Age=0, or a date already past - all
+    // three are how a server takes a cookie away.
+    const expires = attributes
+      .map((a) => a.match(/^\s*expires\s*=(.*)$/i))
+      .find(Boolean);
+    const taken =
+      value === "" ||
+      attributes.some((a) => /^\s*max-age\s*=\s*0+\s*$/i.test(a)) ||
+      (expires && new Date(expires[1]) <= new Date());
+    if (taken) jar.delete(name);
+    else jar.set(name, value);
+  }
+}
+
 let supabase = null;
 
 async function signIn(email, password, who) {
-  const jar = new Map();
+  jar.clear();
   supabase = createServerClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
     cookies: {
       getAll: () => [...jar].map(([name, value]) => ({ name, value })),
@@ -59,7 +102,6 @@ async function signIn(email, password, who) {
     console.error(`  FAILED  the ${who} account could not sign in: ${signInError.message}`);
     process.exit(1);
   }
-  cookie = () => [...jar].map(([n, v]) => `${n}=${v}`).join("; ");
 }
 
 // ── what a failed screen looks like ───────────────────────────
@@ -80,6 +122,9 @@ async function open(path) {
       redirect: "manual",
       headers: { cookie: cookie(), ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {}) },
     });
+    // Before anything is decided about the response: a refreshed session
+    // arrives as Set-Cookie on a redirect just as often as on a page.
+    remember(res);
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       const next = new URL(res.headers.get("location"), url);
       if (/^\/(login|no-access)/.test(next.pathname)) return { path, ok: false, why: `sent to ${next.pathname} - the account is signed out or has no access` };
@@ -334,7 +379,111 @@ async function pass(role) {
       });
     }
   }
-  for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
+  // ── the Clients tab, and the shadow a restricted document leaves ──
+//
+// Clients came onto the sidebar for every role on 15 Oct 2026, and the point
+// of it is that a team member who is not on a caseload can still open a
+// client and read their file. So each role that has an account here opens the
+// tab, opens a client, and reads the Documents list.
+//
+// Then the half that matters more: for a document this person may not open,
+// the view is supposed to hand back the row with its name and its type blank.
+// That is checked as the real person against the real deployment rather than
+// inferred from the page, because a name that is missing from some HTML might
+// only be missing from that corner of it.
+//
+// Each account is optional, the way the Billing one has been since 0129: a
+// check that cannot run says so instead of failing.
+const CLIENT_ROLES = [
+  ["Job Coach", "SMOKE_COACH_EMAIL", "SMOKE_COACH_PASSWORD"],
+  ["Case Manager", "SMOKE_CASE_EMAIL", "SMOKE_CASE_PASSWORD"],
+  ["Billing", "SMOKE_BILLING_EMAIL", "SMOKE_BILLING_PASSWORD"],
+];
+
+const missingAccounts = [];
+for (const [role, emailKey, passwordKey] of CLIENT_ROLES) {
+  if (!process.env[emailKey] || !process.env[passwordKey]) {
+    missingAccounts.push(`${role} (${emailKey})`);
+    continue;
+  }
+  await signIn(process.env[emailKey], process.env[passwordKey], `automated-check (${role.toLowerCase()})`);
+
+  const list = await open("/clients");
+  if (!list.ok) {
+    all.push({ ...list, role, path: "/clients" });
+  } else {
+    const who = (list.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1];
+    if (!who) {
+      console.log(`  note  ${role} opened /clients and it listed nobody, so no record was opened`);
+    } else {
+      const record = await open(`/clients/${who}?tab=documents`);
+      all.push({ ...record, role, path: `/clients/<id>?tab=documents` });
+      if (record.ok && !/Add a file|No documents yet/.test(record.body)) {
+        all.push({
+          role,
+          path: `/clients/<id>?tab=documents`,
+          ok: false,
+          why: "the Documents tab opened without the document list or the Add a file form on it",
+        });
+      } else if (record.ok) {
+        console.log(`  ok      ${role.padEnd(12)} opened a client and read their Documents`);
+      }
+    }
+  }
+
+  // What this person is handed for a document they may not open.
+  const { data: shadows } = await supabase
+    .from("client_documents")
+    .select("id, client_id, filename, category, note, storage_path, can_open, restricted")
+    .eq("restricted", true)
+    .eq("can_open", false)
+    .limit(1);
+
+  const shadow = (shadows ?? [])[0];
+  if (!shadow) {
+    console.log(
+      `  note  ${role} has access to every restricted document on file, so the redaction was not exercised for them`,
+    );
+    continue;
+  }
+
+  const leaked = [
+    ["name", shadow.filename],
+    ["type", shadow.category],
+    ["note", shadow.note],
+    ["path", shadow.storage_path],
+  ].filter(([, value]) => (value ?? "") !== "");
+
+  if (leaked.length) {
+    all.push({
+      role,
+      path: "a restricted document",
+      ok: false,
+      why: `a restricted document gave up its ${leaked.map(([what]) => what).join(" and ")}`,
+    });
+  } else {
+    console.log(`  ok      ${role.padEnd(12)} sees a restricted document exists and nothing about it`);
+  }
+
+  // And the table underneath still refuses them the row entirely.
+  const { data: rows } = await supabase.from("attachments").select("id").eq("id", shadow.id);
+  if ((rows ?? []).length > 0) {
+    all.push({
+      role,
+      path: "a restricted document",
+      ok: false,
+      why: "the attachments table handed over a restricted row the view had redacted",
+    });
+  }
+}
+
+if (missingAccounts.length) {
+  console.log(
+    `  note  no account for ${missingAccounts.join(", ")}, so the Clients tab was not opened as ${missingAccounts.length === 1 ? "that role" : "those roles"}`,
+  );
+}
+
+for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
     const seen = hubTabs.find((r) => r.path === named);
     if (seen) {
       console.log(`  ${role}: ${named} has the way back`);

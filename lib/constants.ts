@@ -136,6 +136,29 @@ export const COACHING_CODES = [
   "15. Provide transportation training",
 ] as const;
 
+/**
+ * What a document on a client's file can be.
+ *
+ * One list. It was written out three times - in the upload action, in the
+ * files tab, and as a check constraint on attachments.category - and the
+ * three had drifted: the database allowed "Guardianship document" and neither
+ * screen offered it, so a guardianship order could be filed by the agent and
+ * not by a person. The constraint is the authority and this matches it; if
+ * one changes, the other has to.
+ */
+export const DOCUMENT_CATEGORIES = [
+  "Signed USOR form",
+  "Work schedule",
+  "Authorization",
+  "Signed intake",
+  "Employer verification",
+  "Invoice",
+  "Guardianship document",
+  "Other",
+] as const;
+
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+
 export const SERVICE_TYPES = [
   "Job Coaching",
   "Job Development",

@@ -599,13 +599,27 @@ export default async function ClientPage({
 
   // ── Documents ──────────────────────────────────────────────
   if (tab === "documents") {
-    // Restricted documents are filtered out by RLS, not here — a staff member
-    // without access does not learn that they exist.
+    /**
+     * Read through client_documents, not attachments (0202).
+     *
+     * This used to read the table, where RLS filters a restricted document
+     * out entirely - and the comment here said so approvingly: a staff member
+     * without access did not learn that it existed. The owner reversed that
+     * on 15 Oct 2026, so the view hands back the row with its name, note and
+     * type blanked and can_open false. The bytes are no nearer: the table
+     * still refuses them, and the storage policy still refuses a signed URL.
+     *
+     * Newest document date first - the date on the paper, not the day
+     * somebody got round to scanning it.
+     */
     const [{ data: files }, { data: formRows }, { data: authRows }, { data: reportRows }] = await Promise.all([
       supabase
-        .from("attachments")
-        .select("id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by_name, created_at")
+        .from("client_documents")
+        .select(
+          "id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by, uploaded_by_name, created_at, document_date, can_open",
+        )
         .eq("client_id", id)
+        .order("document_date", { ascending: false })
         .order("created_at", { ascending: false }),
       supabase
         .from("forms")

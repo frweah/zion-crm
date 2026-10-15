@@ -150,6 +150,32 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    /**
+     * Clients, on the sidebar itself (owner, 15 Oct 2026).
+     *
+     * It was a tab inside Work, which put the practice's central record one
+     * level down from a hub somebody had to know the name of. Every role
+     * could already reach it - this is about how far away it is, not who may
+     * open it.
+     *
+     * One item, so the sidebar draws it as a single button straight to the
+     * list rather than a hub of cards. It is not duplicated in Work: two tab
+     * strips offering the same screen is the thing §11 says to stop doing,
+     * and the one that stays is the one a person can see without opening
+     * anything.
+     *
+     * What a team member sees on it is unchanged. The role limits live on the
+     * screens and in the database - the Billing tab, the money figures, the
+     * Admin screens and restricted documents all follow the rules they
+     * already followed, and nothing on this tab shows a dollar amount.
+     */
+    key: "clients",
+    label: "Clients",
+    items: [
+      { label: "Clients", href: "/clients", roles: EVERYONE, note: "Every client the practice works with." },
+    ],
+  },
+  {
     // Connecteam's shape (Design language, §1): three hubs, each opening on a
     // page of feature cards. The screens did not move - what moved is how
     // they are grouped, so that somebody looking for "the work" finds all of
@@ -161,7 +187,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // Where somebody with a caseload starts the day: their own clients and
       // what is due against each (Workflow brief, 20 Sept 2026).
       { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"], note: "Your caseload, and what is due on each." },
-      { label: "Clients", href: "/clients", roles: EVERYONE, note: "Every client the practice works with." },
       { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks", note: "Everybody's, not only your own." },
       { label: "Jobs", href: "/leads", roles: EVERYONE, note: "Openings, applications and the employers behind them." },
       // The counselors who refer them; the directory, the contact log and

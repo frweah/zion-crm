@@ -3166,3 +3166,112 @@ a refresh token that can go stale under it. A browser does not behave that way.
 That made this fault much likelier to show up there — but the fault was real
 and could reach a person through an ordinary concurrent-refresh race, so the
 middleware is fixed rather than the harness quietened.
+
+---
+
+## Files on a client, and Clients on the sidebar — 15 October 2026
+
+Migration 0202, `verify_client_documents.sql` (15 assertions), and the smoke
+harness taught to keep its cookies.
+
+### The harness, first
+
+`scripts/smoke.mjs` snapshotted its cookie jar once at sign-in and sent that
+same string for the rest of the run, ignoring everything the server sent back.
+It now applies `Set-Cookie` from every response — additions, rotations and
+removals — the way a browser does, so a refresh token that rotates mid-run
+cannot fail a run on its own. One jar for the process, emptied when a different
+account signs in, because two accounts sharing a jar would send the first one's
+session with the second one's requests.
+
+The parsing was exercised against chunked Supabase cookies, a rotation, a
+`Max-Age=0` deletion, a past `Expires`, and a malformed line.
+
+### Most of item 1 already existed
+
+`attachments` is the table, `client-files` the bucket, and the agent, the
+authorization confirm queue and Admin → Documents already read these rows. The
+upload, download and delete actions were there. Four things were not:
+
+- **Two dates.** `created_at` is when somebody uploaded it, which is not the
+  date on the paper — sorting by it puts a form signed in March under a scan of
+  it made in October. `document_date` is the document's own, defaulting to
+  today and editable; existing rows backfilled from `created_at`.
+- **A fingerprint.** The owner asked for the same dedupe the document store
+  has. `attachments` had `unique (storage_path)`, which dedupes the *path* —
+  and every upload gets a fresh timestamped path, so the same scan uploaded
+  twice landed twice. It now carries `sha256`, computed in the browser where
+  the bytes already are, unique per client. Partial, so rows predating it do
+  not collide: a null means nobody asked, not that it is unique.
+- **No update policy at all**, so a name could not be corrected after upload.
+  Admin or the uploader now, the same test delete already used.
+- **A log**, for adds, edits and removals.
+
+### The reversal worth naming
+
+The client record said, approvingly: *"Restricted documents are filtered out by
+RLS, not here — a staff member without access does not learn that they exist."*
+The owner reversed it. What is gained is that a colleague can tell a client
+with nothing on file apart from one whose file they cannot see, so they ask
+instead of uploading a second copy. What is given up is that the existence of a
+restricted document is itself now visible — a guardianship order on a file says
+something by being there.
+
+The redaction is a **view**, not a screen, because a screen that filters is a
+screen somebody forgets to write. `client_documents` hands back the row with
+its name, note, type and path blanked and `can_open` false. The table still
+refuses the row outright, so only the view softened and the bytes did not —
+asserted both ways.
+
+**The type is redacted with the name.** "Guardianship document" says precisely
+the thing the restriction exists not to say. The date survives: a date alone
+tells nobody anything and it keeps the list in order.
+
+### A three-way drift, found on the way
+
+The category list was written out three times — in the upload action, in the
+files tab, and as a check constraint — and they disagreed: the database allowed
+**Guardianship document** and neither screen offered it, so a guardianship
+order could be filed by the agent and not by a person. One `DOCUMENT_CATEGORIES`
+now, matching the constraint.
+
+The add-file form was extracted so the client record and the "+" share one
+control rather than two copies of the fingerprint, the size limit and the
+restricted rule. From the "+" the restricted box is off and says where to go
+instead of claiming the person is not allowed — that screen knows which clients
+they may restrict for and the modal does not.
+
+### Clients on the sidebar
+
+It was a tab inside Work: the practice's central record, one level down behind
+a hub you had to know the name of. Now its own group between Home and Work,
+one item, so the sidebar draws a single button straight to the list. **Not
+duplicated in Work** — two tab strips offering the same screen is what §11 says
+to stop doing. Work gave up the people icon it was borrowing and took the
+checklist.
+
+`/clients` is that group's landing, so it carries no back arrow, like the other
+six landings; `check-nav` and `check-screens` were updated to expect seven.
+Role limits did not move: they live on the screens and in the database.
+
+### What the suite caught
+
+`verify_records_request.sql` refused the new log: a table holding client data
+must be in the records bundle or skipped **with a reason**. It is skipped, and
+the reason names the tension rather than burying it — the documents themselves
+are disclosed, and `access_log` is in the bundle, so "the practice's own
+handling is disclosable" is already the house position for *reads*. Extending
+it to writes is the practice's call, not a thing to settle while adding an
+upload button. Nothing is lost by waiting: the rows are kept and append-only.
+
+### Left for the owner
+
+- **Restricted access is Admin, Intake & Client Reports, and the assigned
+  staff member.** The brief said "Admin and the staff assigned", which would
+  drop Reports. I did not narrow it — that would take access away from a role
+  that has it today, across every restricted file already on record. Say the
+  word if Reports should lose it.
+- **The smoke assertions need accounts.** Job Coach and Case Manager sign-ins
+  are not configured, so those two print a note rather than running; Billing
+  runs. The restricted check runs for any role whose account exists and which
+  has a document it may not open.

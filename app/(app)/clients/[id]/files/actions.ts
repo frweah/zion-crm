@@ -4,18 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentStaff } from "@/lib/session";
+import { DOCUMENT_CATEGORIES } from "@/lib/constants";
 
 export type FileState = { error: string | null; ok: string | null; url?: string };
-
-const CATEGORIES = [
-  "Signed USOR form",
-  "Work schedule",
-  "Authorization",
-  "Signed intake",
-  "Employer verification",
-  "Invoice",
-  "Other",
-];
 
 /**
  * Records a file that the browser has already put in storage.
@@ -36,11 +27,18 @@ export async function recordAttachment(
   const filename = String(formData.get("filename") ?? "").trim();
   const category = String(formData.get("category") ?? "Other");
   const restricted = formData.get("restricted") === "on";
+  const documentDate = String(formData.get("document_date") ?? "").trim();
+  const sha256 = String(formData.get("sha256") ?? "").trim();
 
   if (!storagePath || !filename) {
     return { error: "The upload did not complete. Nothing was recorded.", ok: null };
   }
-  if (!CATEGORIES.includes(category)) return { error: "Unknown category.", ok: null };
+  if (!(DOCUMENT_CATEGORIES as readonly string[]).includes(category)) {
+    return { error: "Unknown category.", ok: null };
+  }
+  if (documentDate && !/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) {
+    return { error: "That date does not look right.", ok: null };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.from("attachments").insert({
@@ -51,6 +49,10 @@ export async function recordAttachment(
     size_bytes: Number(formData.get("size_bytes") ?? 0),
     category,
     restricted,
+    // The date on the paper, which is not the date it was uploaded -
+    // created_at records that by itself (0202).
+    document_date: documentDate || undefined,
+    sha256: sha256 || null,
     note: String(formData.get("note") ?? "").trim(),
     uploaded_by: me.id,
     uploaded_by_name: me.name,
@@ -60,10 +62,16 @@ export async function recordAttachment(
     // The file is in storage but unrecorded, so it is invisible everywhere.
     // Remove it rather than leave a document nobody can find or delete.
     await supabase.storage.from("client-files").remove([storagePath]);
+    // The fingerprint index (0202): this client already has these exact
+    // bytes, which is somebody filing the same scan twice rather than an
+    // error they can do anything about.
+    const twice = error.code === "23505" && /attachments_one_copy_per_client/.test(error.message);
     return {
-      error: restricted
-        ? "Restricted documents can only be added by Admin, Intake & Client Reports, or this client's assigned staff member. The file was not kept."
-        : error.message,
+      error: twice
+        ? "This client already has that exact file on their record. Nothing was added."
+        : restricted
+          ? "Restricted documents can only be added by Admin, Intake & Client Reports, or this client's assigned staff member. The file was not kept."
+          : error.message,
       ok: null,
     };
   }
@@ -154,4 +162,54 @@ export async function deleteAttachment(
   }
 
   return { error: null, ok: `${data.filename} removed.` };
+}
+
+/**
+ * Correct a document's name or its date (owner, 15 Oct 2026).
+ *
+ * The name is what the file is called on the record, which starts as the
+ * filename off the person's machine and is very often not what anybody would
+ * call it - "scan_0012.pdf" tells nobody anything. The date is the date on the
+ * paper; the upload date is created_at and is not editable, because it is a
+ * fact about this system rather than about the document.
+ *
+ * Admin, or whoever uploaded it. The database decides that - the update policy
+ * added in 0202 is the same test the delete policy already used - so a person
+ * who may not is told by the row coming back empty rather than by this file
+ * guessing at the rule.
+ *
+ * Both changes are logged with who made them, by the trigger on the table.
+ */
+export async function editAttachment(
+  _prev: FileState,
+  formData: FormData,
+): Promise<FileState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const id = String(formData.get("attachment_id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  const filename = String(formData.get("filename") ?? "").trim();
+  const documentDate = String(formData.get("document_date") ?? "").trim();
+
+  if (!filename) return { error: "A document needs a name.", ok: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) {
+    return { error: "That date does not look right.", ok: null };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("attachments")
+    .update({ filename, document_date: documentDate })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message, ok: null };
+  if (!data) {
+    return { error: "Only Admin or whoever uploaded a file can rename or redate it.", ok: null };
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  return { error: null, ok: "Saved." };
 }

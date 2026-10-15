@@ -107,7 +107,12 @@ const PATHS: Record<string, React.ReactNode> = {
 PATHS.inbox = PATHS.mail;
 // The hubs kept the icons their old groups had (Design language, §1): the
 // grouping changed, the thing each one holds did not.
-PATHS.work = PATHS.clients;
+//
+// Work borrowed the people icon while Clients was one of its tabs. Clients is
+// its own tab now (15 Oct 2026), so it keeps the people and Work takes the
+// checklist it shares with HR - the two of them are a person's own work seen
+// from either end, and nothing else in the sidebar uses it.
+PATHS.work = PATHS["my-work"];
 PATHS.hr = PATHS["my-work"];
 
 export function NavIcon({ name }: { name: string }) {

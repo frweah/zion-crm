@@ -27,6 +27,15 @@ export const QUICK_KINDS = [
    */
   { key: "hours", label: "Log hours", hint: "Billable hours against an authorization" },
   { key: "authorization", label: "Add authorization", hint: "Read off the PDF USOR sent" },
+  /**
+   * A file, from wherever somebody is (owner, 15 Oct 2026).
+   *
+   * The same control as the one on a client's Documents tab, with the client
+   * chosen first instead of already known. It does not go through
+   * quickAdd() - the bytes go straight from the browser to storage, so the
+   * modal hands over to AddFileForm once a client is picked.
+   */
+  { key: "file", label: "File", hint: "A scan or a document, onto a client's record" },
 ] as const;
 
 export type QuickKind = (typeof QUICK_KINDS)[number]["key"];
@@ -40,6 +49,9 @@ export function kindsForRole(role: string): QuickKind[] {
   const canLogHours = canBill || CAN_LOG_HOURS.includes(role);
   return QUICK_KINDS.filter((k) => {
     if (k.key === "session") return true;
+    // Anybody may put a document on a client's record; what they may not do
+    // is mark it restricted, which the form itself decides.
+    if (k.key === "file") return true;
     if (k.key === "hours") return canLogHours;
     if (k.key === "authorization") return canBill;
     return canEdit;

@@ -133,10 +133,14 @@ for (const [role, paths] of Object.entries(STILL_REACHED)) {
 if (!problems.length) ok("each role reaches exactly the screens it should, and the screens under them");
 
 // ── the hubs (Design language, §1) ───────────────────────────
-// Home · Work · Communication · Billing · HR · Admin, in that order, and
-// nothing else. The work of the practice is one hub - clients, their tasks,
-// the jobs and the counselors - and everything that arrives is another.
-const HUBS = ["Home", "Work", "Communication", "Billing", "HR", "Admin"];
+// Home · Clients · Work · Communication · Billing · HR · Admin, in that
+// order, and nothing else.
+//
+// Clients came out of Work on 15 Oct 2026 and onto the sidebar itself: it is
+// the practice's central record and it was one level down behind a hub whose
+// name you had to know. Work keeps the rest - the tasks, the jobs and the
+// counselors - and everything that arrives is another hub again.
+const HUBS = ["Home", "Clients", "Work", "Communication", "Billing", "HR", "Admin"];
 const labels = NAV_GROUPS.map((g) => g.label);
 if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${HUBS.join(" · ")}`);
 
@@ -147,7 +151,7 @@ for (const g of NAV_GROUPS) {
 
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {
-  "/tasks": "Work", "/clients": "Work", "/leads": "Work", "/counselors": "Work",
+  "/tasks": "Work", "/clients": "Clients", "/leads": "Work", "/counselors": "Work",
   "/mail": "Communication", "/messages": "Communication", "/messages/texts": "Communication",
   "/calendar": "Communication", "/hours": "HR", "/paperwork": "HR", "/sops": "HR", "/admin/people": "HR",
   "/insights/money": "Admin", "/insights/reports": "Admin", "/admin/documents": "Admin", "/admin/system": "Admin",
@@ -597,7 +601,11 @@ if (loose.length) {
 // fail the build, not discovered on production again.
 const BACK_CASES = [
   // A hub with a landing page of cards: every tab goes back to it.
-  ["Admin", "/clients", null, "/work"],
+  // Clients is its own group now (15 Oct 2026) and /clients is its landing,
+  // so there is no arrow - the same as the other six landings. The records
+  // under it still carry their own way back, which is the case further down.
+  ["Admin", "/clients", null, null],
+  ["Job Coach", "/clients", null, null],
   ["Job Search", "/tasks", null, "/work"],
   ["Admin", "/mail", null, "/communication"],
   ["Job Search", "/messages/texts", "texts", "/communication"],

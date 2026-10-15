@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { NOTE_TYPES, JOB_STATUSES } from "@/lib/constants";
 import { QUICK_KINDS, type QuickKind } from "@/lib/quick-add";
+import { AddFileForm } from "./add-file";
 import {
   quickAdd,
   quickAddOptions,
@@ -158,6 +159,21 @@ export function QuickAdd({
                     ))}
                   </select>
                 </label>
+              )}
+
+              {/* A file is not a quickAdd() row: its bytes go straight to
+                  storage from here, so once a client is chosen the same form
+                  the Documents tab uses takes over. */}
+              {kind === "file" && clientId && (
+                <AddFileForm
+                  clientId={clientId}
+                  canSeeRestricted={false}
+                  restrictedNote=" To mark a document restricted, add it from the client's Documents tab - that screen knows whether you may for this client, and this one does not."
+                  onAdded={() => setOpen(false)}
+                />
+              )}
+              {kind === "file" && !clientId && (
+                <p className="sub">Choose the client first, and the rest of the form appears.</p>
               )}
 
               {kind === "note" && (

@@ -93,6 +93,23 @@ declare
     -- and the reads that are disclosable - somebody opening the restricted
     -- tier - are in access_log, which is in the bundle above.
     'client_recents',
+    /**
+     * What staff did to a client's documents - added, renamed, redated,
+     * removed - and who did it (0202).
+     *
+     * Out of the bundle, and the reason is worth reading rather than taking
+     * on trust, because it cuts both ways. The documents themselves are
+     * disclosed, in the files section. This is the handling record on top of
+     * them, and access_log - who opened the restricted tier - *is* in the
+     * bundle, so "the practice's own handling is disclosable" is already the
+     * house position for reads.
+     *
+     * It is skipped because extending that to writes is the practice's call
+     * and not a thing to decide while adding an upload button. Nothing is
+     * lost by waiting: the rows are kept, append-only, and can be added to a
+     * section whenever somebody says they should be.
+     */
+    'client_document_events',
     -- What the practice removed and why (0178). It can only hold somebody who
     -- no longer has a record, and a records request is one of the things that
     -- refuses the delete in the first place - so a request for a live client
