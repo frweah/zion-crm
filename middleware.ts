@@ -97,9 +97,15 @@ const SESSION_TIMEOUT_MS = 2000;
  * down. So it is asked occasionally: at most once a minute per session, from
  * a cookie this sets, and bounded by the same timeout as everything else.
  *
- * The exposure is therefore a minute rather than an hour, and the cost is one
- * round trip a minute per person instead of one per request. During the
- * incident that would have been 34 calls rather than 2,031.
+ * The cost is one round trip a minute per person instead of one per request.
+ * During the incident that would have been 34 calls rather than 2,031.
+ *
+ * What it buys is smaller than it looks, and the block below says why: only a
+ * clean "there is no such user" signs anybody out, because answering "revoked"
+ * when we merely failed to ask is an outage and answering "not revoked" costs
+ * a minute. A session the Auth service refuses with an error is left alone
+ * here and caught by requireStaff() in the layout, which checks for an active
+ * staff row on every page load.
  */
 const REVOCATION_EVERY_MS = 60 * 1000;
 const REVOCATION_COOKIE = "zion-auth-checked";
@@ -201,16 +207,42 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ── and once a minute, is it still a session? ──────────────
-  //
-  // The signature says the token was ours and has not expired. It cannot say
-  // the person did not sign out on another machine, or that an Admin did not
-  // revoke them. Only the Auth service knows that, so it is asked - rarely,
-  // and never in a way that can hold the request open.
-  //
-  // On a failure or a timeout the request goes on: not knowing whether a
-  // session was revoked is not a reason to serve nobody, and the layout still
-  // has to find an active staff row before anything is shown.
+  /**
+   * ── and once a minute, is it still a session? ──────────────
+   *
+   * The signature says the token was ours and has not expired. It cannot say
+   * the person did not sign out on another machine, or that an Admin did not
+   * revoke them. Only the Auth service knows that, so it is asked - rarely,
+   * and never in a way that can hold the request open.
+   *
+   * ── what this got wrong (15 Oct 2026) ──
+   *
+   * It read `revoked = !asked.data.user`, under a comment promising that "on
+   * a failure or a timeout the request goes on". Both could not be true. A
+   * thrown error and the timeout did go on; an answer of
+   * `{ data: { user: null }, error: AuthApiError }` - which is what the Auth
+   * service returns for a token it will not vouch for, including one whose
+   * refresh token has been rotated out from under a client - set revoked and
+   * signed the person out.
+   *
+   * It signed out the deploy check: eighteen screens, then every screen after
+   * it redirected to /login, and production rolled back. The same code had
+   * passed three deploys earlier the same day, which is the shape of the
+   * fault - it needs the refresh to land inside the one-minute window, so it
+   * bites sometimes and not others.
+   *
+   * The asymmetry decides the fix. Answering "revoked" when we only failed to
+   * ask signs out somebody who is working, which is an outage. Answering "not
+   * revoked" when they really were revoked costs a minute - and the layout's
+   * requireStaff() independently refuses anybody without an active staff row
+   * on every single page load, so deactivation still takes effect at once.
+   *
+   * So: only a clean answer of "there is no such user" counts. An error of
+   * any kind, a timeout, or anything thrown leaves the request alone. This
+   * makes the check quiet by design - it will miss a sign-out elsewhere that
+   * the Auth service reports as an error rather than as an empty user, and
+   * that is the trade being made on purpose rather than by accident.
+   */
   const checkedAt = Number(request.cookies.get(REVOCATION_COOKIE)?.value ?? 0);
   if (!Number.isFinite(checkedAt) || Date.now() - checkedAt > REVOCATION_EVERY_MS) {
     let revoked = false;
@@ -221,7 +253,10 @@ export async function middleware(request: NextRequest) {
           setTimeout(() => resolve("timeout"), SESSION_TIMEOUT_MS),
         ),
       ]);
-      if (asked !== "timeout") revoked = !asked.data.user;
+      // No error and no user: the Auth service looked and there is nobody.
+      // Any error at all means we did not get an answer, not that the answer
+      // was no.
+      if (asked !== "timeout") revoked = !asked.error && !asked.data.user;
     } catch {
       // Unreachable or slow. Left alone until the next request.
     }

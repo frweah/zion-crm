@@ -3116,3 +3116,53 @@ Two changes, neither moving the line:
 
 The assertion still fires: tightening the budget to 1 ms fails all three, and
 the message names best-of-three so a failure cannot be read as a blip.
+
+---
+
+## The revocation check signed out the deploy check — 15 October 2026
+
+The `.gitignore` commit failed smoke: eighteen Billing screens passed, then
+every screen after them redirected to `/login`, and production rolled back to
+the previous deployment. A `.gitignore` change cannot do that, and it did not.
+
+The clean cutover is what names it. Static files kept working — they sit
+outside the middleware matcher — while every gated screen after a point was
+refused. That is a session dying mid-run, not a permission.
+
+The cause is the revocation check added on the 14th:
+
+```ts
+if (asked !== "timeout") revoked = !asked.data.user;
+```
+
+under a comment promising *"on a failure or a timeout the request goes on"*.
+Both could not be true. A thrown error and the timeout did go on; an answer of
+`{ data: { user: null }, error: AuthApiError }` — what the Auth service returns
+for a token it will not vouch for, including one whose refresh token has been
+rotated out from under a client — set `revoked` and signed the person out.
+
+The same class of fault as `sign_tax_form` the day before: **a guard whose
+comment described the rule and whose code did something else.**
+
+It needs the refresh to land inside the one-minute window, so it bites
+sometimes and not others — which is why the identical middleware passed three
+deploys earlier the same day.
+
+**The asymmetry decides the fix.** Answering "revoked" when we only failed to
+ask signs out somebody who is working, which is an outage. Answering "not
+revoked" when they really were revoked costs a minute — and `requireStaff()`
+independently refuses anybody without an active staff row on every page load,
+so deactivation still takes effect at once.
+
+So only a clean "there is no such user" counts now; an error of any kind leaves
+the request alone. This makes the check quiet by design: it will miss a
+sign-out elsewhere that the Auth service reports as an error rather than as an
+empty user. That is the trade, made on purpose rather than by accident, and the
+constant's own comment now says so instead of promising the opposite.
+
+**Not changed, and worth the owner knowing:** `scripts/smoke.mjs` captures its
+cookies once at sign-in and never stores the ones it is sent back, so it holds
+a refresh token that can go stale under it. A browser does not behave that way.
+That made this fault much likelier to show up there — but the fault was real
+and could reach a person through an ordinary concurrent-refresh race, so the
+middleware is fixed rather than the harness quietened.
