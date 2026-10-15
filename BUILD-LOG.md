@@ -3087,3 +3087,32 @@ how busy the database is — 1047 ms when run at the end of the full suite. I di
 not change messaging and have not re-tuned it, because quietly raising a budget
 to make a check green is how a check stops meaning anything. It needs either
 headroom or an isolated measurement, and which one is the owner's call.
+
+---
+
+## The messaging budget stands — 14 October 2026
+
+*Owner: keep the 250 ms budget, measure best-of-three, run it before the rest
+of the suite. If best-of-three still exceeds 250 ms, report it rather than
+raise the budget.*
+
+**There is no slowdown to report.** The unread count comes back in 88–99 ms,
+measured at the front of three separate full-suite runs, against a budget of
+250. The same measurement was 252 ms alone and 1047 ms at the end of the suite
+before this. The query was never the problem: the first-run cost and ninety
+rollback-heavy scripts ahead of the stopwatch were.
+
+Two changes, neither moving the line:
+
+- **It runs first.** Order here is the filename — the suite is a glob, which is
+  also how `verify_zz_no_fixtures.sql` comes last — so the file is
+  `verify_0_messaging_load.sql`. A digit rather than `aa`, because
+  `verify_1099.sql` exists and a digit sorts ahead of a letter: `aa` would have
+  put it second and looked like it had worked.
+- **Best of three.** Each of the three queries is timed three times and the
+  fastest kept. The first run of anything pays for a cold cache and a cold
+  plan. The row counts are still checked on every one of the three, so the
+  repetition buys a better clock and gives up no correctness.
+
+The assertion still fires: tightening the budget to 1 ms fails all three, and
+the message names best-of-three so a failure cannot be read as a blip.
