@@ -1002,6 +1002,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_file_categories: {
+        Row: {
+          key: string;
+          label: string;
+          detail: string;
+          restricted_by_default: boolean;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          detail?: string;
+          restricted_by_default?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          detail?: string;
+          restricted_by_default?: boolean;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
       client_private: {
         Row: {
           client_id: string;
@@ -6281,6 +6308,10 @@ export type Database = {
       client_next_actions_for: {
         Args: { p_clients: string[] | null };
         Returns: { client_id: string | null; kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
+      };
+      clients_i_can_restrict: {
+        Args: Record<string, never>;
+        Returns: string;
       };
       close_empty_coaching_months: {
         Args: { p_today?: string | null };

@@ -300,6 +300,8 @@ const RPC_FUNCTIONS = [
   "staff_by_email",
   "log_staff_document",
   "record_my_mailbox_address",
+  // Who may put a restricted document on a client (0203).
+  "clients_i_can_restrict",
 ];
 
 const { rows: fns } = await client.query(

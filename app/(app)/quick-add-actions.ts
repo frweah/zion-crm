@@ -30,6 +30,17 @@ export async function quickAddOptions(): Promise<{
   clients: { id: string; name: string }[];
   employers: { id: string; name: string }[];
   categories: { key: string; label: string }[];
+  /** The document types, and which start restricted (0203). */
+  fileCategories: { key: string; label: string; restricted_by_default: boolean }[];
+  /**
+   * The clients this person may put a restricted document on.
+   *
+   * Asked for here because the "+" has to know before it draws the switch: an
+   * ID defaults to restricted, and offering that where the database would
+   * refuse it would put the scan up unrestricted instead - which is the one
+   * outcome the default exists to prevent.
+   */
+  canRestrictFor: string[];
   /**
    * The authorizations billable hours can go against (§13.14).
    *
@@ -42,14 +53,31 @@ export async function quickAddOptions(): Promise<{
   today: string;
 }> {
   const me = await getCurrentStaff();
-  if (!me) return { clients: [], employers: [], categories: [], auths: [], kinds: [], today: today() };
+  if (!me) {
+    return {
+      clients: [], employers: [], categories: [], fileCategories: [],
+      canRestrictFor: [], auths: [], kinds: [], today: today(),
+    };
+  }
 
   const supabase = await createClient();
-  const [{ data: clients }, { data: employers }, { data: categories }, { data: auths }] =
-    await Promise.all([
+  const [
+    { data: clients },
+    { data: employers },
+    { data: categories },
+    { data: fileCategories },
+    { data: canRestrict },
+    { data: auths },
+  ] = await Promise.all([
       supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
       supabase.from("employers").select("id, name").order("name"),
       supabase.rpc("work_categories_for", { p_role: me.role }),
+      supabase
+        .from("client_file_categories")
+        .select("key, label, restricted_by_default")
+        .eq("active", true)
+        .order("sort_order"),
+      supabase.rpc("clients_i_can_restrict"),
       supabase
         .from("authorizations")
         .select("id, number, service_type, client_id, rate_type, status, parent_id")
@@ -65,6 +93,8 @@ export async function quickAddOptions(): Promise<{
     clients: clients ?? [],
     employers: employers ?? [],
     categories: (categories ?? []).map((c) => ({ key: c.key!, label: c.label! })),
+    fileCategories: fileCategories ?? [],
+    canRestrictFor: (canRestrict ?? []) as unknown as string[],
     auths: (auths ?? [])
       .filter((a) => nameOf.has(a.client_id))
       .map((a) => ({

@@ -8,7 +8,7 @@ import {
   type FileState,
 } from "./files/actions";
 import { fmtStamp } from "@/lib/constants";
-import { AddFileForm } from "../../add-file";
+import { AddFileForm, type FileCategory } from "../../add-file";
 import { DataTable } from "../../data-table";
 
 const initial: FileState = { error: null, ok: null };
@@ -127,14 +127,20 @@ export function FilesTab({
   clientId,
   files,
   canSeeRestricted,
+  categories,
 }: {
   clientId: string;
   files: AttachmentRow[];
   canSeeRestricted: boolean;
+  categories: FileCategory[];
 }) {
   return (
     <>
-      <AddFileForm clientId={clientId} canSeeRestricted={canSeeRestricted} />
+      <AddFileForm
+        clientId={clientId}
+        canSeeRestricted={canSeeRestricted}
+        categories={categories}
+      />
       <div className="card" style={{ padding: 0 }}>
         <DataTable
           label="documents"

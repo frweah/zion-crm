@@ -167,8 +167,9 @@ export function QuickAdd({
               {kind === "file" && clientId && (
                 <AddFileForm
                   clientId={clientId}
-                  canSeeRestricted={false}
-                  restrictedNote=" To mark a document restricted, add it from the client's Documents tab - that screen knows whether you may for this client, and this one does not."
+                  canSeeRestricted={options.canRestrictFor.includes(clientId)}
+                  categories={options.fileCategories}
+                  restrictedNote=" You cannot add a restricted document for this client, so that box is off. An ID or anything medical should go on from their own record instead."
                   onAdded={() => setOpen(false)}
                 />
               )}

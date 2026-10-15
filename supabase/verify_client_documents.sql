@@ -167,6 +167,89 @@ begin
     raise notice 'ok  the table itself still gives them no row, so only the view softened';
   end if;
 
+  /**
+   * ═══ the types that start restricted (0203) ════════════════
+   *
+   * An ID, anything medical, a guardianship or legal paper and the client's
+   * own financial documents. The default is in the database rather than in
+   * the form, so it holds for the agent and the filing rules too - and the
+   * only way to check that is to write a row the way they would.
+   */
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('role', 'postgres', true);
+
+  select string_agg(key, ', ' order by key) into v_text
+    from public.client_file_categories where restricted_by_default;
+  if v_text is distinct from 'Financial document, Guardianship document, Identity document, Medical or psychological' then
+    failures := failures || format('FAILED: the types that start restricted are %s', v_text)::text;
+  else
+    raise notice 'ok  an ID, anything medical, a legal paper and the client''s own money start restricted';
+  end if;
+
+  -- An invoice does not. There are 130 on file and none restricted: they are
+  -- what the practice bills USOR, not the client's bank statements.
+  if (select restricted_by_default from public.client_file_categories where key = 'Invoice') then
+    failures := failures || 'FAILED: an invoice now starts restricted, which hides routine billing'::text;
+  else
+    raise notice 'ok  and an invoice does not, because it is the practice''s paper and not theirs';
+  end if;
+
+  -- ── turning the default off is the thing that is written down ──
+  insert into public.attachments
+    (client_id, storage_path, filename, category, restricted, sha256, uploaded_by, uploaded_by_name)
+  values (v_client, 'clients/zz/id-open.jpg', 'ZZ drivers licence.jpg', 'Identity document',
+          false, repeat('c', 64), v_assigned, 'ZZ Docs Assigned');
+
+  if not exists (
+    select 1 from public.client_document_events
+     where client_id = v_client and action = 'Added'
+       and changes -> 'restricted_default_declined' ->> 'category' = 'Identity document') then
+    failures := failures || 'FAILED: filing an ID unrestricted was not written down'::text;
+  else
+    raise notice 'ok  and filing one of them unrestricted is recorded against whoever did it';
+  end if;
+
+  -- The same type, left restricted, is not reported as a decision.
+  insert into public.attachments
+    (client_id, storage_path, filename, category, restricted, sha256, uploaded_by, uploaded_by_name)
+  values (v_client, 'clients/zz/id-shut.jpg', 'ZZ passport.jpg', 'Identity document',
+          true, repeat('d', 64), v_assigned, 'ZZ Docs Assigned');
+
+  if exists (
+    select 1 from public.client_document_events e
+     where e.filename = 'ZZ passport.jpg'
+       and e.changes ? 'restricted_default_declined') then
+    failures := failures || 'FAILED: an ID filed restricted was reported as a declined default'::text;
+  else
+    raise notice 'ok  while one left restricted is just a document, not a decision';
+  end if;
+
+  -- And a type that never defaults to restricted says nothing either way.
+  insert into public.attachments
+    (client_id, storage_path, filename, category, restricted, sha256, uploaded_by, uploaded_by_name)
+  values (v_client, 'clients/zz/invoice.pdf', 'ZZ invoice.pdf', 'Invoice',
+          false, repeat('e', 64), v_assigned, 'ZZ Docs Assigned');
+  if exists (
+    select 1 from public.client_document_events e
+     where e.filename = 'ZZ invoice.pdf' and e.changes ? 'restricted_default_declined') then
+    failures := failures || 'FAILED: an ordinary document was reported as a declined default'::text;
+  else
+    raise notice 'ok  and an ordinary one is not reported at all';
+  end if;
+
+  -- ── a type that is not on the list is refused ──────────────
+  begin
+    insert into public.attachments
+      (client_id, storage_path, filename, category, uploaded_by, uploaded_by_name)
+    values (v_client, 'clients/zz/made-up.pdf', 'ZZ made up.pdf', 'ZZ Not A Type',
+            v_assigned, 'ZZ Docs Assigned');
+    failures := failures || 'FAILED: a document type nobody has heard of was accepted'::text;
+  exception when foreign_key_violation then
+    raise notice 'ok  a type that is not on the list is refused by the key, not by a copy of it';
+  end;
+
+  perform set_config('role', 'authenticated', true);
+
   -- ═══ correcting a name and a date ══════════════════════════
   begin
     update public.attachments set filename = 'ZZ renamed by a stranger.pdf' where id = v_open;
@@ -194,8 +277,11 @@ begin
   perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
 
+  -- The two this section put on the file, named rather than counted: the
+  -- section above adds three more of its own and a bare count would move
+  -- every time somebody adds a case to it.
   select count(*) into v_n from public.client_document_events
-   where client_id = v_client and action = 'Added';
+   where attachment_id in (v_open, v_shut) and action = 'Added';
   if v_n <> 2 then
     failures := failures || format('FAILED: %s of 2 documents were logged as added', v_n)::text;
   elsif not exists (select 1 from public.client_document_events

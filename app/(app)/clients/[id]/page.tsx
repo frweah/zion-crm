@@ -612,7 +612,8 @@ export default async function ClientPage({
      * Newest document date first - the date on the paper, not the day
      * somebody got round to scanning it.
      */
-    const [{ data: files }, { data: formRows }, { data: authRows }, { data: reportRows }] = await Promise.all([
+    const [{ data: files }, { data: fileCategories }, { data: formRows }, { data: authRows }, { data: reportRows }] =
+      await Promise.all([
       supabase
         .from("client_documents")
         .select(
@@ -621,6 +622,13 @@ export default async function ClientPage({
         .eq("client_id", id)
         .order("document_date", { ascending: false })
         .order("created_at", { ascending: false }),
+      // The types, and which of them start restricted (0203). Read here so
+      // the form keeps no second copy of the list.
+      supabase
+        .from("client_file_categories")
+        .select("key, label, restricted_by_default")
+        .eq("active", true)
+        .order("sort_order"),
       supabase
         .from("forms")
         .select("id, template_id, status, month, auth_id, created_at, completed_at, completed_by_name, sent_to")
@@ -711,7 +719,12 @@ export default async function ClientPage({
         <FormsTab clientId={id} forms={forms} auths={authChoices} missingForBilling={missingForBilling} />
 
         <h2 className="h2" style={{ margin: "22px 0 8px" }}>Files</h2>
-        <FilesTab clientId={id} files={(files ?? []) as AttachmentRow[]} canSeeRestricted={canSeeRestricted} />
+        <FilesTab
+          clientId={id}
+          files={(files ?? []) as AttachmentRow[]}
+          canSeeRestricted={canSeeRestricted}
+          categories={fileCategories ?? []}
+        />
         {overlay}
       </>
     );

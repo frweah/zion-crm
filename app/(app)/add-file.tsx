@@ -4,10 +4,13 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { recordAttachment, type FileState } from "./clients/[id]/files/actions";
-import { today, DOCUMENT_CATEGORIES } from "@/lib/constants";
+import { today } from "@/lib/constants";
 
 const initial: FileState = { error: null, ok: null };
 const MAX_BYTES = 52428800;
+
+/** A type of document, as client_file_categories has it (0203). */
+export type FileCategory = { key: string; label: string; restricted_by_default: boolean };
 
 function fileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -34,11 +37,14 @@ function fileSize(bytes: number): string {
 export function AddFileForm({
   clientId,
   canSeeRestricted,
+  categories,
   onAdded,
   restrictedNote,
 }: {
   clientId: string;
   canSeeRestricted: boolean;
+  /** The types, from the database. Nothing here keeps a second copy. */
+  categories: FileCategory[];
   /** The list below refreshes itself; the modal closes. */
   onAdded?: () => void;
   /**
@@ -53,6 +59,30 @@ export function AddFileForm({
   const formRef = useRef<HTMLFormElement>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ error?: string; ok?: string } | null>(null);
+
+  /**
+   * The Restricted switch follows the type, until somebody moves it.
+   *
+   * An ID, a diagnosis, a court order or a client's bank letter starts
+   * restricted (0203) - the owner's point being that the moment to decide is
+   * not after the scan is already on the record for everybody. Choosing a
+   * different type sets the switch to that type's default again; touching the
+   * switch itself stops that, because at that point the person has said what
+   * they want and the form should stop arguing.
+   *
+   * It is a default and not a rule. Turning it off is allowed, and the
+   * database writes down that somebody did.
+   */
+  const [category, setCategory] = useState(categories[0]?.key ?? "Other");
+  const [restricted, setRestricted] = useState(categories[0]?.restricted_by_default ?? false);
+  const [decided, setDecided] = useState(false);
+
+  const sensitive = categories.find((c) => c.key === category)?.restricted_by_default ?? false;
+
+  function chooseCategory(key: string) {
+    setCategory(key);
+    if (!decided) setRestricted(categories.find((c) => c.key === key)?.restricted_by_default ?? false);
+  }
 
   /**
    * The file's own fingerprint, so one client cannot hold the same bytes
@@ -166,9 +196,11 @@ export function AddFileForm({
             </label>
             <label className="field">
               What it is
-              <select name="category" defaultValue="Signed USOR form">
-                {DOCUMENT_CATEGORIES.map((c) => (
-                  <option key={c}>{c}</option>
+              <select name="category" value={category} onChange={(e) => chooseCategory(e.target.value)}>
+                {categories.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
                 ))}
               </select>
             </label>
@@ -184,7 +216,12 @@ export function AddFileForm({
                 type="checkbox"
                 name="restricted"
                 style={{ width: "auto", marginRight: 8 }}
+                checked={restricted && canSeeRestricted}
                 disabled={!canSeeRestricted}
+                onChange={(e) => {
+                  setRestricted(e.target.checked);
+                  setDecided(true);
+                }}
               />
               Restricted — limit to Admin, Intake &amp; Client Reports, and the assigned staff member
             </label>
@@ -193,10 +230,22 @@ export function AddFileForm({
             </button>
           </div>
 
+          {/* Said where the decision is being made, not in the paragraph
+              underneath: somebody turning this off for an ID should see what
+              it means while their hand is on it. */}
+          {sensitive && canSeeRestricted && !restricted && (
+            <p className="alert" style={{ marginTop: 10 }}>
+              A {(categories.find((c) => c.key === category)?.label ?? category).toLowerCase()} is
+              restricted unless you say otherwise. Leaving this off puts it in front of everybody
+              who can open this client, and is recorded against your name.
+            </p>
+          )}
+
           <p className="lock" style={{ margin: "10px 0 0" }}>
             Up to 50 MB. PDFs, images, Word, Excel and text files. The upload date is recorded by
-            itself; the date above is the date on the paper. Tick restricted for anything
-            carrying disability, medical or intake detail — a signed intake or a USOR 94.
+            itself; the date above is the date on the paper. An ID, anything medical, a
+            guardianship or legal paper and the client&rsquo;s own financial documents start
+            restricted; anything else carrying disability or intake detail should be ticked.
             {!canSeeRestricted &&
               (restrictedNote ??
                 " You cannot add restricted documents for this client, so that box is disabled.")}

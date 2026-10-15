@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentStaff } from "@/lib/session";
-import { DOCUMENT_CATEGORIES } from "@/lib/constants";
 
 export type FileState = { error: string | null; ok: string | null; url?: string };
 
@@ -33,9 +32,10 @@ export async function recordAttachment(
   if (!storagePath || !filename) {
     return { error: "The upload did not complete. Nothing was recorded.", ok: null };
   }
-  if (!(DOCUMENT_CATEGORIES as readonly string[]).includes(category)) {
-    return { error: "Unknown category.", ok: null };
-  }
+  // The type is not checked here any more: client_file_categories is the
+  // list (0203) and attachments.category is a foreign key to it, so an
+  // unknown one is refused by the database rather than by a copy of the list
+  // kept in this file. That copy is what drifted last time.
   if (documentDate && !/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) {
     return { error: "That date does not look right.", ok: null };
   }

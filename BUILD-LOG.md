@@ -3275,3 +3275,91 @@ upload button. Nothing is lost by waiting: the rows are kept and append-only.
   are not configured, so those two print a note rather than running; Billing
   runs. The restricted check runs for any role whose account exists and which
   has a document it may not open.
+
+---
+
+## Some documents are restricted before anybody decides — 15 October 2026
+
+*Owner: default Restricted on for ID, medical/psychological, guardianship/legal
+and financial; the uploader can un-tick it; log when they do.*
+
+Migration 0203, six more assertions in `verify_client_documents.sql`.
+
+### Three of the four did not exist
+
+The client document types were Signed USOR form, Work schedule, Authorization,
+Signed intake, Employer verification, Invoice, Guardianship document, Other.
+Of the four kinds named, only guardianship was among them — there was no way
+to say a document was somebody's ID, or medical, or financial, so the
+instruction would have been inert for three of its four cases. **Identity
+document**, **Medical or psychological** and **Financial document** are new.
+
+### Invoice is not "financial"
+
+The nearest existing type to "financial" is Invoice, and it is the wrong one.
+There are **130 invoices on file and none restricted**: they are what the
+practice bills USOR, not a client's bank statements. Defaulting them to
+restricted would hide routine billing paperwork from Billing staff who are not
+the assigned worker — which is most of them.
+
+So "Financial document" is its own type, for the client's own money — a
+benefits letter, a bank statement, a representative-payee record — and Invoice
+stays open. The one place this departs from a literal reading of the brief,
+and it departs towards what the brief is for.
+
+### The list is a table now
+
+It was written out three times before yesterday; 0202 brought it to a constant
+and a check constraint. That was still two, and the database now needs to know
+something a constant cannot carry — *which types are sensitive* — because the
+log has to fire however a row arrives, not only when it comes from the form.
+
+So `client_file_categories`, like `staff_file_categories` already is for the
+other side of the house, and the check constraint becomes a foreign key to it.
+The screens read it, the form reads it, the trigger reads it. Adding a type is
+a row rather than a deploy. The keys are the strings already on 770 documents
+and are not renamed; only the label changes — "Guardianship document" shows as
+"Guardianship or legal document", because the heading was guardianship/legal
+and a court order about anything else belongs there too.
+
+**Guardianship document had zero rows** — allowed by the constraint, offered by
+no screen. That was yesterday's drift, and it is now reachable.
+
+### A hole this closed
+
+From the "+" I had hard-coded `canSeeRestricted={false}`, on the grounds that
+the modal does not know which clients a person may restrict for. Harmless
+while the switch started off. Not harmless now: an ID added from the "+" would
+have defaulted to restricted, found the switch disabled, and gone up
+**unrestricted** — the one outcome the default exists to prevent.
+
+So the modal asks. `clients_i_can_restrict()` answers once, calling
+`can_see_restricted()` rather than restating what it means.
+
+### The default, and declining it
+
+The switch follows the type until somebody moves it: choosing a different type
+sets it to that type's default again, and touching the switch stops that —
+at that point the person has said what they want and the form should stop
+arguing. A warning appears where the decision is being made rather than in the
+small print underneath, because somebody turning this off for an ID should see
+what it means while their hand is on it.
+
+Declining it is written down by the trigger, as its own key in the log, so it
+can be looked for rather than inferred later by joining to a category list
+that may have changed its mind since. Three cases are asserted: an ID filed
+open is recorded, an ID filed restricted is not (it is a document, not a
+decision), and an invoice filed open is not reported at all.
+
+Un-restricting an existing file was already logged — `restricted` has been a
+watched field since 0202 — and still is.
+
+### Left for the owner
+
+- **Signed intake is not in the default-on set.** It is not one of the four
+  named, so I did not add it. The upload screen's own guidance has always said
+  to restrict anything carrying disability or intake detail, and a signed
+  intake is the example it gives — so it is a candidate. One row to change.
+- **Nothing was applied retrospectively.** The 770 documents already on file
+  keep whatever restriction they have; this changes what a new upload starts
+  as. The 106 restricted ones are all Signed USOR forms.
