@@ -2,6 +2,7 @@
 
 import { Bell } from "./bell";
 import { AvatarMenu } from "./avatar-menu";
+import type { Theme } from "./theme-actions";
 import { useUnreadMessages } from "./live-messaging";
 
 /**
@@ -11,12 +12,22 @@ import { useUnreadMessages } from "./live-messaging";
  * sidebar cannot disagree about how much is waiting - which was the whole
  * complaint behind the audit's "83 against 19" (Design language, §1).
  */
-export function HeaderBar({ name, role, extra }: { name: string; role: string; extra?: string }) {
+export function HeaderBar({
+  name,
+  role,
+  extra,
+  theme,
+}: {
+  name: string;
+  role: string;
+  extra?: string;
+  theme: Theme;
+}) {
   const waiting = useUnreadMessages();
   return (
     <div className="header-right no-print">
       <Bell waiting={waiting} />
-      <AvatarMenu name={name} role={role} extra={extra} />
+      <AvatarMenu name={name} role={role} extra={extra} theme={theme} />
     </div>
   );
 }

@@ -2989,3 +2989,101 @@ Two things the verify script found while settling this:
 - `verify_billing_offices.sql` asserted every office has a billing office, the
   rule being overruled; rewritten to assert that no district was attached to a
   Salt Lake CRP it has no relationship with.
+
+---
+
+## A theme switch, and Rispah's two addresses — 14 October 2026
+
+### The switch
+
+Light / Dark / System in the avatar menu, System the default, saved per person
+like the sidebar width, applied on the click.
+
+Two places hold it, for two different jobs:
+
+- **`staff_prefs`** is the record — theirs, per person, what the menu reads to
+  show which is chosen, and what follows them to another machine.
+- **A cookie** is how the page is painted. The root layout reads it and stamps
+  `data-theme` on `<html>` before anything renders, so somebody who chose dark
+  never sees a white page flash first.
+
+Reading the preference in the root layout instead would mean a database call on
+every request including the sign-in screen — the sort of thing that took
+production down on the 14th. An inline script would have been the other way
+round the flash; a cookie read needs no script at all.
+
+**System is the absence of both.** No row, no cookie, and the stylesheet falls
+through to `prefers-color-scheme`. The default is default by having nothing
+stored rather than by storing the word.
+
+The click stamps the attribute before the server is told, so the screen turns
+over immediately — every colour is a token and the tokens are defined against
+that attribute. If the write fails nothing is undone: the person asked for dark
+and has dark; what they lose is it being remembered, and telling them their
+theme did not save while they are looking at the theme they chose would be a
+worse screen than the one they asked for.
+
+`color-scheme` moved into tokens.css and now follows the choice rather than
+only the machine — otherwise somebody on a dark machine who picked light gets
+a dark calendar popup on a white page.
+
+**Verified all three states on the running app**, which is where the three-state
+bug usually hides:
+
+| machine | choice | stamped | page | color-scheme |
+|---|---|---|---|---|
+| dark | Light | `light` | white | `light` |
+| — | Dark | `dark` | `#44594F` | `dark` |
+| dark | System | none | `#44594F` | `light dark` |
+
+And stamping the attribute with no reload flips the background, which is what
+the button does.
+
+`check-theme` needed a new distinction: **defining** a palette and **applying**
+one are different things. A palette can only be written in CSS, so a stylesheet
+other than tokens.css naming the theme still fails. A component naming it is
+stamping the attribute, which has to live somewhere — so the two files allowed
+to do that are listed by name, and a third appearing is worth a line in a
+review.
+
+### Rispah
+
+Both halves of the record were **already right** and this says so rather than
+changing something to look busy: `staff.email` is the PCA address and the Voc
+Rehab one went on as an alias in 0199. The migration asserts it.
+
+**Her invite went to the PCA address**, not the Voc Rehab one — so the
+conditional in the ask does not apply and no dual sign-in was built. Since the
+Voc Rehab address is an alias of that same mailbox, the invite landed in the
+right inbox either way. She has not accepted it yet (sent 10 Oct, never
+confirmed, never signed in).
+
+**Mail to either address was already attributed to her**, and it is worth being
+precise about why: attribution is by mailbox, not by address. `syncStaffMember`
+sweeps one person's mailbox with that person's own token and writes their
+`staff_id` on every row it keeps; staff addresses are never matched against
+anything. Two addresses on one mailbox are one person's mail whichever one a
+message was sent to.
+
+What did not hold is which address Exchange calls primary. Graph answers `/me`
+with whatever is configured, and for her that could be either. The CRM stored
+it and compared it with nothing — so if Graph had reported the Voc Rehab
+address, there would have been a connection under an address nobody had
+recorded as hers, and `staff_by_email()` would have said it reaches nobody.
+
+So connecting a mailbox now records its address as one of the connecting
+person's, if it is not already known: the CRM learns the alias from Exchange
+instead of waiting for somebody to type it. And if that address is already
+**somebody else's**, it refuses by name — that case means a person connected a
+mailbox that is not theirs, and every message swept out of it would have been
+filed under the wrong name. The dashboard says so plainly rather than as a
+Microsoft error, because Microsoft did nothing wrong.
+
+### Noted, not touched
+
+`verify_messaging_load.sql` sits exactly on its own budget: the unread count is
+allowed 250 ms and measures about 252 alone, so it passes or fails depending on
+how busy the database is — 1047 ms when run at the end of the full suite. I did
+not change messaging and have not re-tuned it, because quietly raising a budget
+to make a check green is how a check stops meaning anything. It needs either
+headroom or an isolated measurement, and which one is the owner's call.

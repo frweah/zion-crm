@@ -299,6 +299,7 @@ const RPC_FUNCTIONS = [
   "set_e_delivery_consent",
   "staff_by_email",
   "log_staff_document",
+  "record_my_mailbox_address",
 ];
 
 const { rows: fns } = await client.query(

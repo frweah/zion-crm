@@ -65,6 +65,16 @@ const walk = (dir) =>
 const HEX = /#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?\b/g;
 const FUNC = /\b(?:rgba?|hsla?)\(/g;
 
+/**
+ * The two files that may stamp data-theme on an element.
+ *
+ * The root layout puts it on <html> from the cookie, before anything is
+ * painted; the switch in the avatar menu changes it on the click so the
+ * screen turns over before the server has been told. Nothing else decides
+ * what theme a person is looking at.
+ */
+const APPLIES_THE_THEME = new Set(["app/layout.tsx", "app/(app)/theme-choice.tsx"]);
+
 const sources = ["app", "lib"]
   .flatMap((d) => walk(path.join(root, d)))
   .filter((f) => /\.(css|tsx|ts|mjs)$/.test(f) && path.resolve(f) !== path.resolve(TOKENS));
@@ -139,16 +149,34 @@ for (const file of [...sources.filter((f) => /\.(css|tsx)$/.test(f)), TOKENS]) {
       say("fade", `${at} uses the fill gold as text; use var(--accent-text)`);
     if (/backdrop-filter/.test(line)) say("glass", `${at} uses backdrop-filter; no glass`);
     if (/border[a-z-]*\s*:[^;]*var\(--scrim\)/.test(line)) say("glass", `${at} draws a border with --scrim; no translucent borders`);
-    // Dark mode belongs to tokens.css and nowhere else (owner, 14 Oct 2026).
-    // A component that branches on the theme itself is a second palette.
-    if (!isTokens && /prefers-color-scheme:\s*dark|data-theme/.test(line))
-      say("dark", `${at} names the theme itself; dark mode lives in tokens.css, as token values`);
+    /**
+     * Defining a palette, and applying one, are different things.
+     *
+     * A palette can only be written in CSS, so a stylesheet other than
+     * tokens.css naming the theme is a second palette and fails. A component
+     * naming it is doing something else: stamping the attribute the tokens
+     * are defined against, which is how the switch in the avatar menu works
+     * and has to live somewhere.
+     *
+     * So the files allowed to stamp it are listed, and the list is the point.
+     * If a third one appears, somebody has decided the theme in a new place
+     * and that is worth a line in a review.
+     */
+    if (rel.endsWith(".css")) {
+      if (!isTokens && /prefers-color-scheme|data-theme/.test(line))
+        say("dark", `${at} names the theme; a palette lives in tokens.css and nowhere else`);
+    } else if (!APPLIES_THE_THEME.has(rel)) {
+      if (/prefers-color-scheme/.test(line))
+        say("dark", `${at} branches on the machine's theme; tokens.css decides that`);
+      if (/data-theme/.test(line))
+        say("dark", `${at} stamps the theme; only ${[...APPLIES_THE_THEME].join(" and ")} do that`);
+    }
   });
 }
 if (rule.size === 0) ok(`every font size is on the ${scale.length}-step scale (${scale.map((t) => t.px).join(" / ")} px)`);
 if (rule.motion === 0) ok("every transition and animation runs on --motion (200ms ease-in-out)");
 if (rule.fade + rule.glass + rule.dark === 0)
-  ok("no faded text, no glass, no translucent borders, and no screen naming the theme itself");
+  ok(`no faded text, no glass, no translucent borders, and only ${APPLIES_THE_THEME.size} files stamp the theme`);
 for (const k of Object.keys(rule)) if (rule[k] > 8) fail(`...and ${rule[k] - 8} more like that`);
 
 // ── contrast, in both palettes ───────────────────────────────

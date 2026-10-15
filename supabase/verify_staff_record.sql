@@ -134,6 +134,47 @@ begin
     raise notice 'ok  an address that is already somebody''s sign-in cannot become an alias';
   end;
 
+  -- ═══ the mailbox somebody connects is one of theirs ════════
+  --
+  -- Which address Exchange calls primary is its business, and a person can
+  -- have two on one mailbox. Connecting records whichever comes back, so
+  -- staff_by_email() knows it reaches them however it turns up later.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_them_u, 'role', 'authenticated')::text, true);
+
+  v_text := public.record_my_mailbox_address('ZZ.Exchange.Primary@example.test');
+  if public.staff_by_email('zz.exchange.primary@EXAMPLE.test') is distinct from v_them then
+    failures := failures || 'FAILED: the connected mailbox address was not recorded as theirs'::text;
+  else
+    raise notice 'ok  the address Exchange reports for a connected mailbox becomes one of theirs';
+  end if;
+
+  v_text := public.record_my_mailbox_address('ZZ.Exchange.Primary@example.test');
+  if v_text not ilike '%already%' then
+    failures := failures || format('FAILED: connecting the same mailbox twice said "%s"', v_text)::text;
+  elsif (select count(*) from public.staff_emails
+          where lower(address) = 'zz.exchange.primary@example.test') <> 1 then
+    failures := failures || 'FAILED: reconnecting the same mailbox recorded it twice'::text;
+  else
+    raise notice 'ok  and connecting it again adds nothing';
+  end if;
+
+  /**
+   * A mailbox that is already somebody else's is refused.
+   *
+   * The case worth catching: it means a person connected a mailbox that is
+   * not theirs, and every message swept out of it would be filed under the
+   * wrong name.
+   */
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_oth_u, 'role', 'authenticated')::text, true);
+  begin
+    v_text := public.record_my_mailbox_address('zz.exchange.primary@example.test');
+    failures := failures || 'FAILED: somebody connected a mailbox already on another record'::text;
+  exception when unique_violation then
+    raise notice 'ok  and one already on somebody else''s record is refused, by name';
+  end;
+
   -- ═══ what an Admin may not do for somebody ═════════════════
   perform set_config('role', 'postgres', true);
   insert into public.tax_form_submissions (staff_id, form_type, status, data)

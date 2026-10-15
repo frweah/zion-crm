@@ -12,20 +12,7 @@
   box-sizing: border-box;
 }
 
-html {
-  /**
-   * The browser's own furniture follows the theme as well.
-   *
-   * Scrollbars, a date field's calendar, a select's dropdown and the caret
-   * are drawn by the browser, not by this stylesheet. Without this line a
-   * dark green page opens a white calendar popup - and this app asks for a
-   * date on nearly every screen, so that is not a detail.
-   *
-   * Both words, in this order: light is the default and dark follows the
-   * machine, which is what the owner asked for.
-   */
-  color-scheme: light dark;
-}
+/* color-scheme lives in tokens.css with the themes it follows. */
 
 body {
   margin: 0;
@@ -2919,4 +2906,35 @@ button.attach-chip:hover {
 }
 .caseload-strip .caseload-toggle {
   margin-left: 0;
+}
+
+/* ── the theme switch, in the avatar menu ──
+   Three buttons rather than a dropdown: there are three, they are short, and
+   a person changing their theme wants to see the change rather than read a
+   list. The chosen one is filled the way a pressed control is everywhere
+   else. */
+.theme-choice {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+}
+.theme-choice-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.theme-choice-row {
+  display: flex;
+  gap: 4px;
+}
+.theme-choice-row .btn {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+  text-align: center;
+}
+.theme-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }

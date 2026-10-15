@@ -222,6 +222,28 @@
   --bg: #44594f;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   The browser's own furniture follows the choice too
+
+   Scrollbars, a date field's calendar, a select's dropdown and the caret are
+   drawn by the browser. "light dark" lets it follow the machine, which is
+   right for System; once somebody has chosen, it has to be told which one, or
+   a person on a dark machine who picked light gets a dark calendar on a white
+   page.
+
+   Here rather than in globals.css because it is the theme, and the theme is
+   this file's business - check-theme.mjs holds every other stylesheet to that.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion: 0ms linear;

@@ -149,12 +149,21 @@ export function MicrosoftCard({
                 tone: "bad",
                 text: "The Microsoft app details are not set on the server yet. Tell the administrator.",
               }
-            : notice === "failed" || notice === "error"
+            : notice === "wrong-mailbox"
               ? {
+                  // The connection saved and the mailbox is somebody else's,
+                  // so everything swept out of it would be filed under their
+                  // name. Said plainly rather than as a Microsoft error,
+                  // because Microsoft did nothing wrong.
                   tone: "bad",
-                  text: `Microsoft refused the connection${detail ? `: ${detail}` : "."}`,
+                  text: `That mailbox is already on another person's record${detail ? `: ${detail}` : "."} Disconnect below and connect your own.`,
                 }
-              : null;
+              : notice === "failed" || notice === "error"
+                ? {
+                    tone: "bad",
+                    text: `Microsoft refused the connection${detail ? `: ${detail}` : "."}`,
+                  }
+                : null;
 
   return (
     <div className="card" id="outlook" style={{ marginBottom: 18 }}>

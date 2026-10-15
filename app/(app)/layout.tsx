@@ -11,6 +11,7 @@ import { GroupTabs } from "./group-tabs";
 import { HubBack } from "./hub-back";
 import { SidebarToggle } from "./sidebar-toggle";
 import { HeaderBar } from "./header-bar";
+import type { Theme } from "./theme-actions";
 import { BottomBar } from "./bottom-bar";
 import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
@@ -24,18 +25,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: policyDue }] = await Promise.all([
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: policyDue }] =
+    await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
     supabase.from("staff_prefs").select("key").like("key", "hint:%"),
     // Kept to icons by choice (the width alone does it below 1100px).
     supabase.from("staff_prefs").select("key").eq("key", "sidebar:narrow").maybeSingle(),
+    // Which theme they chose, for the menu to show as pressed. The painting
+    // of it happened in the root layout, from the cookie.
+    supabase.from("staff_prefs").select("value").eq("key", "theme").maybeSingle(),
     // A policy version in force they have not signed (0103).
     supabase.rpc("policy_signature_due"),
   ]);
   // The badge is worked out in one place, in the browser (live-messaging.tsx):
   // the conversations waiting for this person, and their unread mail.
   const narrow = Boolean(narrowPref);
+  const themeValue = themePref?.value;
+  const theme: Theme = themeValue === "light" || themeValue === "dark" ? themeValue : "system";
   const nav = navFor(staff);
 
   // Typing a URL should get you no further than the navigation does. Every
@@ -145,6 +152,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <HeaderBar
               name={staff.name}
               role={ROLE_LABEL[staff.role]}
+              theme={theme}
               extra={
                 staff.grants.length > 0
                   ? `Also ${staff.grants.map((g) => `${AREA_LABEL[g.area]} (${LEVEL_LABEL[g.level]})`).join(", ")}`

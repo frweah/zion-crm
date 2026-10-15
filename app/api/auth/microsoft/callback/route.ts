@@ -71,6 +71,27 @@ export async function GET(request: NextRequest) {
 
     if (saveError) throw new Error(saveError.message);
 
+    /**
+     * The address Exchange reports for this mailbox is one of theirs.
+     *
+     * Which address Graph calls primary is Exchange's business: a person can
+     * have two on one mailbox - Rispah has the practice one and her own - and
+     * either may come back here. Recording it means staff_by_email() knows
+     * that address reaches them, however it turns up later.
+     *
+     * A refusal here means the mailbox is already somebody else's, which is
+     * worth stopping on: every message swept out of it would be filed under
+     * the wrong name. The connection is already saved at this point, so the
+     * person is sent back with the reason rather than left thinking it worked.
+     */
+    const { data: noted, error: aliasError } = await supabase.rpc("record_my_mailbox_address", {
+      p_address: profile.email,
+    });
+    if (aliasError) {
+      return back(`microsoft=wrong-mailbox&detail=${encodeURIComponent(aliasError.message.slice(0, 200))}`);
+    }
+    console.log("Microsoft mailbox connected:", noted);
+
     return back("microsoft=connected");
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

@@ -2,21 +2,33 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ThemeChoice } from "./theme-choice";
+import type { Theme } from "./theme-actions";
 
 /**
  * The person, top right (Design language, §1).
  *
- * Their initials, their name and role, and the three things that are about
- * them rather than about the work: their own paperwork, how the screen is set
- * up for them, and signing out. Those were at the bottom of the sidebar,
- * which is where the screens are - a person is not a screen.
+ * Their initials, their name and role, and the things that are about them
+ * rather than about the work: their own paperwork, their hours, how the
+ * screen looks to them, and signing out. Those were at the bottom of the
+ * sidebar, which is where the screens are - a person is not a screen.
  */
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "")).toUpperCase() || "?";
 }
 
-export function AvatarMenu({ name, role, extra }: { name: string; role: string; extra?: string }) {
+export function AvatarMenu({
+  name,
+  role,
+  extra,
+  theme,
+}: {
+  name: string;
+  role: string;
+  extra?: string;
+  theme: Theme;
+}) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -59,6 +71,10 @@ export function AvatarMenu({ name, role, extra }: { name: string; role: string; 
           <Link href="/hours" role="menuitem" onClick={() => setOpen(false)}>
             My hours
           </Link>
+          {/* Deliberately not closing the menu: a person picking a theme is
+              looking at the screen change, and shutting the menu under them
+              hides the thing they came to see. */}
+          <ThemeChoice current={theme} />
           <form action="/auth/signout" method="post">
             <button type="submit" role="menuitem">
               Sign out

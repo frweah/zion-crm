@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import localFont from "next/font/local";
 import { Source_Serif_4 } from "next/font/google";
 import "./tokens.css";
@@ -33,9 +34,25 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * The theme is stamped here, on the server, before a byte is painted.
+ *
+ * A cookie rather than the person's saved preference, because this runs on
+ * every request including the sign-in screen, where there is nobody to have a
+ * preference - and a database call on every request is what took production
+ * down on 14 Oct. theme-actions.ts writes both: the row is the record, the
+ * cookie is how the page gets painted.
+ *
+ * No stamp means System, and the stylesheet falls through to
+ * prefers-color-scheme. That is the default by having nothing stored rather
+ * than by storing a word.
+ */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const chosen = (await cookies()).get("zion-theme")?.value;
+  const theme = chosen === "light" || chosen === "dark" ? chosen : undefined;
+
   return (
-    <html lang="en" className={`${inter.variable} ${serif.variable}`}>
+    <html lang="en" className={`${inter.variable} ${serif.variable}`} data-theme={theme}>
       <body>{children}</body>
     </html>
   );

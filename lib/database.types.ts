@@ -6674,6 +6674,10 @@ export type Database = {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null };
         Returns: { client_id: string | null; action: string | null }[];
       };
+      record_my_mailbox_address: {
+        Args: { p_address: string | null };
+        Returns: string;
+      };
       record_payment: {
         Args: { p_auth: string | null; p_received?: string | null; p_amount?: number | null; p_warrant?: string | null; p_voucher?: string | null };
         Returns: string;
