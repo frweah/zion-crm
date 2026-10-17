@@ -16,7 +16,7 @@
  *   email, every note somebody wrote down.
  */
 import { readdir, readFile } from "node:fs/promises";
-import { NAV_GROUPS, navFor, navPath, hubBack, reachableFor, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
+import { NAV_GROUPS, navFor, navPath, hubBack, reachableFor, canReach, ROLE_NAMES, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
 import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
 
 const problems = [];
@@ -147,6 +147,38 @@ if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" ·
 // A hub opens on its own page of cards, and that page has to exist.
 for (const g of NAV_GROUPS) {
   if (g.hub && !stat.has(g.hub)) fail(`${g.label} says its hub is ${g.hub}, and there is no page there`);
+}
+
+/**
+ * And somebody has to be able to open it.
+ *
+ * The check above asked whether the file exists. The rule is whether the hub
+ * can be reached, and those are different questions: for a month every hub
+ * had a page and no role could open one, because canReach was built from nav
+ * items and a hub belongs to the group. The sidebar heading and the phone
+ * bar both link straight at them, so Work, Communication and HR answered by
+ * redirecting to Home - three of the four tabs on a phone.
+ *
+ * So: every role that sees a group reaches that group's hub, and every role
+ * that does not see it does not. Asked of canReach, which is what the layout
+ * gate actually calls.
+ */
+for (const g of NAV_GROUPS) {
+  if (!g.hub) continue;
+  for (const role of ROLE_NAMES) {
+    const sees = navFor(role).some((n) => n.group.key === g.key);
+    const reaches = canReach(role, g.hub);
+    if (sees && !reaches) {
+      fail(`${role} sees ${g.label} in the sidebar but canReach refuses its hub ${g.hub}`);
+    }
+    if (!sees && reaches) {
+      fail(`${role} cannot see ${g.label} and should not reach its hub ${g.hub}`);
+    }
+  }
+}
+if (!problems.length) {
+  const hubbed = NAV_GROUPS.filter((g) => g.hub);
+  ok(`all ${hubbed.length} hubs open for every role that can see them (${hubbed.map((g) => g.hub).join(", ")})`);
 }
 
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;

@@ -21,20 +21,26 @@ const NONE = "00000000-0000-0000-0000-000000000000";
 /**
  * Payments on record - the workbook's, those read from warrant stubs, and
  * authorizations marked paid by hand - newest warrant first, each with the warrant
- * page it came from. All of them, or those on the authorizations given.
+ * page it came from, for the authorizations given.
+ *
+ * The authorizations are not optional. They used to be, and with none the
+ * query read every payment the practice has ever taken - a table that grows
+ * for as long as the practice runs. Nothing ever called it that way, so the
+ * only thing the optional shape did was wait to be called that way one day
+ * (stress test, owner 16 Oct 2026).
  *
  * The page comes through warrant_lines, which only Admin and Billing may read;
  * anyone else gets the payment without the page.
  */
-export async function readPayments(supabase: Supabase, authIds?: string[]): Promise<PaymentRow[]> {
+export async function readPayments(supabase: Supabase, authIds: string[]): Promise<PaymentRow[]> {
   // The warrant lines come with their payment, through the line's link to it:
   // one wait on the database instead of two in a row. Somebody who may not see
   // warrants gets none, exactly as when they were a query of their own.
-  let payments = supabase
+  const payments = supabase
     .from("payments")
     .select("id, auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name, warrant_lines!warrant_lines_payment_id_fkey(page_id)")
-    .order("warrant_date", { ascending: false, nullsFirst: false });
-  if (authIds) payments = payments.in("auth_id", authIds.length ? authIds : [NONE]);
+    .order("warrant_date", { ascending: false, nullsFirst: false })
+    .in("auth_id", authIds.length ? authIds : [NONE]);
   const { data } = (await payments) as unknown as {
     data:
       | {

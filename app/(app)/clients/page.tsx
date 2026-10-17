@@ -83,14 +83,13 @@ export default async function ClientsPage({
   if (filters.hasImportReview) query = query.neq("import_review", "");
   if (filters.since) query = query.gte("created_at", filters.since);
 
-  const [billing, clientsResult, counselorsResult, staffResult, officesResult, activityResult, viewsResult, totalResult, prefResult, jobsResult] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult] =
     await Promise.all([
       readBillingOffices(supabase),
       query,
       supabase.from("counselors").select("id, name").order("name"),
       supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
       supabase.from("offices").select("name").order("name"),
-      supabase.from("client_last_activity").select("client_id, last_activity_at"),
       supabase
         .from("saved_views")
         .select("id, name, owner_staff_id")
@@ -104,9 +103,33 @@ export default async function ClientsPage({
         .eq("staff_id", me.id)
         .eq("key", "last_view:clients")
         .maybeSingle(),
-      // The job search, per client: applications and interviews (0117).
-      supabase.from("lead_matches").select("client_id, status, applied_on, interview_on, interview_result"),
     ]);
+
+  /**
+   * The two per-client lookups, asked only about the clients this list is
+   * showing — which the query above has already narrowed by every filter the
+   * database can apply.
+   *
+   * Measured at ten times the practice's size: the activity view asked for
+   * every client took 309 ms, and asking it for fifty took 299, because the
+   * twelve unions behind it are built in full and then filtered.
+   * client_last_activity_for (0207) puts the client ids inside each branch
+   * instead and answers in 9.8 ms. The client rows themselves cost 0.5 ms,
+   * so this — not the number of clients — was the time on this screen.
+   */
+  const shownIds = (clientsResult.data ?? []).map((c) => c.id);
+  const [activityResult, jobsResult] = await Promise.all([
+    shownIds.length
+      ? supabase.rpc("client_last_activity_for", { p_clients: shownIds })
+      : Promise.resolve({ data: [] as { client_id: string | null; last_activity_at: string | null }[] }),
+    // The job search, per client: applications and interviews (0117).
+    shownIds.length
+      ? supabase
+          .from("lead_matches")
+          .select("client_id, status, applied_on, interview_on, interview_result")
+          .in("client_id", shownIds)
+      : Promise.resolve({ data: [] as never[] }),
+  ]);
 
   // What the job-search board showed, worked out from the applications.
   const todayIso = today();

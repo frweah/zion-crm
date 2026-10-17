@@ -33,7 +33,7 @@ export default async function LeadsPage({
 
   const supabase = await createClient();
 
-  const [employersResult, leadsResult, matchesResult, staffResult, historyResult, clientsResult] = await Promise.all([
+  const [employersResult, leadsResult, staffResult, historyResult, clientsResult] = await Promise.all([
     supabase
       .from("employers")
       .select("id, name, industry, relationship_status, contact_name, contact_phone, contact_email, hiring_pattern, notes")
@@ -42,7 +42,6 @@ export default async function LeadsPage({
       .from("job_leads")
       .select("id, employer_id, title, wage_range, hours_week, shift, status, posted_date, owner_staff_id")
       .order("posted_date", { ascending: false, nullsFirst: false }),
-    supabase.from("lead_matches").select("id, lead_id, status"),
     supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name"),
     // Every client's applications and interviews, for the two lists that
     // replace the job-search spreadsheet (0117). What each person may see is
@@ -53,6 +52,15 @@ export default async function LeadsPage({
       .order("applied_on", { ascending: false, nullsFirst: false }),
     supabase.from("clients").select("id, name, assigned_staff_id"),
   ]);
+
+  // The matches on the leads this screen is showing, asked for as those.
+  // It used to ask for every match on file, which grows with the practice
+  // rather than with the board (stress test, owner 16 Oct 2026).
+  const leadIds = (leadsResult.data ?? []).map((l) => l.id);
+  const matchesResult = leadIds.length
+    ? await supabase.from("lead_matches").select("id, lead_id, status").in("lead_id", leadIds)
+    : { data: [] as { id: string; lead_id: string; status: string }[] };
+
   const history = historyResult.data ?? [];
   const clientById = new Map((clientsResult.data ?? []).map((c) => [c.id, c]));
   const today = new Date().toISOString().slice(0, 10);

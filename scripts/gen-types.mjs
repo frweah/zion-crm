@@ -73,6 +73,9 @@ const RPC_FUNCTIONS = [
   "authorization_can_submit",
   "authorization_missing_forms",
   "authorization_attention",
+  "authorization_hours_used",
+  "authorization_amount_for",
+  "authorization_attention_for",
   "billing_needs_action",
   "service_date_for",
   "billing_followups_on",
@@ -286,6 +289,7 @@ const RPC_FUNCTIONS = [
   "notify_person",
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
+  "client_last_activity_for",
   "intake_scans_now_readable",
   "intake_rules_ran_late",
   // Billing stops being a one-way street (0190-0194).

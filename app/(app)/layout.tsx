@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -86,7 +85,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className={"shell" + (narrow ? " side-narrow" : "")}>
       <nav className="side" aria-label="Main">
         <div className="brand">
-          <Image src="/zion-logo.png" alt="" width={36} height={36} priority />
+          {/* The mark, in the sidebar's own ink. The artwork is a full-colour
+              gradient — a third of it is teal and blue — and none of that is
+              in the theme, so it is drawn as a single-colour silhouette
+              through its own alpha rather than placed on a plate (owner,
+              16 Oct 2026). The name beside it is the label; this is
+              decoration. */}
+          <span className="brand-mark" aria-hidden="true" />
           <span className="side-label">Zion Voc Rehab</span>
         </div>
 

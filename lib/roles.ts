@@ -418,8 +418,25 @@ export const ORG = {
  * tab they can reach by clicking would be a gate that only annoys.
  */
 export function canReach(who: Role | Access, pathname: string): boolean {
-  return reachableFor(who).some((item) => {
-    const path = navPath(item.href);
-    return pathname === path || pathname.startsWith(path + "/");
-  });
+  const groups = navFor(who);
+
+  /**
+   * A hub's landing page of cards belongs to whoever can see what is on it.
+   *
+   * It is not an item, so reachableFor never carried it, and the layout gate
+   * refused every hub to every role: /work, /communication and /hr all
+   * redirected to Home, which is where three of the four tabs on the phone
+   * bar and three sidebar headings pointed (stress test, 16 Oct 2026).
+   *
+   * Exactly, not by prefix: a hub is a landing page and owns no screens below
+   * it. Its items carry their own paths and are matched below.
+   */
+  if (groups.some((g) => g.group.hub === pathname)) return true;
+
+  return groups
+    .flatMap((g) => g.items)
+    .some((item) => {
+      const path = navPath(item.href);
+      return pathname === path || pathname.startsWith(path + "/");
+    });
 }

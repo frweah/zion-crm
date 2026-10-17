@@ -567,8 +567,12 @@ export default async function ClientPage({
    * authorization record where the person working on it can see them (§9).
    */
   if (tab === "billing") {
-    const { data: worklist } = await supabase.rpc("billing_worklist");
-    const mine = ((worklist ?? []) as WorklistRow[]).filter((w) => w.client_id === id);
+    // This client's rows, asked for as this client's. It used to fetch the
+    // whole practice's working list and throw away everybody else's, which
+    // meant every client record paid for counting the hours behind every
+    // open authorization in the practice (stress test finding 3).
+    const { data: worklist } = await supabase.rpc("billing_worklist", { p_client: id });
+    const mine = (worklist ?? []) as WorklistRow[];
 
     return (
       <>

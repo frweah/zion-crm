@@ -6213,9 +6213,17 @@ export type Database = {
         Args: { p_auth: string | null };
         Returns: number;
       };
+      authorization_amount_for: {
+        Args: { p_auths: string[] | null };
+        Returns: { auth_id: string | null; amount: number | null }[];
+      };
       authorization_attention: {
         Args: { p_auth: string | null; p_today?: string | null };
         Returns: { attention: string | null; urgency: number | null }[];
+      };
+      authorization_attention_for: {
+        Args: { p_auths: string[] | null; p_today?: string | null };
+        Returns: { auth_id: string | null; attention: string | null; urgency: number | null }[];
       };
       authorization_blocked_from: {
         Args: { p_stale: string | null };
@@ -6232,6 +6240,10 @@ export type Database = {
       authorization_gate_met: {
         Args: { p_auth: string | null };
         Returns: boolean;
+      };
+      authorization_hours_used: {
+        Args: { p_auths: string[] | null; p_excluding?: string | null };
+        Returns: { auth_id: string | null; used: number | null }[];
       };
       authorization_missing_forms: {
         Args: { p_auth: string | null };
@@ -6270,7 +6282,7 @@ export type Database = {
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
       };
       billing_worklist: {
-        Args: { p_today?: string | null };
+        Args: { p_today?: string | null; p_client?: string | null };
         Returns: { id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; bill_by: string | null; stale_date: string | null; submitted_on: string | null; followup_due: string | null; amount: number | null; parent_id: string | null; attention: string | null; urgency: number | null }[];
       };
       bills_due_by: {
@@ -6296,6 +6308,10 @@ export type Database = {
       clear_my_signature: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      client_last_activity_for: {
+        Args: { p_clients: string[] | null };
+        Returns: { client_id: string | null; last_activity_at: string | null }[];
       };
       client_merged_into: {
         Args: { p_client: string | null };

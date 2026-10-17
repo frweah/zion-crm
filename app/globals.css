@@ -223,10 +223,19 @@ textarea {
   color: var(--side-ink);
 }
 
-.brand img {
+/* The mark is drawn, not displayed: the PNG supplies the shape through its
+   alpha channel and --side-ink supplies the colour, so it is the sidebar's
+   own white on the sidebar's own green in both themes and introduces no
+   colour of its own. Three quarters of the artwork is transparent, including
+   the gaps between the leaves and inside the ring, so the silhouette keeps
+   its structure at 36px. */
+.brand-mark {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
+  background: var(--side-ink);
+  -webkit-mask: url("/zion-logo.png") center / contain no-repeat;
+  mask: url("/zion-logo.png") center / contain no-repeat;
 }
 
 .brand small {

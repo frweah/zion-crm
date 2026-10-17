@@ -3363,3 +3363,513 @@ watched field since 0202 — and still is.
 - **Nothing was applied retrospectively.** The 770 documents already on file
   keep whatever restriction they have; this changes what a new upload starts
   as. The 106 restricted ones are all Signed USOR forms.
+
+---
+
+## A signed intake starts restricted — 16 October 2026
+
+*Owner: yes, add Signed intake to the default-restricted set.*
+
+Migration 0204. One row: `restricted_by_default = true` where the key is
+`Signed intake`. The set that starts restricted is now Financial document,
+Guardianship document, Identity document, Medical or psychological, Signed
+intake, and `verify_client_documents.sql` asserts exactly that string.
+
+This closes a gap the upload screen had been pointing at on its own. Its
+guidance has always read "tick restricted for anything carrying disability,
+medical or intake detail — a signed intake or a USOR 94". A signed intake was
+the example it gave while being the one type the default did not cover.
+
+Nothing retrospective: the signed intake already on file keeps what it has, and
+this decides what the next one starts as. Suite green at 95.
+
+---
+
+## Stress test — 16 October 2026
+
+*Owner: stress test, report only, change nothing yet. Six areas. Findings
+ranked by what a staff member would hit first, with what happens today and what
+it should do. Proposed fixes here, then wait.*
+
+**Nothing in this entry is a change.** No migration, no code, no deploy.
+
+### What this test is, and is not
+
+The brief asked for a throwaway branch seeded with 500 clients, 2,000
+authorizations, 20,000 service-log hours and 5,000 documents, with every list
+and the Home page timed for every role at that size.
+
+**That measurement did not happen, and no number below is one.** Three routes
+were tried and all three closed:
+
+1. Seeding inside a `begin; … rollback;` transaction on the production instance
+   — the technique `verify_0_messaging_load.sql` already uses, chosen because a
+   branch runs on its own compute and a timing from it describes that machine
+   rather than this one. Declined: it writes to a shared resource. That is the
+   right call and I am not arguing with it.
+2. Read-only timing of the same queries at today's size, with RLS applied by
+   setting the role and the JWT claims per staff member. Also declined.
+3. A Supabase branch, as originally asked. Branching is not set up on the
+   project; starting one is a billable, several-minute operation, and that is
+   the owner's call rather than mine.
+
+So **part 1 below is read off the queries, not off a clock.** The query shapes
+are facts; the consequences at the brief's size are reasoned from them. Where I
+say a thing scans 20,000 rows per authorization, that is arithmetic on the SQL,
+and it still wants a stopwatch before anybody sizes a fix.
+
+One number that is worth having by itself: **`service_entries` has 0 rows
+today.** Nobody has logged an hour yet. Every hours finding below is therefore
+invisible on the current database and arrives with the first week of real
+logging. Today: 97 clients, 162 authorizations, 770 documents, 281 job
+matches, 298 tasks.
+
+Parts 2 to 5 are read off the code and, where a claim could be tested locally,
+tested. Part 6 is partly proven and partly not; it says which is which.
+
+---
+
+### 1. Three of the four phone tabs, and three sidebar headings, bounce to Home
+
+**The first thing anybody hits, on any role, at any data size, today.**
+
+`/work`, `/communication` and `/hr` are the hub landing pages — the card pages
+a group opens on. They are reachable by **nobody**:
+
+```
+/work            Work           reachable by: NOBODY
+/communication   Communication  reachable by: NOBODY
+/hr              HR             reachable by: NOBODY
+```
+
+That is `canReach` called for every role in `ROLE_NAMES`, not an inference.
+`canReach` tests the pathname against `reachableFor(who)`, which is
+`navFor(who).flatMap(g => g.items)` — nav **items**. A hub is a property of
+the **group**, so no hub is ever in that list, and the layout gate in
+`app/(app)/layout.tsx` redirects every one of them to `/dashboard`.
+
+Both navigations link straight at them:
+
+- `app/(app)/bottom-bar.tsx:38` — the phone bar, `href={g.group.hub ?? g.items[0].href}`,
+  over the four main keys `dashboard, work, inbox, hr`. **Three of the four
+  phone tabs go to a page the gate refuses.**
+- `app/(app)/nav-links.tsx:50` — the sidebar group heading, same expression.
+
+What happens today: tap **Work**, **Communication** or **HR** on a phone, or
+click those headings in the sidebar, and you land on Home. Silently — a
+redirect, not an error.
+
+What it should do: open the hub's cards.
+
+**Why the check passed.** `scripts/check-nav.mjs:149` asserts a hub has a page:
+`if (g.hub && !stat.has(g.hub)) fail(...)`. It asks whether the *file exists*.
+The rule is whether *somebody can open it*. Line 61 then excludes hubs from the
+orphan sweep (`!hubs.has(r)`), so nothing else looks at them either. This is the
+same failure this project keeps meeting: a check that asks a question near the
+rule passes the bug it was written for.
+
+A stale comment points the same way. `lib/roles.ts` still says the group
+addresses "redirect to their first screen (next.config.mjs)". They do not —
+`next.config.mjs` has no entry for `/work`, `/hr` or `/communication`, and
+`hub-page.tsx` renders real card pages. The comment describes a design that was
+replaced.
+
+**Proposed fix.** Include hubs in reachability: have `reachableFor` (or
+`canReach` directly) accept a group whose visible items are non-empty as
+granting its own hub. Then extend `check-nav.mjs` to assert, for every group
+with a hub, that at least one role reaches it and that every role who sees the
+group reaches it — and put the fault back first: break `canReach` for hubs and
+watch the new assertion fail before trusting it.
+
+---
+
+### 2. Billing to Hours fetches every service entry ever logged
+
+`app/(app)/billing/page.tsx:75`
+
+```ts
+tab === "hours"
+  ? supabase.from("service_entries")
+      .select("id, auth_id, date, hours, non_billable, notes, primary_code, secondary_code, staff_id")
+  : …
+```
+
+No `.eq()`, no date window, no `.limit()`, no `.range()`. Every row, every time
+the Hours tab opens, serialised into the server-component payload.
+
+Today that is 0 rows and instant. At the brief's 20,000 it is 20,000 rows of
+nine fields — on the order of two to four megabytes per page load, before React
+renders any of it. The tab is Billing's own and Billing opens it many times a
+day.
+
+What it should do: a month at a time, or the authorizations on screen, with
+paging — the screen only ever shows a period.
+
+**Proposed fix.** Filter to the selected period and the live authorizations,
+and page. The month is already the unit everywhere else in billing.
+
+---
+
+### 3. The working list re-scans every logged hour twice per authorization
+
+`public.billing_worklist()` (0177) is a plain `stable` SQL function over
+`authorizations`, and for **each row** it calls two things:
+
+- `public.authorization_amount(a.id)` — a correlated
+  `select sum(e.hours) from service_entries e where e.auth_id = a.id`.
+- `cross join lateral public.authorization_attention(a.id, p_today)` — which
+  sums `service_entries` **again**, this time joined to `authorizations` on
+  `c.id = coalesce(a.parent_id, a.id) or c.parent_id = coalesce(a.parent_id, a.id)`.
+  An `OR` across a join is the classic shape that stops an index being used, so
+  this is a scan rather than a lookup. It also runs two more scalar subqueries
+  per row against `org_settings` (`stale_soon_days`, `stale_grace_days`).
+
+At the brief's size, minus Paid and Closed, call it roughly 1,500 live rows,
+each touching a 20,000-row table twice. The arithmetic lands in the tens of
+millions of row-touches per call. That is comfortably past one second, and it
+is not a close call — but it is arithmetic, not a measurement.
+
+It runs in three places, not one:
+
+- `app/(app)/billing/page.tsx:66` — the Billing page itself. Expected.
+- `app/(app)/dashboard/page.tsx:313` — `billing_needs_action()`, which is
+  `count(*)` over the whole worklist, on **Home**, for Admin and Billing.
+- `app/(app)/clients/[id]/page.tsx:570` — the client record's Billing tab calls
+  the **entire** worklist and then `.filter(w => w.client_id === id)` in
+  JavaScript to show one client's handful of rows.
+
+The alerts badge is *not* in this set, and that is worth recording: `getAlerts`
+reads the `notifications` table with `.limit(50)`, generated nightly. That part
+was built right.
+
+What it should do: compute the hours once, set-wise, rather than per row; and
+the client record should ask for one client.
+
+**Proposed fix, in order of payoff:**
+
+1. Give `billing_worklist` an optional `p_client uuid` and have the client
+   record pass it. Smallest change, removes a full scan from every client
+   record view.
+2. Replace the two per-row hour sums with one aggregate joined in — a single
+   `group by` over `service_entries` against the authorization family, computed
+   once per call instead of once per row.
+3. Give `billing_needs_action` its own narrow count rather than counting rows
+   of the full worklist, or read the nightly `notifications` table, which
+   already knows what needs attention.
+
+Each of these is a candidate for a `supabase/verify_*.sql` that asserts the
+figures are unchanged — the risk in (2) is arithmetic drift, and the existing
+`verify_authorization_is_the_bill.sql` is the model.
+
+---
+
+### 4. The Clients list and Home load every client, and the whole activity union
+
+Two separate things, same cause.
+
+**Home** — `app/(app)/dashboard/page.tsx:88` selects every client, ordered by
+name, for every role on every load. No limit.
+
+**The Clients list** — `app/(app)/clients/page.tsx:67` fetches every matching
+client with no `.limit()` and no paging, then sorts, free-text searches and
+filters in memory. Its own comment is honest about it: "at this caseload it is
+cheaper and far clearer to finish the job in memory". That was true at 97
+clients. It is a decision with a shelf life, and Clients became a main sidebar
+tab for every role yesterday, so every role now loads it routinely.
+
+Alongside it, on the same page:
+
+- `client_last_activity` (line 93), with **no narrowing at all** — not even to
+  the clients being displayed.
+- every row of `lead_matches` (line 108).
+
+`client_last_activity` (0094) is the one that grows worst. It is a **twelve-branch
+`UNION ALL`**, fully materialised and then grouped by client, over `notes`,
+`client_stage_history`, `lead_matches ⋈ job_leads`, `tasks`, `forms`,
+`contact_log`, `placements`, **`service_entries ⋈ authorizations`**,
+`calendar_events`, `mail_log`, `sms_messages`, and `payments ⋈ authorizations`.
+It is `security_invoker = true`, so each of those twelve tables has its RLS
+predicate evaluated as the reader — correct for privacy, and the reason this
+cannot be waved away as a cheap scan.
+
+What it should do: ask for a page of clients, and ask for last-activity only
+for the clients on that page.
+
+**Proposed fix.** Paginate the list (the database already applies most of the
+filters; the in-memory ones are the sort by counselor and quiet-since), and give
+`client_last_activity` a companion function taking a client-id array — the shape
+`client_next_actions_for` already established when it replaced the N+1 on the
+caseload. Then Home asks for the tiles it shows rather than the whole roll.
+
+---
+
+### 5. Two people logging hours at once can overdraw the authorization
+
+`public.check_entry_hours` (0002, rescoped by 0171) is a read-then-check with no
+lock:
+
+```sql
+select coalesce(v_carried, 0) + coalesce(sum(e.hours), 0) into used_hours
+  from public.service_entries e
+ where …;
+if used_hours + new.hours > v_total then raise exception …
+```
+
+`v_total` comes from the root authorization, which is never locked — no
+`select … for update`, and the default isolation level is read committed. Two
+coaches logging against the same authorization in the same moment both read the
+same `used_hours`, both pass, and both insert. 58 of 60 hours used, two entries
+of 1.5, and the authorization ends at 61.
+
+That matters more here than a generic race would: hours past the authorized
+total are hours the practice cannot bill USOR for, discovered at submission.
+
+0171 did fix the scope — it counts across the coaching parent and all its
+months, and uses the root's total, so the guard and `authorization_attention`
+now agree. The lock is the remaining half.
+
+What it should do: refuse the second entry, exactly as it refuses the first one
+that would exceed.
+
+**Proposed fix.** Take `select 1 from public.authorizations where id = v_root for update`
+at the top of the trigger, before the sum. It serialises only entries against
+the same authorization family, which is the contention that has to be
+serialised anyway. A `verify_*.sql` for this needs two sessions, which the
+suite does not have — so the honest check is the lock's presence plus the
+existing over-cap refusal, and the race itself recorded here as reasoned rather
+than reproduced.
+
+---
+
+### 6. A doubled cron sends the same client the same text twice
+
+`lib/sms.ts:217` — `sendScheduledTexts` selects `status = 'Scheduled'` rows due
+now (`.limit(100)`), sends each, and **then** deletes the row. There is no
+claim. Two overlapping runs — Vercel cron is at-least-once, and a manual `curl`
+alongside the schedule does it too — both select the same rows and both send.
+The client gets the message twice; the second run's delete is a no-op and it
+still reports a send.
+
+`app/api/cron/messages-digest/route.ts:64` has the same shape at lower stakes:
+send, then `messages_digest_sent`. A double fire is two digest emails to staff.
+
+Everything else about the crons is sound and worth recording: all eight routes
+check `CRON_SECRET`, and `generate_notifications` is genuinely idempotent —
+`on conflict (dedupe_key) do update` (0170), which is why a doubled `notify` is
+harmless.
+
+What it should do: send once.
+
+**Proposed fix.** Claim before sending:
+`update sms_messages set status = 'Sending' where id = ? and status = 'Scheduled' returning *`,
+and send only if a row came back. The conditional update is the lock. Same for
+the digest: mark through-seq first, send after, and let a failure re-open it.
+A `pg_try_advisory_lock` around each job would also stop two runs overlapping
+at all, and is the smaller change if the per-row claim looks invasive.
+
+---
+
+### 7. A 25 MB staff upload is refused before any of our code runs
+
+This is Melanie's failure from 30 September, still live on a different path.
+
+- `app/(app)/admin/staff/document-actions.ts:10` — `MAX_BYTES = 25 * 1024 * 1024`
+- `app/(app)/paperwork/onboarding/actions.ts:16` — the same
+- `next.config.mjs:38` — `serverActions: { bodySizeLimit: "25mb" }`
+
+The promise and the limit are **exactly equal**, and the request body is bigger
+than the file it carries: multipart boundaries, headers, the other form fields.
+A genuinely 25 MB document is refused by Next before the action is entered, so
+the screen's own friendly message is unreachable and what the person sees is
+"Application error: a server-side exception has occurred" — precisely the
+symptom `scripts/check-upload-limits.mjs` was written to prevent.
+
+**Why the check passed.** It compares `if (value > bodyLimit)`. Strictly
+greater. 25 MB is not greater than 25 MB, so it passes, while the real question
+is whether the promise *plus encoding overhead* exceeds the limit.
+
+What it should do: accept a 25 MB file, or promise less.
+
+**Proposed fix.** Raise `bodySizeLimit` to `"30mb"` and change the check to
+require headroom rather than equality — compare against roughly 90% of the body
+limit and say so in the failure text. Then put the fault back: set the limit
+equal again and watch the check fail.
+
+The client-file path is clean by contrast, and the contrast is the point: that
+upload goes browser-straight-to-storage, the bucket limit is 52428800 (0073),
+and `add-file.tsx:10` is `52428800`. Identical, with no body in between to add
+overhead. A 50 MB client file works; 50.1 MB is caught in the browser with a
+sentence that tells you what to do.
+
+---
+
+### 8. A wrong-year date is stored without complaint
+
+Date validation is `/^\d{4}-\d{2}-\d{2}$/` (`files/actions.ts`, twice). It
+accepts `0226-03-14` and `9999-12-31`. The database has essentially no date
+sanity either — a sweep of the migrations finds one range constraint in the
+whole schema, `staff_personal_dob` (0100), between 1900-01-01 and `current_date`.
+Authorization `start_date`, `end_date`, `received_on` and `stale_date` have
+none.
+
+What happens today, on a slipped keystroke:
+
+- a year in the past (`0226`, `2026` typed as `0226`) makes `stale_date` long
+  past, so `authorization_attention` reports it blocked or expired forever and
+  raises an alert nobody can clear by doing the work;
+- a year in the future (`2062`) means `bill_by` never arrives, so it never falls
+  Due and quietly never gets billed.
+
+The second is the expensive one, because nothing complains.
+
+What it should do: refuse a date outside a sensible window at the point of
+entry, and say which date and why.
+
+**Proposed fix.** One shared validator — a date must be within, say, 1990 to
+five years ahead — used by every action that takes a date, plus check
+constraints on the authorization date columns so it holds however the row
+arrives. That is the lesson 0203 already applied to document categories: the
+rule belongs in the database, because a copy in TypeScript is the one that
+drifts. A `verify_*.sql` asserting a year-0226 authorization is refused is
+straightforward.
+
+---
+
+### 9. There is no degraded mode when Supabase is slow
+
+The middleware is bounded, and that was the fix for the 504
+`MIDDLEWARE_INVOCATION_TIMEOUT`: both session calls sit inside a
+`Promise.race` against `SESSION_TIMEOUT_MS`, and a timeout leaves the request
+alone rather than treating no-answer as an answer.
+
+The pages have nothing of the kind. No page server component sets
+`maxDuration`, and no page query has an `AbortSignal` or a race — the only
+`maxDuration` exports in the codebase are on API routes and crons. Home fires
+roughly fifteen queries in one `Promise.all`. With Supabase slow or down for ten
+seconds, every one of them hangs and the page runs into the platform's own
+function limit, so what a staff member sees is Vercel's error page, not
+anything this app wrote.
+
+What it should do: say "the database is not answering, try again in a minute",
+and where a tile cannot load, render the page without that tile.
+
+**Proposed fix.** A shared timeout wrapper around page queries, with tiles that
+can fail independently rendering an inline "could not load" rather than taking
+the page down. The middleware's `Promise.race` is the pattern to copy — it is
+already written and already proven by that incident.
+
+Mail and email handle their own outages well and should be left alone:
+`lib/email.ts` returns a result instead of throwing, so a Resend rejection
+reaches the caller as text it can show; `lib/mail-access.ts` turns an expired
+Outlook refresh token into `reason: "expired"` with "The Outlook connection
+needs reconnecting." One rough edge only — when Microsoft supplies its own
+error, the raw `AADSTS…` string is what reaches the person instead of that
+sentence.
+
+---
+
+### 10. A stale edit form overwrites, quietly but recoverably
+
+Two people editing the same authorization: both saves go through
+`edit_authorization` (0190), which does take `select … for update`, so there is
+no torn write. And it is a compare-and-set per field — `if v_svc is not null and
+v_svc <> v_auth.service_type` — not a blind overwrite of the whole row.
+
+What that leaves is last-writer-wins across the round trip. A opens the form,
+B changes the service type, A saves with the value A loaded, and B's change is
+reverted. Every change is logged with who made it and the reason the function
+insists on, so it is visible and recoverable afterwards — but nobody is told at
+the time.
+
+What it should do: tell A the record changed while the form was open, and let A
+decide.
+
+**Proposed fix.** Send the record's `updated_at` as a hidden field and have
+`edit_authorization` refuse when it no longer matches, with a message naming who
+changed it. Cheap, and the correction log already holds everything the message
+needs.
+
+---
+
+### 11. Smaller things, recorded rather than ranked
+
+- **A 50 MB upload is hashed in the browser.** `add-file.tsx:95` does
+  `crypto.subtle.digest("SHA-256", await file.arrayBuffer())` — the whole file
+  into memory at once. The comment is right that hashing server-side would
+  defeat the direct upload, but on the Android phone this project already has
+  history with, a 50 MB `arrayBuffer` is a plausible tab crash. Streaming the
+  hash in chunks would cost little. The fallback is already graceful: no
+  `crypto.subtle` means an empty fingerprint and an upload without dedupe.
+- **Search does not fold accents.** The Clients free-text filter is
+  `name.toLowerCase().includes(needle)`, so "Nunez" does not find "Núñez".
+- **Two different sort orders for one list.** Home orders by name in Postgres;
+  the Clients list sorts with `localeCompare` in JavaScript. They disagree on
+  accented names.
+- **`clientWords` drops accents** — `clientName.toLowerCase().split(/[^a-z]+/)`
+  in `lib/filename-rules.ts:291` yields `[]` for a fully accented name, so the
+  `bare` signal is computed from the wrong residue. I could not construct a case
+  where this changes the filing outcome: accented and ASCII names classify
+  identically in every shape I tried, because `bare` is only the last-resort
+  branch at line 401. Recording it as latent and untested rather than as a
+  finding — `check-filename-rules.mjs` has no accented or apostrophe fixture,
+  which is the part actually worth fixing.
+
+---
+
+### What was tested and found sound
+
+Worth writing down, both because it is the larger part of the answer and
+because two of these were hypotheses I expected to confirm and could not:
+
+- **Route handlers all carry their own authorization.** I expected a hole here:
+  layouts do not run for route handlers, so the three under `app/(app)/` get no
+  `canReach` from the layout. All three check for themselves — the warrant image
+  with `can(me, "billing", "view")`, the books package and report export with
+  `canReach(me, "/books")` — and `/api/export/[kind]`, `/api/hours/statement`
+  and `/api/mail/attachment` each gate too, the statement route down to "only an
+  Admin draws up somebody else's".
+- **Hours past the authorized total are refused**, with a message that says the
+  figures and what to do: "Request additional hours from the counselor first."
+- **Two authorizations with the same number are refused** —
+  `authorizations_number_unique` on `normalize_auth_number(number)`, globally,
+  partial so blanks do not collide.
+- **The same file twice is caught and explained.** The `sha256` index gives
+  "This client already has that exact file on their record", the orphaned object
+  is removed from storage rather than left unreachable, and storage paths are
+  `crypto.randomUUID()`, so two simultaneous uploads cannot collide and cannot
+  delete each other's bytes. I went looking for that last bug specifically; it
+  is not there.
+- **A PDF that is an image is detected, not mis-parsed.** `lib/pdf-text.ts:152`
+  flags `scanned` when the text layer is under 40 non-space characters, the
+  import form says so, and the intake cron routes it to OCR.
+- **A counselor with no email is handled everywhere it matters**, in those
+  words: "No email on file for …, so they are not copied", "Nobody to send it
+  to", "No phone or email on this counselor's record."
+- **No PostgREST injection surface.** Every interpolated `.or()` in the codebase
+  carries a UUID or an ISO date — never user text. Free-text search never
+  reaches the database.
+
+### Part 6, honestly
+
+The hub finding above is part 6's headline and is proven by code. The rest of
+"every hub tab at 390 px" is **not done**. The CSS has been thought about —
+`.tabs` is `flex-wrap: wrap`, so tabs stack instead of scrolling sideways;
+`.table-wrap` is `overflow-x: auto`; there are breakpoints down to 520 px — and
+one thing is worth a look when somebody has a phone in hand: `.tabs` is
+`position: sticky` with 32 px of padding, so a group with ten screens (Books)
+wraps to several rows and becomes a tall sticky block on a 390-point screen.
+That is a reading of the stylesheet, not an observation.
+
+I could not render the signed-in app at 390 px. The browser pane cannot sign in,
+and stubbing auth to get there means editing files, which this brief ruled out.
+
+### Left for the owner
+
+- **Measuring part 1 needs a decision.** Either allow the rolled-back seeding
+  transaction against production, or say to start a Supabase branch and accept
+  that its timings describe different hardware. Until then the load findings are
+  query-shape arguments. I would take the rolled-back transaction: it is what
+  `verify_0_messaging_load.sql` already does, and it measures the machine the
+  practice uses.
+- **Nothing here has been changed.** Eleven findings and their proposed fixes,
+  waiting.

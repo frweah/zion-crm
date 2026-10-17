@@ -27,6 +27,19 @@ export default async function ReportsPage({
   const { month: rawMonth } = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(rawMonth ?? "") ? rawMonth! : today().slice(0, 7);
 
+  // The twelve months to the one shown, which is the window every figure on
+  // this screen is drawn from — and so the window its reads ask for.
+  const windowEnd = (() => {
+    const d = new Date(`${month}-01T00:00:00`);
+    d.setMonth(d.getMonth() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  })();
+  const windowStart = (() => {
+    const d = new Date(`${month}-01T00:00:00`);
+    d.setMonth(d.getMonth() - 11);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  })();
+
   const supabase = await createClient();
 
   const [
@@ -46,7 +59,13 @@ export default async function ReportsPage({
     supabase
       .from("authorizations")
       .select("id, number, service_type, total_hours, carried_used"),
-    supabase.from("service_entries").select("auth_id, date, hours, non_billable"),
+    // The screen shows the twelve months to the one chosen, so it asks for
+    // those and not for every hour the practice has ever logged.
+    supabase
+      .from("service_entries")
+      .select("auth_id, date, hours, non_billable")
+      .gte("date", `${windowStart}-01`)
+      .lt("date", `${windowEnd}-01`),
     supabase.from("billed_work").select("billed_on, amount, paid, outstanding, paid_on, paid_amount"),
     supabase.from("placements").select("start_date, check90, wage"),
     supabase.from("staff").select("id, name, role").eq("active", true).eq("is_system", false),

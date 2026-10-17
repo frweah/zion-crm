@@ -45,17 +45,46 @@ const TABS = ["authorizations", "hours"];
 const GONE_TO_AUTHORIZATIONS = ["overview", "items", "invoices", "completions", "rates"];
 const GONE_TO_HOURS = ["log", "service-log", "service_log", "servicelog", "service"];
 
+/**
+ * The hours log is read a month at a time, sixty rows to a page.
+ *
+ * It used to ask for every service entry ever logged, with no filter and no
+ * limit, and serialise the lot into the page. That was free while the table
+ * was empty and would not have stayed free: the practice logs hours daily
+ * against every coaching month, and the screen only ever shows a period
+ * (stress test finding 2, owner 16 Oct 2026).
+ */
+const LOG_PAGE = 60;
+
+/** The month a log page is showing, as the first of that month. */
+function logMonth(raw: string | undefined): string {
+  if (raw && /^\d{4}-\d{2}$/.test(raw)) return `${raw}-01`;
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+/** The month before or after one, as YYYY-MM. */
+function shiftMonth(first: string, by: number): string {
+  const d = new Date(`${first}T00:00:00`);
+  d.setMonth(d.getMonth() + by);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; show?: string; bo?: string; doc?: string }>;
+  searchParams: Promise<{ tab?: string; show?: string; bo?: string; doc?: string; month?: string; page?: string }>;
 }) {
   const me = await requireStaff();
-  const { tab: rawTab, show, bo: rawBo, doc: rawDoc } = await searchParams;
+  const { tab: rawTab, show, bo: rawBo, doc: rawDoc, month: rawMonth, page: rawPage } = await searchParams;
 
   if (rawTab && GONE_TO_AUTHORIZATIONS.includes(rawTab)) redirect("/billing");
   if (rawTab && GONE_TO_HOURS.includes(rawTab)) redirect("/billing?tab=hours");
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
+
+  const monthStart = logMonth(rawMonth);
+  const monthEnd = `${shiftMonth(monthStart, 1)}-01`;
+  const logPage = Math.max(0, Number(rawPage ?? 0) || 0);
 
   const supabase = await createClient();
   const canBill = can(me, "billing", "edit");
@@ -70,10 +99,16 @@ export default async function BillingPage({
       .select("id, client_id, number, service_type, total_hours, carried_used, rate_type, rate, status, parent_id, period")
       .order("number"),
     supabase.from("clients").select("id, name, status, agency_id").order("name"),
+    // The month on screen, that page of it. Never the whole table.
     tab === "hours"
       ? supabase
           .from("service_entries")
           .select("id, auth_id, date, hours, non_billable, notes, primary_code, secondary_code, staff_id")
+          .gte("date", monthStart)
+          .lt("date", monthEnd)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .range(logPage * LOG_PAGE, logPage * LOG_PAGE + LOG_PAGE - 1)
       : Promise.resolve({ data: [] as never[] }),
     readBillingOffices(supabase),
     // §13.13: the rate comes from the schedule, which Admin can change, and
@@ -129,12 +164,26 @@ export default async function BillingPage({
     const authById = new Map(auths.map((a) => [a.id, a]));
     const hourly = auths.filter((a) => a.rate_type === "Hourly" && isLive(a.status) && a.parent_id === null);
 
-    const usedByAuth = new Map<string, number>();
-    for (const a of auths) usedByAuth.set(a.id, Number(a.carried_used ?? 0));
-    for (const e of entries) {
-      if (e.non_billable) continue;
-      usedByAuth.set(e.auth_id, (usedByAuth.get(e.auth_id) ?? 0) + Number(e.hours));
-    }
+    /**
+     * How many hours each authorization has used — from the database, not
+     * from the rows on this page.
+     *
+     * It was counted here, over whatever entries the page had loaded, per
+     * authorization and its own entries only. That was wrong twice over: it
+     * missed every hour logged on a coaching month (so a parent showing 40
+     * used read 0), and now that the log is one month at a time it would see
+     * only that month. authorization_hours_used (0205) is the same function
+     * check_entry_hours enforces with, so the figure the form shows is the
+     * figure the database will hold it to.
+     */
+    const { data: usedRows } = await supabase.rpc("authorization_hours_used", {
+      p_auths: auths.map((a) => a.id),
+    });
+    // A function's output columns are nullable to the type generator; this
+    // one never returns a null id, since it selects them from what was asked.
+    const usedByAuth = new Map<string, number>(
+      (usedRows ?? []).flatMap((r) => (r.auth_id ? [[r.auth_id, Number(r.used)] as [string, number]] : [])),
+    );
     const toOption = (a: (typeof auths)[number]): AuthOption => ({
       id: a.id,
       label: `${a.number || "(no number)"} · ${clientName.get(a.client_id) ?? "—"} · ${a.service_type}`,
@@ -204,6 +253,19 @@ export default async function BillingPage({
 
         {canLog && <ServiceEntryForm auths={hourly.map(toOption)} />}
 
+        {/* The month being read. Hours belong to a month everywhere else in
+            billing, so the log is read the same way. */}
+        <nav className="segmented no-print" aria-label="The month of hours shown">
+          <Link href={`/billing?tab=hours&month=${shiftMonth(monthStart, -1)}`}>Earlier</Link>
+          <span aria-current="page">
+            {new Date(`${monthStart}T00:00:00`).toLocaleDateString("en-US", {
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
+          <Link href={`/billing?tab=hours&month=${shiftMonth(monthStart, 1)}`}>Later</Link>
+        </nav>
+
         <div className="card" style={{ padding: 0 }}>
           <DataTable
             label="service entries"
@@ -216,9 +278,24 @@ export default async function BillingPage({
               { key: "notes", label: "Notes" },
             ]}
             rows={logRows}
-            empty="No hours logged yet. Hours can also be logged from the client's record, by whoever did the work."
+            empty="No hours logged in this month. Hours can also be logged from the client's record, by whoever did the work."
           />
         </div>
+
+        {(logPage > 0 || logRows.length === LOG_PAGE) && (
+          <nav className="pager no-print" aria-label="Pages of hours">
+            {logPage > 0 && (
+              <Link href={`/billing?tab=hours&month=${monthStart.slice(0, 7)}&page=${logPage - 1}`}>
+                Newer
+              </Link>
+            )}
+            {logRows.length === LOG_PAGE && (
+              <Link href={`/billing?tab=hours&month=${monthStart.slice(0, 7)}&page=${logPage + 1}`}>
+                Older
+              </Link>
+            )}
+          </nav>
+        )}
       </>
     );
   }

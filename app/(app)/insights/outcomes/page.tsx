@@ -84,7 +84,13 @@ export default async function OutcomesPage({
       .from("placements")
       .select("client_id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_paid"),
     supabase.from("billed_work").select("auth_id, billed_on, amount, paid, outstanding, paid_on, paid_amount, service_type"),
-    supabase.from("service_entries").select("auth_id, date, hours, non_billable"),
+    // The chosen period, which is what every figure here is about, rather
+    // than every hour the practice has ever logged.
+    supabase
+      .from("service_entries")
+      .select("auth_id, date, hours, non_billable")
+      .gte("date", period.start)
+      .lte("date", period.end),
     supabase.from("authorization_economics").select("auth_id, client_id, service_type, hours_used, received"),
     supabase.from("counselors").select("id, name"),
   ]);
