@@ -14,8 +14,23 @@
  * raising the other is the same bug again, and it fails here instead of on a
  * phone.
  *
+ * And with the limit that cannot be configured at all. The stress test on
+ * 16 Oct 2026 found the same failure still live on the staff and onboarding
+ * uploads, and the reason the first fix did not reach them is that
+ * bodySizeLimit was never the real ceiling: Vercel refuses a request body
+ * over 4.5 MB in its own infrastructure, and no Next setting raises it.
+ * bodySizeLimit: "25mb" was a promise the platform had never agreed to.
+ *
+ * So the comparison is against whichever is smaller - what we configured and
+ * what the platform allows. A screen that wants to carry more than that does
+ * not raise a number; it stops sending the bytes through a server action and
+ * uploads from the browser to storage instead, as the client record and the
+ * staff file both now do.
+ *
  * Routes under app/api are not server actions - they take the request
- * themselves and are not subject to that limit - so they are not counted.
+ * themselves - but they are served by the same infrastructure, so the 4.5 MB
+ * applies to them too. They are still not counted here, because several of
+ * them are agent endpoints that stream rather than take a body.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -33,6 +48,23 @@ if (!configured) {
 const bodyLimit = configured
   ? Number(configured[1]) * (configured[2].toLowerCase() === "mb" ? 1024 * 1024 : 1024)
   : 1024 * 1024;
+
+/**
+ * What the platform allows, whatever we configure.
+ *
+ * Vercel's own documentation gives 4.5 MB for a request body to a function,
+ * for Server Actions and Route Handlers alike, and says it cannot be raised.
+ */
+const PLATFORM_LIMIT = 4.5 * 1024 * 1024;
+const ceiling = Math.min(bodyLimit, PLATFORM_LIMIT);
+
+if (bodyLimit > PLATFORM_LIMIT) {
+  failures.push(
+    `next.config.mjs sets serverActions.bodySizeLimit to ${(bodyLimit / (1024 * 1024)).toFixed(1)} MB, ` +
+      `which is more than the ${(PLATFORM_LIMIT / (1024 * 1024)).toFixed(1)} MB the platform will carry. ` +
+      `A body over that is refused before any of our code runs, so the setting reads as a promise nobody keeps.`,
+  );
+}
 
 function walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -57,9 +89,15 @@ function walk(dir) {
     )) {
       const value = Number(new Function(`return ${expr}`)());
       if (!Number.isFinite(value)) continue;
-      if (value > bodyLimit) {
+      // Headroom, not equality. A multipart body is bigger than the file it
+      // carries - boundaries, headers, the other fields - so a promise that
+      // exactly equals the ceiling is still refused. 90% leaves room for an
+      // envelope without inviting anybody to cut it fine.
+      if (value > ceiling * 0.9) {
         failures.push(
-          `${rel} accepts files up to ${(value / (1024 * 1024)).toFixed(1)} MB (${name}), but a server action's body limit is ${(bodyLimit / (1024 * 1024)).toFixed(1)} MB. The bigger promise is the one nobody can keep.`,
+          `${rel} accepts files up to ${(value / (1024 * 1024)).toFixed(1)} MB (${name}), ` +
+            `but a server action can carry ${(ceiling / (1024 * 1024)).toFixed(1)} MB and the body is bigger than the file inside it. ` +
+            `Upload from the browser to storage instead, as app/(app)/staff-file-upload.ts does.`,
         );
       }
     }

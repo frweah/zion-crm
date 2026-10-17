@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentStaff } from "@/lib/session";
+import { dateComplaint } from "@/lib/constants";
 
 export type FileState = { error: string | null; ok: string | null; url?: string };
 
@@ -36,9 +37,10 @@ export async function recordAttachment(
   // list (0203) and attachments.category is a foreign key to it, so an
   // unknown one is refused by the database rather than by a copy of the list
   // kept in this file. That copy is what drifted last time.
-  if (documentDate && !/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) {
-    return { error: "That date does not look right.", ok: null };
-  }
+  // A year is the commonest thing to slip on a date field, and the shape
+  // test alone accepts 0226 (stress test finding 8).
+  const dateProblem = dateComplaint(documentDate, "The date on the document");
+  if (dateProblem) return { error: dateProblem, ok: null };
 
   const supabase = await createClient();
   const { error } = await supabase.from("attachments").insert({
@@ -193,9 +195,9 @@ export async function editAttachment(
   const documentDate = String(formData.get("document_date") ?? "").trim();
 
   if (!filename) return { error: "A document needs a name.", ok: null };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) {
-    return { error: "That date does not look right.", ok: null };
-  }
+  if (!documentDate) return { error: "A document needs the date on it.", ok: null };
+  const dateProblem = dateComplaint(documentDate, "The date on the document");
+  if (dateProblem) return { error: dateProblem, ok: null };
 
   const supabase = await createClient();
   const { data, error } = await supabase

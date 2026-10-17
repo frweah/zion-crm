@@ -39,7 +39,11 @@ export const emptyImport: ImportState = {
 };
 
 /** Ten megabytes. A two-page authorization is a few hundred kilobytes. */
-const MAX_BYTES = 10 * 1024 * 1024;
+// 3 MB, inside what a server action can actually carry: the platform
+// refuses a request body over 4.5 and no setting raises it. An authorization
+// PDF is a few hundred KB; a 10 MB one was a promise that ended in a crash
+// rather than in this sentence (stress test finding 7).
+const MAX_BYTES = 3 * 1024 * 1024;
 
 /**
  * Read an authorization, and propose what it says.
@@ -67,7 +71,7 @@ export async function readAuthorization(
     return { ...emptyImport, error: "Choose the authorization PDF first." };
   }
   if (file.size > MAX_BYTES) {
-    return { ...emptyImport, error: "That file is over 10MB — larger than any authorization." };
+    return { ...emptyImport, error: "That file is over 3MB — larger than any authorization. Scan it at a lower resolution, or put it on the client's record and read it from there." };
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());

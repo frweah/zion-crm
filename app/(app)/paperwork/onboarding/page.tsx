@@ -237,7 +237,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
               />
             </div>
           )}
-          {employment && <IdentityUpload employee={employee} />}
+          {employment && <IdentityUpload employee={employee} staffId={me.id} />}
         </section>
       )}
 
@@ -277,7 +277,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
                     </span>
                   ),
                   add: (
-                    <CredentialForm typeKey={c.type_key!} label={c.label ?? ""} expires={expiresOf.get(c.type_key!) ?? true} />
+                    <CredentialForm typeKey={c.type_key!} label={c.label ?? ""} expires={expiresOf.get(c.type_key!) ?? true} staffId={me.id} />
                   ),
                 },
                 sort: { what: c.label, state: c.state },

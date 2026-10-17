@@ -6,18 +6,14 @@ import { getCurrentStaff } from "@/lib/session";
 
 export type DocumentState = { error: string | null; ok: string | null; url?: string };
 
-/** 25MB, matching the bucket. A scanned certificate is a few hundred KB. */
-const MAX_BYTES = 25 * 1024 * 1024;
-
-const ALLOWED = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/heic",
-  "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
+/**
+ * The bytes no longer come through here.
+ *
+ * They went from the browser straight into the bucket before this was called
+ * - see app/(app)/staff-file-upload.ts for why. What arrives is where the
+ * file landed, and this records it, checks who may, and takes the file back
+ * out again if the row is refused.
+ */
 
 /**
  * Put a document on somebody's file.
@@ -40,22 +36,16 @@ export async function uploadStaffDocument(
   const staffId = String(formData.get("staff_id") ?? "").trim() || me.id;
   const category = String(formData.get("category") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
-  const file = formData.get("file");
+  const path = String(formData.get("storage_path") ?? "").trim();
+  const filename = String(formData.get("filename") ?? "").trim();
+  const mimeType = String(formData.get("mime_type") ?? "");
+  const sizeBytes = Number(formData.get("size_bytes") ?? 0);
 
   if (staffId !== me.id && me.role !== "Admin") {
     return { error: "You can add to your own file; Admin can add to anybody's.", ok: null };
   }
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Choose a file first.", ok: null };
-  }
-  if (file.size > MAX_BYTES) {
-    return { error: "That file is over 25MB. Scan it at a lower resolution and try again.", ok: null };
-  }
-  if (!ALLOWED.includes(file.type)) {
-    return {
-      error: "That kind of file is not accepted — a PDF, a photograph or a Word document.",
-      ok: null,
-    };
+  if (!path || !filename) {
+    return { error: "The upload did not complete. Nothing was recorded.", ok: null };
   }
   if (!category) return { error: "What kind of document is it?", ok: null };
 
@@ -82,23 +72,12 @@ export async function uploadStaffDocument(
     };
   }
 
-  // Namespaced by person and stamped, so two people uploading "scan.pdf" on
-  // the same day do not collide and nothing is overwritten by accident.
-  const safe = file.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-80);
-  const path = `${staffId}/${Date.now()}-${safe}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("staff-files")
-    .upload(path, file, { contentType: file.type, upsert: false });
-
-  if (uploadError) return { error: `That did not upload. ${uploadError.message}`, ok: null };
-
   const { error } = await supabase.from("staff_files").insert({
     staff_id: staffId,
     storage_path: path,
-    filename: file.name,
-    mime_type: file.type,
-    size_bytes: file.size,
+    filename,
+    mime_type: mimeType,
+    size_bytes: sizeBytes,
     category,
     note,
     uploaded_by: me.id,
@@ -251,17 +230,13 @@ export async function replaceStaffDocument(
   if (!me) return { error: "You are not signed in.", ok: null };
 
   const fileId = String(formData.get("file_id") ?? "").trim();
-  const file = formData.get("file");
+  const path = String(formData.get("storage_path") ?? "").trim();
+  const filename = String(formData.get("filename") ?? "").trim();
+  const mimeType = String(formData.get("mime_type") ?? "");
+  const sizeBytes = Number(formData.get("size_bytes") ?? 0);
 
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file first.", ok: null };
-  if (file.size > MAX_BYTES) {
-    return { error: "That file is over 25MB. Scan it at a lower resolution and try again.", ok: null };
-  }
-  if (!ALLOWED.includes(file.type)) {
-    return {
-      error: "That kind of file is not accepted — a PDF, a photograph or a Word document.",
-      ok: null,
-    };
+  if (!path || !filename) {
+    return { error: "The upload did not complete. Nothing was replaced.", ok: null };
   }
 
   const supabase = await createClient();
@@ -297,21 +272,18 @@ export async function replaceStaffDocument(
     };
   }
 
-  const safe = file.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-80);
-  const path = `${row.staff_id}/${Date.now()}-${safe}`;
-  const { error: uploadError } = await supabase.storage
-    .from("staff-files")
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: `That did not upload. ${uploadError.message}`, ok: null };
-
+  // The replacement is already in the bucket, under the owner's folder: the
+  // browser put it there, and the storage policy decided whether it could.
+  // What is left is to check that this person may replace *this* document,
+  // which is what everything above does.
   const was = row.filename;
   const { error } = await supabase
     .from("staff_files")
     .update({
       storage_path: path,
-      filename: file.name,
-      mime_type: file.type,
-      size_bytes: file.size,
+      filename,
+      mime_type: mimeType,
+      size_bytes: sizeBytes,
     })
     .eq("id", fileId);
 
@@ -328,7 +300,7 @@ export async function replaceStaffDocument(
   await supabase.rpc("log_staff_document", {
     p_staff: row.staff_id,
     p_action: "Edited",
-    p_changes: { filename: { from: was, to: file.name } },
+    p_changes: { filename: { from: was, to: filename } },
     p_note: String(formData.get("note") ?? "").trim(),
   });
 

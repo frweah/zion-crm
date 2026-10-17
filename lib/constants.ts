@@ -86,6 +86,39 @@ export function today(): string {
   }).format(new Date());
 }
 
+/**
+ * Whether a date is one somebody meant.
+ *
+ * `/^\d{4}-\d{2}-\d{2}$/` was the whole of date validation in several places,
+ * and it accepts 0226-03-14 and 9999-12-31. A slipped year is the commonest
+ * typing mistake there is on a date field, and in this system it is not
+ * cosmetic: an authorization dated backwards is reported expired for ever and
+ * raises an alert nobody can clear, and one dated forwards never falls due
+ * and is never billed, with nothing to say so (stress test finding 8).
+ *
+ * The same window the database holds (0210): not before 1990, not more than
+ * five years ahead. The database is where the rule really lives, because the
+ * intake cron and the filing rules read dates off documents rather than off a
+ * form — this is so a person gets a sentence instead of a database error.
+ */
+export const DATE_FLOOR = "1990-01-01";
+
+export function dateCeiling(): string {
+  const d = new Date(`${today()}T00:00:00`);
+  d.setFullYear(d.getFullYear() + 5);
+  return d.toISOString().slice(0, 10);
+}
+
+/** The complaint, or null when the date is fine. Blank is fine; absent is not wrong. */
+export function dateComplaint(value: string, what = "That date"): string | null {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${what} does not look right.`;
+  if (value < DATE_FLOOR || value > dateCeiling()) {
+    return `${what} is ${value}. A date here is between ${DATE_FLOOR} and ${dateCeiling()} — check the year.`;
+  }
+  return null;
+}
+
 /** Currency, matching the prototype's money(). */
 export function money(n: number | null | undefined): string {
   return (

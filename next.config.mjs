@@ -35,7 +35,7 @@ const nextConfig = {
    * so this is the ceiling for a large PDF rather than the everyday case.
    */
   experimental: {
-    serverActions: { bodySizeLimit: "25mb" },
+    serverActions: { bodySizeLimit: "4mb" },
   },
   /**
    * Screens that moved. Anything anybody bookmarked, linked in an email, or

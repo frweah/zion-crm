@@ -20,7 +20,9 @@ export type BooksState = { error: string | null; ok: string | null };
  * Parsing it in SQL would be a party trick, and parsing it in the browser
  * would mean trusting the browser about what the bank said.
  */
-const MAX_STATEMENT_BYTES = 8 * 1024 * 1024;
+// 3 MB, inside what a server action can actually carry (stress test
+// finding 7). A bank statement is tens of KB.
+const MAX_STATEMENT_BYTES = 3 * 1024 * 1024;
 
 async function admin(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; error: string | null }> {
   const me = await requireStaff();
@@ -190,7 +192,7 @@ export async function importStatement(_prev: BooksState, formData: FormData): Pr
   if (!from || !to) return { error: "Say what the statement covers.", ok: null };
   if (!(file instanceof File) || file.size === 0) return { error: "Choose the file the bank gave you.", ok: null };
   if (file.size > MAX_STATEMENT_BYTES) {
-    return { error: "That file is over 8MB, which is far larger than any statement.", ok: null };
+    return { error: "That file is over 3MB, which is far larger than any statement.", ok: null };
   }
 
   const parsed = parseStatement(file.name, await file.text());

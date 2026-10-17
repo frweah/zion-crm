@@ -12,9 +12,6 @@ export type OnboardingState = { error: string | null; ok: string | null };
 
 const PATH = "/paperwork/onboarding";
 
-/** 25MB, the bucket's limit, and the kinds of file a phone or scanner makes. */
-const MAX_BYTES = 25 * 1024 * 1024;
-const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/heic", "image/webp"];
 
 /** Which file category the scan behind a credential goes under. */
 const CARD_CATEGORY: Record<string, string> = {
@@ -73,32 +70,46 @@ export async function savePersonalDetails(_prev: OnboardingState, formData: Form
 }
 
 // ── 2 and 3. uploading a scan to your own file ──────────────
+/**
+ * Records a scan the browser has already put in the bucket.
+ *
+ * The bytes used to come through this server action, which could not carry
+ * them: Vercel caps a request body at 4.5 MB in its own infrastructure and
+ * bodySizeLimit cannot raise it, so the 25 MB this screen offered was refused
+ * before any of this ran. That is the failure Melanie met on a phone, and it
+ * was still here (stress test finding 7, owner 16 Oct 2026).
+ */
+/** Where the browser put the scan, as the form reports it. */
+function uploadedFrom(formData: FormData) {
+  return {
+    path: String(formData.get("storage_path") ?? "").trim(),
+    filename: String(formData.get("filename") ?? "").trim(),
+    mimeType: String(formData.get("mime_type") ?? ""),
+    sizeBytes: Number(formData.get("size_bytes") ?? 0),
+  };
+}
+
 async function uploadOwn(
   staffId: string,
-  file: FormDataEntryValue | null,
+  upload: { path: string; filename: string; mimeType: string; sizeBytes: number },
   category: string,
   note: string,
 ): Promise<{ id: string } | { error: string }> {
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file first." };
-  if (file.size > MAX_BYTES) return { error: "That file is over 25MB. Scan it at a lower resolution and try again." };
-  if (!ALLOWED.includes(file.type)) return { error: "That kind of file is not accepted - a PDF or a photograph." };
+  if (!upload.path || !upload.filename) {
+    return { error: "The upload did not complete. Nothing was recorded." };
+  }
 
   const supabase = await createClient();
-  const safe = file.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-80);
-  const path = `${staffId}/${Date.now()}-${safe}`;
-  const { error: uploadError } = await supabase.storage
-    .from("staff-files")
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: `That did not upload. ${uploadError.message}` };
+  const path = upload.path;
 
   const { data, error } = await supabase
     .from("staff_files")
     .insert({
       staff_id: staffId,
       storage_path: path,
-      filename: file.name,
-      mime_type: file.type,
-      size_bytes: file.size,
+      filename: upload.filename,
+      mime_type: upload.mimeType,
+      size_bytes: upload.sizeBytes,
       category,
       note,
       uploaded_by: staffId,
@@ -125,7 +136,7 @@ export async function uploadIdentityDocument(_prev: OnboardingState, formData: F
 
   const result = await uploadOwn(
     me.id,
-    formData.get("file"),
+    uploadedFrom(formData),
     employee ? "I-9" : "Identity document",
     employee ? "I-9 document - in-person inspection still required" : "Photo ID",
   );
@@ -156,7 +167,7 @@ export async function submitCredential(_prev: OnboardingState, formData: FormDat
   if (!type) return { error: "Unknown credential.", ok: null };
   if (type.expires && !expires) return { error: `A ${type.label} expires - put the date from the card.`, ok: null };
 
-  const uploaded = await uploadOwn(me.id, formData.get("file"), CARD_CATEGORY[typeKey], `${type.label}, put forward during onboarding`);
+  const uploaded = await uploadOwn(me.id, uploadedFrom(formData), CARD_CATEGORY[typeKey], `${type.label}, put forward during onboarding`);
   if ("error" in uploaded) return { error: uploaded.error, ok: null };
 
   const { error } = await supabase.rpc("submit_own_credential", {

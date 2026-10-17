@@ -3873,3 +3873,264 @@ and stubbing auth to get there means editing files, which this brief ruled out.
   practice uses.
 - **Nothing here has been changed.** Eleven findings and their proposed fixes,
   waiting.
+
+---
+
+## The eight findings, fixed — 16 October 2026
+
+*Owner: fix all eight stress-test findings in that order, with a verify script
+or check for each so they cannot come back. Filter and paginate the Hours and
+client lists. Claim the scheduled text before sending. And measure, inside one
+rolled-back transaction, the way verify_0_messaging_load.sql does.*
+
+Five migrations (0205–0210), six new verify scripts, two new checks, and the
+measurement the first report could not take.
+
+### What the measurement says
+
+500 clients, 2,000 authorizations, 20,000 logged hours, 5,000 documents,
+1,781 job matches, seeded and timed inside one `begin … rollback` on the
+production instance. Best of three, as each role, with RLS applied.
+
+| | rows | before | after |
+|---|---|---|---|
+| Billing: the working list | 1,514 | **4,206 ms** | 543 ms |
+| Clients list: last activity | 50 of 595 | 451 ms | **10.8 ms** |
+| Billing → Hours | 20,000 → 60 | 464 ms | 81 ms |
+| Client record: their billing | 3 | (the 4,206 ms above) | 19 ms |
+| Home: the billing tile | 1,514 | (the same shape) | 226 ms |
+
+And the ones that were never the problem, which matters just as much:
+
+| | rows | ms |
+|---|---|---|
+| Home: every client, ordered | 595 | 2.8 |
+| Clients list: the client rows | 595 | 0.7 |
+| Clients list: every job match | 1,781 | 0.6 |
+| One client's documents | 10 | 0.4 |
+
+**Exactly one thing was over a second, and it was the working list.** The
+first report predicted that by arithmetic and was right about it; it was
+wrong, or at least overstated, about the client lists. Reading every client
+costs 0.7 ms at five times the current caseload. Paginating *that* would have
+bought nothing — the activity view beside it was the whole of that screen's
+time.
+
+Absolute figures move between runs on a shared instance (the hours-used
+figure came back 293 ms on one run and 547 ms on another). The ratios are the
+finding; the single numbers are not.
+
+### 1. The hubs open
+
+`/work`, `/communication` and `/hr` were reachable by **nobody**. `canReach`
+was built from `reachableFor`, which flattens nav *items*, and a hub belongs
+to the *group* — so the layout gate redirected every hub to Home, for every
+role. Three of the four tabs on the phone bar and three sidebar headings
+point straight at them.
+
+`canReach` now grants a group's hub to whoever can see the group. Exactly,
+not by prefix: a hub is a landing page and owns no screens beneath it.
+
+**Why the check passed.** `check-nav.mjs` asserted that a hub *has a page*.
+The rule is whether anybody can *open* it. It now asks `canReach` itself, for
+every role, in both directions — a role that sees the group reaches its hub,
+a role that does not cannot. With the fix reverted it fails eighteen times.
+
+A stale comment in `lib/roles.ts` claimed these addresses "redirect to their
+first screen (next.config.mjs)". They do not; there is no such redirect, and
+`hub-page.tsx` renders real card pages. The comment described a design that
+had been replaced.
+
+### 2. Billing → Hours reads a month at a time
+
+It asked `service_entries` for every row ever logged — no filter, no limit —
+and serialised the lot into the page. It reads one month, sixty rows to a
+page, with Earlier/Later and Newer/Older.
+
+The hours-used figure the logging form shows no longer comes from those rows.
+It came from counting them in TypeScript, per authorization and its own
+entries only, which **missed every hour logged on a coaching month** — a
+parent with 40 hours against it displayed 0 used, while the database refused
+the next entry. It now comes from `authorization_hours_used` (0205), which is
+the same function `check_entry_hours` enforces with, so the form and the
+database cannot disagree.
+
+### 3. The working list counts once
+
+`billing_worklist` called `authorization_amount` and `authorization_attention`
+**once per row**, and both read `service_entries` — the second through an `OR`
+across a join, the shape that stops an index being used. It ran in three
+places: Billing, Home's tile for Admin and Billing, and every client record's
+billing tab, which fetched the whole practice's list and then threw away
+everybody else's rows in JavaScript.
+
+Both are set-wise now (`authorization_amount_for`,
+`authorization_attention_for`), and the single-row functions are kept as thin
+wrappers over them, so there is still one definition of each rule and the
+authorization record cannot drift from the list. `verify_worklist_counts_once`
+asserts they agree about **every authorization on file**, not about a fixture.
+
+`billing_worklist` takes a client, and the client record passes it.
+
+One correction carried in: the old attention query read carried hours as
+`coalesce(parent.carried_used, own.carried_used, 0)`, while `check_entry_hours`
+reads them from the root alone. A coaching month carries no hours of its own,
+so the root is right, and this now matches what the database enforces.
+
+### 4. Last activity, for the clients on the page
+
+The obvious fix did not work, and the measurement is why it is a function and
+not a `WHERE` clause:
+
+- `client_last_activity`, every client — 595 rows, 451 ms
+- `client_last_activity`, 50 ids — 50 rows, 358 ms
+- `client_last_activity_for(50 ids)` — 50 rows, **10.8 ms**
+
+The twelve unions are built in full and *then* filtered, so narrowing the
+question does not narrow the work. 0207 pushes the client ids inside each
+branch, which makes every one an indexed lookup.
+
+`verify_last_activity` already existed and tested something I had not thought
+of — that a note kept to Admin moves the date for Admin **and nobody else**.
+I overwrote it by accident and recovered it from git; it now asks both
+readers the same questions as both roles, including that one. A faster answer
+that quietly shows more is not the same answer, and that is the way this
+change could have gone wrong.
+
+The job matches are narrowed to the clients shown. The client rows are not
+paginated, and the measurement is the reason: 0.7 ms for 595. The display has
+paged at fifty all along.
+
+**A new check**, `check-unbounded-reads`, fails any read of a table that grows
+with the work — rather than with the caseload — unless it is bounded by a
+filter, a page or a limit. Its first version read the chain to the next line
+starting with `supabase.`, so a query written across lines never ended and the
+*next* query's filter was read as this one's — and `client_last_activity`, the
+most expensive unbounded read in the codebase, came back clean. It counts
+brackets now. It then found four more: both Insights screens read every hour
+ever logged while showing a period, the leads board read every match on file,
+and `readPayments` had an optional bound that nothing ever used.
+
+### 5. Two people logging hours at once
+
+`check_entry_hours` counted the hours used and then decided whether one more
+fitted, with nothing holding the authorization in between. Two coaches logging
+at the same moment both read the same figure and both got in — and hours past
+the authorized total are hours the practice cannot bill, found at submission,
+after the work is done.
+
+The root authorization is locked before its hours are counted. It serialises
+only entries against the same family; two coaches on different clients never
+wait for each other.
+
+**Testing it took three attempts, and the first two were wrong.** The obvious
+assertion — a row locked by this transaction carries its id in `xmax` — passes
+whether the fix is there or not, because inserting a service entry takes a
+`FOR KEY SHARE` lock on its authorization for the foreign key anyway. That
+script was written, passed, and thrown away. Replacing the guard inside the
+first transaction to prove the control does not work either: the second
+session then blocks on the *catalogue* rather than on the row, so it blocks
+for the wrong reason.
+
+So `scripts/check-hours-race.mjs` races two real connections, and its control
+is two sessions working on *different* authorizations, which must not wait for
+each other. Both transactions roll back; nothing is written.
+`verify_hours_race.sql` carries the rest and says plainly which of its
+assertions is structural and why.
+
+### 6. A scheduled text is claimed before it is sent
+
+`sendScheduledTexts` read the due rows, sent them, and *then* deleted them.
+Two overlapping runs — Vercel cron delivers at least once, and the `curl`
+command in the route's own comment can be run alongside the schedule — both
+read the same rows and both sent. The client got the message twice.
+
+`claim_scheduled_text` is a conditional update, which is the lock: Postgres
+serialises the two runs on the row and only one finds it still `Scheduled`.
+
+Which needed a way back. A run that dies between claiming and sending would
+leave a text claimed for ever and never sent — a silent failure, worse than
+the double send it replaced. So `claimed_at`, and anything still `Sending`
+after fifteen minutes is handed back. `verify_text_claim` asserts both halves,
+including that a claim made a moment ago is *not* handed back, since that
+would be the double send by another route.
+
+### 7. The 25 MB upload was never possible
+
+This one turned out worse than reported, and the reported fix would have been
+the wrong one.
+
+The first report said the promise and the limit were exactly equal, and that
+adding headroom would fix it. They were — but `bodySizeLimit` was never the
+real ceiling. **Vercel refuses a request body over 4.5 MB in its own
+infrastructure, and no Next setting raises it.** `bodySizeLimit: "25mb"` was a
+promise the platform had never agreed to, so every staff and onboarding upload
+above 4.5 MB died before any of our code ran — which is Melanie's failure from
+30 September, still live on these paths after the one it was found on was
+fixed.
+
+So the bytes no longer go through a server action. Staff documents, document
+replacement, and onboarding identity and credential scans upload from the
+browser straight into the bucket, exactly as the client record already did —
+`add-file.tsx`'s own comment says a 25 MB scan has no business passing through
+a server action. The storage policy from 0198 already allowed precisely this,
+so who may upload is unchanged; only which machine sends the bytes. The 25 MB
+these screens promise is now reachable for the first time.
+
+`check-upload-limits.mjs` was asking the wrong question entirely. It now
+compares every promise against whichever is smaller — what we configured or
+what the platform carries — and requires headroom rather than equality,
+because a multipart body is bigger than the file inside it. It immediately
+found two more: the authorization PDF import promised 10 MB and the bank
+statement reader 8 MB, both through server actions. Those two are honest at
+3 MB for now with a sentence that says what to do; moving them to
+browser-direct is the better fix and is left below.
+
+`serverActions.bodySizeLimit` is `4mb`, which is a number the platform will
+actually honour.
+
+### 8. A date has to be one somebody meant
+
+Date validation was `/^\d{4}-\d{2}-\d{2}$/`, which accepts `0226-03-14`, and
+the schema contained exactly one date range in it (`staff_personal_dob`).
+
+A slipped year goes one of two ways and both are quiet. Backwards puts
+`stale_date` centuries past, so the authorization is reported expired for ever
+and raises an alert that doing the work cannot clear. Forwards means `bill_by`
+never arrives, so it never falls Due, never reaches the working list, and is
+never billed — with nothing at all to say so. That is the expensive one.
+
+A date now has to be between 1990 and five years ahead, on an authorization's
+nine date columns, on a document's date, and on an hour. In the database,
+because the rule has to hold however the row arrives — the intake cron reads
+dates off a PDF and the filing rules read them off a file name, and neither
+goes through a form. A trigger rather than a CHECK, because the window moves
+with today.
+
+Only on the way in: a row already on file whose date is outside the window can
+still be edited, and keeps it. Nothing on file is outside it today — that was
+checked before the rule was added. `dateComplaint()` gives the same answer in
+TypeScript so a person gets a sentence rather than a database error.
+
+### The sidebar mark
+
+The artwork is a full-colour gradient and **31.6% of its opaque pixels are
+teal or blue** — measured, not eyeballed — so it is not the plate. It is drawn
+as a single-colour silhouette through its own alpha, filled with `--side-ink`
+on `--side-bg`: the theme's white on the sidebar's green, in both modes. Three
+quarters of the PNG is transparent, including the gaps between the leaves and
+inside the ring, so the silhouette keeps its structure at 36px. No new colour,
+which `check-theme` already enforces.
+
+### Left for the owner
+
+- **Two uploads still pass bytes through a server action** and are now capped
+  at 3 MB: the authorization PDF import and the bank statement reader. Both
+  parse rather than store, so the fix is to upload to storage from the browser
+  and read it from there. Say the word and it is a short piece of work.
+- **`Home: next actions for 50 clients` is 356 ms** at ten times the size.
+  Under the budget and not one of the eight, but it is the next thing on the
+  list if Home ever feels slow.
+- **The 4.5 MB platform ceiling applies to API routes too**, including the
+  agent upload endpoints. They were not counted here because several stream
+  rather than take a body, and I have not checked them one by one.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { putStaffFile, describe, ALLOWED_STAFF_FILE_TYPES } from "../../staff-file-upload";
 import {
   savePersonalDetails,
   uploadIdentityDocument,
@@ -118,8 +119,15 @@ export function PersonalForm({ personal, today }: { personal: Personal; today: s
  * Shrinking happens here, in the browser: it is faster over a phone's
  * connection, it costs the server nothing, and what is stored is the size of
  * the thing being read rather than the size of the camera that read it.
+ *
+ * And since 16 Oct 2026 the file never goes to the server at all. Shrinking
+ * bought room under a limit that could not be raised: Vercel refuses a
+ * request body over 4.5 MB in its own infrastructure, whatever
+ * bodySizeLimit says, so a scan near the 25 MB the screen promised would
+ * still have died before any of our code ran. It goes from here straight
+ * into the bucket, and only its name goes to the server.
  */
-function usePreparedUpload(action: (formData: FormData) => void) {
+function usePreparedUpload(staffId: string, action: (formData: FormData) => void) {
   const [preparing, setPreparing] = useState(false);
   const [trouble, setTrouble] = useState<string | null>(null);
 
@@ -142,7 +150,15 @@ function usePreparedUpload(action: (formData: FormData) => void) {
       setTrouble(complaint);
       return;
     }
-    formData.set("file", ready);
+    setPreparing(true);
+    const put = await putStaffFile(ready, staffId, { allowed: ALLOWED_STAFF_FILE_TYPES });
+    setPreparing(false);
+    if ("error" in put) {
+      setTrouble(put.error);
+      return;
+    }
+    formData.delete("file");
+    for (const [k, v] of Object.entries(describe(ready, put.path))) formData.set(k, v);
     action(formData);
   }
 
@@ -150,9 +166,9 @@ function usePreparedUpload(action: (formData: FormData) => void) {
 }
 
 // ── 2 ───────────────────────────────────────────────────────
-export function IdentityUpload({ employee }: { employee: boolean }) {
+export function IdentityUpload({ employee, staffId }: { employee: boolean; staffId: string }) {
   const [state, action, pending] = useActionState(uploadIdentityDocument, initial);
-  const { submit, preparing, trouble } = usePreparedUpload(action);
+  const { submit, preparing, trouble } = usePreparedUpload(staffId, action);
   return (
     <form action={submit} style={{ marginTop: 12 }}>
       <Message state={state} />
@@ -171,9 +187,9 @@ export function IdentityUpload({ employee }: { employee: boolean }) {
 }
 
 // ── 3 ───────────────────────────────────────────────────────
-export function CredentialForm({ typeKey, label, expires }: { typeKey: string; label: string; expires: boolean }) {
+export function CredentialForm({ typeKey, label, expires, staffId }: { typeKey: string; label: string; expires: boolean; staffId: string }) {
   const [state, action, pending] = useActionState(submitCredential, initial);
-  const { submit, preparing, trouble } = usePreparedUpload(action);
+  const { submit, preparing, trouble } = usePreparedUpload(staffId, action);
   const [open, setOpen] = useState(false);
   if (!open) {
     return (

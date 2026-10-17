@@ -214,9 +214,13 @@ export async function sendScheduledTexts(
 ): Promise<{ sent: number; failed: number; errors: string[] }> {
   const result = { sent: 0, failed: 0, errors: [] as string[] };
 
+  // Anything a run that died left claimed comes back first, or it would sit
+  // in Sending for good and never be sent (0209).
+  await supabase.rpc("release_stale_text_claims");
+
   const { data: due, error } = await supabase
     .from("sms_messages")
-    .select("id, client_id, phone, body, kind, created_by")
+    .select("id")
     .eq("status", "Scheduled")
     .lte("send_after", new Date().toISOString())
     .limit(100);
@@ -225,36 +229,54 @@ export async function sendScheduledTexts(
     return result;
   }
 
-  for (const row of due ?? []) {
-    if (!row.client_id) continue;
+  for (const found of due ?? []) {
+    /**
+     * Taken before it is sent, not after.
+     *
+     * Two runs overlapping — Vercel cron delivers at least once, and the
+     * curl command in the route's own comment can be run alongside the
+     * schedule — both used to read this row and both used to send it. The
+     * conditional update is the lock: Postgres serialises the two on the
+     * row and only one of them finds it still Scheduled. Whoever loses skips
+     * it rather than sending a second copy to the client.
+     */
+    const { data: claimedRows } = await supabase.rpc("claim_scheduled_text", { p_id: found.id });
+    const row = claimedRows?.[0];
+    if (!row) continue;
+
+    // A function's output columns are nullable to the type generator, and a
+    // text with no number or no words could not be sent anyway.
+    const { id, client_id: clientId, phone, body } = row;
+    if (!id || !clientId || !phone || !body) continue;
+
     const { data: client } = await supabase
       .from("clients")
       .select("name, ghl_id")
-      .eq("id", row.client_id)
+      .eq("id", clientId)
       .maybeSingle();
 
     // Sent as a new message and the scheduled one closed, so the gate runs
     // again rather than being remembered from last night.
     const outcome = await sendClientSms(supabase, {
-      clientId: row.client_id,
+      clientId,
       clientName: client?.name ?? "",
-      phone: row.phone,
-      body: row.body,
+      phone,
+      body,
       kind: "Manual",
       staffId: row.created_by,
       ghlId: client?.ghl_id ?? null,
     });
 
     if (outcome.ok) {
-      await supabase.from("sms_messages").delete().eq("id", row.id);
+      await supabase.from("sms_messages").delete().eq("id", id);
       result.sent += 1;
     } else {
       await supabase
         .from("sms_messages")
-        .update({ status: "Failed", error: outcome.error.slice(0, 300) })
-        .eq("id", row.id);
+        .update({ status: "Failed", error: outcome.error.slice(0, 300), claimed_at: null })
+        .eq("id", id);
       result.failed += 1;
-      result.errors.push(`${client?.name ?? row.phone}: ${outcome.error}`);
+      result.errors.push(`${client?.name ?? phone}: ${outcome.error}`);
     }
   }
   return result;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   uploadStaffDocument,
   openStaffDocument,
@@ -10,6 +10,7 @@ import {
   type DocumentState,
 } from "./document-actions";
 import { DataTable } from "../../data-table";
+import { putStaffFile, describe } from "../../staff-file-upload";
 
 const initial: DocumentState = { error: null, ok: null };
 
@@ -81,8 +82,36 @@ export function OpenButton({ id }: { id: string }) {
  * is not replaceable: the server refuses it, and the button is not drawn.
  */
 function ReplaceButton({ doc }: { doc: DocRow }) {
-  const [state, action, pending] = useActionState(replaceStaffDocument, initial);
+  const [state, setState] = useState<DocumentState>(initial);
+  const [pending, setPending] = useState(false);
   const [open, setOpen] = useState(false);
+
+  /**
+   * The file goes to the bucket from here, and only what it is called goes
+   * to the server. A request body over 4.5 MB never reaches a server action
+   * on Vercel, whatever bodySizeLimit says, so a scan sent that way was
+   * refused before any of our code could say anything useful about it.
+   */
+  async function replace(formData: FormData) {
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      setState({ error: "Choose a file first.", ok: null });
+      return;
+    }
+    setPending(true);
+    setState(initial);
+    const put = await putStaffFile(file, doc.staff_id);
+    if ("error" in put) {
+      setState({ error: put.error, ok: null });
+      setPending(false);
+      return;
+    }
+    const meta = new FormData();
+    meta.set("file_id", doc.id);
+    for (const [k, v] of Object.entries(describe(file, put.path))) meta.set(k, v);
+    setState(await replaceStaffDocument(initial, meta));
+    setPending(false);
+  }
 
   if (!open) {
     return (
@@ -98,8 +127,7 @@ function ReplaceButton({ doc }: { doc: DocRow }) {
   }
 
   return (
-    <form action={action} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-      <input type="hidden" name="file_id" value={doc.id} />
+    <form action={replace} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
       <input
         id={`replace-${doc.id}`}
         name="file"
@@ -186,8 +214,36 @@ export function StaffDocuments({
   /** Somebody inactive: every document can be opened, and none added or removed. */
   readOnly?: boolean;
 }) {
-  const [state, action, pending] = useActionState(uploadStaffDocument, initial);
+  const [state, setState] = useState<DocumentState>(initial);
+  const [pending, setPending] = useState(false);
   const [adding, setAdding] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /** The bytes go straight to the bucket; the server records where. */
+  async function add(formData: FormData) {
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      setState({ error: "Choose a file first.", ok: null });
+      return;
+    }
+    setPending(true);
+    setState(initial);
+    const put = await putStaffFile(file, staffId);
+    if ("error" in put) {
+      setState({ error: put.error, ok: null });
+      setPending(false);
+      return;
+    }
+    const meta = new FormData();
+    meta.set("staff_id", staffId);
+    meta.set("category", String(formData.get("category") ?? ""));
+    meta.set("note", String(formData.get("note") ?? ""));
+    for (const [k, v] of Object.entries(describe(file, put.path))) meta.set(k, v);
+    const result = await uploadStaffDocument(initial, meta);
+    setState(result);
+    if (!result.error) formRef.current?.reset();
+    setPending(false);
+  }
 
   const uploadable = categories.filter((c) => !c.system_only);
 
@@ -211,8 +267,7 @@ export function StaffDocuments({
       {state.ok && <div className="alert ok" style={{ marginTop: 10 }}>{state.ok}</div>}
 
       {adding && (
-        <form action={action} style={{ marginTop: 10 }}>
-          <input type="hidden" name="staff_id" value={staffId} />
+        <form ref={formRef} action={add} style={{ marginTop: 10 }}>
           <div className="row2">
             <label className="field" style={{ maxWidth: 220 }}>
               What is it

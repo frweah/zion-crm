@@ -75,6 +75,8 @@ const RPC_FUNCTIONS = [
   "authorization_attention",
   "authorization_hours_used",
   "authorization_amount_for",
+  "claim_scheduled_text",
+  "release_stale_text_claims",
   "authorization_attention_for",
   "billing_needs_action",
   "service_date_for",

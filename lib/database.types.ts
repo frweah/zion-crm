@@ -4005,6 +4005,7 @@ export type Database = {
           created_by: string | null;
           provider_payload: Json | null;
           send_after: string | null;
+          claimed_at: string | null;
         };
         Insert: {
           id?: string;
@@ -4023,6 +4024,7 @@ export type Database = {
           created_by?: string | null;
           provider_payload?: Json | null;
           send_after?: string | null;
+          claimed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -4041,6 +4043,7 @@ export type Database = {
           created_by?: string | null;
           provider_payload?: Json | null;
           send_after?: string | null;
+          claimed_at?: string | null;
         };
         Relationships: [];
       };
@@ -6305,6 +6308,10 @@ export type Database = {
         Args: { p_staff: string | null; p_client: string | null };
         Returns: boolean;
       };
+      claim_scheduled_text: {
+        Args: { p_id: string | null };
+        Returns: { id: string | null; client_id: string | null; phone: string | null; body: string | null; kind: string | null; created_by: string | null }[];
+      };
       clear_my_signature: {
         Args: Record<string, never>;
         Returns: undefined;
@@ -6828,6 +6835,10 @@ export type Database = {
       refresh_onboarding: {
         Args: { p_staff: string | null };
         Returns: boolean;
+      };
+      release_stale_text_claims: {
+        Args: { p_older_than?: number | null };
+        Returns: number;
       };
       remove_message: {
         Args: { p_message: string | null };
