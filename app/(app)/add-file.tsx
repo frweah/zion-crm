@@ -244,8 +244,8 @@ export function AddFileForm({
           <p className="lock" style={{ margin: "10px 0 0" }}>
             Up to 50 MB. PDFs, images, Word, Excel and text files. The upload date is recorded by
             itself; the date above is the date on the paper. An ID, anything medical, a
-            guardianship or legal paper and the client&rsquo;s own financial documents start
-            restricted; anything else carrying disability or intake detail should be ticked.
+            guardianship or legal paper, a signed intake and the client&rsquo;s own financial
+            documents start restricted; anything else carrying disability detail should be ticked.
             {!canSeeRestricted &&
               (restrictedNote ??
                 " You cannot add restricted documents for this client, so that box is disabled.")}

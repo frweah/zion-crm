@@ -180,10 +180,10 @@ begin
 
   select string_agg(key, ', ' order by key) into v_text
     from public.client_file_categories where restricted_by_default;
-  if v_text is distinct from 'Financial document, Guardianship document, Identity document, Medical or psychological' then
+  if v_text is distinct from 'Financial document, Guardianship document, Identity document, Medical or psychological, Signed intake' then
     failures := failures || format('FAILED: the types that start restricted are %s', v_text)::text;
   else
-    raise notice 'ok  an ID, anything medical, a legal paper and the client''s own money start restricted';
+    raise notice 'ok  an ID, anything medical, a legal paper, the client''s own money and a signed intake start restricted';
   end if;
 
   -- An invoice does not. There are 130 on file and none restricted: they are
