@@ -65,6 +65,17 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M3 13h18" />
     </>
   ),
+  // HR: a person with a card. The practice's side of its people - who they
+  // are, what they are approved for, what their days said. My work keeps the
+  // case, because that is a person's own.
+  hr: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5" />
+      <rect x="15.5" y="4.5" width="6" height="8" rx="1.5" />
+      <path d="M17.5 7.5h2M17.5 10h2" />
+    </>
+  ),
   admin: (
     <>
       <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" />
@@ -110,10 +121,12 @@ PATHS.inbox = PATHS.mail;
 //
 // Work borrowed the people icon while Clients was one of its tabs. Clients is
 // its own tab now (15 Oct 2026), so it keeps the people and Work takes the
-// checklist it shares with HR - the two of them are a person's own work seen
-// from either end, and nothing else in the sidebar uses it.
+// case.
+//
+// My work has its own key already and takes it directly (18 Oct 2026); HR is
+// a group of its own now and has its own icon above, because two groups
+// drawn the same way are two groups nobody can tell apart.
 PATHS.work = PATHS["my-work"];
-PATHS.hr = PATHS["my-work"];
 
 export function NavIcon({ name }: { name: string }) {
   return (

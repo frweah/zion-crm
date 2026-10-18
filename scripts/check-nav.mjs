@@ -81,7 +81,7 @@ const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/settings-hub", "/admin/system",
     "/billing",
-    "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/hours",
+    "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
     "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
@@ -140,7 +140,11 @@ if (!problems.length) ok("each role reaches exactly the screens it should, and t
 // the practice's central record and it was one level down behind a hub whose
 // name you had to know. Work keeps the rest - the tasks, the jobs and the
 // counselors - and everything that arrives is another hub again.
-const HUBS = ["Home", "Clients", "Work", "Communication", "Billing", "HR", "Admin"];
+//
+// My work came back on 18 Oct 2026, taking the person's own things out of
+// HR: their clock, their hours, their day, their paperwork. HR keeps the
+// practice's side - the people, the approvals, and the team's days.
+const HUBS = ["Home", "Clients", "Work", "Communication", "Billing", "My work", "HR", "Admin"];
 const labels = NAV_GROUPS.map((g) => g.label);
 if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${HUBS.join(" · ")}`);
 
@@ -181,11 +185,49 @@ if (!problems.length) {
   ok(`all ${hubbed.length} hubs open for every role that can see them (${hubbed.map((g) => g.hub).join(", ")})`);
 }
 
+
+// ── a manager is not a role ──────────────────────────────────
+//
+// The team's end of day opens for an Admin by role and for anybody who
+// manages somebody by the fact that they do. That is the only thing in the
+// navigation decided by something other than a role or a grant, so it is the
+// only thing that could be got wrong quietly: a manager who is sent their
+// people's summaries and cannot open the screen they link to.
+//
+// Both directions, for every role, because "visible to managers" must not
+// have leaked into "visible to everybody".
+const TEAM = "/end-of-day/team";
+for (const role of ROLE_NAMES) {
+  const asManager = canReach({ role, manages: true }, TEAM);
+  const asNot = canReach({ role, manages: false }, TEAM);
+
+  if (!asManager) {
+    fail(`${role} manages somebody and still cannot reach ${TEAM}`);
+  }
+  if (role !== "Admin" && asNot) {
+    fail(`${role} manages nobody and can reach ${TEAM} anyway`);
+  }
+}
+if (!canReach("Admin", TEAM)) fail(`Admin cannot reach ${TEAM} by role`);
+if (!problems.length) {
+  ok(`${TEAM} opens for an Admin by role and for anybody who manages somebody, and for nobody else`);
+}
+
+// And a person's own day is everybody's, manager or not.
+const MINE = "/end-of-day";
+const deniedOwn = ROLE_NAMES.filter((role) => !canReach({ role, manages: false }, MINE));
+if (deniedOwn.length) {
+  fail(`${deniedOwn.join(", ")} cannot reach their own ${MINE}`);
+} else {
+  ok(`every role reaches their own ${MINE}`);
+}
+
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {
   "/tasks": "Work", "/clients": "Clients", "/leads": "Work", "/counselors": "Work",
   "/mail": "Communication", "/messages": "Communication", "/messages/texts": "Communication",
-  "/calendar": "Communication", "/hours": "HR", "/paperwork": "HR", "/sops": "HR", "/admin/people": "HR",
+  "/calendar": "Communication", "/hours": "My work", "/paperwork": "My work", "/sops": "My work",
+  "/end-of-day": "My work", "/end-of-day/team": "HR", "/admin/people": "HR",
   "/insights/money": "Admin", "/insights/reports": "Admin", "/admin/documents": "Admin", "/admin/system": "Admin",
 };
 const misplaced = Object.entries(HOMES).filter(([href, home]) => groupOf(href) !== home);
@@ -320,7 +362,6 @@ const MOVED = [
   "/website-chat",
   // "/hr" was a redirect to /hours and is a hub page of its own now
   // (Design language, §1), so it is no longer in this list.
-  "/my-work",
   "/certifications",
   "/insights",
   "/dashboard/tasks",
@@ -642,8 +683,8 @@ const BACK_CASES = [
   ["Admin", "/mail", null, "/communication"],
   ["Job Search", "/messages/texts", "texts", "/communication"],
   ["Job Search", "/messages/texts", "web", "/communication"],
-  ["Admin", "/sops", null, "/hr"],
-  ["Admin", "/hours", "approvals", "/hr"],
+  ["Admin", "/sops", null, "/my-work"],
+  ["Admin", "/hours", "approvals", "/my-work"],
   // A hub with no landing page: its first screen is the landing, and the tab
   // decides, because several of these tabs are one route.
   ["Admin", "/dashboard", null, null],

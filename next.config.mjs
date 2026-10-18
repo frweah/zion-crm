@@ -111,8 +111,10 @@ const nextConfig = {
       "/texts": "/messages/texts?tab=texts",
       "/website-chat": "/messages/texts?tab=web",
       "/web-chat": "/messages/texts?tab=web",
-      // "/hr" is a hub page of its own now (Design language, §1).
-      "/my-work": "/hr",
+      // "/my-work" was redirected here when the group was renamed HR on
+      // 21 Sept 2026. The name went back on 18 Oct and the address is a hub
+      // page of its own again, so the redirect is gone rather than pointing
+      // a live address at a different one.
       "/certifications": "/paperwork?tab=certifications",
       "/people": "/admin/people",
       "/insights": "/insights/money",

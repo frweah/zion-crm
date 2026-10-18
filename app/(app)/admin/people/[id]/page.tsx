@@ -35,11 +35,21 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
 
   const { data: person } = await supabase
     .from("staff")
-    .select("id, name, email, phone, role, active, user_id, invited_at, accepted_at, deactivated_at, is_system")
+    .select("id, name, email, phone, role, active, user_id, invited_at, accepted_at, deactivated_at, is_system, manager_id")
     .eq("id", id)
     .maybeSingle();
 
   if (!person) notFound();
+
+  // Who could be their manager: anybody active who is a person. Read here so
+  // the panel stays a form and nothing else.
+  const { data: colleagueRows } = await supabase
+    .from("staff")
+    .select("id, name")
+    .eq("active", true)
+    .eq("is_system", false)
+    .order("name");
+  const colleagues = colleagueRows ?? [];
 
   // The other addresses that reach them (0199). Read here rather than in the
   // panel so the panel stays a form and nothing else.
@@ -231,7 +241,9 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
                 email: (person.email as string) ?? null,
                 phone: (person.phone as string) ?? null,
                 role: person.role as string,
+                manager_id: (person.manager_id as string) ?? null,
               }}
+              colleagues={colleagues}
               aliases={aliases}
               isSelf={person.id === me.id}
             />

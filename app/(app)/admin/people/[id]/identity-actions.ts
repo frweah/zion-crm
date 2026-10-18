@@ -61,8 +61,14 @@ export async function editStaffIdentity(
   const phone = str("phone");
   const role = str("role");
   const note = str("note");
+  const manager = str("manager_id");
 
   if (!name) return { error: "A name is required.", ok: null };
+  // Nobody manages themselves. The database would take it and the end-of-day
+  // summary would be sent to the person who wrote it.
+  if (manager && manager === id) {
+    return { error: "Somebody cannot be their own manager.", ok: null };
+  }
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { error: "That address does not look like an email.", ok: null };
   }
@@ -71,7 +77,16 @@ export async function editStaffIdentity(
   const { error } = await withNote(supabase, note, async () =>
     supabase
       .from("staff")
-      .update({ name, email: email || null, phone: phone || null, role })
+      .update({
+        name,
+        email: email || null,
+        phone: phone || null,
+        role,
+        // Who they report to: the end-of-day report's assigned manager
+        // (0211). Their summaries go to this person and to Admin, and this
+        // person can read their days.
+        manager_id: manager || null,
+      })
       .eq("id", id),
   );
   if (error) return { error: error.message, ok: null };

@@ -20,7 +20,15 @@ export function BottomBar({ groups }: { groups: { group: NavGroup; items: NavIte
   const pathname = usePathname();
   const unread = useUnreadMessages();
 
-  const main = ["dashboard", "work", "inbox", "hr"];
+  /**
+   * The four on the bar; everything else is behind More.
+   *
+   * My work rather than HR since 18 Oct 2026. HR is the practice's side of
+   * its people and most of it is Admin's, so for nearly everybody that tab
+   * would have been empty - while the end of day, which is the thing people
+   * fill in on a phone, lives in My work.
+   */
+  const main = ["dashboard", "work", "inbox", "my-work"];
   const shown = main
     .map((key) => groups.find((g) => g.group.key === key))
     .filter((g): g is { group: NavGroup; items: NavItem[] } => Boolean(g));

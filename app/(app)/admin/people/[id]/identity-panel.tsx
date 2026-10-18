@@ -34,10 +34,20 @@ export function IdentityPanel({
   person,
   aliases,
   isSelf,
+  colleagues,
 }: {
-  person: { id: string; name: string; email: string | null; phone: string | null; role: string };
+  person: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    role: string;
+    manager_id: string | null;
+  };
   aliases: AliasRow[];
   isSelf: boolean;
+  /** Everybody who could be somebody's manager: active, and not themselves. */
+  colleagues: { id: string; name: string }[];
 }) {
   const [state, action, pending] = useActionState(editStaffIdentity, initial);
   const [addState, addAction, adding] = useActionState(addStaffAlias, initial);
@@ -75,6 +85,22 @@ export function IdentityPanel({
                   {ROLE_LABEL[r as Role]}
                 </option>
               ))}
+            </select>
+          </label>
+          {/* The end-of-day report's "Assigned Manager/Team Leader" (0211).
+              Their day summaries go to this person and to Admin, and this
+              person can read their days. */}
+          <label className="field" htmlFor="id-manager">
+            Manager
+            <select id="id-manager" name="manager_id" defaultValue={person.manager_id ?? ""}>
+              <option value="">Admin only</option>
+              {colleagues
+                .filter((c) => c.id !== person.id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
           </label>
         </div>

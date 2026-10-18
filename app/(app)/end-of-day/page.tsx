@@ -3,7 +3,6 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
 import { PageHead } from "../page-head";
-import { DataTable, type DataRow } from "../data-table";
 import { DayForm, type DayLine } from "./day-form";
 
 /**
@@ -21,73 +20,15 @@ import { DayForm, type DayLine } from "./day-form";
 export default async function EndOfDayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ day?: string; who?: string; tab?: string }>;
+  searchParams: Promise<{ day?: string; who?: string }>;
 }) {
   const me = await requireStaff();
-  const { day: rawDay, who: rawWho, tab } = await searchParams;
+  const { day: rawDay, who: rawWho } = await searchParams;
   const supabase = await createClient();
 
   const day = /^\d{4}-\d{2}-\d{2}$/.test(rawDay ?? "") ? rawDay! : today();
-  const isAdmin = me.role === "Admin";
   const who = rawWho && /^[0-9a-f-]{36}$/.test(rawWho) ? rawWho : me.id;
   const mine = who === me.id;
-
-  // ── Admin's list of everybody's days ──────────────────────
-  if (tab === "everyone" && isAdmin) {
-    const { data: days } = await supabase
-      .from("staff_days")
-      .select("id, staff_id, day, submitted_at")
-      .gte("day", new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10))
-      .order("day", { ascending: false })
-      .limit(300);
-
-    const { data: staff } = await supabase
-      .from("staff")
-      .select("id, name")
-      .eq("is_system", false);
-    const staffName = new Map((staff ?? []).map((s) => [s.id, s.name]));
-
-    const rows: DataRow[] = (days ?? []).map((d) => ({
-      key: d.id,
-      text: `${staffName.get(d.staff_id) ?? ""} ${d.day}`,
-      sort: { day: d.day, who: staffName.get(d.staff_id) ?? "" },
-      cells: {
-        day: (
-          <Link href={`/end-of-day?day=${d.day}&who=${d.staff_id}`}>
-            {new Date(`${d.day}T00:00:00`).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </Link>
-        ),
-        who: staffName.get(d.staff_id) ?? "—",
-        state: d.submitted_at ? "Submitted" : "Open",
-      },
-    }));
-
-    return (
-      <>
-        <PageHead title="End of day" context="Every day submitted in the last month" />
-        <nav className="segmented no-print" aria-label="Whose days">
-          <Link href="/end-of-day">Mine</Link>
-          <span aria-current="page">Everyone</span>
-        </nav>
-        <div className="card" style={{ padding: 0, marginTop: 10 }}>
-          <DataTable
-            label="days"
-            columns={[
-              { key: "day", label: "Day" },
-              { key: "who", label: "Who" },
-              { key: "state", label: "" },
-            ]}
-            rows={rows}
-            pageSize={50}
-            empty="No days have been submitted yet."
-          />
-        </div>
-      </>
-    );
-  }
 
   // ── One person's day ──────────────────────────────────────
   const [{ data: person }, { data: existing }, { data: clients }] = await Promise.all([
@@ -143,10 +84,11 @@ export default async function EndOfDayPage({
         }
       />
 
-      {isAdmin && (
-        <nav className="segmented no-print" aria-label="Whose days">
-          <span aria-current={mine ? "page" : undefined}>{mine ? "Mine" : person?.name}</span>
-          <Link href="/end-of-day?tab=everyone">Everyone</Link>
+      {!mine && (
+        <nav className="segmented no-print" aria-label="Whose day">
+          <Link href="/end-of-day">Mine</Link>
+          <span aria-current="page">{person?.name}</span>
+          <Link href="/end-of-day/team">The team</Link>
         </nav>
       )}
 

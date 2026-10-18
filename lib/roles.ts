@@ -37,7 +37,19 @@ export type Level = "view" | "edit";
 export type Grant = { area: Area; level: Level };
 
 /** A person as the navigation and the screens see them: their role, and anything given to them. */
-export type Access = { role: Role; grants?: Grant[] };
+export type Access = {
+  role: Role;
+  grants?: Grant[];
+  /**
+   * Whether anybody reports to this person.
+   *
+   * Not a role and not a grant: it is a fact about the staff list, and it
+   * changes the moment somebody is given a manager. The one thing it opens is
+   * the team's end of day, because a manager is sent each of their people's
+   * summaries and a screen they could not open would make that pointless.
+   */
+  manages?: boolean;
+};
 
 export const AREA_LABEL: Record<Area, string> = {
   tasks: "Tasks",
@@ -95,6 +107,8 @@ export type NavItem = {
   roles?: Role[];
   /** The area a grant opens it in, for somebody whose role does not include it. */
   area?: Area;
+  /** Also seen by anybody who manages somebody, whatever their role. */
+  managers?: true;
   /** One line on the hub card saying what the screen is for. */
   note?: string;
 };
@@ -251,26 +265,56 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // A person's own work and papers (was "My work"), and for Admin the
-    // people and contractors behind them (owner, 21 Sept 2026).
-    key: "hr",
-    label: "HR",
-    hub: "/hr",
+    /**
+     * A person's own work and papers (owner, 18 Oct 2026).
+     *
+     * This was HR, and before 21 Sept it was "My work". Putting the name back
+     * is the owner's instruction and it draws a line that had gone soft: the
+     * things a person does about their own working life are not the same as
+     * the things an administrator does about everybody's, and the two had
+     * been in one group with a name that only fitted the second.
+     *
+     * So the person's own things are here and HR below keeps the practice's:
+     * the people, the contractors, the approvals, and the team's days.
+     */
+    key: "my-work",
+    label: "My work",
+    hub: "/my-work",
     items: [
       // The thing most people do most often, on a screen of its own
       // (Design language, §3).
       { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
       { label: "Hours", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
-      // The practice's own EOD template, in the CRM (owner, 18 Oct 2026).
-      // Everybody fills one in; Admin reads everybody's from the same screen.
-      { label: "End of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
+      // A tab of the Hours screen, so it stays with Hours. A screen whose
+      // tabs are split across two sidebar groups is a screen nobody can find
+      // the other half of.
       { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
+      // The practice's own EOD template, in the CRM (owner, 18 Oct 2026).
+      { label: "End of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
       { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
       { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
       { label: "Knowledge base", href: "/sops", roles: EVERYONE, note: "How the practice does things, by shelf." },
       // The practice's own forms, filled in where the work happens
       // (Design language, §3). USOR's stay on Billing.
       { label: "Forms and checklists", href: "/forms-and-checklists", roles: EVERYONE, note: "A visit, a worksite check, an incident." },
+    ],
+  },
+  {
+    // The practice's side of the same subject: the people, their paperwork
+    // and their days, for whoever is accountable for them.
+    key: "hr",
+    label: "HR",
+    hub: "/hr",
+    items: [
+      /**
+       * Everybody's days, by person.
+       *
+       * Admin by role, and anybody who manages somebody by the fact that
+       * they do - which is not a role and could not be written as one. A
+       * manager is sent each of their people's summaries, so a screen they
+       * could not open would make the notification pointless.
+       */
+      { label: "End of day — team", href: "/end-of-day/team", roles: ADMIN, managers: true, note: "Everybody's days, by person." },
       { label: "People", href: "/admin/people", roles: ADMIN },
       { label: "Contractors", href: "/admin/people?tab=contractors", roles: ADMIN },
     ],
@@ -342,9 +386,14 @@ export function currentItemHref(
 /** What a person sees: what their role sees, and what a grant opens. Never less. */
 export function visibleItems(group: NavGroup, who: Role | Access): NavItem[] {
   const a = asAccess(who);
-  return group.items.filter(
-    (i) => !i.roles || i.roles.includes(a.role) || (i.area !== undefined && can(a, i.area)),
-  );
+  return group.items.filter((i) => {
+    // No audience named at all means everybody, as it always has.
+    if (!i.roles && !i.managers) return true;
+    if (i.roles?.includes(a.role)) return true;
+    if (i.area !== undefined && can(a, i.area)) return true;
+    if (i.managers && a.manages) return true;
+    return false;
+  });
 }
 
 /** The groups this person sees, each carrying only the items they see. */
@@ -436,10 +485,20 @@ export function canReach(who: Role | Access, pathname: string): boolean {
    */
   if (groups.some((g) => g.group.hub === pathname)) return true;
 
-  return groups
-    .flatMap((g) => g.items)
-    .some((item) => {
-      const path = navPath(item.href);
-      return pathname === path || pathname.startsWith(path + "/");
-    });
+  const mine = groups.flatMap((g) => g.items).map((i) => navPath(i.href));
+  if (mine.some((p) => p === pathname)) return true;
+
+  /**
+   * A screen that is itself in the navigation is reached on its own terms.
+   *
+   * The prefix below exists so a record opens through the list it is on -
+   * /clients/<id> through /clients. It was never meant to hand over another
+   * listed screen, and it did: /end-of-day/team is Admin's and a manager's,
+   * and everybody could reach it because everybody has their own
+   * /end-of-day and it sits one level above. Found by the check below
+   * (18 Oct 2026).
+   */
+  if (NAV_GROUPS.some((g) => g.items.some((i) => navPath(i.href) === pathname))) return false;
+
+  return mine.some((p) => pathname.startsWith(p + "/"));
 }

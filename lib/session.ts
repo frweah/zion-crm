@@ -19,6 +19,14 @@ export type CurrentStaff = {
   onboardingOpen: boolean;
   /** Not a person: the deploy check (0120). Reads only; never onboarded. */
   isSystem: boolean;
+  /**
+   * Whether anybody reports to them (0211).
+   *
+   * Read with the person rather than asked for separately, because the
+   * navigation needs it on every page: it is what opens the team's end of
+   * day to a manager who is not an Admin.
+   */
+  manages: boolean;
 };
 
 /**
@@ -53,16 +61,17 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
   const { data } = (await supabase
     .from("staff")
     .select(
-      "id, name, email, role, active, is_system, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at), onboarding:staff_onboarding(completed_at)",
+      "id, name, email, role, active, is_system, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at), onboarding:staff_onboarding(completed_at), reports:staff!staff_manager_id_fkey(id)",
     )
     .eq("user_id", userId)
     .eq("active", true)
     .maybeSingle()) as unknown as {
     data:
-      | (Omit<CurrentStaff, "grants" | "onboardingOpen" | "isSystem"> & {
+      | (Omit<CurrentStaff, "grants" | "onboardingOpen" | "isSystem" | "manages"> & {
           is_system: boolean;
           grants: (Grant & { revoked_at: string | null })[] | null;
           onboarding: { completed_at: string | null } | { completed_at: string | null }[] | null;
+          reports: { id: string }[] | null;
         })
       | null;
   };
@@ -80,6 +89,7 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
     grants,
     onboardingOpen: onboarding !== null && onboarding.completed_at === null,
     isSystem: Boolean(data.is_system),
+    manages: (data.reports ?? []).length > 0,
   };
 });
 

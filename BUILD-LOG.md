@@ -4283,3 +4283,101 @@ Like `check-hours-race.mjs`, it needs database credentials and so is not in
   goes to Admin alone until it is filled in on each person's record.
 - **Whether a manager should read their people's days**, as above.
 - **1 November**: the review on the emailed-day transition.
+
+---
+
+## My work, and the first manager — 18 October 2026
+
+*Owner: move the End of day entry from HR to My work for everyone; keep the
+team view under HR for Admin and managers. Update check-nav and smoke. And set
+Margaret Paasa as Rei Ruzzel's manager.*
+
+### My work is a group again
+
+There was no "My work" to move it to. HR *was* My work and was renamed on
+21 Sept; its own comment still said "a person's own work and papers". So the
+instruction only holds together one way, and that way is the right one: the
+things a person does about their own working life are not the things an
+administrator does about everybody's, and the two had been in one group under
+a name that only fitted the second.
+
+**My work** — Time clock, Hours, Statement approvals, End of day, Paperwork,
+Certifications, Knowledge base, Forms and checklists.
+**HR** — End of day — team, People, Contractors.
+
+For anybody who is not Admin and manages nobody, HR now has no visible items
+and drops out of their sidebar entirely. That is the intent, not a side
+effect.
+
+Three consequences worth naming:
+
+- **Statement approvals stayed with Hours**, not with HR where it first went.
+  It is a tab of the Hours screen, and `check-nav` caught it immediately: the
+  way back off `/hours?tab=approvals` pointed at one group while `/hours`
+  pointed at another, because the same route was in two groups at once. A
+  screen whose tabs are split across two sidebar groups is a screen nobody can
+  find the other half of.
+- **`/my-work` was a redirect to `/hr`**, left from the rename. It is a page
+  again, so the redirect is gone rather than pointing a live address at a
+  different one.
+- **The phone bar carries My work instead of HR.** Its four tabs are the
+  group keys, and HR is now empty for nearly everybody — while the end of day,
+  which is the thing people fill in on a phone, is in My work. HR has its own
+  icon now too; two groups drawn the same way are two groups nobody can tell
+  apart.
+
+### A manager is not a role
+
+The team view opens for an Admin by role and for anybody who manages somebody
+by the fact that they do. That could not be written as a role: it changes the
+moment somebody is given a manager.
+
+So `Access` gained `manages`, read with the person in `getCurrentStaff` (one
+extra join on a six-row table), and a nav item can say `managers: true`. It is
+the only thing in the navigation decided by something other than a role or a
+grant, which makes it the only thing that could go quietly wrong — a manager
+sent their people's summaries who cannot open the screen those summaries link
+to. `check-nav` now asserts it both ways for every role.
+
+**And that assertion immediately found a real bug.** `/end-of-day/team` was
+reachable by *everybody*, because `canReach` lets a screen be reached through
+the one above it — `/clients/<id>` through `/clients` — and `/end-of-day/team`
+sits under `/end-of-day`, which everybody has. A screen that is itself in the
+navigation is now reached on its own terms; inheriting it from the screen
+above would hand somebody a listed screen they are not listed for.
+
+### Smoke opens the hubs now
+
+`reachableFor` returns items, and a hub is not an item — so smoke had never
+opened `/work`, `/communication` or `/hr` at all. That is precisely how three
+hubs shipped unreachable by every role two days ago: the sidebar headings and
+three of the four phone tabs pointed at them, and nothing in the sweep opened
+one to find out. A hub is a screen and is swept like a screen.
+
+### Rei reports to Margaret
+
+Migration 0215, matched by name against the active staff list and refused
+rather than silent if either name is missing or not unique.
+
+What it does, so it is not a surprise:
+
+- Rei's day summaries go to Margaret as well as Admin, on her bell and her
+  My day.
+- Margaret can read Rei's days. Nothing else about his record opens to her.
+- Margaret gets "End of day — team" in her sidebar under HR, which she did
+  not have. Her role is still Reports.
+
+`verify_end_of_day.sql` now asserts this against the **real staff list**, not
+only a fixture: every person who has a manager, that manager can read their
+days. A fixture proves the rule is written; this proves it is in force for the
+people it was set for.
+
+Admin can set it on anybody from People → the person's record, where Manager
+sits beside Role. Nobody can be their own manager — the action refuses it and
+the migration checks the whole list.
+
+### Left for the owner
+
+- **Everybody else still has no manager**, so their summaries go to Admin
+  alone. One dropdown each on their record.
+- **The 1 November review** on the emailed-day transition still stands.

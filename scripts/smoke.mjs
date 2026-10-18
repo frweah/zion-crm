@@ -178,7 +178,19 @@ const firstLink = (results, path, re) => results.find((x) => x.path === path)?.b
 const backChecked = [];
 
 async function pass(role) {
-  const paths = [...new Set(reachableFor(role).map((i) => i.href))];
+  /**
+   * The hubs this role can see, and then the screens inside them.
+   *
+   * The hubs were not swept at all until 18 Oct 2026, and that is how three
+   * of them shipped unreachable: canReach refused /work, /communication and
+   * /hr to every role, the sidebar headings and three of the four tabs on
+   * the phone bar pointed at them, and nothing here opened one to find out.
+   * A hub is a screen; it is swept like a screen.
+   */
+  const hubs = navFor(role)
+    .map((g) => g.group.hub)
+    .filter((h) => typeof h === "string");
+  const paths = [...new Set([...hubs, ...reachableFor(role).map((i) => i.href)])];
   if (role === "Job Search") {
     paths.push(...needs.map((k) => `/dashboard/needs?list=${k}`));
     // Screens with tabs of their own, not in the navigation.

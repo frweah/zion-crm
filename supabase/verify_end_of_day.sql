@@ -44,6 +44,7 @@ declare
   v_again   uuid;
   v_n       integer;
   v_text    text;
+  r         record;
   failures  text[] := '{}';
 begin
   select id, user_id into v_admin, v_a_uid from public.staff
@@ -274,6 +275,37 @@ begin
 
   perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
+
+
+  /*
+   * And the real staff list, not a fixture.
+   *
+   * Every person who has a manager, their manager can read their days. A
+   * fixture proves the rule is written; this proves it is in force for the
+   * people it was set for - which is the half that would be quietly wrong if
+   * day_is_mine_to_see ever stopped matching how manager_id is set.
+   */
+  for r in
+    select p.id as person, p.name as person_name,
+           m.user_id as boss_uid, m.name as boss_name
+      from public.staff p
+      join public.staff m on m.id = p.manager_id
+     where p.active and m.active and m.user_id is not null
+  loop
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', r.boss_uid, 'role', 'authenticated')::text, true);
+
+    if not public.day_is_mine_to_see(r.person) then
+      failures := failures || format('FAILED: %s manages %s and cannot see their days',
+        r.boss_name, r.person_name)::text;
+    else
+      raise notice 'ok  % manages % and can read their days', r.boss_name, r.person_name;
+    end if;
+
+    perform set_config('request.jwt.claims', '', true);
+    perform set_config('role', 'postgres', true);
+  end loop;
 
   -- ── anon cannot touch any of it ───────────────────────────
   if has_function_privilege('anon', 'public.open_staff_day(date)', 'execute')
