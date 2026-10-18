@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ThemeChoice } from "./theme-choice";
+import { ReportProblem } from "./report-problem";
 import type { Theme } from "./theme-actions";
 
 /**
@@ -75,6 +76,10 @@ export function AvatarMenu({
               looking at the screen change, and shutting the menu under them
               hides the thing they came to see. */}
           <ThemeChoice current={theme} />
+          {/* Where somebody says the CRM is wrong, from whatever screen they
+              are on (0216). Below the theme so the menu still opens on the
+              two things people come to it for. */}
+          <ReportProblem onDone={() => setOpen(false)} />
           <form action="/auth/signout" method="post">
             <button type="submit" role="menuitem">
               Sign out

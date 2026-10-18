@@ -3606,6 +3606,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      problem_reports: {
+        Row: {
+          id: string;
+          staff_id: string;
+          screen: string;
+          what: string;
+          created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          note: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          screen?: string;
+          what: string;
+          created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          note?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          screen?: string;
+          what?: string;
+          created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          note?: string;
+        };
+        Relationships: [];
+      };
       purchase_requests: {
         Row: {
           id: string;
