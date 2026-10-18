@@ -3113,6 +3113,7 @@ export type Database = {
           intake_staff_id: string | null;
           placement_staff_id: string | null;
           billing_notify_staff_id: string | null;
+          require_two_factor: boolean;
         };
         Insert: {
           id?: boolean;
@@ -3136,6 +3137,7 @@ export type Database = {
           intake_staff_id?: string | null;
           placement_staff_id?: string | null;
           billing_notify_staff_id?: string | null;
+          require_two_factor?: boolean;
         };
         Update: {
           id?: boolean;
@@ -3159,6 +3161,7 @@ export type Database = {
           intake_staff_id?: string | null;
           placement_staff_id?: string | null;
           billing_notify_staff_id?: string | null;
+          require_two_factor?: boolean;
         };
         Relationships: [];
       };
@@ -7155,6 +7158,14 @@ export type Database = {
       timer_elapsed_hours: {
         Args: { p_started: string | null };
         Returns: number;
+      };
+      two_factor_roster: {
+        Args: Record<string, never>;
+        Returns: { staff_id: string | null; name: string | null; role: string | null; enrolled: boolean | null; enrolled_at: string | null }[];
+      };
+      two_factor_state: {
+        Args: Record<string, never>;
+        Returns: { required: boolean | null; enrolled: boolean | null }[];
       };
       vendor_1099_candidates: {
         Args: { p_year: number | null };

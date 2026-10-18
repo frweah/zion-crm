@@ -7,6 +7,7 @@ import SettingsSection from "../settings/section";
 import NoteTemplatesSection from "../note-templates/section";
 import AccessLogSection from "../access/section";
 import ProblemsSection from "../problems/section";
+import SecuritySection from "../security/section";
 import { TaxYearEditor, type TaxYearRow } from "../contractors/contractor-forms";
 import { MileageRateForm } from "../../hours/expenses";
 import { SharedMailboxCard, type SharedMailboxRow } from "../../dashboard/shared-mailbox-card";
@@ -101,6 +102,13 @@ export default async function SystemPage({
           website chat, work and hours, note headings, shared mailboxes and tax years.
         </p>
       </section>
+
+      {/* Who has a second factor, and the switch (0217). */}
+      {isAdmin && (
+        <section id="two-step" className="page-section">
+          <SecuritySection />
+        </section>
+      )}
 
       {/* What staff say is wrong with the CRM (0216). Above the access log
           because one is a list of jobs and the other is a record. */}

@@ -72,6 +72,10 @@ export function AvatarMenu({
           <Link href="/hours" role="menuitem" onClick={() => setOpen(false)}>
             My hours
           </Link>
+          {/* Their own second factor (0217): set one up, or change it. */}
+          <Link href="/security/two-factor" role="menuitem" onClick={() => setOpen(false)}>
+            Two-step sign-in
+          </Link>
           {/* Deliberately not closing the menu: a person picking a theme is
               looking at the screen change, and shutting the menu under them
               hides the thing they came to see. */}

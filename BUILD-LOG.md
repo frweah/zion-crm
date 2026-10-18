@@ -4496,3 +4496,91 @@ check with both named.
 to a member of the public; courtesy to a stranger is not padding on a working
 screen. Comments are never judged. Billing, authorizations, forms and warrants
 keep the length exemption the design-language brief gave them.
+
+---
+
+## Security hygiene and feedback — 18 October 2026
+
+*Owner: two-factor for all staff, an Admin offboarding action, a backup
+restore test, and "Report a problem" in the avatar menu.*
+
+### Report a problem
+
+Staff have had nowhere in the CRM to say something is wrong since it was
+built, so the only faults that got fixed were the ones the owner happened to
+hear about in the corridor.
+
+One form in the avatar menu, on every screen, which records **which screen
+they were on** — half of what anybody reports is "this page" and they should
+not have to describe where they were. Admin is told on the bell rather than by
+email: a problem report is not urgent enough to interrupt somebody's evening.
+Closing it clears the notification, so the bell and the list of open reports
+cannot disagree. Admin reads and closes them under Admin → System.
+
+**What was said is not edited**, by anybody, including the person who said it.
+A report is an account of a moment and the useful thing about it is what they
+thought at the time; closing one adds a note beside it.
+
+The verify asserts that by reading the text back rather than by waiting for a
+refusal. With no update policy RLS does not raise — it matches no rows and
+reports success — so an assertion that expected an exception would have passed
+whether or not the text was protected.
+
+### Two-step sign-in
+
+The CRM holds every client's disability information, their identity documents,
+the practice's bank reconciliation and its payroll, and it has been protected
+by a password and nothing else.
+
+Supabase Auth does the cryptography. What was built is the practice's side:
+the setting, whether the person in front of us has one, who has and has not,
+and the lost-phone path.
+
+**It ships switched off, on purpose.** Enrolment cannot be rehearsed on
+somebody else's phone, so the first person through that screen is the first
+real test of it — and if the screen were wrong with the setting already on,
+nobody could get in to fix it, including whoever would have to. Admin turns it
+on under Admin → System once the roster shows everybody enrolled; the screen
+names who is still to do it.
+
+Nobody is locked out by turning it on: somebody without a factor is walked
+through setting one up, and somebody who loses their phone has it taken off by
+Admin and sets up a new one. An Admin cannot take off their own — an
+administrator who could has a second factor one click of their own password
+away from not existing.
+
+**The deadlock that nearly shipped.** The layout sends people to
+`/security/two-factor`, and `canReach` refuses any path that is in no nav
+group — so it would have sent them to Home, and the gate would have sent them
+back, for ever. It only bites once the setting is on, which is exactly when
+nobody could get in to fix it. `check-nav` now asserts that every role reaches
+it.
+
+`check-screens` wanted a back arrow on it. It does not get one: when the gate
+sends you there, a back arrow returns you to the screen you came from and
+bounces you straight back, and an arrow that lies about what it does is worse
+than no arrow.
+
+### Offboarding — already there
+
+`offboard_staff` has been in the database since before this brief, with an
+action, a screen and `verify_offboarding.sql`. In one transaction it
+reassigns the clients and tasks, writes the record, and deactivates the
+account; the action then bans the auth user, which lives outside the database.
+It is reported here rather than rebuilt.
+
+### The backup restore test — not done, and why
+
+This one needs the owner. A restore is the one operation that can destroy the
+thing it is meant to protect, and the only honest test of it is restoring to
+somewhere that is not production and reading the result. That is an
+infrastructure decision with a cost attached, not a code change.
+
+What it needs, concretely: a throwaway Supabase project, a restore of last
+night's backup into it, and a count of clients, authorizations, documents and
+journal lines against production's. An afternoon, and it should be repeated
+each quarter. Say the word and the drill can be written as a script that does
+the counting, so the only manual step is the restore itself.
+
+Until then, the fact worth having in writing: **nobody has ever tested that
+these backups restore.** Supabase takes them; that is not the same thing.

@@ -184,6 +184,7 @@ if (drawsArrow.length) {
 
 const screens = pages.map((f) => ({ ...f, route: route(f.path) }));
 const allRoutes = new Set(screens.map((s) => s.route));
+const SENT_TO = new Set(["/security/two-factor"]);
 const noWayBack = [];
 const wrongWayBack = [];
 const twoWaysBack = [];
@@ -206,6 +207,18 @@ for (const screen of screens) {
       }
     }
   }
+
+  /*
+   * Screens a person is *sent* to have nowhere to go back to.
+   *
+   * /security/two-factor is reached from the avatar menu, and when the
+   * practice requires a second factor the layout sends people there and will
+   * keep sending them until they have one. A back arrow on it would be a
+   * button that returns you to the screen you just came from and then bounces
+   * you straight back - an arrow that lies about what it does is worse than
+   * no arrow (0217).
+   */
+  if (SENT_TO.has(screen.route)) continue;
 
   if (onATabStrip.has(screen.route)) {
     // The layout draws this one. Its own arrow would be a second one.

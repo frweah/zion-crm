@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: policyDue }] =
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: policyDue }, { data: twoFactorRows }, { data: claims }] =
     await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
@@ -37,7 +37,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("staff_prefs").select("value").eq("key", "theme").maybeSingle(),
     // A policy version in force they have not signed (0103).
     supabase.rpc("policy_signature_due"),
+    // Whether the practice requires a second factor, and whether they have
+    // one (0217). Both in one answer, because this runs on every page.
+    supabase.rpc("two_factor_state"),
+    // How far this session has authenticated. aal1 is a password; aal2 means
+    // a second factor was used on it.
+    supabase.auth.getClaims(),
   ]);
+  const twoFactor = Array.isArray(twoFactorRows) ? twoFactorRows[0] : null;
+  const authLevel = (claims?.claims as { aal?: string } | undefined)?.aal;
   // The badge is worked out in one place, in the browser (live-messaging.tsx):
   // the conversations waiting for this person, and their unread mail.
   const narrow = Boolean(narrowPref);
@@ -68,6 +76,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The onboarding walkthrough has its own policy step, so it goes first.
   if (policyDue === true && !staff.onboardingOpen && !staff.isSystem && pathname && !pathname.startsWith("/paperwork")) {
     redirect("/paperwork/policy");
+  }
+
+  /**
+   * A second factor, when the practice requires one (0217).
+   *
+   * After onboarding and the policy, because somebody on their first morning
+   * signs the data-handling policy before anything else, and before every
+   * other screen, because that is what requiring it means.
+   *
+   * Two cases arrive here and the screen tells them apart: no factor at all,
+   * and a factor this session has not used yet. The system account has
+   * neither a phone nor a person and is left alone, as it is by the
+   * walkthrough above.
+   *
+   * It does nothing at all while org_settings.require_two_factor is off,
+   * which is how it ships.
+   */
+  if (
+    !staff.isSystem &&
+    !staff.onboardingOpen &&
+    pathname &&
+    !pathname.startsWith("/security/two-factor") &&
+    twoFactor?.required &&
+    (!twoFactor.enrolled || authLevel !== "aal2")
+  ) {
+    redirect("/security/two-factor");
   }
 
   // The hint for this screen, if there is one this person has not put away.

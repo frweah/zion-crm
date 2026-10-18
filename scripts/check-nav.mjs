@@ -58,7 +58,11 @@ const covered = (route) =>
   linked.some((href) => route === href || route.startsWith(href + "/"));
 
 const hubs = new Set(NAV_GROUPS.map((g) => g.hub).filter(Boolean));
-const orphans = [...stat].filter((r) => !covered(r) && r !== "/" && !hubs.has(r));
+// And the screens about a person's own account, which are reached from the
+// avatar menu rather than from the sidebar. canReach lets everybody at them;
+// the assertion that it does is below.
+const PERSONAL = new Set(["/security/two-factor"]);
+const orphans = [...stat].filter((r) => !covered(r) && r !== "/" && !hubs.has(r) && !PERSONAL.has(r));
 if (orphans.length) {
   fail(`no navigation reaches: ${orphans.join(", ")}`);
 } else {
@@ -221,6 +225,23 @@ if (deniedOwn.length) {
 } else {
   ok(`every role reaches their own ${MINE}`);
 }
+
+
+// ── the screens that are about the person, not the work ──────
+//
+// /security/two-factor is reached from the avatar menu and sent to by the
+// layout when the practice requires a second factor. It is in no group, so
+// without an exemption canReach refuses it - and then the layout sends them
+// to Home, and the gate sends them back here, for ever. A deadlock, not a
+// permissions bug, and the kind that only shows up once the setting is on.
+const ALWAYS = ["/security/two-factor"];
+for (const path of ALWAYS) {
+  const refused = ROLE_NAMES.filter((role) => !canReach(role, path));
+  if (refused.length) {
+    fail(`${path} is refused to ${refused.join(", ")}, and the layout sends them there`);
+  }
+}
+if (!problems.length) ok(`${ALWAYS.join(", ")} opens for every role, so the gate cannot deadlock`);
 
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {

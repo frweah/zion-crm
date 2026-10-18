@@ -469,7 +469,22 @@ export const ORG = {
  * Matched on the path alone: a tab is a query string, and refusing somebody a
  * tab they can reach by clicking would be a gate that only annoys.
  */
+/**
+ * Screens about a person's own account rather than the practice's work.
+ *
+ * Reachable by everybody, always, and not in the navigation: they are
+ * arrived at from the avatar menu or sent to by the layout, not browsed to.
+ *
+ * The two-factor screen has to be on this list or it deadlocks: the layout
+ * sends somebody here when the practice requires a second factor, canReach
+ * refuses a path that is in no group, the layout sends them back to Home,
+ * and the gate sends them here again.
+ */
+const ALWAYS_REACHABLE = ["/security/two-factor"];
+
 export function canReach(who: Role | Access, pathname: string): boolean {
+  if (ALWAYS_REACHABLE.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+
   const groups = navFor(who);
 
   /**
