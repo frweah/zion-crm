@@ -2940,6 +2940,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      money_baselines: {
+        Row: {
+          id: string;
+          as_of: string;
+          label: string;
+          authorized: number;
+          earned: number;
+          invoiced: number;
+          received: number;
+          outstanding: number;
+          unbilled: number;
+          clients: number;
+          authorizations: number;
+          documents: number;
+          hours: number;
+          taken_at: string;
+          taken_by: string | null;
+          note: string;
+        };
+        Insert: {
+          id?: string;
+          as_of: string;
+          label?: string;
+          authorized?: number;
+          earned?: number;
+          invoiced?: number;
+          received?: number;
+          outstanding?: number;
+          unbilled?: number;
+          clients?: number;
+          authorizations?: number;
+          documents?: number;
+          hours?: number;
+          taken_at?: string;
+          taken_by?: string | null;
+          note?: string;
+        };
+        Update: {
+          id?: string;
+          as_of?: string;
+          label?: string;
+          authorized?: number;
+          earned?: number;
+          invoiced?: number;
+          received?: number;
+          outstanding?: number;
+          unbilled?: number;
+          clients?: number;
+          authorizations?: number;
+          documents?: number;
+          hours?: number;
+          taken_at?: string;
+          taken_by?: string | null;
+          note?: string;
+        };
+        Relationships: [];
+      };
       note_templates: {
         Row: {
           note_type: string;
@@ -7153,6 +7210,10 @@ export type Database = {
       };
       submit_staff_day: {
         Args: { p_day_id: string | null };
+        Returns: string;
+      };
+      take_money_baseline: {
+        Args: { p_as_of: string | null; p_label?: string | null };
         Returns: string;
       };
       timer_elapsed_hours: {

@@ -10,6 +10,7 @@ import { FollowupForm } from "./followup-form";
 import { LIVE_STATUSES } from "@/lib/billing";
 import PositionSection from "./sections/position";
 import ExportsSection from "./sections/exports";
+import BaselineSection from "./sections/baseline";
 import RateSchedule from "./sections/rates";
 
 /**
@@ -579,6 +580,13 @@ export default async function RevenuePage({
       </section>
 
       {/* §12.7: no Export tab - the month's files are made on demand. */}
+      {/* Where the practice stood, counted once and kept (0219). Above the
+          export because the export is this year's working data and this is
+          the line the year is measured from. */}
+      <section id="baseline" style={{ marginTop: 32 }}>
+        <BaselineSection />
+      </section>
+
       <section id="export" style={{ marginTop: 32 }}>
         <ExportsSection searchParams={searchParams} />
       </section>

@@ -297,6 +297,7 @@ const RPC_FUNCTIONS = [
   "reopen_staff_day",
   "staff_day_summary",
   "file_emailed_day",
+  "take_money_baseline",
   "two_factor_state",
   "two_factor_roster",
   "notify_staff_day",

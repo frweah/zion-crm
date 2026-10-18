@@ -4584,3 +4584,63 @@ the counting, so the only manual step is the restore itself.
 
 Until then, the fact worth having in writing: **nobody has ever tested that
 these backups restore.** Supabase takes them; that is not the same thing.
+
+---
+
+## The 2026 baseline — 18 October 2026
+
+*Owner: the 2026 baseline snapshot under Admin → Money.*
+
+### What a baseline is here, and why
+
+`ledger_settings.books_start` is **1 January 2027**, and `post_journal`
+refuses anything dated before it. Everything the practice has done in 2026 is
+therefore outside the ledger entirely, and on the day the books open there
+would be nothing at all to say what came before.
+
+So the baseline is the practice's position at a date, **counted once and
+kept** — and the keeping is the point. A baseline that recomputed would not be
+a baseline: an authorization corrected in March would quietly change what
+December said, and the figure the practice compares itself against would move
+without anybody deciding it should.
+
+Under Admin → Money, above the export, because the export is this year's
+working data and this is the line the year is measured from.
+
+### What it captures
+
+The money comes from `authorization_economics`, which is the practice's own
+definition of each figure and is what the Money screen already shows:
+**authorized, earned, invoiced, received, outstanding, not yet billed**, for
+every authorization received on or before the day.
+
+Beside it, the shape of the practice at the same moment: **clients,
+authorizations, documents, logged hours**. Those are there so that a restore
+or a migration can be checked against a known-good row rather than only the
+money — which is also the beginning of an answer to the backup question
+above.
+
+`verify_money_baseline.sql` asserts the kept figure equals what the screen
+computes on the day it is taken, so the snapshot and the screen cannot
+disagree about the moment they describe.
+
+### Frozen
+
+Taken once for a day. Not edited, not deleted. A note may be added afterwards,
+because explaining a row is not altering it; if the figures were wrong, take
+another for a later day and say why.
+
+Admin's to take and Admin's to read. The agent account cannot take one.
+
+**The delete assertion is worth recording**, because it is the third time this
+pattern has caught me this week: with no delete policy, RLS does not raise —
+it matches no rows and reports success. A test that waits for an exception
+passes whether or not the row survived. It reads the row back instead.
+
+### This is a reading, and here is the reading
+
+I did not have the message that listed this item, so what is built follows
+from `books_start` and from what Admin → Money already shows. If the CPA
+needs figures that are not in the list above — a cash position, a payroll
+total, assets at cost — they are columns on one table and a line each in the
+function, and the baselines already taken stay valid.
