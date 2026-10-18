@@ -20,14 +20,14 @@ type ReviewPage = {
 /**
  * Warrant lines waiting for a person, beside a picture of the page.
  *
- * One home: shown on Billing → Invoices, where the money it settles is, and at
+ * One home: shown on Billing → Authorizations, where the money it settles is, and at
  * the top of the full warrants list. Every line the page proved is already a
  * payment; these are the ones it could not prove. The reason a line stopped is
  * almost always visible on the stub - a digit OCR misread, a smudged total.
  * The storage policy lets only Admin and Billing sign the image links.
  */
 /**
- * What the section shows, as a loader. Billing → Invoices starts it with its
+ * What the section shows, as a loader. Billing → Authorizations starts it with its
  * own queries and hands the result over, so the section does not begin its
  * two waits only after the invoices have arrived.
  */

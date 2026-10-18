@@ -4414,3 +4414,85 @@ cannot get an answer, that is not the same as getting the answer "no".**
 Verified against production's PostgREST before the second deploy, rather than
 after: the select the session runs returns 200, and the count returns 1 for
 Margaret.
+
+---
+
+## The writing and screen standard, written down and checked — 18 October 2026
+
+*Owner: the Writing and screen standard — a CLAUDE.md section, check-copy in
+prebuild, applied to every screen now, report what changed.*
+
+### What changed
+
+**Seven sentences were pointing staff at screens that do not exist.** That is
+the whole of the harvest, and it is a better one than it sounds.
+
+The navigation has been regrouped twice — Dashboard became Home and Inbox
+became Communication on 21 Sept; Clients came out of Work on 15 Oct — and the
+copy naming those screens was not regrouped with them. Nothing broke, which is
+precisely why nobody noticed: every link still worked, and only the words were
+wrong.
+
+| was | now | where |
+|---|---|---|
+| Inbox → Mail | Communication → Mail | Home |
+| Dashboard → Tasks | Work → Tasks | Home, quick add, knowledge base |
+| Clients → My clients today | Work → My clients today | Home |
+| Billing → Invoices | Billing → Authorizations | the document inbox |
+| aging on Billing → Invoices | aging on Admin → Money | Admin → Reports |
+
+**Invoices had been deleted outright** in the Billing Simplification (§10),
+and a staff member following that sentence would have gone looking for a
+screen that was removed a month ago.
+
+Four more of the same were in comments rather than on screens. They were
+corrected too — a comment that lies is worse than no comment — but they are
+not what the check judges.
+
+### What did not change, and why that is the report
+
+Nothing else. Not one *please*, not one apology, not one exclamation mark, no
+"Are you sure?", no "click here", and all 74 buttons already say what pressing
+them does — "Take it down", "Say it", "Do not send", "Place hold". Labels are
+sentence case throughout and none carries a full stop.
+
+That is worth stating plainly rather than padding: **the standard was already
+being followed.** `check-words` has held the two length rules since 6 October
+and `check-screens` the structural ones, and between them the voice stayed put.
+What was missing was not discipline, it was a written statement of the rules
+and a check on the one thing neither of them looked at — whether the words
+still describe the app.
+
+### The standard
+
+`CLAUDE.md` is new, and its "Writing and screen standard" section is the
+durable version: the voice, the screen, and what the rules deliberately do not
+cover. It records the two rules this project keeps relearning, because both
+have cost a production incident:
+
+- A check that asks a question merely *near* the rule passes the bug it was
+  written for.
+- When a check cannot get an answer, that is not the same as getting the
+  answer "no".
+
+### check-copy
+
+In `prebuild`. Six rules on the voice, two on buttons, and the one with teeth:
+every "Group → Screen" in copy is read against the live navigation.
+
+`scripts/copy-text.mjs` is shared with `check-words` so both judge the same
+thing. Getting that extractor right took three passes, and the failures are
+the point: the first version read spread operators as ellipses and non-null
+assertions as exclamation marks; the second matched across generic type
+parameters, so `useState<string | null>(null)` came back as prose. It now
+throws away anything carrying the punctuation of code before reading it as a
+sentence, and only looks for tag text in `.tsx` — in a `.ts` file every
+`>…<` is a generic.
+
+Put back as a test: restoring "Inbox → Mail" and "Dashboard → Tasks" fails the
+check with both named.
+
+**Exempt, on purpose.** The public website chat says "Please start a new one"
+to a member of the public; courtesy to a stranger is not padding on a working
+screen. Comments are never judged. Billing, authorizations, forms and warrants
+keep the length exemption the design-language brief gave them.

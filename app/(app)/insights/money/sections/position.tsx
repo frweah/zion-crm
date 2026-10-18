@@ -47,7 +47,7 @@ const add = (t: Totals, p: Position): Totals => ({
 });
 const ZERO: Totals = { authorized: 0, invoiced: 0, paid: 0, outstanding: 0, notYet: 0 };
 
-/** What the section reads, as a loader Billing → Invoices can start early. */
+/** What the section reads, as a loader Admin → Money can start early. */
 export async function loadPosition() {
   const supabase = await createClient();
   return Promise.all([

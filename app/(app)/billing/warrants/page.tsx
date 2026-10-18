@@ -12,7 +12,7 @@ import { DataTable, type DataRow } from "../../data-table";
  * Every warrant received.
  *
  * What USOR actually paid, read by the agent from the stubs in the _Warrants
- * folder. The lines waiting for review are on Billing → Invoices beside the
+ * folder. The lines waiting for review are on Billing → Authorizations beside the
  * money they settle; they are repeated at the top here only as the same
  * section, not a second list.
  */

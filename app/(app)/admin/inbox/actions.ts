@@ -94,7 +94,7 @@ export async function fileDocument(_prev: InboxState, formData: FormData): Promi
   // Checked before anything is written, so a stub never lands on a client's
   // record as a filed copy while the database refuses to close it here.
   if (doc.kind === "Warrant") {
-    return { error: "A warrant stub is read on Billing → Invoices, where every line is checked; it is not filed from the inbox.", ok: null };
+    return { error: "A warrant stub is read on Billing → Authorizations, where every line is checked; it is not filed from the inbox.", ok: null };
   }
   if (!doc.client_id) return { error: "Say whose folder it is first.", ok: null };
 

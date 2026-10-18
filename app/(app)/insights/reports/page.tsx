@@ -269,7 +269,7 @@ export default async function ReportsPage({
         <Stat value={show(daysToPay)} label="median days invoice → paid" />
         <Stat
           value={money(ar60)}
-          label="A/R over 60 days · aging on Billing → Invoices"
+          label="A/R over 60 days · aging on Admin → Money"
           tone={ar60 > 0 ? "bad" : undefined}
           href="/billing"
         />
