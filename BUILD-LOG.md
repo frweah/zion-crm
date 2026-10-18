@@ -4381,3 +4381,36 @@ the migration checks the whole list.
 - **Everybody else still has no manager**, so their summaries go to Admin
   alone. One dropdown each on their record.
 - **The 1 November review** on the emailed-day transition still stands.
+
+### A self-referencing embed signed everybody out — 18 October 2026
+
+The deploy above was refused by the smoke test, and it was right to.
+
+Reading whether anybody reports to somebody was written as a PostgREST embed,
+`reports:staff!staff_manager_id_fkey(id)`. PostgREST will not resolve a
+self-referencing one — *"Could not find a relationship between 'staff' and
+'staff'"* — so the whole select failed, `getCurrentStaff` returned null, and
+null from there means no access. **Every screen for every role answered
+/no-access.**
+
+Smoke caught it on the way to production, the deploy never promoted, and
+nothing live was affected. The signature in the log is unmistakable in
+hindsight: not one screen failing, but every screen for a role failing at
+once, starting mid-sweep.
+
+It is a count now, asked as its own question. A count over a six-row table
+inside a request-cached function is not worth being clever about, and the
+embed was the clever version.
+
+**The amplifier matters more than the embed.** The select took only `data` and
+ignored `error`, so a query that *failed* looked exactly like a person who had
+never been given an account. It still returns null — failing open would be far
+worse — but the fault is now logged with its reason instead of silently
+signing out the practice. The middleware learned the same thing about
+revocation on 15 October: an error is not an answer. That is twice now, in two
+different files, and it is worth saying plainly as a rule — **when a check
+cannot get an answer, that is not the same as getting the answer "no".**
+
+Verified against production's PostgREST before the second deploy, rather than
+after: the select the session runs returns 200, and the count returns 1 for
+Margaret.
