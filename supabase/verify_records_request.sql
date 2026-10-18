@@ -82,6 +82,24 @@ declare
     'notifications',         -- our own nagging, not the client's record
     'expenses',              -- a staff member's mileage claim, not their file
     'inbox_documents',       -- plumbing; the filed copy is in attachments
+    /*
+     * A line on somebody's end-of-day report (0211).
+     *
+     * Skipped for the same reason as inbox_documents: the filed copy is
+     * already in the bundle. Submitting a day writes every line that names a
+     * client to that client's contact log, description and notes and all, and
+     * contact_log is disclosed as counselor_contacts above. Disclosing both
+     * would hand the client the same sentence twice.
+     *
+     * And a line that has not been submitted is a draft of a day somebody has
+     * not finished writing. The practice discloses what it recorded, not what
+     * a member of staff had half-typed at four o'clock.
+     *
+     * If that reasoning ever stops holding - if a line starts carrying
+     * something the contact log does not - this is the line to delete, and
+     * the check will say so.
+     */
+    'staff_day_lines',
     'inbox_folder_map',      -- a folder name on somebody's PC
     'work_session_timers',   -- a running stopwatch, gone in an hour
     'legal_holds',           -- about the record rather than in it

@@ -58,6 +58,11 @@
      shape of the comparison's light pane. */
   --side-bg: #3f5a4f;
   --side-ink: #ffffff;
+  /* The plate the logo sits on. White in both modes, deliberately: the
+     artwork is a full-colour gradient and reads against white, which is the
+     ground it was drawn for. It is the one surface in the app that does not
+     turn over with the theme (owner, 18 Oct 2026). */
+  --brand-plate: #ffffff;
   --side-muted: #e6e0d3;
   --side-hover: #2f463d;
   --side-active-bg: #2f463d;
@@ -154,6 +159,8 @@
 
     --side-bg: #2a3a32;
     --side-ink: #ffffff;
+    /* White in dark mode too; see the light block. */
+    --brand-plate: #ffffff;
     --side-muted: #e6e0d3;
     --side-hover: #22302a;
     --side-active-bg: #22302a;
@@ -198,6 +205,8 @@
 
   --side-bg: #2a3a32;
   --side-ink: #ffffff;
+  /* White in dark mode too; see the light block. */
+  --brand-plate: #ffffff;
   --side-muted: #e6e0d3;
   --side-hover: #22302a;
   --side-active-bg: #22302a;

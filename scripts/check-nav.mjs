@@ -81,7 +81,7 @@ const EXPECTED = {
   Admin: [
     "/admin/documents", "/admin/people", "/admin/settings-hub", "/admin/system",
     "/billing",
-    "/calendar", "/clients", "/counselors", "/dashboard", "/hours",
+    "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/hours",
     "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
@@ -93,18 +93,18 @@ const EXPECTED = {
   // have is a screen of blank forms and a second way to bill.
   "Job Search": [
     "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
-    "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
+    "/end-of-day", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
-    "/calendar", "/clients", "/dashboard", "/directory", "/hours",
+    "/calendar", "/clients", "/dashboard", "/directory", "/end-of-day", "/hours",
     "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
     "/billing", "/calendar", "/clients", "/counselors",
     "/dashboard", "/directory",
-    "/books", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
+    "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
   ],
 };
 

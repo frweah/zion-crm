@@ -9,7 +9,7 @@ import { classifyDocument } from "@/lib/classify-document";
 import { parseAuthorizationText } from "@/lib/authorization-parse";
 import { parseReferralText } from "@/lib/referral-parse";
 import { INBOX_BUCKET, STORAGE_MAX_BYTES, inboxStoragePath } from "@/lib/inbox-storage";
-import { INTAKE_MAILBOX } from "@/lib/intake-source";
+import { INTAKE_MAILBOX, dayFromSubject } from "@/lib/intake-source";
 import {
   readIntakeMailbox,
   replyToCounselor,
@@ -50,6 +50,8 @@ import {
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+
 
 type Supabase = ReturnType<typeof createAdminClient>;
 
@@ -134,6 +136,72 @@ async function handle(request: NextRequest) {
   const emailed: string[] = [];
 
   const handler: IntakeHandler = {
+    /**
+     * A day that came in as an email.
+     *
+     * The transition arrangement (owner, 18 Oct 2026, review 1 Nov): it is
+     * filed on the person's day record so nothing is lost, and they are
+     * reminded to put it in the CRM, which is where it belongs.
+     *
+     * Only for a member of staff. An outsider writing "EOD" in a subject
+     * line gets nothing from this — the answer is false and the message
+     * carries on to the ordinary gate as though this were not here.
+     */
+    async endOfDay(message, pdfs) {
+      const sender = (message.from ?? "").trim().toLowerCase();
+      if (!sender) return { filed: false };
+
+      const { data: person } = await admin
+        .from("staff")
+        .select("id, name")
+        .ilike("email", sender)
+        .eq("active", true)
+        .eq("is_system", false)
+        .maybeSingle();
+      if (!person) return { filed: false };
+
+      // The day it covers: the date in the subject if there is one, else the
+      // day it was sent. People write "EOD 5/13" far more often than they
+      // write the year.
+      const day = dayFromSubject(message.subject) ?? message.receivedAt.slice(0, 10);
+
+      let fileId: string | null = null;
+      const first = pdfs[0];
+      if (first && first.bytes.length > 0 && first.bytes.length <= STORAGE_MAX_BYTES) {
+        const safe = first.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-80);
+        const path = `${person.id}/${Date.now()}-${safe}`;
+        const { error: putError } = await admin.storage
+          .from("staff-files")
+          .upload(path, first.bytes, { contentType: "application/pdf", upsert: false });
+        if (!putError) {
+          const { data: row } = await admin
+            .from("staff_files")
+            .insert({
+              staff_id: person.id,
+              storage_path: path,
+              filename: first.name,
+              mime_type: "application/pdf",
+              size_bytes: first.size,
+              category: "End of day report",
+              note: `Emailed to ${INTAKE_MAILBOX} on ${message.receivedAt.slice(0, 10)}`,
+              uploaded_by: person.id,
+            })
+            .select("id")
+            .maybeSingle();
+          fileId = row?.id ?? null;
+        }
+      }
+
+      await admin.rpc("file_emailed_day", {
+        p_staff: person.id,
+        p_day: day,
+        p_file_id: fileId,
+      });
+
+      looked.push({ from: message.from, decision: "end of day", who: person.name, day });
+      return { filed: true };
+    },
+
     async skipped(message, decision, detail) {
       await admin.rpc("intake_record_mail", {
         p_message: message.id,

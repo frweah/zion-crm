@@ -75,9 +75,29 @@ const FUNC = /\b(?:rgba?|hsla?)\(/g;
  */
 const APPLIES_THE_THEME = new Set(["app/layout.tsx", "app/(app)/theme-choice.tsx"]);
 
+/**
+ * Brand artwork, which the palette rule does not reach and must not.
+ *
+ * The logo is a full-colour gradient — greens, a teal, a blue, a yellow
+ * sunburst — and none of it is in the theme. That is correct: it is the
+ * practice's mark, not a piece of interface, and restyling the app must
+ * never restyle it.
+ *
+ * The rule never applied to it in the first place, because this check reads
+ * stylesheets and components rather than images. It is named here so the
+ * decision is written down rather than left to be rediscovered — and so that
+ * anybody who later teaches this check to read assets knows which file is
+ * deliberately outside the palette (owner, 18 Oct 2026).
+ *
+ * The plate it sits on is a different thing and is not exempt: --brand-plate
+ * is declared in tokens.css with every other colour.
+ */
+const BRAND_ARTWORK = ["public/zion-logo.png"];
+
 const sources = ["app", "lib"]
   .flatMap((d) => walk(path.join(root, d)))
-  .filter((f) => /\.(css|tsx|ts|mjs)$/.test(f) && path.resolve(f) !== path.resolve(TOKENS));
+  .filter((f) => /\.(css|tsx|ts|mjs)$/.test(f) && path.resolve(f) !== path.resolve(TOKENS))
+  .filter((f) => !BRAND_ARTWORK.includes(path.relative(root, f).split(path.sep).join("/")));
 
 let offenders = 0;
 for (const file of sources) {
@@ -99,6 +119,7 @@ for (const file of sources) {
 }
 if (offenders > 12) fail(`...and ${offenders - 12} more colour values outside app/tokens.css`);
 if (offenders === 0) ok(`no colour is written outside app/tokens.css (${sources.length} files checked)`);
+ok(`brand artwork is outside the palette rule, by decision: ${BRAND_ARTWORK.join(", ")}`);
 
 // ── one type scale, one motion, nothing faded ────────────────
 const tokenText = readFileSync(TOKENS, "utf8");

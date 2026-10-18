@@ -223,19 +223,26 @@ textarea {
   color: var(--side-ink);
 }
 
-/* The mark is drawn, not displayed: the PNG supplies the shape through its
-   alpha channel and --side-ink supplies the colour, so it is the sidebar's
-   own white on the sidebar's own green in both themes and introduces no
-   colour of its own. Three quarters of the artwork is transparent, including
-   the gaps between the leaves and inside the ring, so the silhouette keeps
-   its structure at 36px. */
-.brand-mark {
+/* The logo as it was drawn, on a plate.
+   It was briefly a white silhouette masked out of the artwork's alpha, which
+   kept the sidebar to two colours but threw away the logo (owner, 18 Oct
+   2026). The artwork is a full-colour gradient that reads against white, so
+   it gets white to sit on — in both modes, which is why --brand-plate is the
+   one token that does not turn over with the theme. The plate is the only
+   addition; nothing recolours the logo. */
+.brand-plate {
+  display: flex;
+  flex-shrink: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--brand-plate);
+}
+
+.brand img {
+  display: block;
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  background: var(--side-ink);
-  -webkit-mask: url("/zion-logo.png") center / contain no-repeat;
-  mask: url("/zion-logo.png") center / contain no-repeat;
 }
 
 .brand small {
@@ -1676,9 +1683,12 @@ table.t tbody tr[aria-selected="true"] td {
   justify-content: center;
   padding: 2px 0 22px;
 }
+/* The narrow rail is 64px with 10px of padding each side, so 44px to work
+   in. The plate is the logo plus 8px all round, which puts a 26px logo at
+   42px and leaves it inside the rail rather than over its edge. */
 .shell.side-narrow .brand img {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
 }
 .shell.side-narrow .roleblock {
   padding: 14px 0 0;

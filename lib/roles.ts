@@ -261,6 +261,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // (Design language, §3).
       { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
       { label: "Hours", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
+      // The practice's own EOD template, in the CRM (owner, 18 Oct 2026).
+      // Everybody fills one in; Admin reads everybody's from the same screen.
+      { label: "End of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
       { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
       { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
       { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },

@@ -4134,3 +4134,152 @@ which `check-theme` already enforces.
 - **The 4.5 MB platform ceiling applies to API routes too**, including the
   agent upload endpoints. They were not counted here because several stream
   rather than take a body, and I have not checked them one by one.
+
+---
+
+## The logo on a plate, and the end of the day — 18 October 2026
+
+*Owner: revert the white silhouette and show the logo as it is, on a white
+rounded plate, 8 px padding, white in both modes. And: an end of day entry
+under My work for every role, modelled on the practice's EOD template.*
+
+### The logo
+
+The silhouette is gone. The artwork is shown as it was drawn, on a plate of
+`--brand-plate` — pure white, declared in all three token blocks with the same
+value, because it is the one surface in the app that deliberately does not
+turn over with the theme. 8 px of padding, an 8 px radius, and nothing
+recolours the logo.
+
+The narrow rail decides the size. It is 64 px wide with 10 px of padding each
+side, so 44 px to work in; the plate is the logo plus 8 px all round, which
+puts the sidebar logo at 36 px and the rail's at 26 px.
+
+**The exemption was not needed, and is there anyway.** `check-theme` reads
+`.css`, `.tsx`, `.ts` and `.mjs` under `app/` and `lib/` — it never reached
+`public/zion-logo.png`, so the palette rule had nothing to say about the
+artwork in the first place. Rather than add a no-op, the decision is written
+down: `BRAND_ARTWORK` names the file, the check prints it as a deliberate
+exemption, and anybody who later teaches it to read assets will find the
+reason already there. The plate is *not* exempt — `--brand-plate` is declared
+in `tokens.css` with every other colour, which is why "no new theme colours"
+still passes.
+
+### The end of the day
+
+Migrations 0211–0214, a screen at `/end-of-day` under HR (which `lib/roles.ts`
+notes "was My work"), 22 assertions in `verify_end_of_day.sql`, and a
+rolled-back smoke check.
+
+**It is the practice's own form.** `Office/TEAM/EOD REPORTS/EOD Report
+Template.xlsx` was read rather than guessed at, and the screen carries its
+headings: Name of the Employee, Department/Agency, Date Prepared, Assigned
+Manager/Team Leader; a TASKS LIST of STATUS / DESCRIPTION / NOTES; and
+BOTTLENECKS with ACTIONS TAKEN/SUGGESTIONS. The template's three statuses are
+Complete, In-Progress and "Pending/ To do"; the owner shortened the third to
+Pending and that is what the screen says.
+
+Three things the spreadsheet could not do, which are the reason for moving it:
+
+- **A line about a client lands on that client's record.** Submitting writes
+  every client line to that client's contact log, as `End of day report`, with
+  the description as the topic and the status and notes as the outcome. The
+  contact-log id is kept on the line, so a reopen and a second submit do not
+  write the client's history twice — asserted.
+- **What was unfinished is already on today's form.** In-Progress and Pending
+  carry forward; Complete does not. From the last day they *submitted*, not
+  the calendar day before: on a Monday what is still Pending is Friday's, and
+  carrying from an empty Sunday would lose it.
+- **It is submitted once.** Reopening is the same day only, needs a reason,
+  and is written down. A day reopened a week later is history being rewritten
+  rather than a mistake being fixed.
+
+**A pasted report is read, not retyped.** Every line starting with a hyphen
+becomes a task. A status in brackets is honoured — `- [Pending] chase the
+intake` — which means the summary this app emails pastes straight back in
+tomorrow.
+
+**`staff.manager_id` is new.** The template's "Assigned Manager/Team Leader"
+was something the CRM did not know. Admin sets it; null means the summary goes
+to Admin alone, which is what happens today anyway.
+
+**Who sees a day:** their own, Admin's everybody's, and a manager their own
+people's. The last is a judgement call beyond the literal instruction — the
+summary is sent to the manager, and a notification they cannot open is not
+worth sending. Say the word if it should be Admin only.
+
+### The transition
+
+A message to service@ with EOD in the subject, from a member of staff, is
+filed on their day record as a document and raises a reminder on their bell
+and My day. The reminder clears itself when they actually submit that day.
+
+**It cannot loosen the intake gate**, and that is the part worth saying twice.
+The branch runs before the utah.gov rule, files only when the sender is on the
+staff list, and when it does not file the message falls straight through to
+the gate exactly as before. `check-intake.mjs` asserts all three: the ordering,
+the fall-through, and that "EOD" is read as a word rather than three letters
+inside "method", "period" or "neodymium".
+
+Reading the day out of the subject (`EOD 5/13`, `MAE_EOD_JUNE 1, 2026`) found
+two bugs in its own writing. `\b` counts an underscore as a word character, so
+there is no word boundary before JUNE in `MAE_EOD_JUNE` — the boundaries are
+written out now. And taking the first thing shaped like a date takes a version
+number or a time instead; every match is tried, and 31 February is refused
+rather than rounded.
+
+**Review on 1 November 2026.** What to look at: whether anybody is still
+emailing days, and whether the reminder is clearing — if it is clearing, the
+habit has landed and this branch can go.
+
+### What the checks caught
+
+- **The day locked itself out of its own submission.** `submit_staff_day` set
+  `submitted_at` and *then* noted on each line which contact-log entry it had
+  written — which is a change to a line on a locked day, so the lock refused
+  it and submitting any day with a client on it failed with the day's own
+  guard. `verify_end_of_day.sql` found it on the first run, which is what it
+  is for. 0213 does the filing while the day is still open and closes it last.
+- **Three tables did not refuse the system account.** `verify_system_account`
+  caught `staff_days`, `staff_day_lines` and `staff_day_events`, as it caught
+  `staff_record_changes` in 0199 and `client_document_events` in 0202. 0214
+  applies the rule. An end-of-day report is a person writing about their own
+  work and is the last thing an account with no person behind it should file.
+- **A table holding client data has to be in the records bundle or skipped
+  with a reason.** `staff_day_lines` is skipped, for the same reason
+  `inbox_documents` is: the filed copy is already in the bundle, because
+  submitting writes the line to the client's contact log and `contact_log` is
+  disclosed as `counselor_contacts`. Disclosing both would hand the client the
+  same sentence twice, and an unsubmitted line is a draft of a day nobody has
+  finished writing.
+
+### The smoke case, and where it runs
+
+The owner asked for: a Job Search user submits a day with one client-linked
+line, the client's contact log shows it, one summary email is sent.
+
+`scripts/smoke.mjs` opens pages and asserts they do not break; it posts
+nothing. More to the point, a smoke test that really submitted a day would put
+a junk end-of-day on a **real client's record** and a junk email in service@
+on every deploy.
+
+So it runs as `scripts/check-end-of-day.mjs`: the real flow —
+`open_staff_day`, a client-linked line, `submit_staff_day` — as a real Job
+Search user with RLS applied, against ZZ fixtures, inside a transaction that
+is rolled back. It asserts the client's contact log shows the line exactly
+once and that the summary carries the template's headings, the task and the
+client. The one step it must not take is sending, so the email is checked by
+reading the action: exactly one `sendEmail`, to service@zionvocrehab.com.
+
+The screen itself is already in smoke for free — `/end-of-day` is on every
+role's navigation, so the sweep opens it as a Job Search user on every deploy.
+
+Like `check-hours-race.mjs`, it needs database credentials and so is not in
+`prebuild`, which runs on Vercel.
+
+### Left for the owner
+
+- **Nobody has a manager yet.** `staff.manager_id` is empty, so every summary
+  goes to Admin alone until it is filled in on each person's record.
+- **Whether a manager should read their people's days**, as above.
+- **1 November**: the review on the emailed-day transition.

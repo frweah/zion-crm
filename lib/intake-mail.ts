@@ -1,7 +1,7 @@
 import "server-only";
 import { listMessages, listAttachments, fetchAttachment } from "@/lib/mail";
 import { replyOwn, sendNew } from "@/lib/mail-send";
-import { isFromUtahGov } from "@/lib/intake-source";
+import { isFromUtahGov, looksLikeEndOfDay } from "@/lib/intake-source";
 
 /**
  * Reading service@ for the intake, and thanking the counselor.
@@ -53,6 +53,15 @@ export type IntakePdf = { name: string; size: number; bytes: Uint8Array };
  * database is what knows it.
  */
 export type IntakeHandler = {
+  /**
+   * An end-of-day report, sent by email instead of filled in on the CRM.
+   *
+   * Answers whether it was filed, which is only true when the sender is a
+   * member of staff. A false answer means it was not one of ours and the
+   * message goes on to the ordinary gate below, untouched — so this branch
+   * can only ever add, and the utah.gov rule is exactly what it was.
+   */
+  endOfDay(message: IntakeMessage, pdfs: IntakePdf[]): Promise<{ filed: boolean }>;
   skipped(message: IntakeMessage, decision: "not utah.gov" | "no pdf", detail: string): Promise<void>;
   pdf(message: IntakeMessage, pdf: IntakePdf): Promise<{ reply: boolean }>;
   failed(message: IntakeMessage, pdf: IntakePdf, detail: string): Promise<void>;
@@ -78,6 +87,31 @@ export async function readIntakeMailbox(
       subject: m.subject,
       receivedAt: m.receivedAt,
     };
+
+    /**
+     * A day somebody emailed in, before the ordinary gate.
+     *
+     * Deliberately first, and deliberately unable to loosen anything: it
+     * files only when the sender is on the staff list, and when it does not
+     * file, the message falls straight through to the gate below as though
+     * this branch were not here.
+     */
+    if (looksLikeEndOfDay(message.subject)) {
+      const theirs = m.hasAttachments ? await listAttachments(token, mailbox, m.id) : [];
+      const files: IntakePdf[] = [];
+      for (const a of theirs.filter(isPdf)) {
+        try {
+          const response = await fetchAttachment(token, mailbox, m.id, a.id);
+          if (!response.ok) continue;
+          files.push({ name: a.name, size: a.size, bytes: new Uint8Array(await response.arrayBuffer()) });
+        } catch {
+          // A day whose attachment will not come down is still a day: it is
+          // filed without it, and the reminder is what matters.
+        }
+      }
+      const { filed } = await handler.endOfDay(message, files);
+      if (filed) continue;
+    }
 
     // Anything not from Utah is left alone - not read, not recorded against
     // anybody, nobody notified. The handler is told so the skip can be found.

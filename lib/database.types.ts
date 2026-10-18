@@ -4138,6 +4138,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           is_system: boolean;
+          manager_id: string | null;
         };
         Insert: {
           id?: string;
@@ -4154,6 +4155,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           is_system?: boolean;
+          manager_id?: string | null;
         };
         Update: {
           id?: string;
@@ -4170,6 +4172,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           is_system?: boolean;
+          manager_id?: string | null;
         };
         Relationships: [];
       };
@@ -4308,6 +4311,111 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_day_events: {
+        Row: {
+          id: string;
+          day_id: string;
+          action: string;
+          reason: string;
+          by_staff: string | null;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          day_id: string;
+          action: string;
+          reason?: string;
+          by_staff?: string | null;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          day_id?: string;
+          action?: string;
+          reason?: string;
+          by_staff?: string | null;
+          at?: string;
+        };
+        Relationships: [];
+      };
+      staff_day_lines: {
+        Row: {
+          id: string;
+          day_id: string;
+          status: string;
+          description: string;
+          notes: string;
+          client_id: string | null;
+          carried_from: string | null;
+          sort_order: number;
+          contact_log_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          day_id: string;
+          status: string;
+          description: string;
+          notes?: string;
+          client_id?: string | null;
+          carried_from?: string | null;
+          sort_order?: number;
+          contact_log_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          day_id?: string;
+          status?: string;
+          description?: string;
+          notes?: string;
+          client_id?: string | null;
+          carried_from?: string | null;
+          sort_order?: number;
+          contact_log_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      staff_days: {
+        Row: {
+          id: string;
+          staff_id: string;
+          day: string;
+          role_at_time: string;
+          manager_id: string | null;
+          bottlenecks: string;
+          actions_taken: string;
+          submitted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          day: string;
+          role_at_time?: string;
+          manager_id?: string | null;
+          bottlenecks?: string;
+          actions_taken?: string;
+          submitted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          day?: string;
+          role_at_time?: string;
+          manager_id?: string | null;
+          bottlenecks?: string;
+          actions_taken?: string;
+          submitted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       staff_emails: {
         Row: {
           id: string;
@@ -4424,6 +4532,7 @@ export type Database = {
           created_at: string;
           inspected_at: string | null;
           inspected_by: string | null;
+          staff_day_id: string | null;
         };
         Insert: {
           id?: string;
@@ -4438,6 +4547,7 @@ export type Database = {
           created_at?: string;
           inspected_at?: string | null;
           inspected_by?: string | null;
+          staff_day_id?: string | null;
         };
         Update: {
           id?: string;
@@ -4452,6 +4562,7 @@ export type Database = {
           created_at?: string;
           inspected_at?: string | null;
           inspected_by?: string | null;
+          staff_day_id?: string | null;
         };
         Relationships: [];
       };
@@ -6408,6 +6519,10 @@ export type Database = {
         Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category?: string | null; p_restricted?: boolean | null; p_outcome?: string | null; p_ocr?: boolean | null };
         Returns: { note_id: string | null; attachment_id: string | null; created: boolean | null }[];
       };
+      file_emailed_day: {
+        Args: { p_staff: string | null; p_day: string | null; p_file_id: string | null };
+        Returns: string;
+      };
       fmt_hours: {
         Args: { n: number | null };
         Returns: string;
@@ -6688,6 +6803,10 @@ export type Database = {
         Args: { p_staff: string | null; p_kind: string | null; p_text: string | null; p_ref: string | null; p_href?: string | null; p_client?: string | null; p_task_title?: string | null; p_due?: string | null; p_level?: string | null; p_source?: string | null };
         Returns: { staff_name: string | null; email: string | null; message: string | null; task_id: string | null; already: boolean | null }[];
       };
+      notify_staff_day: {
+        Args: { p_day_id: string | null };
+        Returns: number;
+      };
       offboard_staff: {
         Args: { p_staff_id: string | null; p_last_day: string | null; p_reason?: string | null; p_successor?: string | null; p_note?: string | null };
         Returns: { clients_moved: number | null; tasks_moved: number | null; timer_discarded: boolean | null }[];
@@ -6703,6 +6822,10 @@ export type Database = {
       open_coaching_months_for: {
         Args: { p_month: string | null };
         Returns: number;
+      };
+      open_staff_day: {
+        Args: { p_day?: string | null };
+        Returns: string;
       };
       pay_rate_on: {
         Args: { p_staff_id: string | null; p_date: string | null };
@@ -6848,6 +6971,10 @@ export type Database = {
         Args: { p_month: string | null; p_reason: string | null };
         Returns: undefined;
       };
+      reopen_staff_day: {
+        Args: { p_day_id: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
       replace_placeholder_authorization: {
         Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
@@ -6956,6 +7083,10 @@ export type Database = {
         Args: { p_address: string | null };
         Returns: string;
       };
+      staff_day_summary: {
+        Args: { p_day_id: string | null };
+        Returns: string;
+      };
       staff_has_area: {
         Args: { p_area: string | null; p_level?: string | null };
         Returns: boolean;
@@ -6982,6 +7113,10 @@ export type Database = {
       };
       submit_own_credential: {
         Args: { p_type_key: string | null; p_reference: string | null; p_issued_on: string | null; p_expires_on: string | null; p_file_id: string | null; p_note: string | null };
+        Returns: string;
+      };
+      submit_staff_day: {
+        Args: { p_day_id: string | null };
         Returns: string;
       };
       timer_elapsed_hours: {

@@ -292,6 +292,12 @@ const RPC_FUNCTIONS = [
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
   "client_last_activity_for",
+  "open_staff_day",
+  "submit_staff_day",
+  "reopen_staff_day",
+  "staff_day_summary",
+  "file_emailed_day",
+  "notify_staff_day",
   "intake_scans_now_readable",
   "intake_rules_ran_late",
   // Billing stops being a one-way street (0190-0194).

@@ -19,7 +19,7 @@
  *   bell, My day and the mail cannot drift apart.
  */
 import { readFileSync } from "node:fs";
-import { isFromUtahGov, INTAKE_MAILBOX } from "../lib/intake-source.ts";
+import { isFromUtahGov, looksLikeEndOfDay, dayFromSubject, INTAKE_MAILBOX } from "../lib/intake-source.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -60,6 +60,66 @@ if (wrong.length) {
   }
 } else {
   ok(`all ${SENDERS.length} sender cases are decided right, sub-domains in and look-alikes out`);
+}
+
+
+// ── an end-of-day report, sent the old way ───────────────────
+//
+// The transition (owner, 18 Oct 2026, review 1 Nov): a day emailed to
+// service@ is filed on that person's record and they are reminded to put it
+// in the CRM. The noes matter as much as the yeses - this branch runs before
+// the utah.gov gate, so a subject that merely contains the three letters must
+// not pull a message out of the ordinary path.
+const SUBJECTS = [
+  ["EOD", true],
+  ["EOD 5/13", true],
+  ["Thomas EOD Report 5.13.26(Weah Agency)", true],
+  ["MAE_EOD_JUNE 1, 2026", true],
+  ["eod: tuesday", true],
+  ["RE: EOD-report", true],
+  // Three letters inside another word is not somebody's day.
+  ["Method statement attached", false],
+  ["Period ending Friday", false],
+  ["Neodymium order", false],
+  ["", false],
+  [null, false],
+];
+const misread = SUBJECTS.filter(([subject, expected]) => looksLikeEndOfDay(subject) !== expected);
+if (misread.length) {
+  for (const [subject] of misread) {
+    fail(`the end-of-day rule is wrong about ${JSON.stringify(subject)} (it says ${looksLikeEndOfDay(subject)})`);
+  }
+} else {
+  ok(`all ${SUBJECTS.length} end-of-day subjects are read right, and words merely containing "eod" are not`);
+}
+
+// The day it is about, in the shapes the practice's own filenames use.
+const DAYS = [
+  ["Thomas EOD Report 5.13.26(Weah Agency)", "2026-05-13"],
+  ["MAE_EOD_JUNE 1, 2026", "2026-06-01"],
+  ["EOD 2026-10-18", "2026-10-18"],
+  ["EOD report", null],
+  // 31 February is not a day, so this falls back to when it was sent.
+  ["EOD 2/31/26", null],
+];
+const misdated = DAYS.filter(([subject, expected]) => dayFromSubject(subject) !== expected);
+if (misdated.length) {
+  for (const [subject, expected] of misdated) {
+    fail(`the day in ${JSON.stringify(subject)} reads as ${dayFromSubject(subject)}, not ${expected}`);
+  }
+} else {
+  ok(`all ${DAYS.length} subject dates are read right, and an impossible one is refused`);
+}
+
+// ── and the branch cannot loosen the gate ────────────────────
+if (!reader.includes("looksLikeEndOfDay(message.subject)")) {
+  fail("the mailbox reader does not ask looksLikeEndOfDay, so the cases above test nothing it uses");
+} else if (!/if \(filed\) continue;/.test(reader)) {
+  fail("an end-of-day message that was not filed does not fall through to the ordinary gate");
+} else if (reader.indexOf("looksLikeEndOfDay(message.subject)") > reader.indexOf("if (!isFromUtahGov(message.from))")) {
+  fail("the end-of-day branch runs after the utah.gov gate, so a staff member's day would be skipped first");
+} else {
+  ok("an emailed day is filed only for staff, and anything else falls through to the utah.gov gate untouched");
 }
 
 // ── and it is the route that asks ────────────────────────────
