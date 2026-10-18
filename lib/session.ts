@@ -58,10 +58,10 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
   // The person and their live grants together. It was two round trips, and
   // the layout, the page and every section that checks access each made them:
   // cache() above makes it once a request, this makes it one query.
-  const { data } = (await supabase
+  const { data, error } = (await supabase
     .from("staff")
     .select(
-      "id, name, email, role, active, is_system, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at), onboarding:staff_onboarding(completed_at), reports:staff!staff_manager_id_fkey(id)",
+      "id, name, email, role, active, is_system, grants:staff_access_grants!staff_access_grants_staff_id_fkey(area, level, revoked_at), onboarding:staff_onboarding(completed_at)",
     )
     .eq("user_id", userId)
     .eq("active", true)
@@ -71,11 +71,51 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
           is_system: boolean;
           grants: (Grant & { revoked_at: string | null })[] | null;
           onboarding: { completed_at: string | null } | { completed_at: string | null }[] | null;
-          reports: { id: string }[] | null;
         })
       | null;
+    error: { message: string; code?: string } | null;
   };
+
+  /**
+   * No row and an error are not the same thing, and this is where that
+   * matters most.
+   *
+   * Every screen asks this, and null from here means "no access" - so a
+   * query that *fails* signs everybody out of everything, silently, and the
+   * only symptom is that the whole practice is looking at /no-access. That
+   * happened on 18 Oct 2026: an embed PostgREST could not resolve made this
+   * select error, and nothing said so.
+   *
+   * It still returns null, because failing open would be worse. What changes
+   * is that the fault is now in the logs with its reason, instead of looking
+   * exactly like somebody who was never given an account. The middleware
+   * learned the same lesson about revocation: an error is not an answer.
+   */
+  if (error) {
+    console.error("getCurrentStaff could not read the staff row", error.code, error.message);
+    return null;
+  }
   if (!data) return null;
+
+  /**
+   * Whether anybody reports to them.
+   *
+   * Asked as its own question rather than embedded in the query above, and
+   * the reason is worth keeping: `reports:staff!staff_manager_id_fkey(id)`
+   * is a self-referencing embed, and PostgREST would not resolve it -
+   * "Could not find a relationship between 'staff' and 'staff'". The whole
+   * select then failed, getCurrentStaff returned null, and every screen for
+   * every role answered /no-access. The smoke test caught it on the way to
+   * production and the deploy never promoted (18 Oct 2026).
+   *
+   * A count over a six-row table, inside a request-cached function, is not
+   * worth being clever about.
+   */
+  const { count } = await supabase
+    .from("staff")
+    .select("id", { count: "exact", head: true })
+    .eq("manager_id", data.id)
+    .eq("active", true);
 
   // Only live ones; the database ends them when somebody is made inactive.
   const grants = (data.grants ?? []).filter((g) => !g.revoked_at).map(({ area, level }) => ({ area, level }));
@@ -89,7 +129,7 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
     grants,
     onboardingOpen: onboarding !== null && onboarding.completed_at === null,
     isSystem: Boolean(data.is_system),
-    manages: (data.reports ?? []).length > 0,
+    manages: (count ?? 0) > 0,
   };
 });
 
