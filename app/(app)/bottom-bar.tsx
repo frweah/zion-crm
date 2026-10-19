@@ -27,8 +27,11 @@ export function BottomBar({ groups }: { groups: { group: NavGroup; items: NavIte
    * its people and most of it is Admin's, so for nearly everybody that tab
    * would have been empty - while the end of day, which is the thing people
    * fill in on a phone, lives in My work.
+   *
+   * And one entry for My work, not two: Work merged into it later the same
+   * day, so Clients takes the slot the old Work group had.
    */
-  const main = ["dashboard", "work", "inbox", "my-work"];
+  const main = ["dashboard", "clients", "my-work", "inbox"];
   const shown = main
     .map((key) => groups.find((g) => g.group.key === key))
     .filter((g): g is { group: NavGroup; items: NavItem[] } => Boolean(g));

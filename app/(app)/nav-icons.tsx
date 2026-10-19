@@ -119,14 +119,9 @@ PATHS.inbox = PATHS.mail;
 // The hubs kept the icons their old groups had (Design language, §1): the
 // grouping changed, the thing each one holds did not.
 //
-// Work borrowed the people icon while Clients was one of its tabs. Clients is
-// its own tab now (15 Oct 2026), so it keeps the people and Work takes the
-// case.
-//
-// My work has its own key already and takes it directly (18 Oct 2026); HR is
-// a group of its own now and has its own icon above, because two groups
-// drawn the same way are two groups nobody can tell apart.
-PATHS.work = PATHS["my-work"];
+// Work and My work merged on 18 Oct 2026, so there is one group and one
+// icon: the case, under its own key. HR has its own icon above, because two
+// groups drawn the same way are two groups nobody can tell apart.
 
 export function NavIcon({ name }: { name: string }) {
   return (

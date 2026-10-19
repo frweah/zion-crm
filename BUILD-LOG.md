@@ -4644,3 +4644,56 @@ from `books_start` and from what Admin → Money already shows. If the CPA
 needs figures that are not in the list above — a cash position, a payroll
 total, assets at cost — they are columns on one table and a line each in the
 function, and the baselines already taken stay valid.
+
+---
+
+## Work and My work become one — 18 October 2026
+
+*Owner: merge the Work and My work sidebar groups into one named My work, the
+client work then the person's own, in that order. One icon, one phone-bar
+entry, HR unchanged. Remove the old group and any redirect from it, and update
+the checks so no screen is reachable from two groups.*
+
+The two groups lasted a month and the line between them never held. "Work"
+meant the caseload and "My work" meant your hours and your paperwork, which
+reads clearly in a design note and not at all in a sidebar: a job coach
+looking for their day had to know which of two similar headings it was under,
+and the honest answer was often both.
+
+**My work**, in the order somebody works — what is owed to clients, then what
+is owed about yourself:
+
+Tasks · My clients today · Jobs · Counselors · Hours · Statement approvals ·
+Time clock · End of day · Paperwork · Certifications · Knowledge base · Forms
+and checklists
+
+**Jobs and Counselors were not in the owner's list and are kept anyway.** They
+were in the old Work group, and dropping them would take two screens out of
+the navigation altogether — which cannot be what merging two groups was for.
+They sit with the client work.
+
+The group took the position Work had, between Clients and Communication, so
+the sidebar still reads client-facing first: **Home · Clients · My work ·
+Communication · Billing · HR · Admin**. HR is untouched.
+
+One icon — the case, under its own key, with the old Work alias gone. One
+phone-bar entry, and Clients takes the slot Work had: Home · Clients · My work
+· Communication.
+
+`/work` is gone with no redirect, as asked. A bookmark to it will 404.
+
+### The new rule in check-nav
+
+**A screen belongs to one group.** That is how this kind of merge goes wrong —
+a screen left listed in both, with two back arrows pointing different ways and
+two places to look for one thing. Compared on the path rather than the href,
+because `/hours` and `/hours?tab=approvals` are the same screen and may sit
+together. All 32 screens belong to exactly one group.
+
+### And check-copy earned its keep the same day
+
+It immediately failed on four sentences naming "Work → Tasks" and "Work → My
+clients today" — references this morning's pass had just *corrected* to point
+at Work, now stale again because the group is gone. That is the rule working
+as intended: the words describing the app are checked against the app, and the
+check noticed within minutes of the group disappearing.

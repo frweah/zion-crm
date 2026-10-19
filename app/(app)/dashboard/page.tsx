@@ -105,7 +105,7 @@ export default async function DashboardPage({
     supabase.rpc("my_unread"),
     supabase.rpc("message_inbox", { p_show: "open" }),
     mailWaiting(5),
-    // My tasks: due today or before, open. Everybody's are on Work → Tasks.
+    // My tasks: due today or before, open. Everybody's are on My work → Tasks.
     supabase
       .from("tasks")
       .select("id, title, due, client_id")
@@ -545,7 +545,7 @@ export default async function DashboardPage({
         {tasks.length === 0 ? (
           <p className="empty">
             Nothing due today and nothing overdue — everything later is on{" "}
-            {hasCaseload ? <Link href="/tasks">Work → Tasks</Link> : "your clients' records"}.
+            {hasCaseload ? <Link href="/tasks">My work → Tasks</Link> : "your clients' records"}.
           </p>
         ) : (
           tasks.slice(0, 12).map((t) => (
@@ -652,7 +652,7 @@ export default async function DashboardPage({
           )}
           {clientsDue.length > 10 && (
             <p className="lock" style={{ margin: "8px 0 0" }}>
-              <Link href="/my-clients">All of them on Work → My clients today</Link>
+              <Link href="/my-clients">All of them on My work → My clients today</Link>
             </p>
           )}
         </section>

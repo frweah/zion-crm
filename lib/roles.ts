@@ -190,22 +190,50 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // Connecteam's shape (Design language, §1): three hubs, each opening on a
-    // page of feature cards. The screens did not move - what moved is how
-    // they are grouped, so that somebody looking for "the work" finds all of
-    // it in one place rather than guessing which of six headings it is under.
-    key: "work",
-    label: "Work",
-    hub: "/work",
+    /**
+     * My work — the client work and the person's own, in one group
+     * (owner, 18 Oct 2026).
+     *
+     * These were two groups for a month and the line between them never held.
+     * "Work" meant the caseload and "My work" meant your hours and your
+     * paperwork, which reads clearly in a design note and not at all in a
+     * sidebar: a job coach looking for their day had to know which of two
+     * similar headings it was under, and the honest answer was often both.
+     *
+     * So one group, in the order somebody actually works: what is owed to
+     * clients first, then what is owed about yourself.
+     *
+     * Jobs and Counselors were in the old Work group and are not named in the
+     * owner's list. They are kept, with the client work, because dropping
+     * them would take two screens out of the navigation altogether and that
+     * cannot be what merging two groups was for.
+     */
+    key: "my-work",
+    label: "My work",
+    hub: "/my-work",
     items: [
+      // ── the client work ──
+      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks", note: "Everybody's, not only your own." },
       // Where somebody with a caseload starts the day: their own clients and
       // what is due against each (Workflow brief, 20 Sept 2026).
       { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"], note: "Your caseload, and what is due on each." },
-      { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks", note: "Everybody's, not only your own." },
       { label: "Jobs", href: "/leads", roles: EVERYONE, note: "Openings, applications and the employers behind them." },
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
       { label: "Counselors", href: "/counselors", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
+      { label: "Hours", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
+      // A tab of the Hours screen, so it stays with Hours. A screen whose
+      // tabs are split across two sidebar groups is a screen nobody can find
+      // the other half of.
+      { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
+
+      // ── and the person's own ──
+      { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
+      { label: "End of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
+      { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
+      { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
+      { label: "Knowledge base", href: "/sops", roles: EVERYONE, note: "How the practice does things, by shelf." },
+      { label: "Forms and checklists", href: "/forms-and-checklists", roles: EVERYONE, note: "A visit, a worksite check, an incident." },
     ],
   },
   {
@@ -262,41 +290,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // person who needs it cannot reach (ERP brief, E3). Off until the
       // owner sets an amount, and the screen says so.
       { label: "Purchase requests", href: "/requests", roles: EVERYONE },
-    ],
-  },
-  {
-    /**
-     * A person's own work and papers (owner, 18 Oct 2026).
-     *
-     * This was HR, and before 21 Sept it was "My work". Putting the name back
-     * is the owner's instruction and it draws a line that had gone soft: the
-     * things a person does about their own working life are not the same as
-     * the things an administrator does about everybody's, and the two had
-     * been in one group with a name that only fitted the second.
-     *
-     * So the person's own things are here and HR below keeps the practice's:
-     * the people, the contractors, the approvals, and the team's days.
-     */
-    key: "my-work",
-    label: "My work",
-    hub: "/my-work",
-    items: [
-      // The thing most people do most often, on a screen of its own
-      // (Design language, §3).
-      { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
-      { label: "Hours", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
-      // A tab of the Hours screen, so it stays with Hours. A screen whose
-      // tabs are split across two sidebar groups is a screen nobody can find
-      // the other half of.
-      { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
-      // The practice's own EOD template, in the CRM (owner, 18 Oct 2026).
-      { label: "End of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
-      { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
-      { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
-      { label: "Knowledge base", href: "/sops", roles: EVERYONE, note: "How the practice does things, by shelf." },
-      // The practice's own forms, filled in where the work happens
-      // (Design language, §3). USOR's stay on Billing.
-      { label: "Forms and checklists", href: "/forms-and-checklists", roles: EVERYONE, note: "A visit, a worksite check, an incident." },
     ],
   },
   {

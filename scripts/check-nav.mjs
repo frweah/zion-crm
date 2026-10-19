@@ -148,7 +148,12 @@ if (!problems.length) ok("each role reaches exactly the screens it should, and t
 // My work came back on 18 Oct 2026, taking the person's own things out of
 // HR: their clock, their hours, their day, their paperwork. HR keeps the
 // practice's side - the people, the approvals, and the team's days.
-const HUBS = ["Home", "Clients", "Work", "Communication", "Billing", "My work", "HR", "Admin"];
+//
+// And later the same day Work merged into it. The line between "the client
+// work" and "your own work" never held in a sidebar: a job coach looking for
+// their day had to know which of two similar headings it was under, and the
+// honest answer was often both.
+const HUBS = ["Home", "Clients", "My work", "Communication", "Billing", "HR", "Admin"];
 const labels = NAV_GROUPS.map((g) => g.label);
 if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${HUBS.join(" · ")}`);
 
@@ -243,9 +248,35 @@ for (const path of ALWAYS) {
 }
 if (!problems.length) ok(`${ALWAYS.join(", ")} opens for every role, so the gate cannot deadlock`);
 
+
+// ── a screen belongs to one group ────────────────────────────
+//
+// Work and My work merged on 18 Oct 2026 because the line between them never
+// held, and the way that kind of merge goes wrong is leaving a screen listed
+// in both: two back arrows pointing different ways, two places to look for
+// one thing, and a sidebar that disagrees with itself.
+//
+// Query strings are not separate screens - /hours and /hours?tab=approvals
+// are the same route and may sit together - so the comparison is on the path.
+const groupsOfPath = new Map();
+for (const g of NAV_GROUPS) {
+  for (const path of new Set(g.items.map((i) => navPath(i.href)))) {
+    if (!groupsOfPath.has(path)) groupsOfPath.set(path, []);
+    groupsOfPath.get(path).push(g.label);
+  }
+}
+const inTwo = [...groupsOfPath].filter(([, where]) => where.length > 1);
+if (inTwo.length) {
+  for (const [path, where] of inTwo) {
+    fail(`${path} is in ${where.join(" and ")}; a screen belongs to one group`);
+  }
+} else {
+  ok(`all ${groupsOfPath.size} screens belong to exactly one group`);
+}
+
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {
-  "/tasks": "Work", "/clients": "Clients", "/leads": "Work", "/counselors": "Work",
+  "/tasks": "My work", "/clients": "Clients", "/leads": "My work", "/counselors": "My work",
   "/mail": "Communication", "/messages": "Communication", "/messages/texts": "Communication",
   "/calendar": "Communication", "/hours": "My work", "/paperwork": "My work", "/sops": "My work",
   "/end-of-day": "My work", "/end-of-day/team": "HR", "/admin/people": "HR",
@@ -700,7 +731,7 @@ const BACK_CASES = [
   // under it still carry their own way back, which is the case further down.
   ["Admin", "/clients", null, null],
   ["Job Coach", "/clients", null, null],
-  ["Job Search", "/tasks", null, "/work"],
+  ["Job Search", "/tasks", null, "/my-work"],
   ["Admin", "/mail", null, "/communication"],
   ["Job Search", "/messages/texts", "texts", "/communication"],
   ["Job Search", "/messages/texts", "web", "/communication"],

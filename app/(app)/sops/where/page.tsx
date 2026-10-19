@@ -197,7 +197,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       },
       {
         ask: "See what I have to do today",
-        where: "Dashboard — your tasks due today or overdue; everybody's are on Work → Tasks",
+        where: "Dashboard — your tasks due today or overdue; everybody's are on My work → Tasks",
         href: "/dashboard",
       },
       {
