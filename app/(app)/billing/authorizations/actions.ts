@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/session";
+import { EMPTY_BATCH, type BatchState } from "@/lib/billing";
 import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -469,13 +470,6 @@ export async function setStatus(_prev: ActionState, formData: FormData): Promise
  * nothing, and a person told "10 of 13 cleared" and nothing else has to go
  * looking for the three.
  */
-export type BatchState = {
-  error: string | null;
-  ok: string | null;
-  rows: { auth_number: string; client_name: string; outcome: string; detail: string }[];
-};
-
-export const EMPTY_BATCH: BatchState = { error: null, ok: null, rows: [] };
 
 type BatchRow = {
   auth_id: string | null;

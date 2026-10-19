@@ -9,34 +9,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentStaff } from "@/lib/session";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { extractPdfText } from "@/lib/pdf-text";
-import { parseAuthorizationText, type ParsedAuthorization } from "@/lib/authorization-parse";
+import { parseAuthorizationText } from "@/lib/authorization-parse";
+import { emptyImport, type ImportState } from "@/lib/billing";
 
-export type ImportState = {
-  error: string | null;
-  ok: string | null;
-  parsed: ParsedAuthorization | null;
-  filename: string | null;
-  /**
-   * Where the PDF is waiting while somebody checks what was read off it.
-   *
-   * §12.1 says the authorization is saved "with the PDF referenced", and §11
-   * says the PDF exists once. So the file is kept at the moment it is read,
-   * under a staging path, and moved into the client's own folder when the
-   * client is known - which is at the confirm step, not this one. One object,
-   * moved; never two.
-   */
-  stagedPath: string | null;
-  bytes: number | null;
-};
 
-export const emptyImport: ImportState = {
-  error: null,
-  ok: null,
-  parsed: null,
-  filename: null,
-  stagedPath: null,
-  bytes: null,
-};
 
 /** Ten megabytes. A two-page authorization is a few hundred kilobytes. */
 // 3 MB, inside what a server action can actually carry: the platform

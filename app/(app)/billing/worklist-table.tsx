@@ -2,12 +2,8 @@
 
 import { useActionState } from "react";
 import { DataTable, type DataColumn, type DataRow } from "../data-table";
-import {
-  bulkMarkPaid,
-  bulkCloseAuthorizations,
-  EMPTY_BATCH,
-  type BatchState,
-} from "./authorizations/actions";
+import { bulkMarkPaid, bulkCloseAuthorizations } from "./authorizations/actions";
+import { EMPTY_BATCH, type BatchState } from "@/lib/billing";
 
 /**
  * The working list, with rows that can be chosen (owner, 14 Oct 2026).

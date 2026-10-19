@@ -1,3 +1,5 @@
+import type { ParsedAuthorization } from "@/lib/authorization-parse";
+
 /**
  * The authorization's statuses, in one place (Billing Simplification Brief).
  *
@@ -40,3 +42,52 @@ export const STATUS_MEANING: Record<AuthorizationStatus, string> = {
 
 export const isLive = (status: string): boolean =>
   (LIVE_STATUSES as readonly string[]).includes(status);
+
+/**
+ * The starting state of the two billing forms, and the shape of each.
+ *
+ * These lived in the `"use server"` action files beside the actions that
+ * return them, which reads well and is forbidden: a `"use server"` file may
+ * export nothing but async functions, because every export becomes a callable
+ * server endpoint and an object cannot be called. Next.js does not catch it
+ * at build time. It throws when the module is first required on a request —
+ * `A "use server" file can only export async functions, found object` — which
+ * is a 500 on the screen and nothing in the browser console.
+ *
+ * So they live here, where a constant is only a constant. The actions import
+ * them exactly as the forms do.
+ */
+export type BatchState = {
+  error: string | null;
+  ok: string | null;
+  rows: { auth_number: string; client_name: string; outcome: string; detail: string }[];
+};
+
+export const EMPTY_BATCH: BatchState = { error: null, ok: null, rows: [] };
+
+export type ImportState = {
+  error: string | null;
+  ok: string | null;
+  parsed: ParsedAuthorization | null;
+  filename: string | null;
+  /**
+   * Where the PDF is waiting while somebody checks what was read off it.
+   *
+   * §12.1 says the authorization is saved "with the PDF referenced", and §11
+   * says the PDF exists once. So the file is kept at the moment it is read,
+   * under a staging path, and moved into the client's own folder when the
+   * client is known - which is at the confirm step, not this one. One object,
+   * moved; never two.
+   */
+  stagedPath: string | null;
+  bytes: number | null;
+};
+
+export const emptyImport: ImportState = {
+  error: null,
+  ok: null,
+  parsed: null,
+  filename: null,
+  stagedPath: null,
+  bytes: null,
+};
