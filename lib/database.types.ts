@@ -2958,6 +2958,14 @@ export type Database = {
           taken_at: string;
           taken_by: string | null;
           note: string;
+          days_to_submit: number | null;
+          days_to_pay: number | null;
+          placements: number;
+          retained_4w: number;
+          known_4w: number;
+          retained_90d: number;
+          known_90d: number;
+          by_stage: Json;
         };
         Insert: {
           id?: string;
@@ -2976,6 +2984,14 @@ export type Database = {
           taken_at?: string;
           taken_by?: string | null;
           note?: string;
+          days_to_submit?: number | null;
+          days_to_pay?: number | null;
+          placements?: number;
+          retained_4w?: number;
+          known_4w?: number;
+          retained_90d?: number;
+          known_90d?: number;
+          by_stage?: Json;
         };
         Update: {
           id?: string;
@@ -2994,6 +3010,14 @@ export type Database = {
           taken_at?: string;
           taken_by?: string | null;
           note?: string;
+          days_to_submit?: number | null;
+          days_to_pay?: number | null;
+          placements?: number;
+          retained_4w?: number;
+          known_4w?: number;
+          retained_90d?: number;
+          known_90d?: number;
+          by_stage?: Json;
         };
         Relationships: [];
       };

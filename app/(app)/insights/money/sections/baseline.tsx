@@ -17,7 +17,7 @@ export default async function BaselineSection() {
     supabase
       .from("money_baselines")
       .select(
-        "id, as_of, label, authorized, earned, invoiced, received, outstanding, unbilled, clients, authorizations, documents, hours, taken_at, note",
+        "id, as_of, label, authorized, earned, invoiced, received, outstanding, unbilled, clients, authorizations, documents, hours, taken_at, note, days_to_submit, days_to_pay, placements, retained_4w, known_4w, retained_90d, known_90d, by_stage",
       )
       .order("as_of", { ascending: false })
       .limit(20),
@@ -40,6 +40,14 @@ export default async function BaselineSection() {
     hours: Number(r.hours),
     takenAt: r.taken_at,
     note: r.note,
+    daysToSubmit: r.days_to_submit === null ? null : Number(r.days_to_submit),
+    daysToPay: r.days_to_pay === null ? null : Number(r.days_to_pay),
+    placements: r.placements,
+    retained4w: r.retained_4w,
+    known4w: r.known_4w,
+    retained90d: r.retained_90d,
+    known90d: r.known_90d,
+    byStage: (r.by_stage ?? {}) as Record<string, number>,
   }));
 
   return <BaselinePanel rows={taken} booksStart={settings?.books_start ?? null} />;

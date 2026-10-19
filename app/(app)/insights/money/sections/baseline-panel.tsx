@@ -23,7 +23,27 @@ export type BaselineRow = {
   hours: number;
   takenAt: string;
   note: string;
+  daysToSubmit: number | null;
+  daysToPay: number | null;
+  placements: number;
+  retained4w: number;
+  known4w: number;
+  retained90d: number;
+  known90d: number;
+  byStage: Record<string, number>;
 };
+
+/**
+ * A figure that has no value yet reads as unknown, not as nought.
+ *
+ * "0 days to submit" would be read as "same day", and "0% retention" as
+ * "nobody kept their job". Neither is what an empty measure means.
+ */
+const orUnknown = (n: number | null, suffix: string) =>
+  n === null ? "not known yet" : `${n} ${suffix}`;
+
+const asRate = (kept: number, known: number) =>
+  known === 0 ? "not known yet" : `${kept} of ${known}`;
 
 const day = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
@@ -65,6 +85,21 @@ export function BaselinePanel({
         <span className="sub">
           {r.clients} clients · {r.authorizations} authorizations · {r.documents} documents ·{" "}
           {r.hours} hrs
+        </span>
+      ),
+      work: (
+        <span className="sub">
+          {orUnknown(r.daysToSubmit, "d to submit")} · {orUnknown(r.daysToPay, "d to pay")} ·{" "}
+          {r.placements} placements · 4wk {asRate(r.retained4w, r.known4w)} · 90d{" "}
+          {asRate(r.retained90d, r.known90d)}
+        </span>
+      ),
+      stages: (
+        <span className="sub">
+          {Object.entries(r.byStage)
+            .sort((a, b) => b[1] - a[1])
+            .map(([stage, n]) => `${stage} ${n}`)
+            .join(" · ") || "—"}
         </span>
       ),
     },
@@ -110,6 +145,8 @@ export function BaselinePanel({
             { key: "outstanding", label: "Outstanding", align: "right" },
             { key: "unbilled", label: "Not billed", align: "right" },
             { key: "counts", label: "And" },
+            { key: "work", label: "The work" },
+            { key: "stages", label: "By stage" },
           ]}
           rows={table}
           empty="None taken yet. The year before the books open is the one that needs one."

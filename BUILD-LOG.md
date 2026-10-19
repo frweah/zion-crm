@@ -4697,3 +4697,99 @@ clients today" — references this morning's pass had just *corrected* to point
 at Work, now stale again because the group is gone. That is the rule working
 as intended: the words describing the app are checked against the app, and the
 check noticed within minutes of the group disappearing.
+
+---
+
+## The baseline measures the work, and the restore drill — 18 October 2026
+
+*Owner: add operational measures to the frozen baseline, and script the backup
+restore verification with the exact steps written down.*
+
+### The measures
+
+Added to the frozen baseline, beside the money: **median days from receiving
+an authorization to submitting it** and **from submitting to paid**,
+**placements started in the year**, **4-week and 90-day retention**, and
+**clients by stage**.
+
+Two of them read empty today, and that is the finding rather than a fault in
+the measure:
+
+- **No authorization on file has a submitted date.** 162 of them, none with
+  `submitted_on`. The dates are set when the status moves through the app, and
+  the records on file were imported with their status already on them. So
+  neither median can be computed yet.
+- **No placement has a 30, 60 or 90-day check recorded.** 30 placements, none
+  checked. Retention is therefore unknown rather than nil.
+
+Both store null, and the screen says **"not known yet"**. That distinction is
+the point: *0 days to submit* reads as "same day" and *0 of 0 retained* reads
+as "nobody kept their job", and either would be quoted back at the practice by
+somebody who had not read the footnote.
+
+Retention is kept as a **pair** — retained out of those we could possibly know
+about — because a rate with no denominator can be read whichever way suits.
+The denominator is placements old enough by the baseline's date to have been
+checked at all, so a job that started last week is not counted as a failure.
+
+**What "retained" means here, exactly**, because it is a proxy and should not
+be quoted as more: a placement with a check recorded at that point. The table
+holds the date each check happened and no outcome beside it, so the check's
+presence is the best the record supports. If an outcome is ever recorded, that
+is the line to change.
+
+The verify asserts the relationship rather than the totals — the first version
+expected "1 of 2" and failed at "1 of 8", because the fixture was counting a
+table it does not own.
+
+### The restore drill
+
+`scripts/backup-fingerprint.mjs`. For every table: how many rows, and a
+checksum over its contents. The checksum is what makes it worth more than a
+row count — a restore that loses a column, truncates text or drops a timezone
+keeps the row count exactly and changes the fingerprint. Row digests are
+sorted before hashing, because a restore does not preserve row order.
+
+Nothing in the output is client data: each table contributes a count and a
+hash, so the file can be mailed, committed or pasted into a ticket.
+
+**It had to be taught what not to compare.** Run against production twice in a
+row it reported `staff_presence` as changed — which it had, because that table
+is who is on the CRM right now. A fingerprint that calls an unchanged database
+wrong is a fingerprint nobody will use, so volatile tables are excluded *and
+listed in the output* as skipped. A table dropped quietly is how a check comes
+to cover less than the person reading it believes.
+
+Proved by breaking it: a doctored fingerprint with one row removed, one
+table's contents altered and one table deleted fails with all three named.
+
+### The steps, for the day they are needed
+
+1. **Fingerprint what you have**, before touching anything:
+   `node --env-file=.env.local scripts/backup-fingerprint.mjs > before.json`
+   Keep `before.json` somewhere that is not the thing being restored.
+
+2. **Make a scratch project.** Supabase dashboard → New project, same region,
+   any name with `scratch` in it. Not a branch and not production.
+
+3. **Restore the backup into it.** Dashboard → the production project →
+   Database → Backups → the night you want → Download. Then in the scratch
+   project, Database → Backups → Restore, and upload it. On a plan with
+   point-in-time recovery, use Restore to a new project and pick the moment.
+
+4. **Point this laptop at the scratch project.** Copy `.env.local` to
+   `.env.scratch` and change `SUPABASE_DB_HOST` and `SUPABASE_DB_PASSWORD` to
+   the scratch project's (Settings → Database). Change nothing else.
+
+5. **Compare:**
+   `node --env-file=.env.scratch scripts/backup-fingerprint.mjs --compare before.json`
+
+   It prints `RESTORE VERIFIED`, or it names every table that did not come
+   back, came back short, or came back different — and says not to cut over.
+
+6. **Delete the scratch project.** It holds every client's record.
+
+Repeat each quarter, and after any change to how the database is backed up.
+The one thing that makes this worth doing is doing it before it is needed:
+until step 5 has printed `RESTORE VERIFIED` once, the honest statement is that
+the practice has backups and does not know whether they restore.

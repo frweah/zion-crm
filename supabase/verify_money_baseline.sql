@@ -36,6 +36,16 @@ declare
   v_screen numeric;
   v_kept   numeric;
   v_n      integer;
+  v_client uuid;
+  v_id2    uuid;
+  v_dts    numeric;
+  v_dtp    numeric;
+  v_place  integer;
+  v_r4     integer;
+  v_k4     integer;
+  v_r90    integer;
+  v_k90    integer;
+  v_stages jsonb;
   failures text[] := '{}';
 begin
   select id, user_id into v_admin, v_a_uid from public.staff
@@ -97,6 +107,91 @@ begin
     exception when check_violation then
       raise notice 'ok  and not for a day that has not happened yet';
     end;
+
+
+    /*
+     * The work, not only the money.
+     *
+     * The distinction these assertions protect: a measure with nothing to
+     * measure is *unknown*, not nought. "0 days to submit" reads as "same
+     * day" and "0 of 0 retained" reads as "nobody kept their job", and both
+     * would be quoted at the practice by somebody who had not read the
+     * footnote.
+     */
+    -- The fixtures are written as postgres: an authorization is added
+    -- through add_authorization in the app and RLS refuses a direct insert,
+    -- which is itself a rule tested elsewhere.
+    perform set_config('role', 'postgres', true);
+    insert into public.clients (name, stage, status) values ('ZZ Measure Client', 'Placement', 'Active')
+    returning id into v_client;
+
+    -- An authorization that took ten days to submit and thirty more to pay.
+    insert into public.authorizations (client_id, number, service_type, rate_type, rate,
+                                       start_date, end_date, received_on, status,
+                                       submitted_on, paid_on, paid_amount)
+    values (v_client, 'ZZ-M-1', 'Job Placement', 'Flat Fee', 1000,
+            v_as_of - 90, v_as_of - 10, v_as_of - 60, 'Paid',
+            v_as_of - 50, v_as_of - 20, 1000);
+
+    -- A placement that started long enough ago to have been checked, and was.
+    insert into public.placements (client_id, employer, title, start_date, check30, check90)
+    values (v_client, 'ZZ Employer', 'ZZ Job', v_as_of - 120, v_as_of - 90, v_as_of - 30);
+    -- And one too recent for a 90-day check to be owed.
+    insert into public.placements (client_id, employer, title, start_date)
+    values (v_client, 'ZZ Employer', 'ZZ Recent', v_as_of - 30);
+
+    perform set_config('role', 'authenticated', true);
+    select public.take_money_baseline(v_as_of - 1, 'ZZ measured') into v_id2;
+
+    select days_to_submit, days_to_pay, placements, retained_4w, known_4w,
+           retained_90d, known_90d, by_stage
+      into v_dts, v_dtp, v_place, v_r4, v_k4, v_r90, v_k90, v_stages
+      from public.money_baselines where id = v_id2;
+
+    if coalesce(v_dts, -1) <> 10 then
+      failures := failures || format('FAILED: the median to submit reads %s, not the 10 days it took', v_dts)::text;
+    else
+      raise notice 'ok  the median days to submit is measured (%)', v_dts;
+    end if;
+
+    if coalesce(v_dtp, -1) <> 30 then
+      failures := failures || format('FAILED: the median to pay reads %s, not 30', v_dtp)::text;
+    else
+      raise notice 'ok  and the median days to pay (%)', v_dtp;
+    end if;
+
+    if v_place < 2 then
+      failures := failures || format('FAILED: %s placements counted, not the 2 started this year', v_place)::text;
+    else
+      raise notice 'ok  placements started in the year are counted (%)', v_place;
+    end if;
+
+    /*
+     * Asserted as a relationship rather than as totals, because the practice
+     * has real placements on file and a fixture cannot know how many. The
+     * first version expected "1 of 2" and failed at "1 of 8" - the measure
+     * was right and the assertion was counting a table it did not own.
+     */
+    if v_r4 < 1 or v_r4 > v_k4 then
+      failures := failures || format('FAILED: 4-week retention reads %s of %s', v_r4, v_k4)::text;
+    else
+      raise notice 'ok  4-week retention is % of %, and never more than were eligible', v_r4, v_k4;
+    end if;
+
+    if v_r90 < 1 or v_r90 > v_k90 then
+      failures := failures || format('FAILED: 90-day retention reads %s of %s', v_r90, v_k90)::text;
+    elsif v_k90 >= v_k4 then
+      failures := failures ||
+        format('FAILED: the 90-day denominator (%s) is not smaller than the 4-week one (%s), so a placement too recent to have been checked is being counted against it', v_k90, v_k4)::text;
+    else
+      raise notice 'ok  and the 90-day denominator (%) is smaller than the 4-week one (%), so a placement too recent to have been checked is not counted against it', v_k90, v_k4;
+    end if;
+
+    if coalesce(v_stages ->> 'Placement', '0')::int < 1 then
+      failures := failures || 'FAILED: the stage counts do not include the client just added'::text;
+    else
+      raise notice 'ok  clients are counted by stage (% at Placement)', v_stages ->> 'Placement';
+    end if;
 
     -- ── frozen ──────────────────────────────────────────────
     begin
