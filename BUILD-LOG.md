@@ -5105,3 +5105,84 @@ and query preserved, set as a Vercel domain redirect rather than in
 middleware so that preview deployments and the deploy check - which runs
 against the custom domain - are untouched. Worth knowing: it is no longer a
 fallback. If the custom domain ever fails, that address now fails with it.
+
+---
+
+## The stale ones can be found (19 Oct 2026)
+
+**Asked for:** a Stale filter on Billing → Authorizations and a bulk Close for
+the chosen rows with one reason applied to all, logged per record. Keep the
+90-day submit block; Admin can still move a stale date on a single record with
+a reason.
+
+**Three of the four already existed**, which is worth recording so the next
+person does not rebuild them. The bulk Close went in on 14 Oct: one reason,
+`bulk_close` applying it row by row through `set_authorization_status` so each
+record carries its own log line, and a result that says per row what happened
+rather than one verdict for the batch. The 90-day block is
+`authorization_blocked_from`, which is `stale_date + org_settings
+.stale_grace_days`, and the submission checklist refuses on it. `moveStaleDate`
+moves a single record's date, refuses an empty reason **on the server** rather
+than only in the form, and writes the reason to `stale_reason` where 0156 logs
+the change.
+
+So the work was the filter, and one decision inside it.
+
+### Stale is a fact, not a sentence
+
+The working list already knew which rows were past saving - `is_blocked`, the
+first branch of the attention line. The screen could have found them by
+matching the words *"Cannot be submitted"*, and that would have worked today
+and broken quietly the next time somebody rewrote the copy. 131 sentences were
+rewritten yesterday.
+
+`0221` lifts `is_blocked` out as a column of its own on
+`authorization_attention_for` and carries it through `billing_worklist` as
+`blocked`. Nothing else moved: the rule, every word of the attention line and
+every urgency number are byte-for-byte what they were, and the migration says
+so.
+
+Two things made it awkward and are worth remembering:
+
+- **Adding an output column means dropping the function.** `create or replace`
+  will not change a signature. The list had to go first, because it reads the
+  other one.
+- **`authorization_attention(uuid, date)` was left alone deliberately.** The
+  `authorization_record` view is built on it, so changing its shape means
+  dropping and rebuilding that view - and a single record has no use for a
+  flag that exists to filter a list. It goes on selecting `attention` and
+  `urgency` by name, which the new column does not disturb. The view, the
+  single-record attention and `billing_needs_action` were all read back after
+  the migration to prove it.
+
+### On the screen
+
+A third chip beside Needs action and Show all: **Stale (2)**. It shows the
+rows that can no longer be submitted, which is exactly the set the bulk Close
+is for, and the checkboxes and the Close form are the ones that were already
+there. The chosen view survives the billing-office filter and the confirm
+queue's Open links, because a filter you lose by clicking anything is not a
+filter.
+
+The empty state says which view is empty: *"Nothing is past the grace - every
+authorization here can still be submitted."*
+
+### What is asserted
+
+`supabase/verify_stale_is_a_fact.sql`, rolled back like the rest. Four
+fixtures - a day past the grace, a day inside it, one not yet ended, and one
+already submitted - and then the assertion that matters: **the flag and the
+sentence agree on every row in the list, in both directions.** Rewrite the
+copy without the rule and it fails; change the rule without the copy and it
+fails. It also pins the grace at 90 days, and says in the failure message that
+this is the assertion to change if the owner ever moves it.
+
+105 verify scripts pass.
+
+### Left as it was
+
+`moveStaleDate` is open to Admin, Billing, and anybody holding a `billing/edit`
+grant - which is Margaret. The instruction was that Admin *can still* do it,
+which reads as keeping the escape hatch rather than narrowing it, and taking
+access away from Billing is not a change to make on an inference. Say the word
+and it becomes Admin-only.

@@ -33,6 +33,8 @@ export type WorklistRow = {
   amount: number | null;
   attention: string | null;
   urgency: number;
+  /** Past the grace: it can no longer be submitted, only closed (0221). */
+  blocked: boolean;
 };
 
 const monthOf = (period: string | null, long = false) =>

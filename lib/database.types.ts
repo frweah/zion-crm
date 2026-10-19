@@ -6454,7 +6454,7 @@ export type Database = {
       };
       authorization_attention_for: {
         Args: { p_auths: string[] | null; p_today?: string | null };
-        Returns: { auth_id: string | null; attention: string | null; urgency: number | null }[];
+        Returns: { auth_id: string | null; attention: string | null; urgency: number | null; blocked: boolean | null }[];
       };
       authorization_blocked_from: {
         Args: { p_stale: string | null };
@@ -6514,7 +6514,7 @@ export type Database = {
       };
       billing_worklist: {
         Args: { p_today?: string | null; p_client?: string | null };
-        Returns: { id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; bill_by: string | null; stale_date: string | null; submitted_on: string | null; followup_due: string | null; amount: number | null; parent_id: string | null; attention: string | null; urgency: number | null }[];
+        Returns: { id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; bill_by: string | null; stale_date: string | null; submitted_on: string | null; followup_due: string | null; amount: number | null; parent_id: string | null; attention: string | null; urgency: number | null; blocked: boolean | null }[];
       };
       bills_due_by: {
         Args: { p_by: string | null };

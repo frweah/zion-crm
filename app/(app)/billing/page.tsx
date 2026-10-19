@@ -35,7 +35,9 @@ import { isLive } from "@/lib/billing";
  * ordered by what is most pressing and then by the day it was meant to be
  * billed.
  *
- * Nothing that needs no action is shown (§§9, 11). "Show all" is a toggle.
+ * Nothing that needs no action is shown (§§9, 11). Three views: what needs
+ * action, all of it, and Stale - the ones past the grace, which can no longer
+ * be submitted and are there to be closed in a batch (owner, 19 Oct 2026).
  * Paid and Closed are not here at all - they are on the client's record under
  * History, and in Admin → Money.
  */
@@ -90,6 +92,7 @@ export default async function BillingPage({
   const canBill = can(me, "billing", "edit");
   const canLog = CAN_LOG_HOURS.includes(me.role) || canBill;
   const showAll = show === "all";
+  const showStale = show === "stale";
 
   const [worklistResult, authsResult, clientsResult, entriesResult, billing, ratesResult] = await Promise.all([
     supabase.rpc("billing_worklist"),
@@ -303,7 +306,16 @@ export default async function BillingPage({
   // ── Authorizations ────────────────────────────────────────
   const inOffice = worklist.filter((w) => matchesBo(bo, billing.forClient(w.client_id)));
   const needingAction = inOffice.filter((w) => (w.attention ?? "") !== "");
-  const shown = showAll ? inOffice : needingAction;
+  /**
+   * Stale: past the grace, so it can no longer be submitted (owner, 19 Oct).
+   *
+   * The flag comes from the database (0221) rather than from reading the
+   * attention sentence, because the sentence is copy and copy gets rewritten.
+   * These are the rows with nothing left to do but close, which is why the
+   * filter and the bulk close belong on the same screen.
+   */
+  const stale = inOffice.filter((w) => w.blocked);
+  const shown = showStale ? stale : showAll ? inOffice : needingAction;
   const quiet = inOffice.length - needingAction.length;
 
   return (
@@ -331,6 +343,7 @@ export default async function BillingPage({
           hrefFor={(docId) => {
             const params = new URLSearchParams();
             if (showAll) params.set("show", "all");
+            if (showStale) params.set("show", "stale");
             if (docId) params.set("doc", docId);
             const query = params.toString();
             return withBo(`/billing${query ? `?${query}` : ""}`, bo) + "#from-documents";
@@ -383,7 +396,7 @@ export default async function BillingPage({
       <BillingOfficeFilter
         billingOffices={billing.billingOffices}
         selected={bo}
-        href={(b) => withBo(showAll ? "/billing?show=all" : "/billing", b)}
+        href={(b) => withBo(showStale ? "/billing?show=stale" : showAll ? "/billing?show=all" : "/billing", b)}
       />
 
       <div style={{ marginBottom: 8 }}>
@@ -394,6 +407,9 @@ export default async function BillingPage({
           <Link href={withBo("/billing?show=all", bo)} className={showAll ? "on" : undefined}>
             Show all ({inOffice.length})
           </Link>
+          <Link href={withBo("/billing?show=stale", bo)} className={showStale ? "on" : undefined}>
+            Stale ({stale.length})
+          </Link>
         </div>
       </div>
 
@@ -402,13 +418,15 @@ export default async function BillingPage({
         rows={shown}
         withClient
         empty={
-          showAll
-            ? "Nothing is being worked. Paid and closed authorizations are on the client's record, under History."
-            : "Nothing needs attention today."
+          showStale
+            ? "Nothing is past the grace - every authorization here can still be submitted."
+            : showAll
+              ? "Nothing is being worked. Paid and closed authorizations are on the client's record, under History."
+              : "Nothing needs attention today."
         }
       />
 
-      {!showAll && quiet > 0 && (
+      {!showAll && !showStale && quiet > 0 && (
         <p className="lock" style={{ margin: "0 0 14px" }}>
           {quiet} more {quiet === 1 ? "authorization is" : "authorizations are"} being worked and need
           nothing today.
