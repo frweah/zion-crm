@@ -73,8 +73,7 @@ function LastRun({
   if (!lastRun) {
     return (
       <p className="lock" style={{ marginTop: 0 }}>
-        Not synced yet. It runs overnight on its own, or press Sync now.
-      </p>
+        Not synced yet. It runs overnight, or press Sync now.</p>
     );
   }
 
@@ -217,26 +216,18 @@ export function MicrosoftCard({
           </form>
           <WhatSyncDoes />
           <p className="lock" style={{ marginBottom: 0 }}>
-            Disconnecting removes the stored permission from this system. It does not change
-            anything in your Microsoft account, and you can connect again whenever you like.
-          </p>
+            It removes the stored permission here and changes nothing in Microsoft.</p>
         </>
       ) : (
         <>
           <p className="sub" style={{ marginTop: 0 }}>
-            Connect your work Microsoft account and the CRM will keep your Outlook calendar and
-            your client records in step. You will be shown exactly what it asks for before you
-            agree.
-          </p>
+            Connect your work account to keep Outlook and the CRM in step.</p>
           <WhatSyncDoes />
           <a className="btn" href="/api/auth/microsoft/start">
             Connect Outlook
           </a>
           <p className="lock" style={{ marginBottom: 0 }}>
-            Only you can connect your account, and only you can disconnect it — apart from the
-            administrator, who can disconnect it when somebody leaves. Nobody here can read your
-            mail on your behalf.
-          </p>
+            Only you connect or disconnect it. Nobody here can read your mail.</p>
         </>
       )}
     </div>

@@ -172,9 +172,7 @@ export default async function HoursPage({
           />
         </div>
         <p className="lock" style={{ marginTop: 10 }}>
-          Approving settles the hours: nothing can be added to the statement or corrected away
-          afterwards. Reopen it if something needs to change.
-        </p>
+          Approving settles the hours. Reopen it if something needs to change.</p>
       </>
     );
   }

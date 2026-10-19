@@ -108,9 +108,7 @@ export function EventForm({
         </button>
       </div>
       <p className="lock" style={{ margin: "8px 0 0" }}>
-        Times are Salt Lake City time. With a client chosen it carries their number in the title, so it is recognised
-        if it is moved or renamed in Outlook.
-      </p>
+        Salt Lake City time. A client&apos;s number goes in the title.</p>
     </form>
   );
 }

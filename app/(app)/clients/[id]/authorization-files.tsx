@@ -186,9 +186,7 @@ export function AuthorizationFiles({
           </div>
 
           <p className="lock" style={{ margin: "0 0 8px" }}>
-            Dates fill blanks only. A date already on this authorization is kept, and a different one
-            here is reported instead of applied.
-          </p>
+            Dates fill blanks only. A date already here is kept and reported.</p>
 
           <button className="btn gold" type="submit" disabled={linking || !picked}>
             {linking ? "…" : "Attach"}

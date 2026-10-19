@@ -64,9 +64,7 @@ export default async function StaffPage({
     <>
       <h2 className="h2">Staff</h2>
       <p className="sub">
-        Accounts, roles and access. Deactivating an account removes access the same moment —
-        reassign that person&apos;s active clients first.
-      </p>
+        Accounts, roles and access. Reassign a person&apos;s clients before deactivating.</p>
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)" }}>
         <div>
@@ -137,9 +135,7 @@ export default async function StaffPage({
             />
           </div>
           <p className="lock" style={{ marginTop: 8 }}>
-            Pay rates, onboarding and offboarding checklists, certifications and documents are on
-            each person&apos;s record — open it from their name.
-          </p>
+            Rates, checklists, certifications and documents are on each person&apos;s record.</p>
 
           {systemAccounts.length > 0 && (
             <section style={{ marginTop: 18 }} aria-labelledby="system-accounts">
@@ -147,11 +143,7 @@ export default async function StaffPage({
                 System accounts
               </h3>
               <p className="lock" style={{ marginTop: 0 }}>
-                Not people. The automated check signs in after every deploy and opens every screen Job Search can reach,
-                so a screen that fails is caught before anybody meets it. It reads and cannot change anything, is never
-                given more than Job Search, and its reads are logged like anybody&apos;s. Its password is held only in
-                GitHub&apos;s secrets.
-              </p>
+                Not people. The deploy check reads every screen and can change nothing.</p>
               <ul className="day-list">
                 {systemAccounts.map((s) => (
                   <li key={s.id}>

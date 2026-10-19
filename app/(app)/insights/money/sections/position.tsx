@@ -154,8 +154,7 @@ export default async function PositionPage({
     <>
       <h2 className="h2">Paid &amp; outstanding</h2>
       <p className="sub">
-        What USOR authorized, was invoiced for, and has paid - per client and for the practice.
-        Payments come from the workbook, the warrants read from the <Link href="/billing/warrants">_Warrants folder</Link>,
+        What USOR authorized, was invoiced for, and has paid.<Link href="/billing/warrants">_Warrants folder</Link>,
         and invoices marked paid by hand.
       </p>
 

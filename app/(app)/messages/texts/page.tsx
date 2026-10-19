@@ -248,9 +248,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       </div>
 
       <p className="lock" style={{ marginTop: 12 }}>
-        A client&apos;s texts open on their record, where a reply can be written: texts go out between 8am and 9pm, to
-        clients who have agreed to be texted. A website chat is answered here, and becomes part of a client&apos;s record
-        as soon as it is matched to one.
+        Texts go out between 8am and 9pm, to clients who agreed.
       </p>
     </>
   );

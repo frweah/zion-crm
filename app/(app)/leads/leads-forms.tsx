@@ -289,9 +289,7 @@ export function AddMatchForm({ leadId, clients }: { leadId: string; clients: Opt
           </button>
         </div>
         <p className="lock" style={{ margin: "10px 0 0" }}>
-          This writes a typed note on the client, so the job-search work shows on their record and
-          fills the USOR 96 monthly report without being entered twice.
-        </p>
+          This writes a typed note on the client, filling the USOR 96.</p>
       </form>
     </div>
   );
@@ -379,9 +377,7 @@ export function MatchPlacementControl({
                 </button>
               </div>
               <p className="lock" style={{ margin: "6px 0 0", maxWidth: 320 }}>
-                This starts the 30/60/90 retention checks USOR measures, and the placement fee is
-                submitted from there.
-              </p>
+                This starts the 30/60/90 retention checks USOR measures.</p>
             </form>
           ) : (
             <button className="btn ghost" onClick={() => setConfirming(true)}>

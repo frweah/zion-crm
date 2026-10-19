@@ -101,8 +101,7 @@ export function StrangerCard({ who, conversationId }: { who: string; conversatio
       <div className="card">
         <h3 style={{ marginTop: 0 }}>{who}</h3>
         <p className="lock" style={{ marginTop: 0 }}>
-          Not on any record. The work is to find out who this is.
-        </p>
+          Not on any record. Find out who this is.</p>
         <p style={{ margin: "10px 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
           <Link className="row-link" href={`/messages/texts?tab=texts&c=${conversationId}&do=match`}>
             Match to a client

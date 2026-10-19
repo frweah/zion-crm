@@ -236,9 +236,7 @@ export function StaffCredentials({
             </button>
           </div>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            Recorded as verified by you, now. A renewal is added beside the old one rather than
-            replacing it — the question &ldquo;were they covered in March&rdquo; needs both.
-          </p>
+            Verified by you, now. A renewal is added beside the old one.</p>
         </form>
       )}
     </div>

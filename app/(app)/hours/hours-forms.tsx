@@ -86,10 +86,9 @@ export function LogSessionForm({
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
-      <h3>Log time you have already worked</h3>
+      <h3>Time already worked</h3>
       <p className="sub" style={{ marginTop: 0 }}>
-        For a day that has finished, or one you meant to record earlier. The same kind of
-        entry the timer produces — this one just asks you for the hours.
+        For a day that has finished, or one you meant to record.
       </p>
       <Message state={state} />
       <form action={action}>
@@ -123,9 +122,7 @@ export function LogSessionForm({
           </button>
         </div>
         <p className="lock" style={{ margin: "10px 0 0" }}>
-          This is your billing record. Once logged an entry cannot be edited — a mistake is fixed
-          by correcting it, which keeps both versions and your reason.
-        </p>
+          Your billing record. A logged entry is corrected, never edited.</p>
       </form>
     </div>
   );
@@ -354,8 +351,7 @@ export function SubmitStatement({
           )}
           {totalAmount === null && (
             <p className="lock" style={{ margin: "4px 0 0" }}>
-              No rate is on file yet, so this period has no figure. Your hours are still recorded.
-            </p>
+              No rate on file, so no figure. The hours are still recorded.</p>
           )}
         </div>
 
@@ -550,9 +546,7 @@ export function CategoryBreakdown({
         </tbody>
       </table>
       <p className="lock" style={{ margin: "8px 0 0" }}>
-        Green is time meant to reach a client. This is what the hours were, not what can be
-        invoiced — what may be billed is the authorization&apos;s business.
-      </p>
+        Green is time meant to reach a client. The authorization decides billing.</p>
     </div>
   );
 }

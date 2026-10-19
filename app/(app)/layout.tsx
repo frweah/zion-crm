@@ -143,10 +143,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           target="_blank"
           rel="noopener noreferrer"
           title="Microsoft 365 Copilot Chat - opens in a new tab"
-          aria-label="Copilot: Microsoft 365 Copilot Chat, opens in a new tab"
+          aria-label="Assistant: Microsoft 365 Copilot Chat, opens in a new tab"
         >
           <NavIcon name="copilot" />
-          <span className="side-label">Copilot</span>
+          {/* A plain noun in the sidebar; the tooltip and the label for a
+              screen reader still name what it opens, because somebody
+              should know they are leaving for a Microsoft product. */}
+          <span className="side-label">Assistant</span>
         </a>
 
         <div className="roleblock">

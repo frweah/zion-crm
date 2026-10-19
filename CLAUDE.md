@@ -16,48 +16,74 @@ every build, so the standard is checked rather than remembered.
 
 **Write to a colleague, not to a user.** "Say why it is being reopened", not
 "Please provide a reason". The house voice is direct and assumes competence.
-No *please*, no *sorry*, no exclamation marks.
+No *please*, no *sorry*, **no exclamation marks anywhere**.
 
-**Say what happened and what to do about it.** An error names the thing and
-the next move: *"That file is over 3MB — larger than any authorization. Scan
-it at a lower resolution, or put it on the client's record and read it from
-there."* It does not apologise and it does not blame.
+**No sales words.** *Seamless, effortless, powerful, smart, magic, AI-powered,
+journey.* None of them says anything a staff member can act on, and a screen
+that describes itself that way is a screen that is not sure what it does.
 
-**A button says what pressing it does.** "Take it down", "Say it", "Do not
-send", "Place hold". Never "OK", "Submit" or "Yes". A confirmation names the
-thing — "Remove this line?" — rather than asking whether somebody is sure.
+**Say what happened and what to do about it.** An error is **one sentence**
+naming the thing and the next move: *"That file is over 3MB — scan it at a
+lower resolution, or put it on the client's record and read it from there."*
+It does not apologise and it does not blame.
+
+**A button names the action.** "Take it down", "Say it", "Do not send",
+"Place hold". Never "OK", "Submit" or "Yes". **A confirmation is one or two
+words** — "Remove", "Take it down" — not a question about whether somebody is
+sure.
 
 **A person reads about their work, not about ours.** No RLS, no RPC, no
-Postgres, no stack traces. Where the database refuses something, it refuses it
-in a sentence somebody can act on, and the screen passes that sentence
-through unchanged — which is why so many actions return `error.message`
-directly, and why the messages in the migrations are written as prose.
+Postgres, no stack traces. Where the database refuses something it refuses it
+in a sentence somebody can act on, and the screen passes that sentence through
+unchanged — which is why so many actions return `error.message` directly.
 
 **Sentence case everywhere**, except names that are capitalised anyway: Admin,
 Billing, USOR, I-9, Job Coach. No full stop at the end of a label or a button.
 
-### The screen
+**Feature names are plain nouns.** Money, Reports, Assistant, Clients, Hours.
+Not "Money insight", not "Co-pilot", not "KPI dashboard". If a name needs a
+qualifier to make sense, the screen is probably two screens.
+
+### Titles and helper text
+
+**A title is a noun, never a sentence.** "Access log", "Document inbox",
+"Problems reported". Not "What this does not cover" and not "Still to do
+before you are fully set up". A heading over four words with a verb in it is
+a sentence wearing a heading's clothes, and `check-copy` fails it.
+
+**No helper prose unless it changes what the person does next.** Under a
+heading, in an empty state, in a dialog — if the sentence would not alter a
+single action, it is decoration and it goes. What survives is **twelve words
+or fewer**; anything longer belongs in the one-time hint or the knowledge
+base, or is a sign the screen needs changing rather than explaining.
 
 **An empty state is one sentence.** Two means the screen is apologising. Join
 the second clause on rather than deleting it: *"Nothing yet — add the first
 job this client has applied for."*
 
-**No paragraph on a working screen.** 200 characters of explanation is the
-limit. Longer belongs in the one-time hint, in the knowledge base, or it is a
-sign the screen itself needs changing.
+### What a screen is made of
+
+**One typeface.** The scale is `--text-*` in `tokens.css` and nothing else
+sets a size.
+
+**No decoration that carries no information.** No eyebrow labels above
+headings, no gradients, no sparkles, no emoji. Colour means something —
+good, warning, critical, the accent — or it is not used.
 
 **One header, one tab strip, one table.** The title, the line of context and
 the actions come from `PageHead`. A filter or a period is `.segmented`; tabs
-stacked under tabs is how a screen stops being findable. A list of records is
-`DataTable` — sortable, filterable, with a sentence when it is empty. A table
-laying out something that is not a list says so with `data-layout="why"`.
+stacked under tabs is how a screen stops being findable.
 
-**A screen named in copy has to exist.** "Work → Tasks", "Admin → Money". The
-navigation has been regrouped twice and the sentences pointing at screens were
-not regrouped with them, so four of them were still sending staff to
-"Dashboard → Tasks" and "Billing → Invoices" — a screen that had been deleted.
-Nothing was broken, which is why nobody noticed. `check-copy` now reads every
-such reference against the navigation.
+**Tables for lists. Cards only when an item needs more than one line of
+context.** A list of records is `DataTable` — sortable, filterable, with a
+sentence when it is empty. A table laying out something that is not a list
+says so with `data-layout="why"`.
+
+**A screen named in copy has to exist.** "My work → Tasks", "Admin → Money".
+The navigation has been regrouped three times and the sentences pointing at
+screens were not regrouped with them, so some were still sending staff to
+"Dashboard → Tasks" and "Billing → Invoices" — a screen that had been
+deleted. `check-copy` reads every such reference against the live navigation.
 
 ### What the rules do not cover
 

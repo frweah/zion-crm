@@ -161,16 +161,14 @@ export function BillingOfficesPanel({
     <div className="card" style={{ marginTop: 14 }}>
       <h3 style={{ marginTop: 0 }}>Change a billing office</h3>
       <p className="lock" style={{ margin: 0 }}>
-        A new contact, or a group address that now exists. Changes apply to every email drafted from here on.
-      </p>
+        Changes apply to every email drafted from here on.</p>
       {billingOffices.map((b) => (
         <BillingOfficeForm key={b.id} office={b} contacts={contactsByOffice.get(b.id) ?? []} />
       ))}
 
       <h3 style={{ marginTop: 22 }}>Which office bills where</h3>
       <p className="lock" style={{ margin: 0 }}>
-        Every counselor, client, authorization and invoice follows its office here. Moving an office moves all of them.
-      </p>
+        Moving an office moves its counselors, clients and authorizations.</p>
       {/* The flag the owner asked for, where the decision gets made rather
           than in a report nobody keeps. An office with none is not broken: it
           is waiting for somebody who knows which CRP bills for that district. */}

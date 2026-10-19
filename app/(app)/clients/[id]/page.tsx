@@ -378,9 +378,7 @@ export default async function ClientPage({
           nextWindow={next}
         />
         <p className="lock" style={{ marginTop: 12 }}>
-          Every text here is on the client&apos;s Activity as well, and goes into their file if their record is ever
-          produced. Texts go out between 8am and 9pm, to the number they agreed to.
-        </p>
+          Texts go out between 8am and 9pm, to the agreed number.</p>
       </>
     );
   }
@@ -681,9 +679,7 @@ export default async function ClientPage({
           <div>
             <h2 className="h2">Progress reports</h2>
             <p className="sub" style={{ margin: "4px 0 0" }}>
-              Built from notes, hours, job search, placements and counselor contacts, and emailed to
-              the counselor on the record.
-            </p>
+              Built from the record, and emailed to the counselor on it.</p>
           </div>
           <Link className="btn" href={`/clients/${id}?tab=documents&report=Weekly`} style={{ textDecoration: "none" }}>
             Send report
@@ -842,9 +838,7 @@ export default async function ClientPage({
                 <div className="card">
                   <h3>Intake</h3>
                   <p className="sub" style={{ marginTop: 0 }}>
-                    Restricted: accommodations, emergency contact and address. Opening it is recorded
-                    in the access log.
-                  </p>
+                    Accommodations, emergency contact and address. Openings are logged.</p>
                   <Link className="btn ghost" href={`/clients/${id}?tab=profile&intake=1#intake`} style={{ textDecoration: "none" }}>
                     Open the intake record
                   </Link>

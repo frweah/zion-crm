@@ -225,8 +225,7 @@ function LogVisit({ clientId, auths, codes }: { clientId: string; auths: VisitAu
             {pending ? "Logging…" : "Log the visit"}
           </button>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            It goes onto the authorization straight away, and onto the USOR form when you bill for it.
-          </p>
+            Onto the authorization now, and onto the USOR form when billed.</p>
         </form>
       </Dialog>
     </>
@@ -330,8 +329,7 @@ function AddTask({ clientId, staff, myId }: { clientId: string; staff: Option[];
             {pending ? "Adding…" : "Add task"}
           </button>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            Open tasks show at the top of Activity; done ones join the feed.
-          </p>
+            Open tasks sit atop Activity; done ones join the feed.</p>
         </form>
       </Dialog>
     </>

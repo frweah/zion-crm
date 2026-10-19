@@ -165,9 +165,7 @@ export function Expenses({
           </div>
           {chosen?.needs_receipt && (
             <p className="lock" style={{ margin: "8px 0 0" }}>
-              Keep the receipt — add it to your documents on the Paperwork screen and say here what
-              it was.
-            </p>
+              Keep the receipt on your Paperwork screen, and say what it was.</p>
           )}
         </form>
       )}
@@ -268,9 +266,7 @@ export function MileageRateForm({
     <div className="card" style={{ marginTop: 14 }}>
       <h3 style={{ marginTop: 0 }}>Mileage rate</h3>
       <p className="sub" style={{ marginTop: 0 }}>
-        Cents per mile, from a date. A claim is priced at the rate that applied on the day it was
-        driven, so setting this year&apos;s rate does not change last year&apos;s claims.
-      </p>
+        Cents per mile, from a date. Old claims keep their old rate.</p>
 
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}

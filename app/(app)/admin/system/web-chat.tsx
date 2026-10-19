@@ -113,9 +113,7 @@ export function WebChatSettingsForm({
           ))}
         </select>
         <span className="lock">
-          Choose nobody and it goes to whoever is online. Choose some and it goes to whichever of them has the fewest
-          chats open, so it is shared out rather than always landing on the same person.
-        </span>
+          Nobody chosen means whoever is online. Some chosen means the least busy.</span>
       </label>
 
       <label className="field" style={{ marginTop: 10 }}>
@@ -154,10 +152,7 @@ export function WebChatSettingsForm({
         <code>{embed}</code>
       </pre>
       <p className="lock" style={{ marginTop: 8, marginBottom: 0 }}>
-        The widget asks for a name and a phone number or email before anybody can type, shows the line they are
-        agreeing to, and keeps nothing on their machine but a token that is gone when the tab closes. It answers only
-        on zionrehabcenter.com.
-      </p>
+        It asks for a name and a contact before anybody can type.</p>
     </form>
   );
 }

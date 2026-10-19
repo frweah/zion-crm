@@ -37,9 +37,7 @@ export default async function NoteTemplatesPage() {
           nothing here is required.
         </p>
         <p className="lock" style={{ marginBottom: 0 }}>
-          Headings are never written over text somebody has already typed. Changing these does not
-          alter a single note already written.
-        </p>
+          Changing these alters no note already written.</p>
       </div>
 
       {/* One list, a type to an item: each carries its own form, so not a card apiece. */}

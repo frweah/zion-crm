@@ -257,7 +257,7 @@ export default async function ReportsPage({
 
   return (
     <>
-      <PageHead title="Key performance indicators" context="All-time, calculated live from the record" />
+      <PageHead title="Reports" context="All-time, calculated live from the record" />
 
       <div
         className="grid"
@@ -298,9 +298,7 @@ export default async function ReportsPage({
       <div className="card" style={{ marginBottom: 24 }}>
         <h3>Client progress report</h3>
         <p className="sub" style={{ marginTop: 0 }}>
-          Weekly or monthly, built from a client&apos;s timestamped notes, service hours,
-          counselor contacts and tasks. Open a client and choose the Report tab.
-        </p>
+          Weekly or monthly, from a client&apos;s notes, hours, contacts and tasks.</p>
         <Link href="/clients" className="btn ghost" style={{ textDecoration: "none" }}>
           Choose a client
         </Link>

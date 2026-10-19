@@ -166,9 +166,7 @@ export default async function CounselorsPage({
             Billing offices
           </h2>
           <p className="sub" style={{ marginBottom: 10 }}>
-            Where USOR&apos;s payments come from, and who to chase for them. Every counselor office bills
-            through one; a client&apos;s is their counselor&apos;s office&apos;s.
-          </p>
+            Where USOR&apos;s payments come from, and who to chase.</p>
           <div className="card" style={{ padding: 0 }}>
             <DataTable
               label="billing offices"
@@ -243,9 +241,7 @@ export default async function CounselorsPage({
             Recent changes
           </h2>
           <p className="sub" style={{ marginBottom: 10 }}>
-            The last 25 changes to counselors, billing offices and offices - who made each, and what it
-            was before. Each counselor&apos;s full history is on their page.
-          </p>
+            The last 25 changes, and what each was before.</p>
           <div className="card" style={{ padding: 0 }}>
             <DirectoryHistory
               changes={(recent ?? []) as DirectoryChange[]}
@@ -338,10 +334,7 @@ export default async function CounselorsPage({
         </div>
 
         <p className="lock" style={{ marginTop: 10 }}>
-          Approved hours do not change the authorization automatically — the counselor issues a
-          new or amended authorization, which Billing then adds. That keeps our record matching
-          USOR&apos;s.
-        </p>
+          An approved request needs a new authorization before anything changes.</p>
       </>
     );
   }

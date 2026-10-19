@@ -155,7 +155,7 @@ export function RequestsView({
 
       {isAdmin && (
         <form action={saveAction} className="card no-print" style={{ marginTop: 24 }}>
-          <h3 style={{ marginTop: 0 }}>When people have to ask</h3>
+          <h3 style={{ marginTop: 0 }}>The threshold</h3>
           {saved.error && <div className="alert bad">{saved.error}</div>}
           {saved.ok && <div className="alert ok">{saved.ok}</div>}
           <div className="row2" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>

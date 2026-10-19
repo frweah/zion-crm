@@ -432,8 +432,7 @@ export function FormRenderer({
             {preview}
           </pre>
           <p className="lock" style={{ margin: "10px 0 0" }}>
-            Built from what was saved. Save the draft to refresh this after an edit.
-          </p>
+            Built from what was saved. Save the draft to refresh it.</p>
         </div>
       )}
     </>

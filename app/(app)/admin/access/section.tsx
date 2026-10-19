@@ -90,9 +90,7 @@ export default async function AccessLogPage({
     <>
       <h2 className="h2">Access log</h2>
       <p className="sub">
-        Every time somebody opened a client&apos;s restricted details or intake, a contractor&apos;s
-        tax number, or a filed tax form
-      </p>
+        Every opening of restricted details, a tax number or a tax form</p>
 
       <div className="card" style={{ margin: "14px 0" }}>
         <div className="row2">
@@ -237,7 +235,7 @@ export default async function AccessLogPage({
       </p>
 
       <div className="card" style={{ marginTop: 14 }}>
-        <h3 style={{ marginTop: 0 }}>What this does not cover</h3>
+        <h3 style={{ marginTop: 0 }}>Not covered</h3>
         <p className="sub" style={{ marginTop: 0 }}>
           Worth knowing before anybody quotes it as complete.
         </p>

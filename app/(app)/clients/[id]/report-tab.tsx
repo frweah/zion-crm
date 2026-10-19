@@ -168,9 +168,7 @@ export function ReportTab({
       <div className="card" style={{ marginTop: 12 }}>
         <h3>Narrative</h3>
         <p className="sub" style={{ marginTop: 0 }}>
-          The written progress report USOR expects with each invoice. Copy, Download and the email
-          all include whatever you write here.
-        </p>
+          The written progress report USOR expects with each invoice.</p>
         <textarea
           rows={6}
           value={narrative}
@@ -178,9 +176,7 @@ export function ReportTab({
           placeholder="Services provided, the client's progress and engagement, barriers, and recommended next steps."
         />
         <p className="lock" style={{ margin: "8px 0 0" }}>
-          Copying or downloading leaves no record. Emailing it saves the narrative to this
-          client&apos;s notes.
-        </p>
+          Copying leaves no record. Emailing saves it to the client&apos;s notes.</p>
       </div>
 
       {canSend && (

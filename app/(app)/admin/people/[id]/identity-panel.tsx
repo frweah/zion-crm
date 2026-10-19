@@ -121,8 +121,7 @@ export function IdentityPanel({
           practice address and signs in elsewhere, which is what this is for. */}
       <h4 style={{ marginBottom: 4 }}>Also written to at</h4>
       <p className="lock" style={{ marginTop: 0 }}>
-        Mail to one of these reaches them. Adding one never changes how they sign in.
-      </p>
+        Mail to any of these reaches them. Sign-in is unchanged.</p>
       <Said state={addState} />
       <Said state={dropState} />
       {aliases.length > 0 && (

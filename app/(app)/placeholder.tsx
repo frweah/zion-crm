@@ -14,8 +14,7 @@ export function Placeholder({ title, note }: { title: string; note?: string }) {
       <div className="card">
         <h3>Not built yet</h3>
         <p className="sub" style={{ margin: 0 }}>
-          Phase 1 covers the database, roles, row-level security and the invite flow. This screen
-          arrives with the rest of Phase 2.
+          This screen arrives with the rest of Phase 2.
         </p>
       </div>
     </>

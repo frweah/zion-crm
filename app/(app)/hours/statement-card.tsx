@@ -68,9 +68,7 @@ export function StatementCard({ staff }: { staff: { id: string; name: string }[]
         </a>
       </div>
       <p className="lock" style={{ margin: "8px 0 0" }}>
-        Every session in the range, the total, and a line for the employer to sign. Corrected sessions are shown struck
-        through and counted as nothing, so the page matches the record it came from.
-      </p>
+        Every session in the range, the total, and a line to sign.</p>
     </div>
   );
 }

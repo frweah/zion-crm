@@ -132,8 +132,7 @@ export function ActivityTab({
         </div>
 
         <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
-          Everything already recorded elsewhere, in one order. Each item opens where it lives.
-        </p>
+          Everything recorded elsewhere, in one order. Each item opens where it lives.</p>
       </div>
 
       {/*
@@ -166,8 +165,7 @@ export function ActivityTab({
             Start the thread
           </button>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            It shows here as a Chat item, and a document of theirs can be attached to it by reference - never copied,
-            and never to somebody who could not open it anyway.
+            It shows as a Chat item. A document attaches by reference.
           </p>
         </form>
       </details>

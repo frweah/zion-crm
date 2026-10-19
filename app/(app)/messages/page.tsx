@@ -204,9 +204,7 @@ export default async function MessagesPage({
                 Start the group
               </button>
               <p className="lock" style={{ margin: "8px 0 0" }}>
-                A conversation about a client is started from that client&apos;s record instead, so it lands on their
-                Activity.
-              </p>
+                A conversation about a client is started from that client&apos;s record.</p>
             </form>
           </details>
 
@@ -384,8 +382,7 @@ export default async function MessagesPage({
 
               {open.archived_at ? (
                 <p className="lock" style={{ marginTop: 10 }}>
-                  This conversation is archived. What was said is kept; nothing more can be added.
-                </p>
+                  Archived. What was said is kept; nothing more can be added.</p>
               ) : (
                 open.kind === "internal" && (
                   <Composer

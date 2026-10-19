@@ -63,8 +63,7 @@ export function EditCounselorForm({ counselor }: { counselor: CounselorDetails }
           </button>
         </div>
         <p className="lock" style={{ margin: "8px 0 0" }}>
-          Every change is logged, with who made it. To change the office, use Moved office.
-        </p>
+          Every change is logged. To change the office, use Moved office.</p>
       </form>
     </div>
   );

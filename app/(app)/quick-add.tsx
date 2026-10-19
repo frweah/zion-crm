@@ -199,8 +199,7 @@ export function QuickAdd({
                     <textarea name="text" rows={4} required autoFocus />
                   </label>
                   <p className="lock">
-                    Visible to Admin and Job Search, the same as a note added on the client. Change
-                    that on their Notes tab.
+                    Visible to Admin and Job Search, as a note on the client.
                   </p>
                 </>
               )}
@@ -257,8 +256,7 @@ export function QuickAdd({
                     </select>
                   </label>
                   <p className="lock">
-                    Goes on the leads board and the client&apos;s record — one pipeline, seen from
-                    two ends.
+                    One pipeline, seen from two ends: the leads board and the record.
                   </p>
                 </>
               )}
@@ -292,8 +290,7 @@ export function QuickAdd({
                         <input type="date" name="interview_on" defaultValue={today} required />
                       </label>
                       <p className="lock">
-                        Raises the prep reminder the day before, the interview-day reminder, and
-                        the appointment itself.
+                        Raises the prep reminder, the interview-day reminder and the appointment.
                       </p>
                     </>
                   )}
@@ -320,8 +317,7 @@ export function QuickAdd({
                     <input type="date" name="start_date" defaultValue={today} />
                   </label>
                   <p className="lock">
-                    Wage, hours and the 30/60/90-day checks are added on the client&apos;s
-                    Placements tab.
+                    Wage, hours and the checks go on the Placements tab.
                   </p>
                 </>
               )}
@@ -331,8 +327,7 @@ export function QuickAdd({
                 <>
                   {options.auths.length === 0 ? (
                     <p className="lock">
-                      No hourly authorization is being worked, so there is nothing to log hours
-                      against yet.
+                      No hourly authorization is being worked, so there is nothing to log.
                     </p>
                   ) : (
                     <>
@@ -362,8 +357,7 @@ export function QuickAdd({
                         <textarea name="description" rows={3} />
                       </label>
                       <p className="lock">
-                        Coaching hours land on the month they were worked on their own. Hours past
-                        what USOR authorized are refused — ask the counselor for more first.
+                        Coaching hours land on the month worked. Over-authorization hours are refused.
                       </p>
                     </>
                   )}
@@ -411,8 +405,7 @@ export function QuickAdd({
                     <textarea name="description" rows={3} required />
                   </label>
                   <p className="lock">
-                    Hours are append-only: a mistake is corrected by a replacement on the Hours
-                    screen, never by an edit.
+                    Hours are append-only: a mistake is corrected, never edited.
                   </p>
                 </>
               )}
@@ -434,7 +427,7 @@ export function QuickAdd({
                         : `Add ${current.label.toLowerCase()}`}
                   </button>
                   <span className="lock">
-                    Saved to the same place the full screen writes to, under the same rules.
+                    The same place the full screen writes to, under the same rules.
                   </span>
                 </div>
               )}

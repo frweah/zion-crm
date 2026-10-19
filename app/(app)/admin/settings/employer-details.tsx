@@ -27,9 +27,7 @@ export function EmployerDetails({
     <div className="card" style={{ marginTop: 14 }}>
       <h3>Employer details for W-4s</h3>
       <p className="sub" style={{ marginTop: 0 }}>
-        These fill the bottom block of every W-4 an employee signs. Until they are set, a signed
-        W-4 is stored with that block empty.
-      </p>
+        These fill the employer block on every W-4. Unset, it stays empty.</p>
 
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}

@@ -208,8 +208,7 @@ export function DayForm({
               />
             </label>
             <p className="lock" style={{ margin: "6px 0" }}>
-              One task to a line, each starting with a hyphen. A status in brackets is read —
-              otherwise the line counts as complete.
+              One task a line, starting with a hyphen. Brackets set the status.
             </p>
             <button className="btn gold" type="submit" disabled={pasting}>
               {pasting ? "Reading…" : "Read it"}
@@ -345,9 +344,7 @@ export function DayForm({
             {submitting ? "Submitting…" : "Submit day"}
           </button>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            It goes to your manager and to Admin, and by email to service@zionvocrehab.com. Any line
-            with a client against it goes on that client&apos;s record.
-          </p>
+            It goes to your manager, to Admin, and to service@zionvocrehab.com.</p>
         </form>
       )}
 

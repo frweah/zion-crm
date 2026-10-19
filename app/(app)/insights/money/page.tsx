@@ -365,7 +365,7 @@ export default async function RevenuePage({
       )}
 
       <section id="not-invoiced" style={{ marginBottom: 24 }}>
-        <h2 className="h2">Authorized and not yet invoiced — who is moving it</h2>
+        <h2 className="h2">Authorized, not yet invoiced</h2>
         <p className="sub" style={{ marginBottom: 12 }}>
           {money(notInvoicedTotal)} authorized and not invoiced across {notInvoiced.length} open authorization
           {notInvoiced.length === 1 ? "" : "s"}.{" "}
@@ -445,9 +445,7 @@ export default async function RevenuePage({
       <section style={{ marginBottom: 24 }}>
         <h2 className="h2">Money in, by month</h2>
         <p className="sub" style={{ marginBottom: 12 }}>
-          Invoiced against received. A month where the two diverge is a month USOR has not paid
-          yet, not a month we did not work.
-        </p>
+          Invoiced against received. A gap is a month USOR has not paid.</p>
         <div className="card">
           <table className="t" data-layout="bar chart, one row per month">
             <tbody>
@@ -538,7 +536,7 @@ export default async function RevenuePage({
       </section>
 
       <section>
-        <h2 className="h2">Where the money comes from</h2>
+        <h2 className="h2">Funding sources</h2>
         <p className="sub" style={{ marginBottom: 12 }}>
           Received all time, and what is still authorized, by service.
         </p>

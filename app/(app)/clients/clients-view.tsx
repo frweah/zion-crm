@@ -119,17 +119,14 @@ export function AddClientPanel({
             </div>
 
             <p className="lock" style={{ margin: "10px 0 0" }}>
-              Date of birth is a restricted field — visible only to Admin, Intake &amp; Client Reports,
-              and the assigned staff member.
-            </p>
+              Date of birth is restricted to Admin, Reports and the assigned member.</p>
 
             <div className="row2" style={{ marginTop: 12 }}>
               <button className="btn" type="submit" disabled={pending}>
                 {pending ? "Saving…" : "Save client"}
               </button>
               <span className="lock">
-                Saving starts the client at Referral and raises the intake task for Job Search.
-              </span>
+                Saving starts them at Referral and raises the intake task.</span>
             </div>
           </form>
         </div>

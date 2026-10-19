@@ -422,9 +422,7 @@ function AddJob({
           </button>
         </div>
         <p className="lock" style={{ marginBottom: 0 }}>
-          This goes on the leads board too — there is one pipeline, seen from two ends. Adding it
-          writes a note on the record, as moving it along will.
-        </p>
+          One pipeline, seen from two ends. Adding it writes a note.</p>
       </form>
     </div>
   );

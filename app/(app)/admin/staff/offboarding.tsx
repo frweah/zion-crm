@@ -66,9 +66,7 @@ export function Offboarding({
     <>
       <h3 style={{ marginTop: 26 }}>Offboarding</h3>
       <p className="sub">
-        Reassigning the caseload, closing the loose ends and shutting the account happen together,
-        in one step — done separately, the second half gets done on a different day or not at all.
-      </p>
+        The caseload, the loose ends and the account, in one step.</p>
 
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}
@@ -233,10 +231,7 @@ export function Offboarding({
                       </button>
                     </div>
                     <p className="lock" style={{ margin: "8px 0 0" }}>
-                      Their access ends the moment this is saved. Leaving the caseload unassigned is a
-                      real choice — unassigned clients are counted on the capacity screen, so they
-                      surface rather than disappearing.
-                    </p>
+                      Access ends the moment this is saved. Unassigned clients show on Capacity.</p>
                   </form>
                 )}
               </div>

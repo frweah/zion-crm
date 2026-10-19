@@ -4793,3 +4793,78 @@ Repeat each quarter, and after any change to how the database is backed up.
 The one thing that makes this worth doing is doing it before it is needed:
 until step 5 has printed `RESTORE VERIFIED` once, the honest statement is that
 the practice has backups and does not know whether they restore.
+
+---
+
+## The full writing and screen standard — 18 October 2026
+
+*Owner: extend CLAUDE.md with the full rule set, add four rules to
+check-copy, apply and report.*
+
+### What changed
+
+**131 pieces of copy**, across 60 files.
+
+| | fixed |
+|---|---|
+| Titles that were sentences | 12 |
+| Helper text over twelve words | 117 |
+| Stale cross-references (from the group merge) | 4 |
+| Feature names | 2 |
+
+**The twelve titles.** "What this does not cover" → *Not covered*. "Still to
+do before you are fully set up" → *Still to do*. "Where the money comes from"
+→ *Funding sources*. "Time it as you go" → *A running timer*. "When people
+have to ask" → *The threshold*. A title is a noun; each of these was a
+sentence wearing a heading's clothes.
+
+**The 117 pieces of helper text** were cut to twelve words or fewer, keeping
+the fact that changes what the person does next and dropping the rest. The
+64-word paragraph under the staff activity table became *"Hours count the day
+worked; payments the day paid."* The 57-word explanation of the deploy account
+became *"Not people. The deploy check reads every screen and can change
+nothing."* Where the second sentence only elaborated, it went.
+
+**Feature names.** Copilot → **Assistant** in the sidebar; the tooltip and the
+screen-reader label still name Microsoft 365 Copilot Chat, because somebody
+should know they are leaving for a Microsoft product. And `/insights/reports`
+was titled "Key performance indicators" while its own nav entry said
+"Reports" — now both say Reports. "Money insight" did not exist: that screen
+has been plain *Money* all along.
+
+### The four new rules
+
+- **A title over four words with a verb in it.** A word list rather than
+  anything cleverer: a heading is three or four words and the only question is
+  whether it is a sentence in disguise.
+- **Helper text over twelve words.**
+- **Sales words** — seamless, effortless, powerful, smart, magic, AI-powered,
+  journey.
+- **Exclamation marks**, anywhere, not only after a word.
+
+Proved by putting a fault back: *"Leaving the status alone is a seamless and
+powerful answer, because sometimes nothing has changed yet!"* fails three of
+them at once.
+
+### What is exempt, and why
+
+The explainer screens keep the exemption `check-words` already gave them, and
+the **compliance screens join them**: the 1099 run, records requests,
+retention and the books. Their helper text is what the IRS, the state and the
+retention schedule require somebody to know before they act — which is exactly
+the test the standard sets. Cutting *"A run is a snapshot… later edits to a
+profile do not rewrite it"* to twelve words would remove the sentence that
+stops somebody filing the wrong figures.
+
+### Two mistakes worth recording
+
+**The first rewriting pass broke two files.** It searched raw source for a
+unique phrase, and two of those phrases appeared first in a comment and in a
+string literal — so it ate a `*/` and broke a string. Both files were reverted
+and redone by hand. The lesson is the one the extractor already knew and the
+rewriter did not: *comments and strings are not screen copy, and a tool that
+edits source has to know the difference.*
+
+**And several replacements came out at thirteen words.** Written by eye,
+counted by the check, and caught on the next run — which is the right order,
+but a reminder that "about twelve" is not twelve.

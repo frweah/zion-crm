@@ -382,7 +382,7 @@ export default async function DashboardPage({
 
       {outstandingSetup.length > 0 && (
         <div className="card day-section">
-          <h3>Still to do before you are fully set up</h3>
+          <h3>Still to do</h3>
           <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
             {outstandingSetup.map((r) => (
               <li key={r.task_id} style={{ fontSize: "var(--text-md)", marginBottom: 4 }}>

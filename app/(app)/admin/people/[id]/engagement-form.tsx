@@ -24,9 +24,7 @@ export function EngagementForm({
       {state.ok && <div className="alert ok">{state.ok}</div>}
       {!current && (
         <p className="lock" style={{ marginTop: 0 }}>
-          Not recorded yet. Until it is, their onboarding holds the identity and tax steps - it decides the I-9 and
-          which tax form is theirs.
-        </p>
+          Not recorded yet. Until it is, their onboarding holds the tax steps.</p>
       )}
       <div className="row2" style={{ alignItems: "flex-end" }}>
         <input type="hidden" name="staff_id" value={staffId} />

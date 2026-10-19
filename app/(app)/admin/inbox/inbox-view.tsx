@@ -341,9 +341,7 @@ export function AuthorizationProposal({
           </div>
 
           <p className="lock" style={{ margin: "0 0 8px" }}>
-            If that number is already on file for this client, the PDF is attached to it and nothing
-            new is made. Dates fill blanks only — a date already on file is kept, and a different one
-            here is reported.
+            A number already on file takes the PDF. Dates fill blanks only.
           </p>
 
           <button className="btn gold" type="submit" disabled={confirming}>
@@ -397,8 +395,7 @@ function NamedInvoice({ doc, canBill }: { doc: PendingRow; canBill: boolean }) {
         </p>
       ) : choices.length === 0 ? (
         <p className="lock" style={{ margin: "8px 0 0" }}>
-          No authorization on file for this client to put it on. Add the authorization first, or
-          file it against the client below.
+          No authorization on file. Add one, or file it against the client.
         </p>
       ) : (
         <form action={action} style={{ marginTop: 8 }}>
@@ -569,7 +566,7 @@ export function InboxView({
     <>
       {unmatched.size > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <h3 style={{ margin: 0 }}>Folders that are not a client</h3>
+          <h3 style={{ margin: 0 }}>Folders without a client</h3>
           <p className="sub" style={{ margin: "4px 0 8px" }}>
             {unmatched.size} folder{unmatched.size === 1 ? "" : "s"} whose name matches nobody in
             the CRM. Nothing from them is filed until somebody says whose they are — a first
@@ -603,8 +600,7 @@ export function InboxView({
         <>
           {listed.some((d) => kindOf(d) === "Unreadable") && (
             <p className="sub" style={{ margin: "0 0 8px" }}>
-              Documents marked Unreadable have no text in them - scans or photographs. They can still be
-              filed against the client; what they say has to be read by a person.
+              Unreadable means a scan with no text. File it; read it yourself.
             </p>
           )}
           {/*

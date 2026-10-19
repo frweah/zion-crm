@@ -29,7 +29,7 @@ export async function AgentStatus() {
     <div className="card">
       {!last ? (
         <>
-          <h3 style={{ marginTop: 0 }}>The agent has never been in touch</h3>
+          <h3 style={{ marginTop: 0 }}>No contact yet</h3>
           <p className="sub" style={{ margin: 0 }}>
             Nothing has arrived yet. Run <code>install.cmd</code> from the agent folder on the machine
             that holds the client folders — it registers a task that runs every fifteen minutes and

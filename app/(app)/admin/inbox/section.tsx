@@ -86,10 +86,7 @@ export default async function InboxSection() {
       />
 
       <p className="lock" style={{ marginTop: 14 }}>
-        The agent reads the folder and nothing else. It has never moved, renamed or deleted a file,
-        and it cannot — what stops a document arriving twice is its content, not its name, so
-        renaming or reorganising the folders on the machine is safe.
-      </p>
+        The agent only reads. Renaming or reorganising the folders is safe.</p>
     </>
   );
 }

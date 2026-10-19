@@ -82,9 +82,7 @@ export function NewEvent({ clientId }: { clientId: string }) {
           {pending ? "Saving…" : "Save and add to Outlook"}
         </button>
         <p className="lock" style={{ marginBottom: 0 }}>
-          It goes into your own Outlook calendar, tagged with this client&apos;s number so it can
-          be recognised if you move or rename it there.
-        </p>
+          Into your own Outlook calendar, tagged with this client&apos;s number.</p>
       </form>
     </div>
   );
@@ -114,8 +112,7 @@ export function HoursOffer({ event, clientId }: { event: EventRow; clientId: str
         </form>
       </div>
       <p className="lock" style={{ margin: "8px 0 0" }}>
-        Nothing is logged until you enter it. A calendar entry says an appointment was scheduled,
-        not that it happened or how long it ran.
+        A calendar entry is not logged hours. Enter them yourself.
       </p>
     </div>
   );

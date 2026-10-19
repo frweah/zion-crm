@@ -88,7 +88,7 @@ function ReminderPrompt({ task }: { task: TaskListRow }) {
           </button>
         </div>
         <p className="lock" style={{ marginBottom: 0 }}>
-          Leaving the status alone is a real answer — sometimes nothing has changed yet.
+          Leaving the status alone is a real answer.
         </p>
       </form>
     </div>

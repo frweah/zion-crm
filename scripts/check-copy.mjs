@@ -29,7 +29,7 @@
  *   Anything assembled at runtime, for the reason copy-text.mjs gives.
  */
 import { NAV_GROUPS } from "../lib/roles.ts";
-import { sourceFiles, prose, rel, readFile } from "./copy-text.mjs";
+import { sourceFiles, prose, rel, readFile, withoutComments } from "./copy-text.mjs";
 
 const APP = new URL("../app/", import.meta.url);
 const problems = [];
@@ -53,7 +53,7 @@ const VOICE = [
   },
   {
     name: "exclaims",
-    test: /\w!(\s|$)/,
+    test: /!/,
     why: "nothing on a working screen is exciting enough for an exclamation mark",
   },
   {
@@ -65,6 +65,11 @@ const VOICE = [
     name: "says click",
     test: /\bclick (here|the)\b/i,
     why: "the words say what happens, not what to do with the mouse",
+  },
+  {
+    name: "sells",
+    test: /\b(seamless|effortless|powerful|smart|magic|magical|AI[- ]powered|journey)\b/i,
+    why: "none of those words says anything a staff member can act on",
   },
   {
     name: "leaks the machinery",
@@ -145,6 +150,91 @@ if (!problems.some((p) => p.includes("→"))) {
 if (!problems.some((p) => p.includes("button labelled"))) {
   ok(`all ${labelsSeen} buttons say what pressing them does`);
 }
+
+
+/* ── a title is a noun, and helper text is short ───────────── */
+//
+// Screens whose job is to explain, and the one group the design-language
+// brief leaves alone. The same list check-words uses, for the same reason:
+// judging them by a rule they are exempt from would be rewriting what the
+// owner asked to stay put.
+const EXPLAINERS = [
+  "/billing/",
+  "pending-authorizations",
+  "hint-bar.tsx",
+  "/sops/",
+  "/paperwork/",
+  "/login/",
+  "/set-password/",
+  "/auth/",
+  "/admin/settings-hub/",
+  "forms-and-checklists",
+  // Compliance screens: the 1099 run, records requests, retention and the
+  // books. Their helper text is what the IRS, the state and the practice's
+  // own retention schedule require somebody to know before they act, which
+  // is the test the standard sets - it changes what the person does next.
+  "/admin/contractors/",
+  "/admin/records-request/",
+  "/admin/retention/",
+  "/admin/documents/records-request/",
+  "/books/",
+  // Sent to rather than browsed to; it explains a thing being required of
+  // somebody who has not met it before.
+  "/security/two-factor",
+];
+
+/**
+ * A verb in a heading, as far as a word list can tell.
+ *
+ * Deliberately a list rather than anything cleverer: a heading is three or
+ * four words and the question is only whether it is a sentence in disguise.
+ * A list that misses one is a heading that slips through, which is a smaller
+ * harm than a check nobody can predict.
+ */
+const VERBS = /\b(is|are|was|were|be|been|being|has|have|had|do|does|did|can|cannot|will|would|should|must|may|might|add|adds|remove|removes|make|makes|made|take|takes|send|sends|sent|show|shows|open|opens|opened|close|closes|closed|go|goes|get|gets|put|puts|keep|keeps|say|says|read|reads|write|writes|sign|signs|signed|pay|pays|paid|move|moved|moves|need|needs|want|wants|use|uses|used|see|sees|look|looks|find|finds|work|works|run|runs|cover|covers|change|changes|start|starts|stop|stops|ask|asks|asked|tell|tells|give|gives|hold|holds|carry|carries|know|knows|come|comes|came|went|leave|leaves|left|log|logs|produces|reaches|counted)\b/i;
+
+const HEADING_WORDS = 4;
+const HELPER_WORDS = 12;
+
+let headingHits = 0;
+let helperHits = 0;
+
+for (const url of await sourceFiles(APP, [".tsx"])) {
+  const path = rel(url);
+  if (EXPLAINERS.some((e) => path.includes(e))) continue;
+  const src = withoutComments(await readFile(url, "utf8"));
+  const lineAt = (i) => src.slice(0, i).split("\n").length;
+
+  const headings = [
+    ...src.matchAll(/<h[1-4][^>]*>([^<{}]+)<\/h[1-4]>/g),
+    ...src.matchAll(/<PageHead[^>]*?\btitle="([^"{}]+)"/gs),
+  ];
+  for (const m of headings) {
+    const text = m[1].replace(/\s+/g, " ").trim();
+    if (!/[A-Za-z]{2}/.test(text)) continue;
+    const words = text.split(/\s+/).length;
+    if (words > HEADING_WORDS && VERBS.test(text)) {
+      headingHits++;
+      fail(`${path}:${lineAt(m.index)} the title "${text}" is a sentence. A title is a noun.`);
+    }
+  }
+
+  for (const m of src.matchAll(/className="(?:sub|lock)"[^>]*>([^<{}]+)</g)) {
+    const text = m[1].replace(/\s+/g, " ").trim();
+    if (!/[A-Za-z]{2}/.test(text)) continue;
+    const words = text.split(/\s+/).length;
+    if (words > HELPER_WORDS) {
+      helperHits++;
+      fail(
+        `${path}:${lineAt(m.index)} ${words} words of helper text — "${text.slice(0, 60)}…". ` +
+          `Twelve or fewer, or it belongs in the hint or the knowledge base.`,
+      );
+    }
+  }
+}
+
+if (headingHits === 0) ok("every title is a noun rather than a sentence");
+if (helperHits === 0) ok(`no helper text runs past ${HELPER_WORDS} words`);
 
 if (problems.length > 0) {
   console.error("");

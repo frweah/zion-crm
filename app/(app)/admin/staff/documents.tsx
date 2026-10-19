@@ -298,9 +298,7 @@ export function StaffDocuments({
             </button>
           </div>
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            A PDF, a photograph or a Word document, up to 25MB. Tax forms are signed in the app
-            rather than uploaded, so they are not on this list.
-          </p>
+            A PDF, a photograph or a Word document, up to 25MB.</p>
         </form>
       )}
 
@@ -374,9 +372,7 @@ export function StaffDocuments({
       </div>
 
       <p className="lock" style={{ margin: "10px 0 0" }}>
-        Opening somebody else&apos;s document is recorded in the access log. Opening your own is
-        not — the log answers who else has been through a personnel file.
-      </p>
+        Opening somebody else&apos;s document is logged. Your own is not.</p>
     </div>
   );
 }

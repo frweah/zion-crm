@@ -365,8 +365,7 @@ export default async function OutcomesPage({
       <section style={section}>
         <h2 className="h2">Service delivered</h2>
         <p className="sub" style={{ marginBottom: 8 }}>
-          Hours logged in the period, and money received for that service in the period.
-        </p>
+          Hours logged and money received in the period.</p>
         <div className="card" style={{ padding: 0 }}>
           <table className="t" data-layout="totals by service, not a list of records">
             <thead>
@@ -442,7 +441,7 @@ export default async function OutcomesPage({
       )}
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>How these figures are counted</h3>
+        <h3 style={{ marginTop: 0 }}>The counting rules</h3>
         <ul style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: "var(--text-md)", lineHeight: 1.6 }}>
           <li>
             <b>Clients served</b> — anyone with an hour logged, a placement started, or an invoice
@@ -466,7 +465,7 @@ export default async function OutcomesPage({
 
         {unmeasured.length > 0 && (
           <>
-            <h3 style={{ marginBottom: 4 }}>What is not in the record</h3>
+            <h3 style={{ marginBottom: 4 }}>Not in the record</h3>
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: "var(--text-md)", lineHeight: 1.6 }}>
               {unmeasured.map((u) => (
                 <li key={u}>{u}</li>

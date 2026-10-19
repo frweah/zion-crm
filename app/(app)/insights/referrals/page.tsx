@@ -264,10 +264,7 @@ export default async function ReferralsPage({
       <section style={{ marginBottom: 24 }}>
         <h2 className="h2">How far people get</h2>
         <p className="sub" style={{ marginBottom: 12 }}>
-          Everyone who has ever reached each stage, and how many are standing there now. A
-          client at Job Coaching is counted as having reached Job Development, whether or not
-          the workbook remembered it.
-        </p>
+          Everyone who has reached each stage, and how many stand there now.</p>
         <div className="card" style={{ padding: 0 }}>
           <table className="t" data-layout="funnel: the stages in pipeline order, drawn as bars">
             <thead>

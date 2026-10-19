@@ -81,7 +81,14 @@ export function* prose(src, path) {
   // Only where there is JSX. In a .ts file every ">...<" is a generic.
   for (const m of (path.endsWith(".tsx") ? clean.matchAll(/>([^<>{}]+)</g) : [])) {
     const raw = m[1];
-    if (/[;=[\]|&`]|=>/.test(raw.replace(/&(?:amp|apos|quot|rsquo|ldquo|rdquo|mdash|nbsp);/g, ""))) continue;
+    const bare = raw.replace(/&(?:amp|apos|quot|rsquo|ldquo|rdquo|mdash|nbsp);/g, "");
+    // The punctuation of code: assignment, arrays, logic, template literals.
+    if (/[;=[\]|&`]|=>/.test(bare)) continue;
+    // And the shape of a ternary between two tags - ") : !open ? (" - which
+    // carries none of the above and was read as prose with an exclamation
+    // mark in it.
+    if (/![A-Za-z_$]/.test(bare)) continue;
+    if (/^\s*\)/.test(bare) || /\?\s*\(\s*$/.test(bare)) continue;
     const text = tidy(raw);
     // At least two letters together, or it is punctuation and spacing.
     if (!/[A-Za-z]{2}/.test(text)) continue;

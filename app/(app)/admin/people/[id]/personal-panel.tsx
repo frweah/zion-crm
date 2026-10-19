@@ -20,8 +20,7 @@ export function PersonalDetailsPanel({ staffId, onFile }: { staffId: string; onF
           {pending ? "Opening…" : "Show personal details"}
         </button>
         <span className="lock" style={{ marginLeft: 8 }}>
-          Legal name, address, date of birth, emergency contact. Opening them is recorded in the access log.
-        </span>
+          Legal name, address, date of birth, emergency contact. Openings are logged.</span>
       </form>
     );
   }

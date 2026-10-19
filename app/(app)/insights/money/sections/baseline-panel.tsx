@@ -131,9 +131,7 @@ export function BaselinePanel({
         </button>
       </form>
       <p className="lock" style={{ margin: "6px 0 0" }}>
-        Taken once for a day, and not edited afterwards. If the figures were wrong, take another
-        for a later day and say why.
-      </p>
+        Taken once for a day, and not edited afterwards.</p>
 
       <div className="card" style={{ padding: 0, marginTop: 10 }}>
         <DataTable

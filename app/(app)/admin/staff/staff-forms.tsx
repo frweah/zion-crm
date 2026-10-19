@@ -56,8 +56,7 @@ export function InviteForm() {
         </button>
       </form>
       <p className="sub" style={{ fontSize: "var(--text-sm)", marginTop: 10, marginBottom: 0 }}>
-        They are emailed an invitation, and the CRM opens when they finish onboarding.
-      </p>
+        They are emailed an invitation; the CRM opens after onboarding.</p>
     </>
   );
 }

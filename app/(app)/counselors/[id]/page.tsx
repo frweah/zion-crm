@@ -341,8 +341,7 @@ export default async function CounselorCaseloadPage({
       <section className="page-section">
         <h2 className="h2">History</h2>
         <p className="sub" style={{ margin: "0 0 10px" }}>
-          Every change to this counselor&apos;s record: who, when, and what it was before.
-        </p>
+          Every change: who, when, and what it was before.</p>
         <div className="card" style={{ padding: 0 }}>
           <DirectoryHistory
             changes={(history ?? []) as DirectoryChange[]}

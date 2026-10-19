@@ -117,9 +117,7 @@ export default async function ExportsPage({
     <>
       <h2 className="h2">Monthly export</h2>
       <p className="sub">
-        The month as files — for the accountant, the CPA at year end, and anything the screens do
-        not answer
-      </p>
+        The month as files, for the accountant and the CPA.</p>
 
       <div className="card" style={{ margin: "14px 0" }}>
         <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -221,9 +219,7 @@ export default async function ExportsPage({
         />
       </div>
       <p className="lock" style={{ margin: "0 0 18px" }}>
-        Hours, invoiced and received are this month&apos;s. Outstanding is every invoice sent and not yet paid,
-        whenever it was raised. The billing files below lead with the billing office and are grouped by it.
-      </p>
+        Hours, invoiced and received are this month&apos;s. Outstanding is everything unpaid.</p>
 
       <div className="card" style={{ padding: 0 }}>
         <DataTable

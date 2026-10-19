@@ -39,7 +39,7 @@ export default async function SettingsPage() {
       <p className="sub">What the practice is, and what its paperwork says</p>
 
       <div className="card" style={{ marginTop: 14 }}>
-        <h3 style={{ marginTop: 0 }}>The two names, and which goes where</h3>
+        <h3 style={{ marginTop: 0 }}>The two names</h3>
         <p className="sub" style={{ marginTop: 0 }}>
           These are deliberately different and are not to be reconciled.
         </p>

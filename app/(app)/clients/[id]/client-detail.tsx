@@ -385,9 +385,7 @@ export function RestrictedPanel({
       <div className="card">
         <h3>Restricted details</h3>
         <p className="lock" style={{ margin: 0 }}>
-          Date of birth and address are visible only to Admin, Intake &amp; Client Reports, and this
-          client&apos;s assigned staff member.
-        </p>
+          Restricted to Admin, Reports and this client&apos;s assigned staff member.</p>
       </div>
     );
   }

@@ -65,7 +65,7 @@ export function HoursSummary({
 }
 
 /**
- * Time it as you go.
+ * A running timer.
  *
  * One of two ways to record time, and the screen now says so on both. This
  * one is for work happening right now; the form below it is for work already
@@ -109,7 +109,7 @@ export function WorkTimer({
         {/* One line. What it is for is said once, in the hint somebody
             sees on their first visit, and not every morning after that
             (owner, 30 Sept 2026). */}
-        <h3 style={{ margin: 0 }}>Time it as you go</h3>
+        <h3 style={{ margin: 0 }}>A running timer</h3>
 
         {!running ? (
           <form action={startAction}>
@@ -150,9 +150,7 @@ export function WorkTimer({
         <form action={saveAction} style={{ marginTop: 12 }}>
           <h3 style={{ marginTop: 0 }}>Finish this session</h3>
           <p className="sub" style={{ marginTop: 0 }}>
-            The hours come from the clock. Change them if they are not right, say what the
-            time was spent on, and it becomes an ordinary logged session.
-          </p>
+            The hours come from the clock. Change them if they are wrong.</p>
           {tooLong && (
             <div className="alert warn">
               This has been running for more than a day, so the figure below is capped at 24. It

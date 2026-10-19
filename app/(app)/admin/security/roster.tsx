@@ -72,9 +72,7 @@ export function TwoFactorRoster({ rows, required }: { rows: RosterRow[]; require
           </span>
         </label>
         <p className="lock" style={{ margin: "6px 0" }}>
-          Nobody is locked out by this: somebody without one is walked through setting it up. If
-          somebody loses their phone, take theirs off here and they set up a new one.
-        </p>
+          Nobody is locked out: they are walked through setting one up.</p>
         <button className="btn gold" type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save"}
         </button>

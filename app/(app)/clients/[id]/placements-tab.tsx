@@ -307,9 +307,7 @@ function Indicators({ rows }: { rows: HqiRow[] }) {
         ))}
       </ul>
       <p className="lock">
-        Billed against the HQI authorization the counselor raises at stability, dated the stability date. The
-        authorization is still what decides the amount — this is what the schedule says it should come to.
-      </p>
+        The authorization decides the amount. This is what the schedule says.</p>
     </details>
   );
 }
@@ -386,8 +384,7 @@ export function PlacementsTab({
             </button>
           </form>
           <p className="lock" style={{ margin: "10px 0 0" }}>
-            90-day retention is what USOR measures — record the job the same week it starts.
-          </p>
+            USOR measures 90-day retention. Record the job the week it starts.</p>
         </div>
       )}
     </>

@@ -153,10 +153,7 @@ export function StaffActivity({
       </div>
 
       <p className="lock" style={{ marginTop: 8 }}>
-        Hours are counted on the day the work was done; payments on the day they were paid, which
-        is the rule a 1099 follows. The two will not agree for the same window, and are not meant
-        to. Caseload and open tasks are the position today, not over the period. A dash is nothing
-        recorded, which is not the same as a measured zero.
+        Hours count the day worked; payments the day paid.
       </p>
     </>
   );

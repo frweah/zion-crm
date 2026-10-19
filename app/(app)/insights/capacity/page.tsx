@@ -198,9 +198,7 @@ export default async function CapacityPage() {
       <section style={{ marginBottom: 24 }}>
         <h2 className="h2">By person</h2>
         <p className="sub" style={{ marginBottom: 12 }}>
-          Hours owed are hourly authorizations only — a flat fee is money owed with no hours
-          attached to it, so it is counted in the value and not in the hours.
-        </p>
+          Hours owed count hourly authorizations. A flat fee is value, not hours.</p>
         <div className="card" style={{ padding: 0 }}>
           <DataTable
             label="staff"

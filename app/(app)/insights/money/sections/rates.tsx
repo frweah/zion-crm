@@ -24,9 +24,7 @@ export default async function RateSchedule() {
     <>
       <h2 className="h2">Rate schedule</h2>
       <p className="sub">
-        What each service is worth, from the Voc Rehab Workbook. New authorizations are priced from
-        it.
-      </p>
+        What each service is worth, from the Voc Rehab Workbook.</p>
       <div className="card" style={{ padding: 0 }}>
         <DataTable
           label="rates"

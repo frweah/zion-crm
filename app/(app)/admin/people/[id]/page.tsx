@@ -189,8 +189,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
       <section id="pay" className="page-section">
         <h2 className="h2">Pay rates</h2>
         <p className="sub">
-          A rate is a dated record rather than a field, so setting a new one adds to the history and
-          work done before that date keeps the rate it was done under.
+          What the system can answer, it answers. The rest are yours.
         </p>
         <PayRates
           staffId={person.id}
@@ -204,9 +203,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
       <section id="onboarding" className="page-section">
         <h2 className="h2">{person.active ? "Onboarding" : "Onboarding and offboarding"}</h2>
         <p className="sub">
-          Items the system can answer for itself are answered for itself, and cannot be ticked. They
-          become done when the thing is done. The rest are yours to mark.
-        </p>
+          What the system can answer, it answers. The rest are yours.</p>
         {onboarding.length === 0 ? (
           <p className="empty">There is no onboarding checklist for {person.name}.</p>
         ) : (
@@ -294,10 +291,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
       <section id="certifications" className="page-section">
         <h2 className="h2">Certifications and clearances</h2>
         <p className="sub">
-          ACRE, CPR and First Aid, background clearance, continuing education — and a licence and
-          insurance for anybody who transports clients. A renewal is recorded beside the old one,
-          never over it.
-        </p>
+          A renewal is recorded beside the old one, never over it.</p>
         <StaffCredentials
           staffId={person.id}
           staffName={person.name}
@@ -311,9 +305,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           <>
             <h3>Log continuing education for {person.name.split(" ")[0]}</h3>
             <p className="sub" style={{ marginBottom: 8 }}>
-              People log their own on their Paperwork screen. This is for the certificate that arrives
-              by email addressed to the practice.
-            </p>
+              For a certificate emailed to the practice. People log their own.</p>
             <CeForm staffId={person.id} today={today()} forSomebodyElse />
           </>
         )}
@@ -322,9 +314,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
       <section id="documents" className="page-section">
         <h2 className="h2">Documents</h2>
         <p className="sub">
-          Everything held on their file. Opening one is recorded in the access log; a tax form signed
-          in the app appears here too and cannot be removed from here.
-        </p>
+          Everything on their file. Opening one is recorded in the access log.</p>
         <StaffDocuments
           staffId={person.id}
           staffName={person.name}

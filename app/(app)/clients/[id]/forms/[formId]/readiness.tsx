@@ -89,8 +89,7 @@ export function FormReadiness({
             {refilling ? "Filling…" : "Fill again from the record"}
           </button>
           <span className="lock">
-            Replaces what the CRM fills in - hours, the daily log, the placement - with what is on the record now. What
-            only you can know is kept.
+            Refills hours, the daily log and the placement. Your words stay.
           </span>
           {refillState.error && <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{refillState.error}</span>}
           {refillState.ok && <span className="lock">{refillState.ok}</span>}
