@@ -4984,3 +4984,124 @@ somebody finally had. It now asserts about the fixture person — enrolled, and
 listed **once** despite carrying two abandoned attempts — rather than about a
 total. An assertion that counts everybody starts failing the day the practice
 starts using the thing it guards.
+
+---
+
+## Billing was down for everybody who used it (19 Oct 2026)
+
+**Reported:** Margaret (Intake & Client Reports) gets *"Application error: a
+server-side exception has occurred"* on every billing action. Admin works, so
+it is role-specific.
+
+**It was not role-specific.** That turned out to be the only part of the
+report that did not hold, and it is worth recording because it would have
+sent the next person looking in the wrong place. Put the fault back and sign
+in as an Admin, and the Admin gets the identical error on the identical
+click. Nobody could enter or update a billing item. Admin "working fine" was
+Admin not having tried the same thing.
+
+### What the logs said
+
+```
+Error: A "use server" file can only export async functions, found object.
+  at .next/server/app/(app)/billing/authorizations/[id]/page.js
+digest: 3989365429
+```
+
+Every export of a `"use server"` file becomes a callable server endpoint, so
+an exported object is a contradiction: there is nothing to call. React
+refuses the whole module the first time it is required.
+
+Two files did it:
+
+| File | Export | Arrived |
+| --- | --- | --- |
+| `billing/authorizations/actions.ts` | `EMPTY_BATCH` | 7769e27, 14 Oct |
+| `billing/import/actions.ts` | `emptyImport` | earlier |
+
+Both are the starting state of a form, which is why they were written next to
+the actions that return them. Between them they cover adding an
+authorization, editing one, the confirm queue and submitting - every billing
+action one person had. Both now live in `lib/billing.ts`, where a constant is
+only a constant.
+
+**Not the navigation merge.** `de638bc` never touched billing; it changed
+`lib/roles.ts`, the sidebar and three screens. The clock was running on a
+rollback to the build before it, and the rollback would have cost yesterday's
+two-factor fix and the writing standard without curing anything.
+
+### The digest in the report was a different number
+
+Margaret reported `1603980337`; production was logging `3989365429`; the
+local reproduction produced `2406090998` and `2732931674`. They are all the
+same fault. A Next.js digest is a hash computed per build, so **the same
+error has a different digest on every deploy** and the number is not an
+identifier to search on across builds. The message is.
+
+### Why nothing caught it
+
+- **`tsc` is happy.** The types are correct. `EMPTY_BATCH` really is a
+  `BatchState`.
+- **`next build` is happy.** Rebuilding the broken tree prints *Compiled
+  successfully*. The rule is React's, and it is enforced when the module is
+  first required on a request - on a dynamic route, that is in production,
+  under a real person.
+- **Smoke was happy, and this is the one that stings.** It opened `/billing`
+  that morning and passed, because **opening a screen never loads the action
+  module.** That happens on the POST, and in three months smoke had never
+  made one.
+
+### What now runs
+
+**`scripts/check-server-actions.mjs`, first in `prebuild`.** A `"use server"`
+file exports async functions and nothing else - not an object, not a
+non-async function, not a default, not a re-export it cannot vouch for. 247
+exports across 70 files pass. Run against the outage with the fault put back,
+it names both offenders.
+
+**Smoke posts the billing actions, as Margaret's role.** A new optional
+`SMOKE_REPORTS_EMAIL` / `SMOKE_REPORTS_PASSWORD` account opens every screen
+the Reports role reaches and then submits every form on `/billing` the way a
+browser with JavaScript turned off submits one - the hidden `$ACTION_REF`,
+`$ACTION_KEY` and previous-state fields React puts in a `useActionState`
+form, posted back to the same URL with **no user field filled**, so each
+action refuses on its own validation and nothing is written. Verified both
+ways: four actions pass on the fixed build and all four fail with `HTTP 500 -
+the action module did not load` on the broken one.
+
+Only `/billing`, deliberately. It is the screen that carried both broken
+modules, and its actions are the ones that refuse an empty submission. The
+authorization record is opened but its actions are not posted blind: several
+act on a record and one sends a packet to USOR, and this account cannot be a
+system account, because a system account can only be Job Search
+(`staff_system_is_job_search`).
+
+**Until the owner creates that account the check says so loudly**, as a
+GitHub annotation on every run, naming it as the gap this outage went
+through.
+
+### Confirmed, not assumed
+
+A throwaway `ZZ Reports Tester` - Reports role, `billing/edit` grant, exactly
+Margaret's shape - was signed in against the real database and driven through
+the real screens. Add authorization, the record with its checklist and every
+action form, and a bulk close carried out end to end on a synthetic
+`VZZ000001` authorization: closed, reason logged, attributed to the tester.
+No real authorization was touched, before or after. Then the same bulk close
+as a `ZZ Admin Tester`, on the broken build, which is how the role question
+was settled.
+
+### Timing
+
+Reported, logs pulled, cause found and both files fixed inside ten minutes;
+the fix was live on production at `e363bb1` before the twenty-minute rollback
+deadline. The six logged occurrences all sit between 19:10 and 19:11 on the
+previous deployment, and there have been none since.
+
+### And the fallback host
+
+`zion-crm-red.vercel.app` now answers `308` to `crm.zionvocrehab.com`, path
+and query preserved, set as a Vercel domain redirect rather than in
+middleware so that preview deployments and the deploy check - which runs
+against the custom domain - are untouched. Worth knowing: it is no longer a
+fallback. If the custom domain ever fails, that address now fails with it.

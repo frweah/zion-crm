@@ -561,6 +561,147 @@ if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {
 }
 
 /**
+ * /**
+ * Margaret's role, and the billing actions rather than only the screens.
+ *
+ * On 19 Oct every billing action returned "Application error: a server-side
+ * exception has occurred". Two "use server" files exported a plain object,
+ * which React refuses when it first requires the module. This check opened
+ * all of those screens that morning and passed, because **opening a screen
+ * never loads the action module** - that happens on the POST, which nothing
+ * here had ever made.
+ *
+ * So: every billing screen this role reaches, and then every action on them,
+ * submitted the way a browser with no JavaScript submits - the hidden
+ * $ACTION_ID the form carries, posted back to the same URL. Each one is sent
+ * **empty**, so what comes back is the action's own refusal ("Choose the rows
+ * to close.") rather than a change to anybody's record. What is being asserted
+ * is only that the module loads and the action answers.
+ *
+ * Two things keep it safe. The fields are empty, so every action refuses on
+ * its own validation; and the account is a system account (0120), so the
+ * database refuses it a write even if an action ever stopped validating.
+ */
+const unescape = (s) =>
+  s
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+/**
+ * The forms on a page, as the hidden fields each one would submit.
+ *
+ * These are `useActionState` forms, so what identifies the action is not one
+ * id but the set React puts in the form: `$ACTION_REF_n`, `$ACTION_n:1`
+ * carrying the previous state, and `$ACTION_KEY`. A browser with JavaScript
+ * turned off posts exactly those, multipart, back to the same URL - so that
+ * is what this sends, and nothing else. No user field is filled.
+ */
+function actionForms(html) {
+  const forms = [];
+  for (const m of html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/g)) {
+    const inner = m[1];
+    if (!inner.includes("$ACTION_REF_")) continue;
+    const fields = [];
+    for (const f of inner.matchAll(/<input[^>]*type="hidden"[^>]*>/g)) {
+      const name = f[0].match(/name="([^"]*)"/)?.[1];
+      if (!name) continue;
+      fields.push([unescape(name), unescape(f[0].match(/value="([^"]*)"/)?.[1] ?? "")]);
+    }
+    if (fields.some(([n]) => n.startsWith("$ACTION_REF_"))) forms.push(fields);
+  }
+  return forms;
+}
+
+async function invokeActions(path, role) {
+  const page = await open(path);
+  if (!page.ok) return [{ role, path, ok: false, why: page.why }];
+
+  const forms = actionForms(page.body);
+  if (forms.length === 0) {
+    return [
+      {
+        role,
+        path: `${path} (actions)`,
+        ok: false,
+        why: "no server action on the page - either the screen lost its forms or they stopped working without JavaScript",
+      },
+    ];
+  }
+
+  const out = [];
+  for (const [i, fields] of forms.entries()) {
+    const body = new FormData();
+    for (const [name, value] of fields) body.append(name, value);
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { cookie: cookie(), ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {}) },
+      body,
+    });
+    remember(res);
+    const text = res.status === 204 ? "" : await res.text();
+    const where = `${path} action ${i + 1} of ${forms.length}`;
+    if (res.status >= 500) {
+      out.push({ role, path: where, ok: false, why: `HTTP ${res.status} - the action module did not load` });
+      continue;
+    }
+    const mark = ERROR_MARKS.find((m) => m.test(text));
+    if (mark) {
+      out.push({
+        role,
+        path: where,
+        ok: false,
+        why: `a server error answering the action (${(text.match(mark) ?? [""])[0]})`,
+      });
+      continue;
+    }
+    out.push({ role, path: where, ok: true });
+  }
+  return out;
+}
+
+/**
+ * The Reports role: Intake & Client Reports, which is how Margaret reaches
+ * billing - by a grant rather than by the role itself. Optional like the
+ * others, and loud about it when it is missing, because this is the role the
+ * 19 Oct outage was reported on.
+ */
+if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
+  await signIn(process.env.SMOKE_REPORTS_EMAIL, process.env.SMOKE_REPORTS_PASSWORD, "automated-check (reports)");
+  /**
+   * Only /billing, and deliberately.
+   *
+   * It is the screen that carried both of the broken modules - the worklist
+   * form and the import form - so a POST to it is exactly the request that
+   * 500'd. And its actions are the ones that refuse an empty submission by
+   * their own validation: no rows chosen, no file chosen.
+   *
+   * The authorization record is opened by the pass above but its actions are
+   * not posted blind. Several of them act on a record, one of them sends a
+   * packet to USOR, and this account - unlike the Job Search one - is not a
+   * system account, because a system account can only be Job Search. An
+   * empty submission ought to be refused by each of them; "ought to" is not
+   * the standard for a thing that runs unattended on every deploy against
+   * production.
+   */
+  all.push(...(await invokeActions("/billing", "Reports")));
+
+  const reports = await pass("Reports");
+  all.push(...reports.results.map((r) => ({ ...r, role: "Reports" })));
+
+} else {
+  console.log("  note  no SMOKE_REPORTS_EMAIL, so no billing action was exercised as the role the 19 Oct outage was reported on");
+  console.log(
+    "::warning title=Billing actions unexercised::" +
+      "SMOKE_REPORTS_EMAIL and SMOKE_REPORTS_PASSWORD are not set, so no billing action is submitted on any deploy. " +
+      "That is the gap the 19 Oct outage went through.",
+  );
+}
+
+/**
  * And the two screens the owner named were actually reached by somebody.
  *
  * Billing → Hours needs the Billing account and Communication → Texts does
