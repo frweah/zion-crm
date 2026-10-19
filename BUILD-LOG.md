@@ -4868,3 +4868,119 @@ edits source has to know the difference.*
 **And several replacements came out at thirteen words.** Written by eye,
 counted by the check, and caught on the next run — which is the right order,
 but a reminder that "about twelve" is not twelve.
+
+---
+
+## Two-step sign-in looked like it did nothing (19 Oct 2026)
+
+**Reported:** scan the QR, type the code, and nothing happens — no error, no
+success.
+
+**It had worked every time.** The factor was enrolled at 04:19:43 and
+confirmed at 04:21:08 on the morning it was reported, and it was sitting in
+`auth.mfa_factors` as `totp/verified` while the screen was being described as
+broken. All four of the things worth suspecting were fine:
+
+| Suspected | Found |
+| --- | --- |
+| TOTP is not enabled on the project | It is. `enroll` returns a factor and a QR. |
+| The verify step is erroring, silently | It is not. `challengeAndVerify` returns no error and a fresh session. |
+| The challenge expires before verify | It does not. The challenge is created and answered in the same call. |
+| The factor is not being saved | It is. Status `verified`, and the Admin roster shows it. |
+
+This was established by enrolling a throwaway `ZZ` person end to end with a
+software authenticator written for the purpose — base32, HMAC-SHA1, a
+thirty-second step — printing the raw result of every step rather than only
+the ones that failed.
+
+### The screen was wrong in three ways, and each one looks like silence
+
+**There was no state for having succeeded.** On a good code the screen did
+`setCode(""); setEnrolling(null); router.refresh()`. With `enrolling` cleared
+and the refreshed page now reporting a factor, the next branch to match was
+*"Enter the code from your app"*. So a correct code was answered with a
+request for a code. Give another, and it happens again. Forever. That is the
+whole of the reported bug: not a failure, an unbroken loop of successes.
+
+**Nothing was caught.** There was no `try` anywhere in the file. An error
+thrown rather than handed back in the result would skip `setBusy(false)`
+entirely and show no message, leaving the button reading "Checking…" with
+nothing said.
+
+**The code form answered the challenge on the first factor listed.** An
+abandoned attempt — pressing "Set it up" and walking away, which is exactly
+what somebody does while the screen appears dead — leaves an unverified
+factor behind. Answering a challenge on that one asks for a secret nobody
+ever scanned, so every code after it is wrong, with a message saying the code
+was wrong. That one would have survived the other two fixes.
+
+### The fix
+
+The screen now knows whether this session has already used the second factor.
+`two_factor_state()` was only ever asked *whether* somebody is enrolled; the
+assurance level — the thing that separates "still owes us a code" from
+"already through" — was read in the layout and nowhere else. The page reads it
+too and passes it down, and the states are now: nothing set up, part way
+through, owes a code, through, and **done just now**.
+
+Plus a `try` around everything that talks to the authenticator, and a factor
+chosen by being verified rather than by being first.
+
+### Confirmed in the screen, not only in the API
+
+A throwaway `ZZ Second Factor` was signed in against the real database and
+walked through the real screen in a browser. The session was handed over as a
+cookie rather than by typing a password into the form, so no credential was
+entered anywhere.
+
+- **Set it up** → QR and secret shown.
+- A **wrong** code → *"That code was not right. It changes every thirty
+  seconds — try the one showing now."* The QR stays up.
+- The **right** code → *"Two-step sign-in is on. Your phone is set up."*
+- **Reload** → *"Two-step sign-in is on. This sign-in used it."* Not another
+  code prompt.
+- A fresh **password-only** session → *"A code is asked for when you sign
+  in."* Not a demand for one, because the practice does not require it yet.
+
+Database afterwards: `totp/verified`, and the Admin roster listing them. The
+person and their login were then deleted; the only factor left on the system
+is the owner's real one, and `require_two_factor` is still `false`.
+
+### What is not yet exercised
+
+The step-up branch — an enrolled person asked for a code *because the practice
+requires one* — cannot be reached without turning enforcement on for everybody,
+and the instruction was to leave it off. The call it makes is the same
+`challengeAndVerify` proven above, and the branch is covered by the new check,
+but it has not been walked in a browser. Worth doing together on the day
+enforcement goes on.
+
+### The check
+
+`scripts/check-second-factor.mjs`, in `prebuild`. It asks the three questions
+the bug actually turned on, which is not the same as asking whether the screen
+looks reasonable:
+
+1. Every call to the authenticator sits inside a `try`.
+2. On the path taken when the code was **right**, something is *set* for the
+   screen to render — not merely cleared. Bounded to the enclosing block and
+   to the part after the last early return, because otherwise the message set
+   for a *wrong* code counts as saying the right one worked.
+3. A factor is chosen by being verified, never by being first.
+
+And that the page still reads the assurance level and passes it down.
+
+**It was tested against the bug, not only against the fix.** Run against the
+version as reported, it names all six faults. The first draft did not: it
+asked whether the file had *any* state that is set and branched on, and the
+broken file had `enrolling`, so it passed. A check written near a rule passes
+the bug it was written for.
+
+### One more thing the verify script taught
+
+`verify_two_factor.sql` asserted the roster counted exactly **one** enrolled
+person. That was written when nobody had enrolled; it failed today because
+somebody finally had. It now asserts about the fixture person — enrolled, and
+listed **once** despite carrying two abandoned attempts — rather than about a
+total. An assertion that counts everybody starts failing the day the practice
+starts using the thing it guards.

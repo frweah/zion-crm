@@ -94,6 +94,28 @@ begin
     raise notice 'ok  and a confirmed one does';
   end if;
 
+  -- ── debris from abandoned attempts changes nothing ────────
+  --
+  -- Pressing "Set it up" and walking away leaves an unverified factor behind,
+  -- and on 19 Oct somebody did that several times over while the screen
+  -- appeared to be doing nothing. So a person can hold a confirmed factor and
+  -- a pile of half-finished ones at the same time, and neither answer may
+  -- wobble: they are enrolled, and they are one person in the roster, not one
+  -- row per factor.
+  perform set_config('role', 'postgres', true);
+  insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+  values (gen_random_uuid(), v_p_uid, 'ZZ abandoned', 'totp', 'unverified', now(), now(), 'ZZNOTAREALSECRET'),
+         (gen_random_uuid(), v_p_uid, 'ZZ abandoned too', 'totp', 'unverified', now(), now(), 'ZZNOTAREALSECRET');
+  perform set_config('role', 'authenticated', true);
+
+  select enrolled into v_has from public.two_factor_state();
+  if v_has is not true then
+    failures := failures ||
+      'FAILED: an abandoned attempt alongside a confirmed factor stops the person reading as enrolled'::text;
+  else
+    raise notice 'ok  abandoned attempts alongside a confirmed factor leave them enrolled';
+  end if;
+
   -- ── the roster is Admin''s ────────────────────────────────
   select count(*) into v_n from public.two_factor_roster();
   if v_n > 0 then
@@ -113,11 +135,20 @@ begin
       raise notice 'ok  Admin reads it, all % of them', v_n;
     end if;
 
-    select count(*) into v_n from public.two_factor_roster() r where r.enrolled;
+    -- About the fixture person, not about a total. Real staff enrol over
+    -- time - the first did on 19 Oct - and an assertion that counts everybody
+    -- starts failing the day the practice starts using the thing it guards.
+    --
+    -- Once each, too: this person is carrying two abandoned attempts as well
+    -- as the confirmed factor, so a roster that joined the factors naively
+    -- would list them three times.
+    select count(*) into v_n from public.two_factor_roster() r
+     where r.staff_id = v_person and r.enrolled;
     if v_n <> 1 then
-      failures := failures || format('FAILED: the roster counts %s enrolled, not the 1 just confirmed', v_n)::text;
+      failures := failures || format(
+        'FAILED: the roster shows the person just confirmed %s times, not once', v_n)::text;
     else
-      raise notice 'ok  and it counts the one that was just confirmed';
+      raise notice 'ok  and it shows the one just confirmed, exactly once';
     end if;
   end if;
 
