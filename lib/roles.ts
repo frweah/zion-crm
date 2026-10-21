@@ -247,7 +247,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Mail", href: "/mail", roles: EVERYONE, note: "Your own Outlook, read here." },
       { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE, note: "Clients, both ways." },
       { label: "Chat", href: "/messages", roles: EVERYONE, note: "Colleagues, and threads about a client." },
-      { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE, note: "Whoever is on zionrehabcenter.com now." },
+      { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE, note: "Whoever is on zionvocrehab.com now." },
       { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
       // What the practice tells everybody, and who it can reach
       // (Design language, §3).
@@ -452,7 +452,7 @@ export const ORG = {
   phone: "801-657-6671", // counselor line
   clientPhone: "385-406-3432", // client line
   email: "service@zionvocrehab.com",
-  web: "zionrehabcenter.com",
+  web: "zionvocrehab.com",
   vendor: "VC0000277370",
 } as const;
 

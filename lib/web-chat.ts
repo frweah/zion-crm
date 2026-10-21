@@ -12,6 +12,12 @@ import { createHash, randomBytes } from "node:crypto";
  * page on the internet may post to is a form anybody can fill in for you.
  */
 const SITES = [
+  // The practice's website since October 2026. www forwards to the bare
+  // address, but a browser that has not followed the redirect yet still
+  // sends the www origin, so both are named.
+  "https://zionvocrehab.com",
+  "https://www.zionvocrehab.com",
+  // The old site, until it forwards to the new one.
   "https://zionrehabcenter.com",
   "https://www.zionrehabcenter.com",
 ];

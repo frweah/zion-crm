@@ -44,7 +44,7 @@ export default async function WebsiteChatSettings() {
         standing="Who takes it, when it is offered, and what it says"
       />
       <p className="sub">
-        The bubble on zionrehabcenter.com. What somebody says there arrives in{" "}
+        The bubble and the forms on zionvocrehab.com. What somebody sends there arrives in{" "}
         <Link href="/messages/texts?tab=web">Website chat</Link>, beside the texts, and joins a client&apos;s record as
         soon as it is matched to one.
       </p>
