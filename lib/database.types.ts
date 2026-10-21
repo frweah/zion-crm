@@ -6992,6 +6992,66 @@ export type Database = {
         Args: { p_conversation: string | null; p_body: string | null };
         Returns: number;
       };
+      portal_begin_session: {
+        Args: { p_ip: string | null; p_user_agent: string | null };
+        Returns: string;
+      };
+      portal_check_code: {
+        Args: { p_attempt: string | null; p_code: string | null; p_ip: string | null };
+        Returns: { result: string | null; account_id: string | null; sign_in_email: string | null }[];
+      };
+      portal_client_id: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      portal_disable_account: {
+        Args: { p_account: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
+      portal_end_my_session: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      portal_end_sessions: {
+        Args: { p_account: string | null; p_reason: string | null };
+        Returns: number;
+      };
+      portal_invite: {
+        Args: { p_client: string | null; p_kind: string | null; p_name?: string | null; p_relationship?: string | null; p_phone?: string | null; p_email?: string | null; p_attachment?: string | null };
+        Returns: string;
+      };
+      portal_issue_code: {
+        Args: { p_identifier: string | null; p_ip: string | null };
+        Returns: { attempt_id: string | null; account_id: string | null; channel: string | null; destination: string | null; account_name: string | null; code: string | null }[];
+      };
+      portal_me: {
+        Args: Record<string, never>;
+        Returns: { account_id: string | null; kind: string | null; name: string | null; relationship: string | null; client_first_name: string | null; staff_first_name: string | null; terms_version: string | null; electronic: boolean | null; texts: boolean | null; phone_last4: string | null }[];
+      };
+      portal_my_consent: {
+        Args: { p_kind: string | null };
+        Returns: boolean;
+      };
+      portal_note_invitation: {
+        Args: { p_account: string | null; p_sent: boolean | null; p_detail: string | null };
+        Returns: undefined;
+      };
+      portal_record_consent: {
+        Args: { p_kind: string | null; p_given: boolean | null; p_ip: string | null; p_user_agent: string | null };
+        Returns: undefined;
+      };
+      portal_session_account_id: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      portal_sign_out_everywhere: {
+        Args: { p_client: string | null };
+        Returns: number;
+      };
+      portal_touch_session: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
       practice_now: {
         Args: Record<string, never>;
         Returns: string;

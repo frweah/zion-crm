@@ -47,7 +47,12 @@ const PUBLIC_PATHS = [
   "/api/agent",
   "/api/widget",
   "/widget.js",
+  "/portal",
 ];
+// /portal is the client portal. Its sign-in, code and terms pages are for
+// people with no session, and every page past them checks its own session
+// (lib/portal/session.ts requirePortal) - a CRM login page is the wrong place
+// to send a client, and the staff gate would send them there.
 // Listed one by one, never /api as a whole: a future API route that forgets to
 // authorize should be caught by this gate rather than quietly exposed by it.
 // The cost of that strictness is that a new machine endpoint has to be added

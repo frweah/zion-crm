@@ -45,6 +45,13 @@ import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
 import { LIVE_STATUSES, isLive } from "@/lib/billing";
+import {
+  PortalPanel,
+  type PortalAccountRow,
+  type PortalConsentRow,
+  type PortalActivityRow,
+  type GuardianshipDoc,
+} from "./portal-panel";
 
 type Params = {
   tab?: string;
@@ -342,12 +349,52 @@ export default async function ClientPage({
 
   // ── Messages: the client's texts, both ways (Messaging brief, A) ──
   if (tab === "messages") {
-    const [{ data: conv }, { data: consent }, { data: templates }, { data: scheduled }, { data: window }] = await Promise.all([
+    const [
+      { data: conv },
+      { data: consent },
+      { data: templates },
+      { data: scheduled },
+      { data: window },
+      { data: portalAccounts },
+      { data: portalConsents },
+      { data: portalActivity },
+      { data: guardianshipDocs },
+      { data: portalTerms },
+    ] = await Promise.all([
       supabase.from("conversations").select("id").eq("kind", "sms").eq("client_id", id).maybeSingle(),
       supabase.from("client_sms_consent").select("can_text, consented_phone, client_phone, state").eq("client_id", id).maybeSingle(),
       supabase.from("sms_templates").select("id, label, body").eq("active", true).order("sort_order"),
       supabase.from("sms_messages").select("id, body, send_after").eq("client_id", id).eq("status", "Scheduled").order("send_after"),
       supabase.rpc("next_text_window", { p_at: new Date().toISOString() }),
+      // The client portal: who can sign in for this client, and how that stands.
+      supabase
+        .from("portal_accounts")
+        .select(
+          "id, kind, name, relationship, phone, email, invited_at, invited_by_name, first_signed_in_at, last_signed_in_at, disabled_at, disabled_reason",
+        )
+        .eq("client_id", id)
+        .order("invited_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("portal_consents")
+        .select("account_id, kind, given, at, terms_version")
+        .eq("client_id", id)
+        .order("seq", { ascending: false })
+        .limit(50),
+      supabase
+        .from("portal_activity")
+        .select("id, at, action, detail, actor_name")
+        .eq("client_id", id)
+        .order("seq", { ascending: false })
+        .limit(8),
+      supabase
+        .from("attachments")
+        .select("id, filename, created_at")
+        .eq("client_id", id)
+        .eq("category", "Guardianship document")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase.from("portal_terms").select("version").eq("is_current", true).maybeSingle(),
     ]);
 
     const { data: thread } = conv
@@ -379,6 +426,25 @@ export default async function ClientPage({
         />
         <p className="lock" style={{ marginTop: 12 }}>
           Texts go out between 8am and 9pm, to the agreed number.</p>
+        {(canEdit || canSeeRestricted) && (
+          <PortalPanel
+            clientId={id}
+            clientName={detail.name}
+            clientPhone={detail.phone ?? ""}
+            clientEmail={detail.email ?? ""}
+            accounts={(portalAccounts ?? []) as PortalAccountRow[]}
+            consents={(portalConsents ?? []) as PortalConsentRow[]}
+            activity={(portalActivity ?? []) as PortalActivityRow[]}
+            guardianshipDocs={(guardianshipDocs ?? []) as GuardianshipDoc[]}
+            termsVersion={portalTerms?.version ?? null}
+            // The same people who may see restricted details: Admin, Intake &
+            // Client Reports, and the assigned staff member. The database
+            // checks it again (can_manage_portal, 0087).
+            canManage={canSeeRestricted}
+            canText={Boolean(consent?.can_text)}
+            portalUrl={`${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`}
+          />
+        )}
       </>
     );
   }

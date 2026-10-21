@@ -22,7 +22,7 @@
  *   Comments. The house style is long comments explaining why, and a rule
  *   written for a button applied to one of those is nonsense.
  *
- *   The public website chat. "Please start a new one" is addressed to a
+ *   The public website chat and the client portal. "Please start a new one" is addressed to a
  *   member of the public rather than to a colleague, and courtesy to a
  *   stranger is not the same thing as padding on a working screen.
  *
@@ -37,7 +37,7 @@ const ok = (m) => console.log(`  ok  ${m}`);
 const fail = (m) => problems.push(m);
 
 /** Screens that speak to the public rather than to a colleague. */
-const PUBLIC = ["app/api/widget/", "app/(app)/admin/system/web-chat"];
+const PUBLIC = ["app/api/widget/", "app/(app)/admin/system/web-chat", "app/portal/"];
 
 /* ── the voice ─────────────────────────────────────────────── */
 const VOICE = [
