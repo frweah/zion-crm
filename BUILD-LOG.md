@@ -5267,3 +5267,171 @@ contents in `clients`, `authorizations`, `client_stage_history`,
 The executed script is kept at `supabase/once_2026-10-22_close_out_2025.sql`.
 It is not a migration and is not meant to run again; the system of record for
 what it did is `public.directory_changes`.
+
+---
+
+## The clients board (22 Oct 2026)
+
+Clients opens on the active caseload as a board: seven fixed columns in the
+order the work happens, one card per person. The list it replaced is a click
+away as **All clients**, which is where an inactive client is found, searched
+for, and put back.
+
+### The seven, and what the old stages became
+
+| Was | Is | |
+| --- | --- | --- |
+| Referral | **Intake** | 19 clients |
+| Intake | **Intake** | |
+| Assessment | **Assessment** | 5 · headed "Assessment (WSA)" |
+| Job Development | **Job Development** | 2 |
+| — | **Job Search** | new, empty |
+| — | **Life Skills** | new, empty |
+| Placement | **Job Placement** | 2 |
+| Job Coaching | **Job Coaching** | 3 |
+| Follow-Along | **Job Coaching** | owner, 22 Oct: it is coaching |
+| Closed | *their last real stage, else Intake* | |
+
+**Closed stopped being a stage.** It was both a stage and a status, and the
+status is the one that means anything: a client who is finished has a status,
+not a column. A client whose stage said Closed keeps the last stage they were
+really in, read out of their own history. That is also what lets Reactivate
+offer somebody back the column they left.
+
+The stored value stays `Assessment`; the header says "Assessment (WSA)",
+because a heading is where a clarification belongs rather than in every
+history row written since February.
+
+### Three rules that live in the database
+
+**A move needs a note**, and that is the trigger's rule, not the form's. The
+dialog asks, and a direct `UPDATE` is refused too - which is the whole point:
+an import, a sweep, the agent and a hand-typed update at two in the morning
+are all held to it. `verify_the_clients_board` asserts it against a bare
+update, not against `move_client`, for exactly that reason.
+
+**Closing refuses while an authorization is Submitted and unpaid**, and names
+it. That money is with USOR; closing the client would close the authorization
+with them and nobody would be chasing it.
+
+**The chip on a card is never hand-set.** It is the single alert the database
+already computes for that client's live authorizations - the same sentence the
+record screen and the working list show - so the three cannot tell somebody
+different stories.
+
+### One query, measured
+
+`clients_board()` returns every card with its stage, goal, counselor, assigned
+staff, days in stage, the services currently authorized and the one alert.
+Seeded to **501 clients inside a rolled-back transaction: 122ms cold, 103ms
+warm**, against a one-second budget. The two things that would have been
+per-card - the service tags and the alert - are aggregated over the whole
+caseload at once, the way `billing_worklist` learned to in 0206.
+
+It is `security definer`, so it reads past RLS by design, and therefore
+**checks who is asking**: without that line any signed-in account, including a
+client with a portal login, could have asked for the practice's entire active
+caseload with names, goals and counselors attached. Caught by the portal's own
+`verify_portal_rls`, which counts elevated functions that never check.
+
+### Seven accents, both themes
+
+`--stage-intake` through `--stage-job-coaching` in `tokens.css`, light and
+dark, walking the existing palette from green to sand in the order the work
+happens - so the board reads as a progression rather than seven unrelated
+colours. Each carries its column header and a 4px left edge on every card
+beneath it. All fourteen are checked as **text** on both grounds, which is the
+stricter of the two jobs and clears the 3:1 an edge needs: `check-theme` now
+holds 51 pairs per palette, lowest 4.85:1.
+
+### What the rename broke, and how it was found
+
+**Four database functions still said the old words.** `intake_referral` and
+`referral_from_conversation` *inserted* clients at 'Referral', so a referral
+arriving from a scanned form, a text or the website would have failed outright
+against the new constraint. `referral_received_on` looked for the day somebody
+reached 'Referral', so every referral would have read as arriving the day the
+record was made. `referrals_without_authorization` chased clients at
+'Referral' and would have chased nobody.
+
+None of this was found by reading. Three verify scripts with nothing to do
+with the board - texting, the intake, the web chat - failed on
+`clients_stage_check`, and all three got there through a function. 0224 is
+those four, each the live definition with one phrase changed, **built by a
+script that dumps and edits rather than by hand**: the first draft was
+reconstructed from a fragment and quietly lost half of
+`referral_from_conversation`, including its role check.
+
+**And a blanket rename broke a test's meaning rather than its syntax.**
+Rewriting `'Referral'` to `'Intake'` across 33 verify scripts left
+`verify_pipeline` asserting that a client standing at Job Coaching had not
+reached Job Coaching. It was restored from git and redone by hand against the
+new ladder. Same lesson as the copy sweep in October: a search-and-replace
+does not know what the text means.
+
+**The stage history is deliberately not constrained to the seven.** It is a
+record of what happened, not a list of what is allowed; constrain it and the
+next rename makes every earlier row unreadable. A verify fixture that writes
+a synthetic 'ZZ Stage' to prove the activity view surfaces stage changes is
+right to, and it caught the overreach.
+
+### Checked
+
+`verify_the_clients_board` - fifteen assertions, rolled back. A move refused
+without a note and refused on a note of spaces; the move recorded with from,
+to, who, when and the note; the same move in the contact log; closing refused
+while an authorization is submitted and unpaid, with the number named; closing
+taking the open authorizations with it; an inactive client never on the board;
+reactivating restoring the stage asked for; every card an active unmerged
+client in one of the seven columns; and anon able to do none of it.
+
+**107 of 113 verify scripts pass.** The six that do not are not this work:
+five came in with the client portal merge (`verify_portal_rls`,
+`verify_portal_role`, `verify_records_request`, `verify_system_account`,
+`verify_retention`) and one is an old fixture writing a funding source its own
+constraint forbids (`verify_two_assignments`). They are listed below because
+one of them is worth attention.
+
+### What the portal's own check is saying
+
+`verify_portal_rls` reports **39 security-definer functions that any
+signed-in account can execute with no check of who is calling** - including
+`set_authorization_status`, `bulk_close`, `edit_authorization` and
+`submit_authorization_on_send` - and two tables a portal client can read
+(`billing_service_rules`, `practice_forms`). Two more were mine and are fixed.
+The rest predate this work and are a real finding: a client with a portal
+login is a signed-in account. Not touched here, because thirty-nine functions
+across billing is its own piece of work and not something to do quietly inside
+a board.
+
+### Done in the screen, not only in SQL
+
+A `ZZ Board Fixture` client was created, opened from a card, moved Intake →
+Assessment through the panel with a note, and then checked in the database:
+stage changed, history holding `Intake -> Assessment` with the note, who and
+when, and the contact log carrying the same line. Then deleted.
+
+### Still open
+
+**The optional attachment on a move.** The column
+(`client_stage_history.document_id`) and the RPC parameter are in place and
+the dialog has room for it, but uploading a file *during* a move is not wired:
+uploads go browser-to-storage and then record, which is a two-step flow worth
+doing properly rather than squeezing into this dialog. A file put on the
+client's Files tab is already on the record; linking one from the move dialog
+is a small follow-up.
+
+**`SMOKE_MOVE_EMAIL` / `SMOKE_MOVE_PASSWORD`** - a Job Search account that can
+write, plus one permanent inactive client named `ZZ Smoke Board`. With them,
+every deploy moves that card between Intake and Assessment, asserts the
+contact log, and asserts a move with no note is refused. Without them the run
+says so as an annotation. It cannot use the usual `SMOKE_EMAIL`: that is a
+system account and the database refuses its writes by design, which is what
+makes the rest of the deploy check safe to run unattended.
+
+### And a types bug worth keeping
+
+`gen-types` rendered a `text[]` return column as `string` and a `uuid[]`
+function result as `string`. The board's `services` and the portal's
+`conversation_ids` were both mistyped, and every use of them as an array was a
+type error waiting for somebody to write one. Both levels fixed.

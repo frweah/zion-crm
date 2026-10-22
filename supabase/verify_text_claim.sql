@@ -50,7 +50,7 @@ begin
   insert into public.staff (name, email, role, active)
   values ('ZZ Text Admin', 'zz-text@example.test', 'Admin', true) returning id into v_staff;
   insert into public.clients (name, stage, status, phone)
-  values ('ZZ Text Client', 'Placement', 'Active', '+15555550123') returning id into v_client;
+  values ('ZZ Text Client', 'Job Placement', 'Active', '+15555550123') returning id into v_client;
 
   -- Consent follows the number, and nothing can be sent without it (0050).
   insert into public.sms_consent_events (client_id, state, phone, method, staff_id, note)

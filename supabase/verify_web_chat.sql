@@ -189,7 +189,7 @@ begin
 
   -- ── a new person, asking on the website ────────────────────
   v_client := public.referral_from_conversation(v_conv, 'ZZ Asked Online');
-  if (select stage from public.clients where id = v_client) <> 'Referral' then
+  if (select stage from public.clients where id = v_client) <> 'Intake' then
     failures := failures || 'FAILED: a referral from the website did not start at Referral'::text;
   elsif (select email from public.clients where id = v_client) <> 'zz-one@example.test' then
     failures := failures || 'FAILED: the address they gave did not go onto their record'::text;

@@ -20,6 +20,8 @@ import { SavedViews, type SavedView } from "./saved-views";
 import { loadCaseload } from "@/lib/caseload";
 import { CaseloadSummary } from "../caseload-summary";
 import { LIVE_STATUSES } from "@/lib/billing";
+import { ClientsBoard, type Card } from "./board";
+import { ClientRowActions } from "./row-actions";
 
 type Row = {
   id: string;
@@ -59,6 +61,16 @@ export default async function ClientsPage({
 
   const supabase = await createClient();
 
+  /**
+   * The board, and the list a click away (owner, 22 Oct 2026).
+   *
+   * Clients opens on the board of the active caseload. "All clients" is the
+   * list this screen has always been, which is where somebody goes to find
+   * an inactive client, to search, or to put one back. The parameter is
+   * `tab` rather than `view`, which the saved views already own.
+   */
+  const tab = typeof raw.tab === "string" && raw.tab === "all" ? "all" : "board";
+
   // Filters that the database can apply are applied there. The rest — name
   // sorting by counselor, quiet-since — need joined values, and at this
   // caseload it is cheaper and far clearer to finish the job in memory than to
@@ -83,7 +95,7 @@ export default async function ClientsPage({
   if (filters.hasImportReview) query = query.neq("import_review", "");
   if (filters.since) query = query.gte("created_at", filters.since);
 
-  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult] =
     await Promise.all([
       readBillingOffices(supabase),
       query,
@@ -103,7 +115,17 @@ export default async function ClientsPage({
         .eq("staff_id", me.id)
         .eq("key", "last_view:clients")
         .maybeSingle(),
+      // The whole board in one call (0223): every active client with the
+      // stage, the goal, the counselor, who it is assigned to, the days, the
+      // services authorized and the one alert. Measured at 501 clients:
+      // ~103ms, against a one-second budget.
+      supabase.rpc("clients_board"),
     ]);
+
+  const boardCards = (boardResult.data ?? []) as Card[];
+  // Who may take a client off the board (owner, 22 Oct). Everybody who can
+  // see Clients may move a card; this is the narrower one.
+  const canClose = ["Admin", "Reports", "Billing"].includes(me.role);
 
   /**
    * The two per-client lookups, asked only about the clients this list is
@@ -272,7 +294,12 @@ export default async function ClientsPage({
   const lastActivityDays = (r: Row) =>
     r.last_activity ? daysBetween(r.last_activity.slice(0, 10), today()) : null;
 
-  const columns = CLIENT_SORTS.map((col) => ({ key: col, label: CLIENT_SORT_LABELS[col] }));
+  const columns = [
+    ...CLIENT_SORTS.map((col) => ({ key: col, label: CLIENT_SORT_LABELS[col] })),
+    // Putting somebody back on the board, or taking them off (0223). Not
+    // sortable: it is a control, not a fact about the client.
+    { key: "onBoard", label: "", sortable: false },
+  ];
 
   const tableRows = rows.map((c) => {
     const d = lastActivityDays(c);
@@ -333,6 +360,15 @@ export default async function ClientsPage({
               {d === 0 ? "today" : `${d}d ago`}
             </span>
           ),
+        onBoard: (
+          <ClientRowActions
+            id={c.id}
+            name={c.name}
+            status={c.status}
+            stage={c.stage}
+            canDeactivate={canClose}
+          />
+        ),
         availability: (
           <>
             {c.schedule || "—"}
@@ -363,6 +399,21 @@ export default async function ClientsPage({
         }
       />
 
+      <div className="row2 no-print" style={{ marginBottom: 10 }}>
+        <div className="segmented">
+          <Link href="/clients" className={tab === "board" ? "on" : undefined}>
+            Board ({boardCards.length})
+          </Link>
+          <Link href="/clients?tab=all" className={tab === "all" ? "on" : undefined}>
+            All clients ({totalResult.count ?? 0})
+          </Link>
+        </div>
+      </div>
+
+      {tab === "board" && <ClientsBoard cards={boardCards} canClose={canClose} />}
+
+      {tab === "all" && (
+      <>
       {deleted && (
         <div className="alert ok">
           {deleted} was deleted, with your reason on the record.
@@ -416,6 +467,8 @@ export default async function ClientsPage({
           empty={isFiltered(filters) ? "No clients match these filters." : "No clients yet."}
         />
       </div>
+      </>
+      )}
     </>
   );
 }

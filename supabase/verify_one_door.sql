@@ -99,7 +99,7 @@ begin
   end if;
 
   -- ── the door works, and enforces who ──────────────────────
-  insert into public.clients (name, stage, status) values ('ZZ One Door', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ One Door', 'Job Placement', 'Active')
   returning id into v_client;
 
   perform set_config('role', 'postgres', true);

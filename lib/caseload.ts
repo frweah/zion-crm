@@ -83,7 +83,8 @@ export async function loadCaseload(supabase: SupabaseClient<Database>, me: Me): 
     total: rows.length,
     active: active.length,
     newThisMonth: rows.filter((c) => c.created_at >= monthStart).length,
-    byStage: STAGES.filter((s) => s !== "Closed").map((stage) => ({
+    // Closed stopped being a stage in 0223: a finished client has a status.
+    byStage: STAGES.map((stage) => ({
       stage,
       count: active.filter((c) => c.stage === stage).length,
       href: href({ status: "Active", stage }),

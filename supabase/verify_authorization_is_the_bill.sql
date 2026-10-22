@@ -96,7 +96,7 @@ begin
           'zz-bill@example.test', '{}', '{}', now(), now());
   update public.staff set user_id = v_adm_uid where id = v_staff;
 
-  insert into public.clients (name, stage, status) values ('ZZ Bill Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Bill Client', 'Job Placement', 'Active')
   returning id into v_client;
 
   -- ── §2 and §3: a new authorization fills in its own dates ──

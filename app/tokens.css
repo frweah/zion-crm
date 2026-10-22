@@ -89,6 +89,21 @@
 
   --scrim: rgb(31 42 38 / 0.42);
 
+  /* ── the seven stages on the clients board (0223) ──
+     One accent per column, carrying the stage header and a 4px left edge
+     on every card beneath it. They walk the palette it already has, green
+     through to sand, in the order the work happens - so the board reads as
+     a progression rather than seven unrelated colours. Each is dark enough
+     to be read as text on paper and bone, which also clears the 3:1 an edge
+     needs; check-theme asserts both, in both palettes. */
+  --stage-intake: #2f5a46;
+  --stage-assessment: #1f5e63;
+  --stage-job-development: #4a5a24;
+  --stage-job-search: #6a5312;
+  --stage-life-skills: #7a4a2a;
+  --stage-job-placement: #7a5a33;
+  --stage-job-coaching: #6b4a52;
+
   /* ── one type scale ── */
   --text-xs: 11px; /* uppercase labels, tracked */
   --text-sm: 12px; /* chips, small print */
@@ -182,6 +197,15 @@
     --focus: var(--accent-text);
     --scrim: rgb(11 18 15 / 0.55);
 
+    /* The same seven, turned over: pale enough to read on the dark grounds. */
+    --stage-intake: #9fd9bb;
+    --stage-assessment: #93d6dd;
+    --stage-job-development: #c3d490;
+    --stage-job-search: #e6c982;
+    --stage-life-skills: #eeb892;
+    --stage-job-placement: #ebd2a6;
+    --stage-job-coaching: #e2b7c2;
+
     --bg: #44594f;
   }
 }
@@ -227,6 +251,15 @@
 
   --focus: var(--accent-text);
   --scrim: rgb(11 18 15 / 0.55);
+
+  /* The same seven, turned over: pale enough to read on the dark grounds. */
+  --stage-intake: #9fd9bb;
+  --stage-assessment: #93d6dd;
+  --stage-job-development: #c3d490;
+  --stage-job-search: #e6c982;
+  --stage-life-skills: #eeb892;
+  --stage-job-placement: #ebd2a6;
+  --stage-job-coaching: #e2b7c2;
 
   --bg: #44594f;
 }

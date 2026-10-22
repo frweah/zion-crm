@@ -40,7 +40,7 @@ begin
    where active and role <> 'Admin' order by created_at limit 1;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Template Testperson', 'Referral', 'Active', v_admin)
+  values ('ZZ Template Testperson', 'Intake', 'Active', v_admin)
   returning id into v_client;
 
   -- ── what a note of each type starts with ───────────────────

@@ -153,7 +153,7 @@ begin
    * gone.
    */
   insert into public.clients (name, stage, status, referring_office)
-  values ('ZZ Nowhere Client', 'Placement', 'Active', 'ZZ Nowhere') returning id into v_client;
+  values ('ZZ Nowhere Client', 'Job Placement', 'Active', 'ZZ Nowhere') returning id into v_client;
   insert into public.authorizations
     (client_id, number, service_type, rate_type, rate, start_date, end_date, received_on, status)
   values (v_client, 'ZQ-NW-1', 'Job Coaching', 'Flat Fee', 100,

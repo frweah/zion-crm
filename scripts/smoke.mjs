@@ -702,6 +702,107 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
 }
 
 /**
+ * A Job Search user moves a card, and the contact log shows it (0223).
+ *
+ * The board's rules are asserted in verify_the_clients_board, rolled back
+ * against the real database. This is the other half: the action as a person
+ * uses it, against the real deployment, by somebody whose role is the one
+ * least likely to be allowed - everybody who can see Clients can move a card,
+ * and Job Search is the plainest everybody.
+ *
+ * It needs an account that can write, so it is not the usual SMOKE_EMAIL: that
+ * one is a system account and the database refuses its writes by design
+ * (0120), which is what makes the rest of this check safe to run unattended.
+ *
+ * The fixture is one permanent ZZ client, left Inactive so it never appears
+ * on the board or in an active list, moved between Intake and Assessment and
+ * back on alternate deploys. One row, not one per deploy.
+ */
+if (process.env.SMOKE_MOVE_EMAIL && process.env.SMOKE_MOVE_PASSWORD) {
+  await signIn(process.env.SMOKE_MOVE_EMAIL, process.env.SMOKE_MOVE_PASSWORD, "automated-check (move)");
+
+  const { data: fixture } = await supabase
+    .from("clients")
+    .select("id, name, stage, status")
+    .eq("name", "ZZ Smoke Board")
+    .maybeSingle();
+
+  if (!fixture) {
+    console.log("  note  no ZZ Smoke Board client, so no card was moved");
+    console.log(
+      "::warning title=No board fixture::" +
+        "Create an inactive client named \"ZZ Smoke Board\" for the deploy check to move between Intake and Assessment.",
+    );
+  } else {
+    const to = fixture.stage === "Intake" ? "Assessment" : "Intake";
+    const note = `Deploy check moved them to ${to}.`;
+    const { error: moveError } = await supabase.rpc("move_client", {
+      p_client: fixture.id,
+      p_stage: to,
+      p_note: note,
+      p_document: null,
+    });
+
+    if (moveError) {
+      all.push({ role: "Job Search", path: "move a card", ok: false, why: moveError.message });
+    } else {
+      const { data: after } = await supabase
+        .from("clients")
+        .select("stage")
+        .eq("id", fixture.id)
+        .maybeSingle();
+      all.push({
+        role: "Job Search",
+        path: `move a card to ${to}`,
+        ok: after?.stage === to,
+        why: `the card is in ${after?.stage ?? "nowhere"}, not ${to}`,
+      });
+
+      // The move has to read in the client's own log, which is the half a
+      // person actually sees.
+      const { data: logged } = await supabase
+        .from("contact_log")
+        .select("method, topic, outcome")
+        .eq("client_id", fixture.id)
+        .eq("method", "Stage change")
+        .order("date", { ascending: false })
+        .limit(1);
+      const line = (logged ?? [])[0];
+      all.push({
+        role: "Job Search",
+        path: "the move in the contact log",
+        ok: Boolean(line) && line.outcome === note && line.topic.endsWith(to),
+        why: line
+          ? `the log says "${line.topic}" / "${line.outcome}"`
+          : "nothing was written to the contact log",
+      });
+    }
+
+    // A move with no note is refused, from the outside as well as from SQL.
+    const { error: refused } = await supabase.rpc("move_client", {
+      p_client: fixture.id,
+      p_stage: fixture.stage === "Intake" ? "Job Search" : "Intake",
+      p_note: "",
+      p_document: null,
+    });
+    all.push({
+      role: "Job Search",
+      path: "a move with no note",
+      ok: Boolean(refused),
+      why: "a move with no note went through",
+    });
+  }
+
+  await supabase.auth.signOut().catch(() => {});
+} else {
+  console.log("  note  no SMOKE_MOVE_EMAIL, so no card was moved on this deploy");
+  console.log(
+    "::warning title=No card was moved::" +
+      "SMOKE_MOVE_EMAIL and SMOKE_MOVE_PASSWORD are not set, so the board's move is not exercised by a person on any deploy.",
+  );
+}
+
+/**
  * And the two screens the owner named were actually reached by somebody.
  *
  * Billing → Hours needs the Billing account and Communication → Texts does

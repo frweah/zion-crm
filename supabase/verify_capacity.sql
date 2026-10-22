@@ -54,7 +54,7 @@ begin
   returning id into v_client;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Capacity Closed', 'Closed', 'Closed', v_admin);
+  values ('ZZ Capacity Closed', 'Intake', 'Closed', v_admin);
 
   select * into r from public.staff_capacity where staff_id = v_admin;
   if r.active_clients <> v_b_active + 1 then

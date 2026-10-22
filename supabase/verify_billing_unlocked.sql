@@ -78,9 +78,9 @@ begin
   update public.staff set user_id = v_rep_uid where id = v_rep;
 
   insert into public.clients (name, stage, status)
-  values ('ZZ Unlock Client', 'Placement', 'Active') returning id into v_client;
+  values ('ZZ Unlock Client', 'Job Placement', 'Active') returning id into v_client;
   insert into public.clients (name, stage, status)
-  values ('ZZ Unlock Bystander', 'Placement', 'Active') returning id into v_other;
+  values ('ZZ Unlock Bystander', 'Job Placement', 'Active') returning id into v_other;
 
   -- Three authorizations on one client, all owed, all priced.
   insert into public.authorizations
@@ -139,7 +139,7 @@ begin
   end if;
 
   if (select status from public.clients where id = v_client) <> 'Active'
-     or (select stage from public.clients where id = v_client) <> 'Placement' then
+     or (select stage from public.clients where id = v_client) <> 'Job Placement' then
     failures := failures || 'FAILED: paying an authorization changed the client'::text;
   else
     raise notice 'ok  and the client itself was not touched';
@@ -386,9 +386,9 @@ begin
   -- pass a test that only checked the first.
   perform set_config('role', 'postgres', true);
   insert into public.clients (name, stage, status, phone)
-  values ('Marlow Unlock Testperson', 'Placement', 'Active', '555-0100') returning id into v_logged;
+  values ('Marlow Unlock Testperson', 'Job Placement', 'Active', '555-0100') returning id into v_logged;
   insert into public.clients (name, stage, status)
-  values ('ZQ Unlock Invented', 'Placement', 'Active') returning id into v_fixture;
+  values ('ZQ Unlock Invented', 'Job Placement', 'Active') returning id into v_fixture;
 
   if not exists (select 1 from public.directory_changes
                   where entity = 'Client' and entity_key = v_logged::text and action = 'Added') then

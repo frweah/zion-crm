@@ -1,0 +1,363 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import Link from "next/link";
+import { STAGES, stageLabel, stageNote, stageToken } from "@/lib/constants";
+import { moveClient, closeClient, type BoardState } from "./board-actions";
+
+/**
+ * The caseload as a board (owner, 22 Oct 2026).
+ *
+ * Seven fixed columns in the order the work happens, one card per active
+ * client under the stage they are in. The board is the Clients tab now; the
+ * list it replaced is still there, a click away, as All clients.
+ *
+ * Three things are deliberately not decided here:
+ *
+ *   The chip on a card is never hand-set. It is the one alert the database
+ *   already computes for that client's live authorizations - the same
+ *   sentence the record screen and the working list show - so the board
+ *   cannot tell somebody a different story from the other two.
+ *
+ *   A move cannot happen without a note. That is the database's rule, not
+ *   the form's: the dialog asks, and the move is refused anyway if the note
+ *   is empty, which is what makes it true of an import as well as of a drag.
+ *
+ *   Who may close is the database's too. The button is hidden from everybody
+ *   else, which is courtesy rather than security.
+ */
+export type Card = {
+  client_id: string;
+  name: string;
+  stage: string;
+  goal: string | null;
+  counselor: string | null;
+  assigned_to: string | null;
+  days_in_stage: number;
+  services: string[];
+  chip: string | null;
+  chip_urgency: number | null;
+  last_note: string | null;
+  last_note_on: string | null;
+};
+
+const initial: BoardState = { error: null, ok: null };
+
+/** The three words a chip gets, from the urgency the database gave it. */
+const chipTone = (urgency: number | null) =>
+  urgency === null ? "" : urgency <= 1 ? " bad" : urgency <= 4 ? " warn" : "";
+
+export function ClientsBoard({ cards, canClose }: { cards: Card[]; canClose: boolean }) {
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [panel, setPanel] = useState<Card | null>(null);
+  const [moving, setMoving] = useState<{ card: Card; to: string } | null>(null);
+  const [closing, setClosing] = useState<Card | null>(null);
+
+  const byStage = (stage: string) => cards.filter((c) => c.stage === stage);
+
+  return (
+    <>
+      <div className="board">
+        {STAGES.map((stage) => {
+          const column = byStage(stage);
+          const accent = `var(${stageToken(stage)})`;
+          return (
+            <section
+              key={stage}
+              className={"board-column" + (over === stage ? " over" : "")}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOver(stage);
+              }}
+              onDragLeave={() => setOver((s) => (s === stage ? null : s))}
+              onDrop={(e) => {
+                e.preventDefault();
+                setOver(null);
+                const card = cards.find((c) => c.client_id === dragging);
+                setDragging(null);
+                if (card && card.stage !== stage) setMoving({ card, to: stage });
+              }}
+            >
+              <header className="board-head" style={{ borderTopColor: accent }}>
+                <h2 className="board-title" style={{ color: accent }}>
+                  {stageLabel(stage)}
+                </h2>
+                <p className="lock">{stageNote(stage)}</p>
+                <span className="chip">{column.length}</span>
+              </header>
+
+              <div className="board-cards">
+                {column.map((c) => (
+                  <article
+                    key={c.client_id}
+                    className="board-card"
+                    style={{ borderLeftColor: accent }}
+                    draggable
+                    onDragStart={() => setDragging(c.client_id)}
+                    onDragEnd={() => setDragging(null)}
+                  >
+                    <button type="button" className="board-open" onClick={() => setPanel(c)}>
+                      <span className="board-name">{c.name}</span>
+                      {c.goal && <span className="lock">{c.goal}</span>}
+                    </button>
+
+                    <p className="lock board-who">
+                      {c.counselor ?? "No counselor"} · {c.assigned_to ?? "Nobody assigned"}
+                    </p>
+
+                    <p className="lock">
+                      {c.days_in_stage} {c.days_in_stage === 1 ? "day" : "days"} here
+                    </p>
+
+                    {c.services.length > 0 && (
+                      <p className="board-tags">
+                        {c.services.map((s) => (
+                          <span className="chip" key={s}>
+                            {s}
+                          </span>
+                        ))}
+                      </p>
+                    )}
+
+                    {c.chip && <p className={"chip" + chipTone(c.chip_urgency)}>{c.chip}</p>}
+
+                    {/* The way a phone moves a card, where there is no dragging. */}
+                    <label className="board-move">
+                      <span className="lock">Move to…</span>
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const to = e.target.value;
+                          e.currentTarget.value = "";
+                          if (to) setMoving({ card: c, to });
+                        }}
+                      >
+                        <option value="">Choose a stage</option>
+                        {STAGES.filter((s) => s !== c.stage).map((s) => (
+                          <option key={s} value={s}>
+                            {stageLabel(s)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </article>
+                ))}
+                {column.length === 0 && <p className="lock">Nobody here.</p>}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {panel && (
+        <SidePanel
+          card={panel}
+          canClose={canClose}
+          onClose={() => setPanel(null)}
+          onMove={(to) => {
+            setMoving({ card: panel, to });
+            setPanel(null);
+          }}
+          onCloseClient={() => {
+            setClosing(panel);
+            setPanel(null);
+          }}
+        />
+      )}
+
+      {moving && <MoveDialog card={moving.card} to={moving.to} onDone={() => setMoving(null)} />}
+      {closing && <CloseDialog card={closing} onDone={() => setClosing(null)} />}
+    </>
+  );
+}
+
+/** What a card says when it is opened rather than glanced at. */
+function SidePanel({
+  card,
+  canClose,
+  onClose,
+  onMove,
+  onCloseClient,
+}: {
+  card: Card;
+  canClose: boolean;
+  onClose: () => void;
+  onMove: (to: string) => void;
+  onCloseClient: () => void;
+}) {
+  return (
+    <aside className="board-panel">
+      <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+        <h2 className="h2" style={{ margin: 0 }}>
+          {card.name}
+        </h2>
+        <button type="button" className="btn ghost" onClick={onClose}>
+          Close the panel
+        </button>
+      </div>
+
+      <dl className="board-facts">
+        <dt className="lock">Stage</dt>
+        <dd>
+          {stageLabel(card.stage)} · {card.days_in_stage} days
+        </dd>
+        <dt className="lock">Goal</dt>
+        <dd>{card.goal ?? "Not recorded"}</dd>
+        <dt className="lock">Assigned to</dt>
+        <dd>{card.assigned_to ?? "Nobody"}</dd>
+        <dt className="lock">Counselor</dt>
+        <dd>{card.counselor ?? "None"}</dd>
+        <dt className="lock">Latest note</dt>
+        <dd>
+          {card.last_note ? (
+            <>
+              {card.last_note}
+              {card.last_note_on && <span className="lock"> — {card.last_note_on}</span>}
+            </>
+          ) : (
+            "Nothing in the contact log yet"
+          )}
+        </dd>
+      </dl>
+
+      <label className="field" style={{ maxWidth: 260 }}>
+        Move to
+        <select
+          value=""
+          onChange={(e) => {
+            const to = e.target.value;
+            if (to) onMove(to);
+          }}
+        >
+          <option value="">Choose a stage</option>
+          {STAGES.filter((s) => s !== card.stage).map((s) => (
+            <option key={s} value={s}>
+              {stageLabel(s)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="row2" style={{ gap: 8, marginTop: 10 }}>
+        <Link className="btn ghost" href={`/clients/${card.client_id}`}>
+          Open the record
+        </Link>
+        {canClose && (
+          <button type="button" className="btn ghost" onClick={onCloseClient}>
+            Close this client
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/** Every move asks why, and Job Placement asks two things more. */
+function MoveDialog({ card, to, onDone }: { card: Card; to: string; onDone: () => void }) {
+  const [state, action, pending] = useActionState(moveClient, initial);
+
+  if (state.ok) {
+    return (
+      <div className="board-dialog">
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Moved</h3>
+          <p className="sub">{state.ok}</p>
+          <button type="button" className="btn gold" onClick={onDone}>
+            Back to the board
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="board-dialog">
+      <form className="card" action={action}>
+        <h3 style={{ marginTop: 0 }}>
+          {card.name} to {stageLabel(to)}
+        </h3>
+        <p className="sub">From {stageLabel(card.stage)}.</p>
+        {state.error && <div className="alert bad">{state.error}</div>}
+
+        <input type="hidden" name="client_id" value={card.client_id} />
+        <input type="hidden" name="stage" value={to} />
+        <input type="hidden" name="name" value={card.name} />
+
+        <label className="field" htmlFor="move-note">
+          Why
+          <textarea id="move-note" name="note" rows={3} required />
+        </label>
+
+        {to === "Job Placement" && (
+          <>
+            <label className="field" htmlFor="move-employer">
+              Employer
+              <input id="move-employer" name="employer" required />
+            </label>
+            <label className="field" htmlFor="move-hired">
+              Hire date
+              <input id="move-hired" name="hire_date" type="date" required />
+            </label>
+            <p className="lock">This starts the placement clock.</p>
+          </>
+        )}
+
+        <div className="row2" style={{ gap: 8 }}>
+          <button className="btn gold" type="submit" disabled={pending}>
+            {pending ? "Moving…" : "Move"}
+          </button>
+          <button className="btn ghost" type="button" onClick={onDone} disabled={pending}>
+            Leave them where they are
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** Closing asks why, and the database refuses while money is out. */
+function CloseDialog({ card, onDone }: { card: Card; onDone: () => void }) {
+  const [state, action, pending] = useActionState(closeClient, initial);
+
+  if (state.ok) {
+    return (
+      <div className="board-dialog">
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Closed</h3>
+          <p className="sub">{state.ok}</p>
+          <button type="button" className="btn gold" onClick={onDone}>
+            Back to the board
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="board-dialog">
+      <form className="card" action={action}>
+        <h3 style={{ marginTop: 0 }}>Close {card.name}</h3>
+        <p className="sub">They come off the board, and their open authorizations close with them.</p>
+        {state.error && <div className="alert bad">{state.error}</div>}
+
+        <input type="hidden" name="client_id" value={card.client_id} />
+        <input type="hidden" name="name" value={card.name} />
+
+        <label className="field" htmlFor="close-reason">
+          Why
+          <textarea id="close-reason" name="reason" rows={3} required />
+        </label>
+
+        <div className="row2" style={{ gap: 8 }}>
+          <button className="btn gold" type="submit" disabled={pending}>
+            {pending ? "Closing…" : "Close them"}
+          </button>
+          <button className="btn ghost" type="button" onClick={onDone} disabled={pending}>
+            Leave them on the board
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

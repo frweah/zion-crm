@@ -55,7 +55,7 @@ declare
 begin
   insert into public.staff (name, email, role, active)
   values ('ZZ Race Admin', 'zz-race@example.test', 'Admin', true) returning id into v_staff;
-  insert into public.clients (name, stage, status) values ('ZZ Race Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Race Client', 'Job Placement', 'Active')
   returning id into v_client;
 
   -- ── the lock is taken, and taken before the counting ──────

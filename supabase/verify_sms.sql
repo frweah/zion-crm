@@ -36,7 +36,7 @@ begin
    where active and role <> 'Admin' order by created_at limit 1;
 
   insert into public.clients (name, stage, status, phone)
-  values ('ZZ Texting Test', 'Referral', 'Active', '(801) 555-0142')
+  values ('ZZ Texting Test', 'Intake', 'Active', '(801) 555-0142')
   returning id into v_client;
 
   -- ── nothing is assumed ─────────────────────────────────────

@@ -47,7 +47,7 @@ begin
   -- A client with a name nobody else has, so the matching rules below are
   -- answering about this row and not about somebody real.
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Inbox Testperson', 'Referral', 'Active', v_admin)
+  values ('ZZ Inbox Testperson', 'Intake', 'Active', v_admin)
   returning id into v_client;
 
   -- Creating the client is itself an event — it enters at Referral, and the

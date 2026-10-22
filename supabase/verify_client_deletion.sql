@@ -67,9 +67,9 @@ begin
 
   -- ── somebody entered twice ─────────────────────────────────
   insert into public.clients (name, stage, status)
-  values ('ZZ Delete Client', 'Placement', 'Active') returning id into v_client;
+  values ('ZZ Delete Client', 'Job Placement', 'Active') returning id into v_client;
   insert into public.clients (name, stage, status, merged_into)
-  values ('ZZ Delete Duplicate', 'Closed', 'Closed', v_client) returning id into v_other;
+  values ('ZZ Delete Duplicate', 'Intake', 'Closed', v_client) returning id into v_other;
 
   insert into public.notes (client_id, text) values
     (v_client, 'ZZ a note on the wrong person'),

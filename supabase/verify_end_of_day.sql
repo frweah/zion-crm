@@ -68,7 +68,7 @@ begin
   update public.staff set user_id = v_b_uid where id = v_boss;
   update public.staff set user_id = v_o_uid where id = v_other;
 
-  insert into public.clients (name, stage, status) values ('ZZ Day Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Day Client', 'Job Placement', 'Active')
   returning id into v_client;
 
   perform set_config('role', 'authenticated', true);

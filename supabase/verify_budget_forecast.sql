@@ -109,7 +109,7 @@ begin
   select coalesce(sum(f.amount), 0) into v_before_authorized
     from public.ledger_revenue_forecast(3) f where f.band = 'Authorized';
 
-  insert into public.clients (name, stage, status) values ('ZZ Forecast Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Forecast Client', 'Job Placement', 'Active')
   returning id into v_client;
   -- The parent holds forty hours; the month is a child with ten logged
   -- against it, which is the 500 of committed work (§1, §5).

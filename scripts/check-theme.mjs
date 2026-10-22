@@ -285,6 +285,17 @@ const TEXT = [
   ["side-ink", "side-bg"], ["side-ink", "side-hover"], ["side-ink", "side-active-bg"],
   ["side-active-ink", "side-active-bg"], ["side-active-ink", "side-bg"],
   ["side-muted", "side-bg"], ["side-muted", "side-hover"],
+  // The seven stage accents on the clients board (0223). Each carries its
+  // column's header as text and the left edge of every card under it, so
+  // each is checked as text on both grounds - which is the stricter of the
+  // two things it has to do.
+  ["stage-intake", "paper"], ["stage-intake", "bone"],
+  ["stage-assessment", "paper"], ["stage-assessment", "bone"],
+  ["stage-job-development", "paper"], ["stage-job-development", "bone"],
+  ["stage-job-search", "paper"], ["stage-job-search", "bone"],
+  ["stage-life-skills", "paper"], ["stage-life-skills", "bone"],
+  ["stage-job-placement", "paper"], ["stage-job-placement", "bone"],
+  ["stage-job-coaching", "paper"], ["stage-job-coaching", "bone"],
 ];
 const EDGES = [
   ["field-line", "paper"], ["field-line", "bone"],

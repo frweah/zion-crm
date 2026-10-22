@@ -1,17 +1,69 @@
 /** Shared vocabulary, ported from the prototype. */
 
+/**
+ * The seven columns of the clients board, in the order the work happens
+ * (owner, 22 Oct 2026). Referral became Intake, Placement became Job
+ * Placement, Follow-Along became Job Coaching, and Closed stopped being a
+ * stage at all - a client who is finished has a status, not a column. 0223
+ * remapped every row and the constraint enforces it.
+ */
 export const STAGES = [
-  "Referral",
   "Intake",
   "Assessment",
   "Job Development",
-  "Placement",
+  "Job Search",
+  "Life Skills",
+  "Job Placement",
   "Job Coaching",
-  "Follow-Along",
-  "Closed",
 ] as const;
 
-export const CLIENT_STATUSES = ["Active", "On hold", "Closed"] as const;
+/** What each column is for, in the one line its header carries. */
+export const STAGE_NOTE: Record<(typeof STAGES)[number], string> = {
+  Intake: "Referred, and not yet assessed",
+  Assessment: "The WSA, and what it says they can do",
+  "Job Development": "Finding employers who will take them",
+  "Job Search": "Applying, and interviewing",
+  "Life Skills": "The skills the work needs around it",
+  "Job Placement": "Hired, and the placement fee to claim",
+  "Job Coaching": "On the job, and supported there",
+};
+
+/** The header says "Assessment (WSA)"; the stored value stays "Assessment". */
+export const STAGE_LABEL: Partial<Record<(typeof STAGES)[number], string>> = {
+  Assessment: "Assessment (WSA)",
+};
+
+/**
+ * What a column is called on screen, for a stage that arrives as a string.
+ *
+ * The board reads stages out of the database, where they are text, so every
+ * lookup into the three maps above had to be widened or cast. One helper
+ * each instead, and the cast is in one place where it can be wrong once.
+ */
+export function stageLabel(stage: string): string {
+  return STAGE_LABEL[stage as (typeof STAGES)[number]] ?? stage;
+}
+
+export function stageNote(stage: string): string {
+  return STAGE_NOTE[stage as (typeof STAGES)[number]] ?? "";
+}
+
+export function stageToken(stage: string): string {
+  return STAGE_TOKEN[stage as (typeof STAGES)[number]] ?? "--line-strong";
+}
+
+/** The token carrying each column's accent (0223, app/tokens.css). */
+export const STAGE_TOKEN: Record<(typeof STAGES)[number], string> = {
+  Intake: "--stage-intake",
+  Assessment: "--stage-assessment",
+  "Job Development": "--stage-job-development",
+  "Job Search": "--stage-job-search",
+  "Life Skills": "--stage-life-skills",
+  "Job Placement": "--stage-job-placement",
+  "Job Coaching": "--stage-job-coaching",
+};
+
+export const CLIENT_STATUSES = ["Active", "On hold", "Inactive", "Closed"] as const;
 
 export const NOTE_TYPES = [
   "General",
@@ -271,7 +323,7 @@ export function median(values: number[]): number | null {
 }
 
 /** Stages that mean a client reached job development or beyond. */
-export const POST_JD_STAGES = ["Job Development", "Placement", "Job Coaching", "Follow-Along"];
+export const POST_JD_STAGES = ["Job Development", "Job Search", "Job Placement", "Job Coaching"];
 
 /**
  * The steps a job goes through, in Margaret's words and in order.

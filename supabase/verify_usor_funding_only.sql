@@ -13,12 +13,12 @@ declare
   failures text[] := '{}';
 begin
   begin
-    insert into public.clients (name, stage, status, funding_source) values ('ZZ Medicaid', 'Referral', 'Active', 'HCBS Medicaid');
+    insert into public.clients (name, stage, status, funding_source) values ('ZZ Medicaid', 'Intake', 'Active', 'HCBS Medicaid');
     failures := failures || 'FAILED: a client funded by HCBS Medicaid was added'::text;
   exception when check_violation then null;
   end;
 
-  insert into public.clients (name, stage, status) values ('ZZ USOR', 'Referral', 'Active') returning id into v_client;
+  insert into public.clients (name, stage, status) values ('ZZ USOR', 'Intake', 'Active') returning id into v_client;
   begin
     update public.clients set funding_source = 'HCBS Medicaid' where id = v_client;
     failures := failures || 'FAILED: a client was changed to HCBS Medicaid funding'::text;

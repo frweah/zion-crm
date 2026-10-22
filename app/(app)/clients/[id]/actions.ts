@@ -13,6 +13,14 @@ import type { Update } from "@/lib/database.types";
 export type DetailState = { error: string | null; ok: string | null };
 
 /** Move a client along the pipeline. The history row is written by a trigger. */
+/**
+ * Move a client to a stage, from the record screen.
+ *
+ * This used to update the column. It goes through move_client now, for the
+ * same reason the board does: a stage change writes a history row, a line in
+ * the client's contact log, and a note saying why - and the database refuses
+ * it without the note (0223). The refusal comes back in its own words.
+ */
 export async function setStage(_prev: DetailState, formData: FormData): Promise<DetailState> {
   const me = await getCurrentStaff();
   if (!me || !CAN_EDIT.includes(me.role)) {
@@ -21,12 +29,19 @@ export async function setStage(_prev: DetailState, formData: FormData): Promise<
 
   const id = String(formData.get("id") ?? "");
   const stage = String(formData.get("stage") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
   if (!(STAGES as readonly string[]).includes(stage)) {
     return { error: "Unknown stage.", ok: null };
   }
+  if (!note) return { error: "Say why they are moving.", ok: null };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("clients").update({ stage }).eq("id", id);
+  const { error } = await supabase.rpc("move_client", {
+    p_client: id,
+    p_stage: stage,
+    p_note: note,
+    p_document: null,
+  });
   if (error) return { error: error.message, ok: null };
 
   revalidatePath(`/clients/${id}`);
@@ -319,13 +334,20 @@ export async function saveIntake(_prev: DetailState, formData: FormData): Promis
     .eq("id", clientId)
     .maybeSingle();
 
+  // Saving the intake used to move them out of Referral. Referral is Intake
+  // now (0223), so the move that follows an intake is to Assessment - and it
+  // goes through move_client, which writes the history and the contact log
+  // and refuses without a note. The note is this one, because the person did
+  // not type it: the system did the moving and says so.
   let moved = "";
-  if (client?.stage === "Referral") {
-    const { error: stageError } = await supabase
-      .from("clients")
-      .update({ stage: "Intake" })
-      .eq("id", clientId);
-    if (!stageError) moved = " Moved to Intake.";
+  if (client?.stage === "Intake") {
+    const { error: stageError } = await supabase.rpc("move_client", {
+      p_client: clientId,
+      p_stage: "Assessment",
+      p_note: "Intake saved, so the assessment is what comes next.",
+      p_document: null,
+    });
+    if (!stageError) moved = " Moved to Assessment.";
   }
 
   await supabase.from("tasks").insert({

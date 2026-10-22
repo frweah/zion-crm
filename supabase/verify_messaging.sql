@@ -177,7 +177,7 @@ begin
   -- file has not been produced - producing it writes to the access log, which
   -- rightly never lets go.
   perform set_config('role', 'postgres', true);
-  insert into public.clients (name, stage, status) values ('ZZ Chat Gone', 'Closed', 'Closed') returning id into v_gone;
+  insert into public.clients (name, stage, status) values ('ZZ Chat Gone', 'Intake', 'Closed') returning id into v_gone;
   insert into public.conversations (kind, client_id, external_address) values ('sms', v_gone, '+18015550199') returning id into v_gone_conv;
   insert into public.messages (conversation_id, sender_kind, body, status) values (v_gone_conv, 'client', 'ZZ gone', 'received');
   delete from public.clients where id = v_gone;

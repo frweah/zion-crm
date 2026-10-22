@@ -156,7 +156,7 @@ begin
   end if;
 
   v_ref := public.referral_from_conversation(v_unknown, 'ZZ Walked In');
-  if (select stage from public.clients where id = v_ref) <> 'Referral' then
+  if (select stage from public.clients where id = v_ref) <> 'Intake' then
     failures := failures || 'FAILED: a referral from a text did not start at Referral'::text;
   elsif not exists (select 1 from public.tasks where client_id = v_ref and title like 'Intake call%') then
     failures := failures || 'FAILED: a referral from a text left no intake task'::text;

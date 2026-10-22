@@ -32,7 +32,7 @@ begin
   values (v_staff_uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'zz-form@example.test', '{}', '{}', now(), now());
   update public.staff set user_id = v_staff_uid where id = v_staff;
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Form Client', 'Placement', 'Active', v_staff) returning id into v_client;
+  values ('ZZ Form Client', 'Job Placement', 'Active', v_staff) returning id into v_client;
 
   insert into public.practice_forms (key, name, purpose, fields, roles)
   values ('zz_billing_only', 'ZZ Billing form', 'ZZ', '[]'::jsonb, array['Billing']);

@@ -50,13 +50,13 @@ begin
   -- the first attempt, and it read back as closed today: the view takes the
   -- most recent closure, which is the right rule and made the fixture wrong.
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Retention Old', 'Closed', 'Closed', v_admin) returning id into v_old;
+  values ('ZZ Retention Old', 'Intake', 'Closed', v_admin) returning id into v_old;
   update public.client_stage_history
      set at = (public.practice_today() - interval '9 years')::date
    where client_id = v_old;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Retention Recent', 'Closed', 'Closed', v_admin) returning id into v_recent;
+  values ('ZZ Retention Recent', 'Intake', 'Closed', v_admin) returning id into v_recent;
   update public.client_stage_history
      set at = (public.practice_today() - interval '7 days')::date
    where client_id = v_recent;
@@ -64,7 +64,7 @@ begin
   -- Closed, with no entry saying when. The workbook import produced records
   -- like this and there will be more.
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Retention Undated', 'Closed', 'Closed', v_admin) returning id into v_undated;
+  values ('ZZ Retention Undated', 'Intake', 'Closed', v_admin) returning id into v_undated;
   delete from public.client_stage_history where client_id = v_undated;
 
   -- ── nothing is due under an unchecked period ───────────────

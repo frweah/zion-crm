@@ -61,9 +61,9 @@ begin
   update public.staff set user_id = v_str_uid where id = v_stranger;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Docs Client', 'Placement', 'Active', v_assigned) returning id into v_client;
+  values ('ZZ Docs Client', 'Job Placement', 'Active', v_assigned) returning id into v_client;
   insert into public.clients (name, stage, status)
-  values ('ZZ Docs Other', 'Placement', 'Active') returning id into v_other;
+  values ('ZZ Docs Other', 'Job Placement', 'Active') returning id into v_other;
 
   -- One of each, both uploaded by the assigned staff member.
   insert into public.attachments

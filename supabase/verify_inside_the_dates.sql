@@ -30,7 +30,7 @@ declare
   v_detail text;
   failures text[] := '{}';
 begin
-  insert into public.clients (name, stage, status) values ('ZZ Dates Window', 'Placement', 'Active') returning id into v_client;
+  insert into public.clients (name, stage, status) values ('ZZ Dates Window', 'Job Placement', 'Active') returning id into v_client;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status, start_date, end_date)
   values (v_client, 'V0000881', 'Job Placement', 'Flat Fee', 2250, 'Authorized', public.practice_today() - 40, public.practice_today() + 9)
   returning id into v_flat;

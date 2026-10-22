@@ -313,6 +313,10 @@ const RPC_FUNCTIONS = [
   "authorization_amount",
   "authorization_blocked_from",
   "billing_worklist",
+  "clients_board",
+  "move_client",
+  "close_client",
+  "reactivate_client",
   "authorizations_fall_due",
   "close_empty_coaching_months",
   // Removing a client who should never have been a record (0178).
@@ -379,12 +383,18 @@ function tableRowType(result) {
       const parts = column.trim().split(/\s+/);
       const name = parts[0];
       const sqlType = parts.slice(1).join(" ").toLowerCase();
-      const ts = /^bool/.test(sqlType)
+      // A returned text[] is a list of strings, not a string. Without this
+      // the board's `services` and the portal's `conversation_ids` both came
+      // out as `string` and every use of them as an array was a type error
+      // waiting for somebody to write one (22 Oct 2026).
+      const isArray = /\[\]\s*$/.test(sqlType);
+      const base = sqlType.replace(/\[\]\s*$/, "");
+      const ts = /^bool/.test(base)
         ? "boolean"
-        : /^(int|bigint|numeric|smallint|real|double)/.test(sqlType)
+        : /^(int|bigint|numeric|smallint|real|double)/.test(base)
           ? "number"
           : "string";
-      return name + ": " + ts + " | null";
+      return name + ": " + (isArray ? `${ts}[]` : ts) + " | null";
     })
     .join("; ");
   return "{ " + fields + " }[]";
@@ -505,17 +515,26 @@ for (const f of fns) {
   // jsonb was being typed "string", which typechecked and was false, and the
   // caller had to cast through unknown to read a single field out of it. A
   // type that has to be lied about to be used is not doing its job.
-  const returns = /^TABLE\(/i.test(f.result ?? "")
-    ? tableRowType(f.result)
-    : f.result === "boolean"
+  // A function that returns uuid[] returns a list, and saying "string" sends
+  // every caller that treats it as one into a type error it cannot read.
+  // Same trap as the TABLE columns above, one level up (22 Oct 2026).
+  const bare = (f.result ?? "").replace(/\[\]\s*$/, "");
+  const listed = /\[\]\s*$/.test(f.result ?? "");
+  const scalar =
+    bare === "boolean"
       ? "boolean"
-      : ["json", "jsonb"].includes(f.result)
+      : ["json", "jsonb"].includes(bare)
         ? "Json"
-        : f.result === "void"
+        : bare === "void"
           ? "undefined"
-          : ["integer", "bigint", "numeric", "smallint", "real", "double precision"].includes(f.result)
+          : ["integer", "bigint", "numeric", "smallint", "real", "double precision"].includes(bare)
             ? "number"
             : "string";
+  const returns = /^TABLE\(/i.test(f.result ?? "")
+    ? tableRowType(f.result)
+    : listed
+      ? `${scalar}[]`
+      : scalar;
   out.push(`        Returns: ${returns};`);
   out.push("      };");
 }

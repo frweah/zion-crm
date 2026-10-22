@@ -44,7 +44,7 @@ begin
   returning id into v_client;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Offboard Closed', 'Closed', 'Closed', v_leaver)
+  values ('ZZ Offboard Closed', 'Intake', 'Closed', v_leaver)
   returning id into v_closed;
 
   insert into public.tasks (client_id, assigned_staff_id, title, status, created_by)
@@ -157,7 +157,7 @@ begin
   returning id into v_leaver;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Unassigned After', 'Referral', 'Active', v_leaver)
+  values ('ZZ Unassigned After', 'Intake', 'Active', v_leaver)
   returning id into v_client;
 
   perform public.offboard_staff(v_leaver, public.practice_today(), 'ZZ ended', null, '');

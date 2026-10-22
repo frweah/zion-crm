@@ -26,7 +26,7 @@ declare
 begin
   insert into public.staff (name, email, role, active) values ('ZZ Meaning Staff', 'zz-meaning@example.test', 'Job Search', true) returning id into v_staff;
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Meaning Client', 'Placement', 'Active', v_staff) returning id into v_client;
+  values ('ZZ Meaning Client', 'Job Placement', 'Active', v_staff) returning id into v_client;
 
   -- A flat fee, completed inside its dates and not yet invoiced.
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, status, start_date, end_date)

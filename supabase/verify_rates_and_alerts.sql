@@ -81,7 +81,7 @@ begin
   update public.rate_schedule set fee = 45 where crm_service = 'Job Coaching';
 
   -- ── one alert per authorization ────────────────────────────
-  insert into public.clients (name, stage, status) values ('ZZ Alert Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Alert Client', 'Job Placement', 'Active')
   returning id into v_client;
 
   -- Everything wrong at once: overdue to bill, ending within the fortnight,

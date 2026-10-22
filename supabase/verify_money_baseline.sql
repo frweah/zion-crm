@@ -122,7 +122,7 @@ begin
     -- through add_authorization in the app and RLS refuses a direct insert,
     -- which is itself a rule tested elsewhere.
     perform set_config('role', 'postgres', true);
-    insert into public.clients (name, stage, status) values ('ZZ Measure Client', 'Placement', 'Active')
+    insert into public.clients (name, stage, status) values ('ZZ Measure Client', 'Job Placement', 'Active')
     returning id into v_client;
 
     -- An authorization that took ten days to submit and thirty more to pay.
@@ -187,10 +187,10 @@ begin
       raise notice 'ok  and the 90-day denominator (%) is smaller than the 4-week one (%), so a placement too recent to have been checked is not counted against it', v_k90, v_k4;
     end if;
 
-    if coalesce(v_stages ->> 'Placement', '0')::int < 1 then
+    if coalesce(v_stages ->> 'Job Placement', '0')::int < 1 then
       failures := failures || 'FAILED: the stage counts do not include the client just added'::text;
     else
-      raise notice 'ok  clients are counted by stage (% at Placement)', v_stages ->> 'Placement';
+      raise notice 'ok  clients are counted by stage (% at Placement)', v_stages ->> 'Job Placement';
     end if;
 
     -- ── frozen ──────────────────────────────────────────────

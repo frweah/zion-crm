@@ -14,7 +14,7 @@ declare v_js uuid; v_uid uuid; v_client uuid; v_before boolean; v_after boolean;
 begin
   select id, user_id into v_js, v_uid from public.staff where role = 'Job Search' and active and not is_system and user_id is not null limit 1;
   select id, user_id into v_admin, v_auid from public.staff where role = 'Admin' and active and not is_system and user_id is not null limit 1;
-  insert into public.clients (name, stage, status, assigned_staff_id) values ('ZZ Grant', 'Referral', 'Active', v_admin) returning id into v_client;
+  insert into public.clients (name, stage, status, assigned_staff_id) values ('ZZ Grant', 'Intake', 'Active', v_admin) returning id into v_client;
   perform set_config('request.jwt.claims', json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
   v_before := public.can_see_restricted(v_client);
   perform set_config('request.jwt.claims', json_build_object('sub', v_auid, 'role', 'authenticated')::text, true);

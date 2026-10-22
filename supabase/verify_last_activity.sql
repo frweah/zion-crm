@@ -120,7 +120,7 @@ begin
   -- client_stage_history, which is one of the twelve things activity is read
   -- from, so being referred is itself something happening. What matters is
   -- that every client asked about comes back.
-  insert into public.clients (name, stage, status) values ('ZZ Quiet Client', 'Referral', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Quiet Client', 'Intake', 'Active')
   returning id into v_second;
 
   select count(*) into v_n from public.client_last_activity_for(array[v_client, v_second]);

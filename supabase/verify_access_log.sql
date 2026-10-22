@@ -42,7 +42,7 @@ begin
 
   -- A client belonging to somebody else, so a refusal can be provoked.
   insert into public.clients (name, stage, status, assigned_staff_id)
-  values ('ZZ Access Test', 'Referral', 'Active', v_admin)
+  values ('ZZ Access Test', 'Intake', 'Active', v_admin)
   returning id into v_client;
 
   insert into public.client_private (client_id, dob, address)

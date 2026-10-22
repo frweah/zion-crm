@@ -200,9 +200,6 @@ export type Database = {
       };
       attachments: {
         Row: {
-          source: string;
-          portal_account_id: string | null;
-          review_status: string | null;
           id: string;
           client_id: string;
           storage_path: string;
@@ -220,11 +217,11 @@ export type Database = {
           review_note: string;
           document_date: string;
           sha256: string | null;
+          source: string;
+          portal_account_id: string | null;
+          review_status: string | null;
         };
         Insert: {
-          source?: string;
-          portal_account_id?: string | null;
-          review_status?: string | null;
           id?: string;
           client_id: string;
           storage_path: string;
@@ -242,11 +239,11 @@ export type Database = {
           review_note?: string;
           document_date?: string;
           sha256?: string | null;
-        };
-        Update: {
           source?: string;
           portal_account_id?: string | null;
           review_status?: string | null;
+        };
+        Update: {
           id?: string;
           client_id?: string;
           storage_path?: string;
@@ -264,6 +261,9 @@ export type Database = {
           review_note?: string;
           document_date?: string;
           sha256?: string | null;
+          source?: string;
+          portal_account_id?: string | null;
+          review_status?: string | null;
         };
         Relationships: [];
       };
@@ -1085,6 +1085,10 @@ export type Database = {
           at: string;
           staff_id: string | null;
           created_at: string;
+          from_stage: string | null;
+          note: string;
+          document_id: string | null;
+          at_time: string;
         };
         Insert: {
           id?: string;
@@ -1093,6 +1097,10 @@ export type Database = {
           at?: string;
           staff_id?: string | null;
           created_at?: string;
+          from_stage?: string | null;
+          note?: string;
+          document_id?: string | null;
+          at_time?: string;
         };
         Update: {
           id?: string;
@@ -1101,6 +1109,10 @@ export type Database = {
           at?: string;
           staff_id?: string | null;
           created_at?: string;
+          from_stage?: string | null;
+          note?: string;
+          document_id?: string | null;
+          at_time?: string;
         };
         Relationships: [];
       };
@@ -1478,8 +1490,6 @@ export type Database = {
       };
       conversations: {
         Row: {
-          portal_account_id: string | null;
-          portal_read_seq: number;
           id: string;
           kind: string;
           title: string;
@@ -1494,10 +1504,10 @@ export type Database = {
           archived_at: string | null;
           archived_by: string | null;
           spam: boolean;
+          portal_account_id: string | null;
+          portal_read_seq: number;
         };
         Insert: {
-          portal_account_id?: string | null;
-          portal_read_seq?: number;
           id?: string;
           kind: string;
           title?: string;
@@ -1512,10 +1522,10 @@ export type Database = {
           archived_at?: string | null;
           archived_by?: string | null;
           spam?: boolean;
-        };
-        Update: {
           portal_account_id?: string | null;
           portal_read_seq?: number;
+        };
+        Update: {
           id?: string;
           kind?: string;
           title?: string;
@@ -1530,6 +1540,8 @@ export type Database = {
           archived_at?: string | null;
           archived_by?: string | null;
           spam?: boolean;
+          portal_account_id?: string | null;
+          portal_read_seq?: number;
         };
         Relationships: [];
       };
@@ -3383,7 +3395,6 @@ export type Database = {
       };
       portal_accounts: {
         Row: {
-          notice_channel: string | null;
           id: string;
           client_id: string;
           kind: string;
@@ -3401,9 +3412,9 @@ export type Database = {
           disabled_at: string | null;
           disabled_by: string | null;
           disabled_reason: string;
+          notice_channel: string | null;
         };
         Insert: {
-          notice_channel?: string | null;
           id?: string;
           client_id: string;
           kind: string;
@@ -3421,9 +3432,9 @@ export type Database = {
           disabled_at?: string | null;
           disabled_by?: string | null;
           disabled_reason?: string;
+          notice_channel?: string | null;
         };
         Update: {
-          notice_channel?: string | null;
           id?: string;
           client_id?: string;
           kind?: string;
@@ -3441,6 +3452,7 @@ export type Database = {
           disabled_at?: string | null;
           disabled_by?: string | null;
           disabled_reason?: string;
+          notice_channel?: string | null;
         };
         Relationships: [];
       };
@@ -3570,39 +3582,33 @@ export type Database = {
         };
         Relationships: [];
       };
-      portal_sessions: {
+      portal_notices: {
         Row: {
           id: string;
+          conversation_id: string;
           account_id: string;
-          auth_user_id: string;
-          created_at: string;
-          last_seen_at: string;
-          ip: string;
-          user_agent: string;
-          ended_at: string | null;
-          ended_reason: string | null;
+          at: string;
+          channel: string;
+          status: string;
+          detail: string;
         };
         Insert: {
-          id: string;
+          id?: string;
+          conversation_id: string;
           account_id: string;
-          auth_user_id: string;
-          created_at?: string;
-          last_seen_at?: string;
-          ip?: string;
-          user_agent?: string;
-          ended_at?: string | null;
-          ended_reason?: string | null;
+          at?: string;
+          channel: string;
+          status?: string;
+          detail?: string;
         };
         Update: {
           id?: string;
+          conversation_id?: string;
           account_id?: string;
-          auth_user_id?: string;
-          created_at?: string;
-          last_seen_at?: string;
-          ip?: string;
-          user_agent?: string;
-          ended_at?: string | null;
-          ended_reason?: string | null;
+          at?: string;
+          channel?: string;
+          status?: string;
+          detail?: string;
         };
         Relationships: [];
       };
@@ -3711,6 +3717,42 @@ export type Database = {
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      portal_sessions: {
+        Row: {
+          id: string;
+          account_id: string;
+          auth_user_id: string;
+          created_at: string;
+          last_seen_at: string;
+          ip: string;
+          user_agent: string;
+          ended_at: string | null;
+          ended_reason: string | null;
+        };
+        Insert: {
+          id: string;
+          account_id: string;
+          auth_user_id: string;
+          created_at?: string;
+          last_seen_at?: string;
+          ip?: string;
+          user_agent?: string;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          auth_user_id?: string;
+          created_at?: string;
+          last_seen_at?: string;
+          ip?: string;
+          user_agent?: string;
+          ended_at?: string | null;
+          ended_reason?: string | null;
         };
         Relationships: [];
       };
@@ -6686,9 +6728,17 @@ export type Database = {
         Args: { p_clients: string[] | null };
         Returns: { client_id: string | null; kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
       };
+      clients_board: {
+        Args: { p_today?: string | null };
+        Returns: { client_id: string | null; name: string | null; stage: string | null; goal: string | null; counselor: string | null; assigned_to: string | null; days_in_stage: number | null; services: string[] | null; chip: string | null; chip_urgency: number | null; last_note: string | null; last_note_on: string | null }[];
+      };
       clients_i_can_restrict: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      close_client: {
+        Args: { p_client: string | null; p_reason: string | null };
+        Returns: { closed_authorizations: number | null }[];
       };
       close_empty_coaching_months: {
         Args: { p_today?: string | null };
@@ -7002,6 +7052,10 @@ export type Database = {
         Args: { p_date: string | null };
         Returns: number;
       };
+      move_client: {
+        Args: { p_client: string | null; p_stage: string | null; p_note: string | null; p_document?: string | null };
+        Returns: { from_stage: string | null; to_stage: string | null; at_time: string | null }[];
+      };
       move_counselor_office: {
         Args: { p_counselor: string | null; p_office: string | null; p_reason: string | null };
         Returns: { from_office: string | null; to_office: string | null; from_billing: string | null; to_billing: string | null; clients: number | null }[];
@@ -7056,7 +7110,7 @@ export type Database = {
       };
       onboarding_open_steps: {
         Args: { p_staff: string | null };
-        Returns: string;
+        Returns: string[];
       };
       onboarding_step_done: {
         Args: { p_staff: string | null; p_key: string | null };
@@ -7090,41 +7144,25 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
-      post_bank_transaction: {
-        Args: { p_transaction: string | null; p_account: string | null; p_memo?: string | null };
+      portal_answer_request: {
+        Args: { p_request: string | null; p_path: string | null; p_filename: string | null; p_mime: string | null; p_size: number | null; p_sha256: string | null };
         Returns: string;
-      };
-      post_depreciation_for: {
-        Args: { p_month: string | null };
-        Returns: number;
-      };
-      post_inter_entity_transfer: {
-        Args: { p_from: string | null; p_to: string | null; p_amount: number | null; p_on: string | null; p_memo: string | null };
-        Returns: string;
-      };
-      post_manual_journal: {
-        Args: { p_entry_date: string | null; p_memo: string | null; p_reason: string | null; p_lines: Json | null; p_attachment?: string | null };
-        Returns: string;
-      };
-      post_message: {
-        Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null };
-        Returns: string;
-      };
-      post_visitor_message: {
-        Args: { p_conversation: string | null; p_body: string | null };
-        Returns: number;
-      };
-      post_web_reply: {
-        Args: { p_conversation: string | null; p_body: string | null };
-        Returns: number;
       };
       portal_begin_session: {
         Args: { p_ip: string | null; p_user_agent: string | null };
         Returns: string;
       };
+      portal_cancel_request: {
+        Args: { p_request: string | null };
+        Returns: undefined;
+      };
       portal_check_code: {
         Args: { p_attempt: string | null; p_code: string | null; p_ip: string | null };
         Returns: { result: string | null; account_id: string | null; sign_in_email: string | null }[];
+      };
+      portal_claim_notice: {
+        Args: { p_conversation: string | null };
+        Returns: { notice_id: string | null; channel: string | null; destination: string | null; name: string | null }[];
       };
       portal_client_id: {
         Args: Record<string, never>;
@@ -7150,121 +7188,137 @@ export type Database = {
         Args: { p_identifier: string | null; p_ip: string | null };
         Returns: { attempt_id: string | null; account_id: string | null; channel: string | null; destination: string | null; account_name: string | null; code: string | null }[];
       };
+      portal_mark_read: {
+        Args: { p_seq: number | null };
+        Returns: undefined;
+      };
       portal_me: {
         Args: Record<string, never>;
         Returns: { account_id: string | null; kind: string | null; name: string | null; relationship: string | null; client_first_name: string | null; staff_first_name: string | null; terms_version: string | null; electronic: boolean | null; texts: boolean | null; phone_last4: string | null }[];
-      };
-      portal_request_document: {
-        Args: { p_client: string; p_item: string; p_label?: string; p_note?: string; p_due?: string | null };
-        Returns: { request_id: string; conversation_ids: string[] }[];
-      };
-      portal_cancel_request: {
-        Args: { p_request: string };
-        Returns: undefined;
-      };
-      portal_review_request: {
-        Args: { p_request: string; p_accept: boolean; p_reason?: string };
-        Returns: string[];
-      };
-      portal_my_requests: {
-        Args: Record<string, never>;
-        Returns: { id: string; name: string; note: string; due: string | null; status: string; return_reason: string; filename: string | null; answered_at: string | null; created_at: string }[];
-      };
-      portal_open_requests: {
-        Args: Record<string, never>;
-        Returns: number;
-      };
-      portal_upload_path: {
-        Args: { p_request: string; p_filename: string };
-        Returns: string;
-      };
-      portal_answer_request: {
-        Args: { p_request: string; p_path: string; p_filename: string; p_mime: string; p_size: number; p_sha256: string };
-        Returns: string;
-      };
-      portal_my_resume: {
-        Args: Record<string, never>;
-        Returns: { id: string | null; data: Json; step: number; status: string; return_note: string; record_name: string | null; record_phone: string | null; record_email: string | null; record_city: string | null }[];
-      };
-      portal_save_resume: {
-        Args: { p_data: Json; p_step: number };
-        Returns: string;
-      };
-      portal_resume_folder: {
-        Args: Record<string, never>;
-        Returns: string;
-      };
-      portal_submit_resume: {
-        Args: { p_pdf_path: string; p_pdf_size: number; p_pdf_sha: string; p_docx_path: string; p_docx_size: number; p_docx_sha: string };
-        Returns: string;
-      };
-      portal_review_resume: {
-        Args: { p_resume: string; p_approve: boolean; p_note?: string };
-        Returns: string[];
-      };
-      portal_my_messages: {
-        Args: Record<string, never>;
-        Returns: { seq: number; mine: boolean; sender: string; body: string; created_at: string }[];
-      };
-      portal_unread: {
-        Args: Record<string, never>;
-        Returns: number;
-      };
-      portal_mark_read: {
-        Args: { p_seq: number };
-        Returns: undefined;
-      };
-      portal_send_message: {
-        Args: { p_body: string };
-        Returns: number;
-      };
-      portal_set_notice_channel: {
-        Args: { p_channel: string };
-        Returns: undefined;
-      };
-      portal_my_notice_options: {
-        Args: Record<string, never>;
-        Returns: { channel: string | null; can_text: boolean; has_email: boolean }[];
-      };
-      portal_open_thread: {
-        Args: { p_account: string };
-        Returns: string;
-      };
-      post_portal_reply: {
-        Args: { p_conversation: string; p_body: string };
-        Returns: number;
-      };
-      portal_claim_notice: {
-        Args: { p_conversation: string };
-        Returns: { notice_id: string; channel: string; destination: string; name: string }[];
-      };
-      portal_note_notice: {
-        Args: { p_notice: string; p_sent: boolean; p_detail: string };
-        Returns: undefined;
       };
       portal_my_consent: {
         Args: { p_kind: string | null };
         Returns: boolean;
       };
+      portal_my_messages: {
+        Args: Record<string, never>;
+        Returns: { seq: number | null; mine: boolean | null; sender: string | null; body: string | null; created_at: string | null }[];
+      };
+      portal_my_notice_options: {
+        Args: Record<string, never>;
+        Returns: { channel: string | null; can_text: boolean | null; has_email: boolean | null }[];
+      };
+      portal_my_requests: {
+        Args: Record<string, never>;
+        Returns: { id: string | null; name: string | null; note: string | null; due: string | null; status: string | null; return_reason: string | null; filename: string | null; answered_at: string | null; created_at: string | null }[];
+      };
+      portal_my_resume: {
+        Args: Record<string, never>;
+        Returns: { id: string | null; data: string | null; step: number | null; status: string | null; return_note: string | null; record_name: string | null; record_phone: string | null; record_email: string | null; record_city: string | null }[];
+      };
       portal_note_invitation: {
         Args: { p_account: string | null; p_sent: boolean | null; p_detail: string | null };
         Returns: undefined;
+      };
+      portal_note_notice: {
+        Args: { p_notice: string | null; p_sent: boolean | null; p_detail: string | null };
+        Returns: undefined;
+      };
+      portal_open_requests: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      portal_open_thread: {
+        Args: { p_account: string | null };
+        Returns: string;
       };
       portal_record_consent: {
         Args: { p_kind: string | null; p_given: boolean | null; p_ip: string | null; p_user_agent: string | null };
         Returns: undefined;
       };
+      portal_request_document: {
+        Args: { p_client: string | null; p_item: string | null; p_label?: string | null; p_note?: string | null; p_due?: string | null };
+        Returns: { request_id: string | null; conversation_ids: string[] | null }[];
+      };
+      portal_resume_folder: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      portal_review_request: {
+        Args: { p_request: string | null; p_accept: boolean | null; p_reason?: string | null };
+        Returns: string[];
+      };
+      portal_review_resume: {
+        Args: { p_resume: string | null; p_approve: boolean | null; p_note?: string | null };
+        Returns: string[];
+      };
+      portal_save_resume: {
+        Args: { p_data: Json | null; p_step: number | null };
+        Returns: string;
+      };
+      portal_send_message: {
+        Args: { p_body: string | null };
+        Returns: number;
+      };
       portal_session_account_id: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      portal_set_notice_channel: {
+        Args: { p_channel: string | null };
+        Returns: undefined;
       };
       portal_sign_out_everywhere: {
         Args: { p_client: string | null };
         Returns: number;
       };
+      portal_submit_resume: {
+        Args: { p_pdf_path: string | null; p_pdf_size: number | null; p_pdf_sha: string | null; p_docx_path: string | null; p_docx_size: number | null; p_docx_sha: string | null };
+        Returns: string;
+      };
       portal_touch_session: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      portal_unread: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      portal_upload_path: {
+        Args: { p_request: string | null; p_filename: string | null };
+        Returns: string;
+      };
+      post_bank_transaction: {
+        Args: { p_transaction: string | null; p_account: string | null; p_memo?: string | null };
+        Returns: string;
+      };
+      post_depreciation_for: {
+        Args: { p_month: string | null };
+        Returns: number;
+      };
+      post_inter_entity_transfer: {
+        Args: { p_from: string | null; p_to: string | null; p_amount: number | null; p_on: string | null; p_memo: string | null };
+        Returns: string[];
+      };
+      post_manual_journal: {
+        Args: { p_entry_date: string | null; p_memo: string | null; p_reason: string | null; p_lines: Json | null; p_attachment?: string | null };
+        Returns: string;
+      };
+      post_message: {
+        Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null };
+        Returns: string;
+      };
+      post_portal_reply: {
+        Args: { p_conversation: string | null; p_body: string | null };
+        Returns: number;
+      };
+      post_visitor_message: {
+        Args: { p_conversation: string | null; p_body: string | null };
+        Returns: number;
+      };
+      post_web_reply: {
+        Args: { p_conversation: string | null; p_body: string | null };
+        Returns: number;
       };
       practice_now: {
         Args: Record<string, never>;
@@ -7277,6 +7331,10 @@ export type Database = {
       presence_heartbeat: {
         Args: { p_state: string | null };
         Returns: undefined;
+      };
+      reactivate_client: {
+        Args: { p_client: string | null; p_stage: string | null; p_note: string | null };
+        Returns: { stage: string | null }[];
       };
       read_client_intake: {
         Args: { p_client_id: string | null; p_purpose?: string | null };

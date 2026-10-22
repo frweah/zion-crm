@@ -68,7 +68,7 @@ begin
   -- counselor's office. §13.12 - read-only on the authorization, and nobody
   -- retypes it.
   insert into public.clients (name, stage, status, counselor_id)
-  values ('ZZ Gate Client', 'Placement', 'Active', v_coun) returning id into v_client;
+  values ('ZZ Gate Client', 'Job Placement', 'Active', v_coun) returning id into v_client;
   if not exists (select 1 from public.client_billing_office
                   where client_id = v_client and billing_office_id = v_office) then
     failures := failures || 'FAILED: the billing office does not follow the counselor''s office'::text;

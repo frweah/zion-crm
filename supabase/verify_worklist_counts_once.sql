@@ -74,7 +74,7 @@ begin
           'zz-list@example.test', '{}', '{}', now(), now());
   update public.staff set user_id = v_uid where id = v_staff;
 
-  insert into public.clients (name, stage, status) values ('ZZ List Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ List Client', 'Job Placement', 'Active')
   returning id into v_client;
 
   -- A coaching parent with 10 hours, and one month under it.

@@ -68,13 +68,13 @@ begin
   -- Four clients at Referral, waiting different lengths of time. The dates are
   -- put on the contact log, which is what referral_received_on reads first.
   insert into public.clients (name, stage, status, counselor_id)
-  values ('ZZ Waiting Seven', 'Referral', 'Active', v_counsel) returning id into v_waiting;
+  values ('ZZ Waiting Seven', 'Intake', 'Active', v_counsel) returning id into v_waiting;
   insert into public.clients (name, stage, status, counselor_id)
-  values ('ZZ Waiting Three', 'Referral', 'Active', v_counsel) returning id into v_fresh;
+  values ('ZZ Waiting Three', 'Intake', 'Active', v_counsel) returning id into v_fresh;
   insert into public.clients (name, stage, status, counselor_id)
-  values ('ZZ Waiting Covered', 'Referral', 'Active', v_counsel) returning id into v_covered;
+  values ('ZZ Waiting Covered', 'Intake', 'Active', v_counsel) returning id into v_covered;
   insert into public.clients (name, stage, status, counselor_id)
-  values ('ZZ Waiting Months', 'Referral', 'Active', v_counsel) returning id into v_old;
+  values ('ZZ Waiting Months', 'Intake', 'Active', v_counsel) returning id into v_old;
 
   insert into public.contact_log (client_id, counselor_id, date, method, topic, outcome)
   values (v_waiting, v_counsel, v_today - 7, 'Email', 'Referral received', 'ZZ seven days ago'),
@@ -281,7 +281,7 @@ begin
 
   -- ── and a hire does not conjure an authorization ───────────
   insert into public.clients (name, stage, status, counselor_id, assigned_staff_id)
-  values ('ZZ No Placement Auth', 'Placement', 'Active', v_counsel, v_rei)
+  values ('ZZ No Placement Auth', 'Job Placement', 'Active', v_counsel, v_rei)
   returning id into v_place_c;
   insert into public.lead_matches (lead_id, client_id, status)
   values (v_lead, v_place_c, 'Applied') returning id into v_match;

@@ -44,7 +44,7 @@ declare
 begin
   insert into public.staff (name, email, role, active)
   values ('ZZ Date Admin', 'zz-date@example.test', 'Admin', true) returning id into v_staff;
-  insert into public.clients (name, stage, status) values ('ZZ Date Client', 'Placement', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Date Client', 'Job Placement', 'Active')
   returning id into v_client;
 
   -- ── a year typed short ────────────────────────────────────

@@ -45,7 +45,7 @@ export async function addClient(
       referring_office: str("referring_office"),
       assigned_staff_id: orNull(str("assigned_staff_id")),
       billing_staff_id: orNull(str("billing_staff_id")),
-      stage: "Referral",
+      stage: "Intake",
       status: "Active",
     })
     .select("id, name, assigned_staff_id")

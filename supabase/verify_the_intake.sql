@@ -98,7 +98,7 @@ begin
     failures := failures || format('FAILED: a referral for somebody new did not create them: %s', v_res)::text;
   elsif (select count(*) from public.clients) <> v_before + 1 then
     failures := failures || 'FAILED: a referral created more than one client'::text;
-  elsif (select stage from public.clients where id = v_client) <> 'Referral' then
+  elsif (select stage from public.clients where id = v_client) <> 'Intake' then
     failures := failures || 'FAILED: the client was not created at Referral'::text;
   else
     raise notice 'ok  a referral for somebody not on file creates them, once, at Referral';
@@ -163,7 +163,7 @@ begin
   end if;
 
   -- ── an ambiguous name creates nothing ──────────────────────
-  insert into public.clients (name, stage, status) values ('ZZ Twin Testperson', 'Referral', 'Active')
+  insert into public.clients (name, stage, status) values ('ZZ Twin Testperson', 'Intake', 'Active')
   returning id into v_twin_a;
   insert into public.clients (name, stage, status) values ('ZZ Twin Testperson', 'Intake', 'Active')
   returning id into v_twin_b;
