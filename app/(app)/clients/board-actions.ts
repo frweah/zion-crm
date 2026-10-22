@@ -140,18 +140,19 @@ export async function reactivateClient(_prev: BoardState, formData: FormData): P
 }
 
 /**
- * Deactivate from the All clients list.
+ * Off the board, from the board's own panel, its menu, or All clients.
  *
  * The same end state as Close and a different act: Close is the end of the
- * work and takes the authorizations with it, this is only taking somebody off
+ * work and takes the authorizations with it; this only takes somebody off
  * the board. So it does not touch billing, and it says so on the screen.
+ *
+ * No role check here any more. Anybody who can move a card can do this
+ * (owner, 22 Oct 2026), and the note and the logging are the database's
+ * (0232) - which is what makes them true of an import as well as of a click.
  */
 export async function deactivateClient(_prev: BoardState, formData: FormData): Promise<BoardState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "Sign in again.", ok: null };
-  if (!["Admin", "Reports", "Billing"].includes(me.role)) {
-    return { error: "Taking a client off the board is for Admin, Intake & Client Reports, or Billing.", ok: null };
-  }
 
   const id = field(formData, "client_id");
   const reason = field(formData, "reason");
@@ -160,21 +161,11 @@ export async function deactivateClient(_prev: BoardState, formData: FormData): P
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from("clients")
-      .update({ status: "Inactive" })
-      .eq("id", id)
-      .select("id")
-      .maybeSingle();
-    if (error) return { error: error.message, ok: null };
-
-    await supabase.from("contact_log").insert({
-      client_id: id,
-      method: "Deactivated",
-      topic: "Taken off the board",
-      outcome: reason,
-      staff_id: me.id,
+    const { error } = await supabase.rpc("deactivate_client", {
+      p_client: id,
+      p_note: reason,
     });
+    if (error) return { error: error.message, ok: null };
 
     revalidatePath("/clients");
     revalidatePath(`/clients/${id}`);

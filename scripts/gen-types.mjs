@@ -317,6 +317,7 @@ const RPC_FUNCTIONS = [
   "move_client",
   "close_client",
   "reactivate_client",
+  "deactivate_client",
   "authorizations_fall_due",
   "close_empty_coaching_months",
   // Removing a client who should never have been a record (0178).

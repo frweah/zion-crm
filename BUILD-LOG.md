@@ -5723,3 +5723,92 @@ tight. Narrowing the sidebar to icons (the control is already in the header)
 gives each column about 40px more.
 
 113 of 113 verify scripts still pass.
+
+---
+
+## Two ways off the board (22 Oct 2026)
+
+The card panel has a **Remove from board** heading with two choices, and the
+card's *Move to…* menu carries the same two as its last items, after the seven
+stages. They are deliberately two controls rather than one with a mode: a
+single control that changed what the button meant is how somebody closes a
+client they only meant to tidy away.
+
+**Make inactive** is a filing decision. The card leaves the board and nothing
+else happens — the authorizations stand, the billing stands, the record
+stands, and putting them back is a note and a stage on All clients. Anybody
+who can move a card can do it, because deciding a card does not belong on
+today's board is the same kind of decision as deciding which column it sits
+in.
+
+**Close** ends the work. It takes the open authorizations with it and refuses
+while money is out with USOR. Admin, Intake & Client Reports and Billing, as
+before.
+
+### The rule moved into the database
+
+Making somebody inactive used to be done by the screen: a direct update and a
+line in the contact log, written in the server action. That put the rule in
+one caller — so an import, the agent, or anything else that wrote the column
+could take a client off the board with no note and no log at all, and the
+role check lived where only that one screen could see it.
+
+`deactivate_client` (0232) is a function now, for the same reason
+`move_client` is. It refuses an empty note, refuses somebody who is not
+staff, refuses a client who is already inactive or closed, and writes the
+note to two places: the client's own contact log, and the directory change
+log beside the status change itself. The server action is four lines and a
+message.
+
+The role check went with it — or rather, went away. There is no role check on
+making somebody inactive any more, here or on All clients, where the control
+had been Admin, Intake & Client Reports and Billing only. The same act now
+has the same rule everywhere, which is the owner's instruction read
+consistently rather than applied to one screen.
+
+### Asserted
+
+In `verify_the_clients_board`, rolled back:
+
+- a client cannot be taken off the board without a note
+- making somebody inactive takes them off the board
+- **and leaves their authorizations exactly where they were** — which is the
+  whole difference from Close, so it is asserted rather than assumed
+- the contact log carries the note, the person and the day
+- their card is gone from the board
+- **a Job Search member of staff cannot close a client**
+- **— and can still take one off the board**
+
+The change log is not asserted on a fixture, and the reason is worth writing
+down rather than leaving as a gap: `directory_change_log` deliberately skips
+any record whose name is a fixture name, so that a verification run does not
+fill the practice's audit trail with ZZ people. Every client in that script
+is a ZZ person. What is asserted instead is that the silence is the rule and
+not an accident — if `is_fixture_name` ever stops recognising these names,
+the log would start filling with them and the script would say so.
+
+The real path was checked separately against a non-fixture name inside a
+rolled-back transaction:
+
+```
+change log:  status {"from": "Active", "to": "Inactive"}
+             "Paused at their own request." by Francis Weah
+contact log: Off the board | Made inactive from Active
+             "Paused at their own request." by Francis Weah
+```
+
+### Done in the screen, by both roles
+
+As a **Job Search** account that can write: the card menu offered the seven
+stages and *Make inactive*, with no *Close*; the panel offered *Make inactive*
+alone. Making a client inactive went through and landed in the contact log
+under that person's name.
+
+As an **Intake & Client Reports** account: both appeared, in the panel and as
+the last two items of the menu. Closing a client who had an authorization
+still with USOR was refused in the dialog, naming it — *"ZZ Off Two has
+VZZOFF01 still with USOR and unpaid. Chase or record the payment before
+closing them."* With that one paid, closing went through, took the one Due
+authorization with it, and said so.
+
+113 of 113 verify scripts still pass.

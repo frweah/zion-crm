@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { STAGES, stageLabel, stageNote, stageToken, today } from "@/lib/constants";
-import { moveClient, closeClient, type BoardState } from "./board-actions";
+import { moveClient, closeClient, deactivateClient, type BoardState } from "./board-actions";
 import { recordAttachment, type FileState } from "./[id]/files/actions";
 
 /** A type of document, as client_file_categories has it (0203). */
@@ -64,6 +64,15 @@ export type Card = {
 
 const initial: BoardState = { error: null, ok: null };
 
+/**
+ * The two ways off the board, as menu values.
+ *
+ * Prefixed so they cannot collide with a stage name, now or when somebody
+ * adds an eighth column.
+ */
+const OFF_INACTIVE = "off:inactive";
+const OFF_CLOSE = "off:close";
+
 /** The three words a chip gets, from the urgency the database gave it. */
 const chipTone = (urgency: number | null) =>
   urgency === null ? "" : urgency <= 1 ? " bad" : urgency <= 4 ? " warn" : "";
@@ -90,7 +99,16 @@ export function ClientsBoard({
   const [over, setOver] = useState<string | null>(null);
   const [panel, setPanel] = useState<Card | null>(null);
   const [moving, setMoving] = useState<{ card: Card; to: string } | null>(null);
-  const [closing, setClosing] = useState<Card | null>(null);
+  /**
+   * Taking a card off the board, and which of the two ways.
+   *
+   * They are deliberately separate choices rather than one control with a
+   * mode. Making somebody inactive files them; closing them ends the work
+   * and takes their open authorizations with it. A single control that
+   * changed what the button meant is how somebody closes a client they only
+   * meant to tidy away.
+   */
+  const [removing, setRemoving] = useState<{ card: Card; how: "inactive" | "close" } | null>(null);
 
   const byStage = (stage: string) => cards.filter((c) => c.stage === stage);
 
@@ -182,7 +200,10 @@ export function ClientsBoard({
                         onChange={(e) => {
                           const to = e.target.value;
                           e.currentTarget.value = "";
-                          if (to) setMoving({ card: c, to });
+                          if (!to) return;
+                          if (to === OFF_INACTIVE) setRemoving({ card: c, how: "inactive" });
+                          else if (to === OFF_CLOSE) setRemoving({ card: c, how: "close" });
+                          else setMoving({ card: c, to });
                         }}
                       >
                         <option value="">Choose a stage</option>
@@ -191,6 +212,9 @@ export function ClientsBoard({
                             {stageLabel(s)}
                           </option>
                         ))}
+                        {/* Off the board, last, because it is not a stage. */}
+                        <option value={OFF_INACTIVE}>Make inactive</option>
+                        {canClose && <option value={OFF_CLOSE}>Close</option>}
                       </select>
                     </label>
                   </article>
@@ -208,11 +232,13 @@ export function ClientsBoard({
           canClose={canClose}
           onClose={() => setPanel(null)}
           onMove={(to) => {
-            setMoving({ card: panel, to });
+            if (to === OFF_INACTIVE) setRemoving({ card: panel, how: "inactive" });
+            else if (to === OFF_CLOSE) setRemoving({ card: panel, how: "close" });
+            else setMoving({ card: panel, to });
             setPanel(null);
           }}
-          onCloseClient={() => {
-            setClosing(panel);
+          onRemove={(how) => {
+            setRemoving({ card: panel, how });
             setPanel(null);
           }}
         />
@@ -226,7 +252,12 @@ export function ClientsBoard({
           onDone={() => setMoving(null)}
         />
       )}
-      {closing && <CloseDialog card={closing} onDone={() => setClosing(null)} />}
+      {removing?.how === "close" && (
+        <CloseDialog card={removing.card} onDone={() => setRemoving(null)} />
+      )}
+      {removing?.how === "inactive" && (
+        <DeactivateDialog card={removing.card} onDone={() => setRemoving(null)} />
+      )}
     </>
   );
 }
@@ -237,13 +268,13 @@ function SidePanel({
   canClose,
   onClose,
   onMove,
-  onCloseClient,
+  onRemove,
 }: {
   card: Card;
   canClose: boolean;
   onClose: () => void;
   onMove: (to: string) => void;
-  onCloseClient: () => void;
+  onRemove: (how: "inactive" | "close") => void;
 }) {
   return (
     <aside className="board-panel">
@@ -295,18 +326,28 @@ function SidePanel({
               {stageLabel(s)}
             </option>
           ))}
+          <option value={OFF_INACTIVE}>Make inactive</option>
+          {canClose && <option value={OFF_CLOSE}>Close</option>}
         </select>
       </label>
 
-      <div className="row2" style={{ gap: 8, marginTop: 10 }}>
+      <h3 className="board-off-title">Remove from board</h3>
+      <p className="lock">Two different things. Inactive keeps everything.</p>
+      <div className="row2" style={{ gap: 8 }}>
+        <button type="button" className="btn ghost" onClick={() => onRemove("inactive")}>
+          Make inactive
+        </button>
+        {canClose && (
+          <button type="button" className="btn ghost" onClick={() => onRemove("close")}>
+            Close
+          </button>
+        )}
+      </div>
+
+      <div className="row2" style={{ gap: 8, marginTop: 14 }}>
         <Link className="btn ghost" href={`/clients/${card.client_id}`}>
           Open the record
         </Link>
-        {canClose && (
-          <button type="button" className="btn ghost" onClick={onCloseClient}>
-            Close this client
-          </button>
-        )}
       </div>
     </aside>
   );
@@ -473,6 +514,60 @@ function MoveDialog({
             disabled={pending || busy || uploading}
           >
             Leave them where they are
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * Making somebody inactive: a note, and nothing else changes.
+ *
+ * The words matter more than the form does. Somebody reaching for this has
+ * usually decided the card is in the way, not that the work has ended, and
+ * the two are one click apart - so this says what it leaves alone and where
+ * to find them afterwards.
+ */
+function DeactivateDialog({ card, onDone }: { card: Card; onDone: () => void }) {
+  const [state, action, pending] = useActionState(deactivateClient, initial);
+
+  if (state.ok) {
+    return (
+      <div className="board-dialog">
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Off the board</h3>
+          <p className="sub">{state.ok}</p>
+          <p className="lock">Find them under All clients, and put them back from there.</p>
+          <button type="button" className="btn gold" onClick={onDone}>
+            Back to the board
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="board-dialog">
+      <form className="card" action={action}>
+        <h3 style={{ marginTop: 0 }}>Make {card.name} inactive</h3>
+        <p className="sub">Their card leaves the board. Everything else stays.</p>
+        {state.error && <div className="alert bad">{state.error}</div>}
+
+        <input type="hidden" name="client_id" value={card.client_id} />
+        <input type="hidden" name="name" value={card.name} />
+
+        <label className="field" htmlFor="off-why">
+          Why
+          <textarea id="off-why" name="reason" rows={3} required />
+        </label>
+
+        <div className="row2" style={{ gap: 8 }}>
+          <button className="btn gold" type="submit" disabled={pending}>
+            {pending ? "Taking off…" : "Make inactive"}
+          </button>
+          <button className="btn ghost" type="button" onClick={onDone} disabled={pending}>
+            Leave them on the board
           </button>
         </div>
       </form>

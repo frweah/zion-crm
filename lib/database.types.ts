@@ -1149,6 +1149,7 @@ export type Database = {
           preferred_locations: string;
           job_search_email: string;
           billing_staff_id: string | null;
+          closed_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1182,6 +1183,7 @@ export type Database = {
           preferred_locations?: string;
           job_search_email?: string;
           billing_staff_id?: string | null;
+          closed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1215,6 +1217,7 @@ export type Database = {
           preferred_locations?: string;
           job_search_email?: string;
           billing_staff_id?: string | null;
+          closed_at?: string | null;
         };
         Relationships: [];
       };
@@ -6775,6 +6778,10 @@ export type Database = {
       current_staff_role: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      deactivate_client: {
+        Args: { p_client: string | null; p_note: string | null };
+        Returns: { name: string | null; was: string | null }[];
       };
       delete_client: {
         Args: { p_client: string | null; p_reason: string | null };

@@ -3164,3 +3164,10 @@ button.attach-chip:hover {
     display: block;
   }
 }
+
+/* The panel's "Remove from board" heading sits closer to its two buttons
+   than a default h3 margin allows, so the pair read as one choice. */
+.board-off-title {
+  margin: 18px 0 2px;
+  font-size: var(--text-sm);
+}
