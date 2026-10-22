@@ -9,6 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function PortalHomePage() {
   const me = await requirePortal();
   const supabase = await createClient();
-  const { data: unread } = await supabase.rpc("portal_unread");
-  return <HomeView me={me} unread={unread ?? 0} />;
+  const [{ data: unread }, { data: openRequests }] = await Promise.all([
+    supabase.rpc("portal_unread"),
+    supabase.rpc("portal_open_requests"),
+  ]);
+  return <HomeView me={me} unread={unread ?? 0} openRequests={openRequests ?? 0} />;
 }

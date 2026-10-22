@@ -45,6 +45,7 @@ import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
 import { LIVE_STATUSES, isLive } from "@/lib/billing";
+import { PortalRequests } from "./portal-requests";
 import {
   PortalPanel,
   type PortalAccountRow,
@@ -360,6 +361,7 @@ export default async function ClientPage({
       { data: portalActivity },
       { data: guardianshipDocs },
       { data: portalTerms },
+      { data: portalRequests },
     ] = await Promise.all([
       supabase.from("conversations").select("id").eq("kind", "sms").eq("client_id", id).maybeSingle(),
       supabase.from("client_sms_consent").select("can_text, consented_phone, client_phone, state").eq("client_id", id).maybeSingle(),
@@ -395,7 +397,21 @@ export default async function ClientPage({
         .order("created_at", { ascending: false })
         .limit(20),
       supabase.from("portal_terms").select("version").eq("is_current", true).maybeSingle(),
+      supabase
+        .from("portal_requests")
+        .select("id, item, label, note, due, status, return_reason, requested_by_name, created_at, answered_at, attachment_id")
+        .eq("client_id", id)
+        .neq("status", "Cancelled")
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
+    // The uploaded file for each answered request, where this person may see
+    // it - a restricted ID document stays hidden from staff who may not.
+    const requestFileIds = (portalRequests ?? []).map((r) => r.attachment_id).filter((x): x is string => Boolean(x));
+    const { data: requestFiles } = requestFileIds.length
+      ? await supabase.from("attachments").select("id, storage_path, filename").in("id", requestFileIds)
+      : { data: [] as { id: string; storage_path: string; filename: string }[] };
+    const fileFor = new Map((requestFiles ?? []).map((f) => [f.id, f]));
 
     const { data: thread } = conv
       ? await supabase
@@ -443,6 +459,17 @@ export default async function ClientPage({
             canManage={canSeeRestricted}
             canText={Boolean(consent?.can_text)}
             portalUrl={`${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`}
+          />
+        )}
+        {(canEdit || canSeeRestricted) && (
+          <PortalRequests
+            clientId={id}
+            canManage={canSeeRestricted}
+            hasAccess={(portalAccounts ?? []).some((a) => !a.disabled_at)}
+            requests={(portalRequests ?? []).map((r) => {
+              const f = r.attachment_id ? fileFor.get(r.attachment_id) : undefined;
+              return { ...r, storage_path: f?.storage_path ?? null, filename: f?.filename ?? null };
+            })}
           />
         )}
       </>

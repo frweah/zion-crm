@@ -10,6 +10,7 @@ import {
   SettingsView,
   TermsView,
   MessagesView,
+  DocumentsView,
   type Terms,
 } from "../../_components/views";
 
@@ -88,6 +89,20 @@ const SCREENS: Record<string, { title: string; draw: () => React.ReactNode }> = 
       />
     ),
   },
+  documents: {
+    title: "Documents",
+    draw: () => (
+      <DocumentsView
+        me={client}
+        requests={[
+          { id: "00000000-0000-4000-8000-0000000000a1", name: "Resume", note: "Your most recent one.", due: "2026-11-02", status: "Open", return_reason: "", filename: null, answered_at: null, created_at: "2026-10-20T16:00:00Z" },
+          { id: "00000000-0000-4000-8000-0000000000a2", name: "Photo ID", note: "", due: null, status: "Returned", return_reason: "The photo is blurry.", filename: null, answered_at: null, created_at: "2026-10-19T16:00:00Z" },
+          { id: "00000000-0000-4000-8000-0000000000a3", name: "Social Security card", note: "", due: null, status: "Answered", return_reason: "", filename: "card.jpg", answered_at: "2026-10-20T18:00:00Z", created_at: "2026-10-18T16:00:00Z" },
+        ]}
+      />
+    ),
+  },
+  "home-requests": { title: "Home", draw: () => <HomeView me={client} unread={1} openRequests={2} /> },
   "messages-empty": { title: "Messages", draw: () => <MessagesView me={client} messages={[]} /> },
   "settings-alerts": {
     title: "Settings",

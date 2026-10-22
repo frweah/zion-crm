@@ -200,6 +200,9 @@ export type Database = {
       };
       attachments: {
         Row: {
+          source: string;
+          portal_account_id: string | null;
+          review_status: string | null;
           id: string;
           client_id: string;
           storage_path: string;
@@ -219,6 +222,9 @@ export type Database = {
           sha256: string | null;
         };
         Insert: {
+          source?: string;
+          portal_account_id?: string | null;
+          review_status?: string | null;
           id?: string;
           client_id: string;
           storage_path: string;
@@ -238,6 +244,9 @@ export type Database = {
           sha256?: string | null;
         };
         Update: {
+          source?: string;
+          portal_account_id?: string | null;
+          review_status?: string | null;
           id?: string;
           client_id?: string;
           storage_path?: string;
@@ -3594,6 +3603,63 @@ export type Database = {
           user_agent?: string;
           ended_at?: string | null;
           ended_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      portal_requests: {
+        Row: {
+          id: string;
+          client_id: string;
+          item: string;
+          label: string;
+          note: string;
+          due: string | null;
+          status: string;
+          return_reason: string;
+          attachment_id: string | null;
+          answered_by: string | null;
+          requested_by: string | null;
+          requested_by_name: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          answered_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          item: string;
+          label?: string;
+          note?: string;
+          due?: string | null;
+          status?: string;
+          return_reason?: string;
+          attachment_id?: string | null;
+          answered_by?: string | null;
+          requested_by?: string | null;
+          requested_by_name?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          answered_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          item?: string;
+          label?: string;
+          note?: string;
+          due?: string | null;
+          status?: string;
+          return_reason?: string;
+          attachment_id?: string | null;
+          answered_by?: string | null;
+          requested_by?: string | null;
+          requested_by_name?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          answered_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -7036,6 +7102,34 @@ export type Database = {
       portal_me: {
         Args: Record<string, never>;
         Returns: { account_id: string | null; kind: string | null; name: string | null; relationship: string | null; client_first_name: string | null; staff_first_name: string | null; terms_version: string | null; electronic: boolean | null; texts: boolean | null; phone_last4: string | null }[];
+      };
+      portal_request_document: {
+        Args: { p_client: string; p_item: string; p_label?: string; p_note?: string; p_due?: string | null };
+        Returns: { request_id: string; conversation_ids: string[] }[];
+      };
+      portal_cancel_request: {
+        Args: { p_request: string };
+        Returns: undefined;
+      };
+      portal_review_request: {
+        Args: { p_request: string; p_accept: boolean; p_reason?: string };
+        Returns: string[];
+      };
+      portal_my_requests: {
+        Args: Record<string, never>;
+        Returns: { id: string; name: string; note: string; due: string | null; status: string; return_reason: string; filename: string | null; answered_at: string | null; created_at: string }[];
+      };
+      portal_open_requests: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      portal_upload_path: {
+        Args: { p_request: string; p_filename: string };
+        Returns: string;
+      };
+      portal_answer_request: {
+        Args: { p_request: string; p_path: string; p_filename: string; p_mime: string; p_size: number; p_sha256: string };
+        Returns: string;
       };
       portal_my_messages: {
         Args: Record<string, never>;

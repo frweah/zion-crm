@@ -256,3 +256,91 @@ export async function setNoticeChannel(_prev: PortalFormState, formData: FormDat
   revalidatePath("/portal/settings");
   return { error: null, ok: channel === "Text" ? "We will tell you by text." : "We will tell you by email." };
 }
+
+// ── documents Zion asked for (portal brief, section 3) ─────
+const UPLOAD_MAX_BYTES = 50 * 1024 * 1024; // the bucket's own limit, as for staff
+const UPLOAD_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/heic",
+  "image/webp",
+  "image/tiff",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
+]);
+
+export type UploadTarget = { error: string | null; path?: string; token?: string };
+
+/**
+ * A one-time address to upload one file for one request.
+ *
+ * The database decides whether this client may answer this request and
+ * names the exact place (portal_upload_path, 0228); only then is an upload
+ * address minted, for that place and nothing else. The bytes then go from
+ * the phone straight to storage - not through this server, which could not
+ * carry a 50 MB photo anyway.
+ */
+export async function startUpload(params: {
+  requestId: string;
+  filename: string;
+  size: number;
+  type: string;
+}): Promise<UploadTarget> {
+  await requirePortal();
+  if (params.size <= 0) return { error: "That file is empty. Choose another one." };
+  if (params.size > UPLOAD_MAX_BYTES) {
+    return { error: "That file is over 50 MB. Take the photo again at a smaller size, or call 385-406-3432." };
+  }
+  if (!UPLOAD_TYPES.has(params.type)) {
+    return { error: "That kind of file cannot be uploaded. Send a photo, a PDF or a Word document." };
+  }
+  const supabase = await createClient();
+  const { data: path, error } = await supabase.rpc("portal_upload_path", {
+    p_request: params.requestId,
+    p_filename: params.filename,
+  });
+  if (error || !path) return { error: error?.message ?? "The upload could not start. Try again." };
+
+  const { data, error: signError } = await createAdminClient().storage.from("client-files").createSignedUploadUrl(path);
+  if (signError || !data) {
+    console.error(`[portal] no upload address: ${signError?.message ?? "none"}`);
+    return { error: `The upload could not start. Try again in a minute, or ${HELP}.` };
+  }
+  return { error: null, path, token: data.token };
+}
+
+export async function finishUpload(params: {
+  requestId: string;
+  path: string;
+  filename: string;
+  type: string;
+  size: number;
+  sha256: string;
+}): Promise<PortalFormState> {
+  await requirePortal();
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_answer_request", {
+    p_request: params.requestId,
+    p_path: params.path,
+    p_filename: params.filename,
+    p_mime: params.type,
+    p_size: params.size,
+    p_sha256: params.sha256,
+  });
+  if (error) {
+    // The bytes are in storage but filed nowhere. Only a path this request
+    // was handed out is removed - anything else was never ours to touch.
+    if (params.path.startsWith("portal/") && params.path.includes(`/${params.requestId}/`)) {
+      await createAdminClient().storage.from("client-files").remove([params.path]);
+    }
+    return { error: error.message };
+  }
+  revalidatePath("/portal/documents");
+  revalidatePath("/portal");
+  return { error: null, ok: "Uploaded. Zion will look at it and let you know if anything is missing." };
+}

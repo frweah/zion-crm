@@ -10,6 +10,7 @@ import {
   MessageForm,
   MarkRead,
   NoticeChannelForm,
+  UploadForm,
 } from "./forms";
 import { IdleWarning } from "./idle-warning";
 
@@ -36,7 +37,7 @@ export function SignedInBar({
   idlePreview = false,
 }: {
   me: PortalMe;
-  current: "home" | "messages" | "settings" | "consent";
+  current: "home" | "messages" | "documents" | "settings" | "consent";
   idlePreview?: boolean;
 }) {
   return (
@@ -59,6 +60,11 @@ export function SignedInBar({
                 <li>
                   <Link href="/portal/messages" aria-current={current === "messages" ? "page" : undefined}>
                     Messages
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/portal/documents" aria-current={current === "documents" ? "page" : undefined}>
+                    Documents
                   </Link>
                 </li>
                 <li>
@@ -231,10 +237,12 @@ export function ConsentView({
 export function HomeView({
   me,
   unread = 0,
+  openRequests = 0,
   idlePreview = false,
 }: {
   me: PortalMe;
   unread?: number;
+  openRequests?: number;
   idlePreview?: boolean;
 }) {
   const staff = me.staff_first_name;
@@ -267,10 +275,19 @@ export function HomeView({
           </p>
         </section>
 
+        <section className="portal-card" aria-labelledby="documents-heading">
+          <h2 id="documents-heading">Documents</h2>
+          <p>
+            {openRequests > 0
+              ? `Zion has asked you for ${openRequests} ${openRequests === 1 ? "document" : "documents"}.`
+              : "Zion is not waiting on any documents from you."}{" "}
+            {openRequests > 0 && <Link href="/portal/documents">Upload them</Link>}
+          </p>
+        </section>
+
         <section className="portal-card" aria-labelledby="soon-heading">
           <h2 id="soon-heading">Coming to your portal</h2>
           <ul>
-            <li>Documents Zion asks you for, which you can upload here</li>
             <li>A resume builder, if you do not have a resume yet</li>
           </ul>
         </section>
@@ -402,6 +419,62 @@ export function MessagesView({ me, messages }: { me: PortalMe; messages: PortalM
           <h2 id="write-heading">New message</h2>
           <MessageForm staff={staff} />
         </section>
+      </main>
+    </>
+  );
+}
+
+export type PortalRequest = {
+  id: string;
+  name: string;
+  note: string;
+  due: string | null;
+  status: string;
+  return_reason: string;
+  filename: string | null;
+  answered_at: string | null;
+  created_at: string;
+};
+
+function dueText(due: string): string {
+  return new Date(`${due}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+export function DocumentsView({ me, requests }: { me: PortalMe; requests: PortalRequest[] }) {
+  const waiting = requests.filter((r) => r.status === "Open" || r.status === "Returned");
+  const sent = requests.filter((r) => r.status === "Answered" || r.status === "Accepted");
+  return (
+    <>
+      <SignedInBar me={me} current="documents" />
+      <main id="main" className="portal-wrap portal-main">
+        <h1>Documents</h1>
+        {waiting.length === 0 && <p>Zion is not waiting on any documents from you.</p>}
+        {waiting.map((r) => (
+          <section key={r.id} className="portal-card" aria-labelledby={`req-${r.id}`}>
+            <h2 id={`req-${r.id}`}>{r.name}</h2>
+            {r.status === "Returned" && (
+              <p className="portal-notice">
+                <strong>Zion needs this again:</strong> {r.return_reason}
+              </p>
+            )}
+            {r.note && <p>{r.note}</p>}
+            {r.due && <p>Please send it by {dueText(r.due)}.</p>}
+            <UploadForm requestId={r.id} name={r.name} />
+          </section>
+        ))}
+        {sent.length > 0 && (
+          <section className="portal-card" aria-labelledby="sent-heading">
+            <h2 id="sent-heading">Sent to Zion</h2>
+            <ul>
+              {sent.map((r) => (
+                <li key={r.id}>
+                  {r.name}: {r.status === "Accepted" ? "received" : "waiting for Zion to look at it"}
+                  {r.filename ? ` (${r.filename})` : ""}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
     </>
   );

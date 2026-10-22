@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   requestCode,
@@ -11,6 +13,8 @@ import {
   sendPortalMessage,
   markPortalRead,
   setNoticeChannel,
+  startUpload,
+  finishUpload,
   type PortalFormState,
 } from "../actions";
 
@@ -343,6 +347,99 @@ export function NoticeChannelForm({
       <div className="portal-actions">
         <button className="btn" type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save my choice"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * One file for one request. The phone sends the bytes straight to storage at
+ * an address the server minted for this request alone, then the server files
+ * it. Each step says plainly what went wrong if it does.
+ */
+export function UploadForm({ requestId, name }: { requestId: string; name: string }) {
+  const router = useRouter();
+  const [state, setState] = useState<PortalFormState>({ error: null });
+  const [busy, setBusy] = useState(false);
+  const inputId = `file-${requestId}`;
+  const described = [`${inputId}-hint`, state.error ? `${inputId}-error` : null].filter(Boolean).join(" ");
+
+  async function fingerprint(file: File): Promise<string> {
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+      return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch {
+      return "";
+    }
+  }
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const file = (new FormData(e.currentTarget).get("file") as File | null) ?? null;
+    if (!file || file.size === 0) {
+      setState({ error: "Choose a file or take a photo first." });
+      return;
+    }
+    setBusy(true);
+    setState({ error: null });
+    const type = file.type || "application/octet-stream";
+    const target = await startUpload({ requestId, filename: file.name, size: file.size, type });
+    if (target.error || !target.path || !target.token) {
+      setState({ error: target.error ?? "The upload could not start. Try again." });
+      setBusy(false);
+      return;
+    }
+    const { error } = await createClient()
+      .storage.from("client-files")
+      .uploadToSignedUrl(target.path, target.token, file, { contentType: type });
+    if (error) {
+      setState({ error: "The file did not upload. Check your connection and try again." });
+      setBusy(false);
+      return;
+    }
+    const done = await finishUpload({
+      requestId,
+      path: target.path,
+      filename: file.name,
+      type,
+      size: file.size,
+      sha256: await fingerprint(file),
+    });
+    setState(done);
+    setBusy(false);
+    if (!done.error) router.refresh();
+  }
+
+  return (
+    <form onSubmit={onSubmit} noValidate>
+      <div className="portal-field">
+        <label htmlFor={inputId}>Upload your {name.toLowerCase()}</label>
+        <p id={`${inputId}-hint`} className="portal-hint">
+          A photo, a PDF or a Word document, up to 50 MB.
+        </p>
+        <input
+          id={inputId}
+          name="file"
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt,.csv,image/*"
+          aria-describedby={described}
+          aria-invalid={state.error ? true : undefined}
+        />
+        {state.error && (
+          <p id={`${inputId}-error`} className="portal-error" role="alert">
+            {state.error}
+          </p>
+        )}
+      </div>
+      {state.ok && (
+        <p className="portal-notice" role="status">
+          {state.ok}
+        </p>
+      )}
+      <div className="portal-actions">
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? "Uploading…" : "Upload"}
         </button>
       </div>
     </form>
