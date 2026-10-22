@@ -31,7 +31,7 @@ export const ROLE_LABEL: Record<Role, string> = {
  * granting. Insights is given to view, and never includes Capacity, which
  * shows everybody's hours.
  */
-export const AREAS = ["tasks", "counselors", "billing", "insights"] as const;
+export const AREAS = ["tasks", "counselors", "billing", "insights", "restricted"] as const;
 export type Area = (typeof AREAS)[number];
 export type Level = "view" | "edit";
 export type Grant = { area: Area; level: Level };
@@ -56,6 +56,9 @@ export const AREA_LABEL: Record<Area, string> = {
   counselors: "Counselors",
   billing: "Billing",
   insights: "Insights",
+  // ID, medical, financial and legal documents, signed intake, and the
+  // client portal's messages and requests, for every client (0232).
+  restricted: "Restricted client records",
 };
 
 export const LEVEL_LABEL: Record<Level, string> = { view: "view only", edit: "view and edit" };
@@ -70,6 +73,7 @@ export const AREA_LEVELS: Record<Area, Level[]> = {
   counselors: ["view", "edit"],
   billing: ["view", "edit"],
   insights: ["view"],
+  restricted: ["view"],
 };
 
 /**
@@ -78,9 +82,9 @@ export const AREA_LEVELS: Record<Area, Level[]> = {
  * this table, and scripts/check-nav.mjs holds the navigation to it.
  */
 export const ROLE_AREAS: Record<Role, Partial<Record<Area, Level>>> = {
-  Admin: { tasks: "edit", counselors: "edit", billing: "edit", insights: "view" },
+  Admin: { tasks: "edit", counselors: "edit", billing: "edit", insights: "view", restricted: "view" },
   "Job Search": { tasks: "edit", counselors: "edit" },
-  Reports: { tasks: "edit" },
+  Reports: { tasks: "edit", restricted: "view" },
   Billing: { counselors: "edit", billing: "edit" },
   "Job Coach": { tasks: "edit", counselors: "edit" },
   "Case Manager": { tasks: "edit" },

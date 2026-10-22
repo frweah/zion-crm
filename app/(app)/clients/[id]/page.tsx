@@ -231,8 +231,10 @@ export default async function ClientPage({
   const canEditDetails = canEdit || can(me, "billing", "edit");
   const canBill = can(me, "billing", "edit");
   const isAdmin = me.role === "Admin";
-  const canSeeRestricted =
-    me.role === "Admin" || me.role === "Reports" || client.assigned_staff_id === me.id;
+  // Admin and Reports by role, the assigned staff member, or anybody given
+  // "Restricted client records" on Admin -> People (0232). The database asks
+  // the same question (can_see_restricted) before it shows anything.
+  const canSeeRestricted = can(me, "restricted") || client.assigned_staff_id === me.id;
   const tab: ClientTab = isClientTab(sp.tab) ? sp.tab : "activity";
 
   const counselor = counselorLink?.counselor ?? null;
