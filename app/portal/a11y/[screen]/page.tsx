@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { PortalMe } from "@/lib/portal/session";
 import { emptyResume } from "@/lib/portal/resume";
-import v1 from "../../../../supabase/portal-terms/v2.json";
+import v1 from "../../../../supabase/portal-terms/v3.json";
 import {
   SignInView,
   VerifyView,
