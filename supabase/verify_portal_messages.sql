@@ -16,6 +16,9 @@
 --   A portal conversation always belongs to an account, and nothing else may
 --   name one. The helper that makes a thread cannot be called directly.
 --
+--   Only a client funded by Utah VR has a portal account, and one whose
+--   funding changes away from it loses access at once (0227).
+--
 -- Runs inside a transaction that is rolled back. Nothing here is left behind.
 
 begin;
@@ -182,6 +185,21 @@ begin
     failures := failures || 'FAILED: a portal function can be called by somebody it is not for'::text;
   else
     raise notice 'ok  nobody signed out calls a portal message function';
+  end if;
+
+  -- ── USOR clients only (0227) ───────────────────────────────
+  begin
+    update public.clients set funding_source = 'Private Pay' where id = v_client_b;
+    insert into public.portal_accounts (client_id, kind, name, email) values (v_client_b, 'Client', 'ZZ again', 'zz-again@example.test');
+    failures := failures || 'FAILED: a portal account was made for a client not funded by Utah VR'::text;
+  exception when check_violation then null;
+  end;
+  update public.clients set funding_source = 'Private Pay' where id = v_client_a;
+  if (select disabled_at from public.portal_accounts where id = v_acct_a) is null
+     or exists (select 1 from public.portal_sessions where id = v_sess_a and ended_at is null) then
+    failures := failures || 'FAILED: a client moved off Utah VR kept portal access'::text;
+  else
+    raise notice 'ok  the portal is for Utah VR clients only, and closes when that changes';
   end if;
 
   if array_length(failures, 1) > 0 then

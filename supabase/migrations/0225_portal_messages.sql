@@ -35,9 +35,9 @@ create unique index if not exists conversations_one_portal_thread
   on public.conversations (portal_account_id) where kind = 'portal';
 
 -- Staff read a portal thread only if they manage that client's portal.
--- Everything else about this policy is as it was.
-drop policy if exists conversations_read on public.conversations;
-create policy conversations_read on public.conversations for select to authenticated using (
+-- Everything else about this policy is as it was. Applied in five parts
+-- (0225a-e) on 21 Oct 2026; this file is their sum.
+alter policy conversations_read on public.conversations using (
   (select public.is_active_staff())
   and case kind
         when 'internal' then ((select public.is_admin()) and client_id is not null) or public.is_conversation_participant(id)
@@ -63,7 +63,6 @@ create table if not exists public.portal_notices (
 create index if not exists portal_notices_recent on public.portal_notices (conversation_id, at desc);
 
 alter table public.portal_notices enable row level security;
-drop policy if exists portal_notices_read on public.portal_notices;
 create policy portal_notices_read on public.portal_notices for select to authenticated
   using (exists (select 1 from public.conversations c where c.id = conversation_id));
 revoke all on public.portal_notices from anon, authenticated;
