@@ -77,6 +77,15 @@ export function ClientsBoard({
   canClose: boolean;
   categories: FileCategory[];
 }) {
+  /**
+   * Which column a phone is showing.
+   *
+   * Seven columns do not fit on a phone and never will, so below 640px one
+   * is shown at a time and this picks it. Above that the picker is hidden
+   * and every column is on screen, so the state costs nothing and there is
+   * no second layout to keep right.
+   */
+  const [picked, setPicked] = useState<string>(STAGES[0]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [panel, setPanel] = useState<Card | null>(null);
@@ -87,6 +96,17 @@ export function ClientsBoard({
 
   return (
     <>
+      <label className="board-picker">
+        <span className="lock">Stage</span>
+        <select value={picked} onChange={(e) => setPicked(e.target.value)}>
+          {STAGES.map((s) => (
+            <option key={s} value={s}>
+              {stageLabel(s)} ({cards.filter((c) => c.stage === s).length})
+            </option>
+          ))}
+        </select>
+      </label>
+
       <div className="board">
         {STAGES.map((stage) => {
           const column = byStage(stage);
@@ -94,7 +114,11 @@ export function ClientsBoard({
           return (
             <section
               key={stage}
-              className={"board-column" + (over === stage ? " over" : "")}
+              className={
+                "board-column" +
+                (over === stage ? " over" : "") +
+                (picked === stage ? " is-picked" : "")
+              }
               onDragOver={(e) => {
                 e.preventDefault();
                 setOver(stage);
@@ -110,10 +134,9 @@ export function ClientsBoard({
             >
               <header className="board-head" style={{ borderTopColor: accent }}>
                 <h2 className="board-title" style={{ color: accent }}>
-                  {stageLabel(stage)}
+                  {stageLabel(stage)} <span className="board-count">{column.length}</span>
                 </h2>
                 <p className="lock">{stageNote(stage)}</p>
-                <span className="chip">{column.length}</span>
               </header>
 
               <div className="board-cards">
@@ -128,7 +151,7 @@ export function ClientsBoard({
                   >
                     <button type="button" className="board-open" onClick={() => setPanel(c)}>
                       <span className="board-name">{c.name}</span>
-                      {c.goal && <span className="lock">{c.goal}</span>}
+                      {c.goal && <span className="lock board-goal">{c.goal}</span>}
                     </button>
 
                     <p className="lock board-who">

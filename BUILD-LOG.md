@@ -5603,3 +5603,123 @@ preferred location. A list, not a board, and from before the board was asked
 for. Two things in it are worth knowing anyway: it uses a stage called
 *Onboarding* that is not one of the seven, and statuses *New* and
 *Unreachable* that the CRM does not have.
+
+---
+
+## Sixteen records that were not clients, and a board that fits (22 Oct 2026)
+
+### The two closure dates, named
+
+0223 overwrote the stage-history rows that said 'Closed'. Chasing which were
+actually lost turned up a smaller and more recoverable answer than the first
+count suggested.
+
+**Only two clients lost a date, not three.** The third - Jaxon Ewell, client
+1064 - has a second history row dated 2026-09-29, but it was *written* at
+23:10 that evening, which is when the duplicate record was merged into him.
+It is the merged record's arrival row, not a closure. 1064's own history is
+one row: the day he arrived. His closure date was always unknown.
+
+The two that did lose one:
+
+| Client | Likely closure date | Why |
+| --- | --- | --- |
+| **Penny Brown** (no client number) | **10 Sept 2026** | second history row, written 2026-09-10 03:05 |
+| **Trinity Kair** (client 1060) | **10 Sept 2026** | second history row, written 2026-09-10 03:04 |
+
+The remap changed only the stage word, so **the dates on those rows survived**.
+Both were written minutes apart during the September import, which is what a
+bulk "mark these closed" looks like. They are offered as candidates, not set:
+whether 10 September is when the file closed or merely when somebody recorded
+it is a question for the paper file.
+
+### Sixteen deletions
+
+Matched loosely, five of them spelled differently from the list: *Stephen
+Bittaker* → **Stephen Bitteker**, *Sallay Mansary* → **Sallay Mansaray**,
+*Jeanette Hicks* → **Jeantte Hicks**, *Blayce Mlaya* → **Blayce Malaya**,
+*Amalynn* → **Amalynn Husband (Braden's mom)**.
+
+Two names drew a second candidate, and both second candidates are different
+people who were left alone: **Trinity Kair** (client 1060, closed - and one of
+the two above) is not Trinity Trujillo, and **Jessica Shull** is not Jessica
+Dominguez. *Hayden Bitteker* is likewise not Stephen Bitteker and is still
+there.
+
+None of the sixteen had an authorization, a ledger posting or a legal hold, so
+the rule had no objection to any of them. All went through `delete_client`,
+which wrote a `client_deletions` row for each naming what went with them -
+notes, stage history, notifications, and for two of them a large mail log
+(Stephen Bitteker 60 messages, Melanie Fabre 12).
+
+**One is also a counselor.** `Melanie Fabre` the client was a duplicate of
+`Melanie Fabre Morales`, who is a USOR counselor with an @utah.gov address -
+which is presumably exactly why she was on the list. The counselor record is
+untouched. (`Mary Vasquez` matched *Mary* Kautai on the first name only and is
+unrelated.)
+
+Clients: 97 → **81**, of which 17 active.
+
+### The one that would not delete, and why that was a bug
+
+`Munahi Ngarambe` refused:
+
+> insert or update on table "client_document_events" violates foreign key
+> constraint "client_document_events_client_id_fkey"
+
+Not the rule - the rule had already said yes. She has two documents on file.
+Both `attachments` and `client_document_events` cascade from `clients`, so
+deleting her removed the attachments, and removing an attachment fires
+`client_document_log`, which inserts an event naming the client. By the time
+the foreign key is checked at the end of the statement the client is gone and
+the insert has nothing to point at.
+
+The same shape as the staff change log that made a staff row undeletable: an
+audit trigger firing while the thing it audits is being removed. 0231 has the
+log stand aside, and only for the client actually being deleted - a setting
+`delete_client` sets and clears around the one statement. She deleted on the
+retry.
+
+**The other fifteen went through only because they had no documents.** Any
+client with a file on record would have hit this.
+
+### Delete, from both places
+
+It was already on the client record for Admin, at the foot of the Profile tab
+under **Delete this client**. It is now on **All clients** as well, beside
+*Take off the board* / *Put back*, for Admin only, with the same two steps the
+record asks for: a reason, and the client's name typed out. The typed name is
+not security - it is the step that makes somebody read which row they are on,
+and a list is exactly where that mistake is easiest to make.
+
+### The board fits
+
+| Width | Columns | Each | Sideways scroll |
+| --- | --- | --- | --- |
+| 1440 | 7 | 154px | none |
+| 1280 | 7 | 131px | none |
+| 390 | 1, picked | full width | none |
+
+`repeat(7, minmax(0, 1fr))` rather than `1fr`, because a grid track's default
+minimum is its content: one long client name would otherwise push the row
+wider than the frame, which is the scrollbar this removes.
+
+Counts moved into the headings - a chip of its own cost a line in every
+column, seven times over. Descriptions cut to one line each. Card text wraps
+on word boundaries (`break-word`, not `anywhere`, which was splitting "Job
+Development" into "Job Developme / nt"), and a goal is clamped to three lines,
+because some run to forty words - *"Industries: Retail/Commercial,
+Healthcare/Pharmacy, Library. Skills: …"* - and in a seventh of the frame that
+is the entire card. The full goal is in the panel when the card is opened.
+
+Below 1280 the columns scroll sideways again rather than become seven slivers;
+below 640 one stage shows at a time, chosen from a picker that carries each
+stage's count.
+
+**A note on 131px.** Seven columns in 965px of content area is what the
+instruction asks for and what it costs - the sidebar and page gutters take the
+rest of the 1280. It reads, and nothing is hidden off the edge, but it is
+tight. Narrowing the sidebar to icons (the control is already in the header)
+gives each column about 40px more.
+
+113 of 113 verify scripts still pass.

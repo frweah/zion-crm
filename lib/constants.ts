@@ -19,13 +19,13 @@ export const STAGES = [
 
 /** What each column is for, in the one line its header carries. */
 export const STAGE_NOTE: Record<(typeof STAGES)[number], string> = {
-  Intake: "Referred, and not yet assessed",
-  Assessment: "The WSA, and what it says they can do",
-  "Job Development": "Finding employers who will take them",
-  "Job Search": "Applying, and interviewing",
-  "Life Skills": "The skills the work needs around it",
-  "Job Placement": "Hired, and the placement fee to claim",
-  "Job Coaching": "On the job, and supported there",
+  Intake: "Referred, not yet assessed",
+  Assessment: "The WSA, and what it says",
+  "Job Development": "Finding employers",
+  "Job Search": "Applying and interviewing",
+  "Life Skills": "Skills the work needs",
+  "Job Placement": "Hired; the fee to claim",
+  "Job Coaching": "Supported on the job",
 };
 
 /** The header says "Assessment (WSA)"; the stored value stays "Assessment". */

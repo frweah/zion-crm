@@ -2958,18 +2958,22 @@ button.attach-chip:hover {
   border-color: var(--accent);
 }
 
-/* ── the clients board (0223) ──────────────────────────────────
-   Seven fixed columns that scroll sideways together, cards stacked under
-   each. The accent is set per column in the markup from --stage-*, because
-   seven classes that differ only by a colour is seven chances to get one
-   wrong; the shape lives here and the colour arrives with the card. */
+/* ── the clients board (0223, fitted 0231) ────────────────────
+   Seven columns, and at a laptop's width all seven are in the frame: equal
+   shares of it, nothing hidden off the right-hand edge. A board somebody has
+   to scroll sideways to see is a board that gets read three columns at a
+   time, which is the opposite of what a board is for.
+
+   minmax(0, 1fr) rather than 1fr, because a grid track's default minimum is
+   its content and one long client name would push the whole row wider than
+   the frame - which is exactly the horizontal scrollbar this is removing.
+
+   The accent is set per column in the markup from --stage-*: seven classes
+   differing only by a colour is seven chances to get one wrong. */
 .board {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(230px, 1fr);
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 8px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
   align-items: start;
 }
 
@@ -2987,7 +2991,7 @@ button.attach-chip:hover {
 .board-head {
   border-top: 3px solid var(--line);
   border-radius: 10px 10px 0 0;
-  padding: 10px 10px 6px;
+  padding: 8px 8px 6px;
   display: grid;
   gap: 2px;
 }
@@ -2995,16 +2999,20 @@ button.attach-chip:hover {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: 700;
+  overflow-wrap: break-word;
 }
-.board-head .chip {
-  justify-self: start;
+/* The count sits in the heading rather than under it: a chip of its own cost
+   a line in every column, seven times over. */
+.board-count {
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .board-cards {
   display: grid;
-  gap: 8px;
-  padding: 8px 10px 12px;
-  min-height: 60px;
+  gap: 6px;
+  padding: 6px 8px 10px;
+  min-height: 50px;
 }
 
 .board-card {
@@ -3012,16 +3020,37 @@ button.attach-chip:hover {
   border: 1px solid var(--line);
   border-left: 4px solid var(--line-strong);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 8px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   cursor: grab;
+  min-width: 0;
 }
 .board-card:active {
   cursor: grabbing;
 }
+/* Everything on a card wraps. In a seventh of the frame a hyphenated
+   employer or a long surname would otherwise set the column's width. */
+.board-card,
+.board-card * {
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+/* A goal can run to forty words - "Industries: Retail/Commercial,
+   Healthcare/Pharmacy, Library. Skills: ..." - and in a seventh of the frame
+   that is the whole card. Three lines here, all of it in the panel when the
+   card is opened. */
+.board-goal {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .board-card .chip {
   justify-self: start;
+  white-space: normal;
+  text-align: left;
 }
 
 .board-open {
@@ -3045,7 +3074,7 @@ button.attach-chip:hover {
   margin: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 .board-move {
   display: grid;
@@ -3053,6 +3082,15 @@ button.attach-chip:hover {
 }
 .board-move select {
   width: 100%;
+  max-width: 100%;
+}
+
+/* The phone's stage picker, which is only ever shown on a phone. */
+.board-picker {
+  display: none;
+  gap: 4px;
+  margin-bottom: 8px;
+  max-width: 320px;
 }
 
 .board-panel {
@@ -3078,6 +3116,7 @@ button.attach-chip:hover {
 }
 .board-facts dd {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .board-dialog {
@@ -3095,9 +3134,33 @@ button.attach-chip:hover {
   overflow-y: auto;
 }
 
-@media (max-width: 700px) {
+/* Under a laptop there is not room for seven readable columns, so they go
+   back to scrolling sideways rather than becoming seven slivers. */
+@media (max-width: 1279px) {
   .board {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(210px, 1fr);
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+}
+
+/* And on a phone, one stage at a time, chosen above. */
+@media (max-width: 640px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
     grid-auto-flow: row;
     grid-auto-columns: auto;
+    overflow-x: visible;
+  }
+  .board-picker {
+    display: grid;
+  }
+  .board-column {
+    display: none;
+  }
+  .board-column.is-picked {
+    display: block;
   }
 }

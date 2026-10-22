@@ -372,6 +372,7 @@ export default async function ClientsPage({
             status={c.status}
             stage={c.stage}
             canDeactivate={canClose}
+            isAdmin={me.role === "Admin"}
           />
         ),
         availability: (
