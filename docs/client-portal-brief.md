@@ -91,17 +91,25 @@ contact), and the staff panel invites with a choice of channel.
 - The portal speaks to a member of the public, so courtesy stands (the same
   exemption the website chat has in `check-copy`).
 
-## Gate before any real client signs in
+## Who the portal is for (owner, 21 Oct 2026)
 
-Client health and disability information will sit with Supabase and Vercel.
-Each needs a signed Business Associate Agreement first:
+**USOR clients only.** Zion Healing Academy LLC is a HIPAA covered entity
+since it became a Medicaid / DSPD waiver provider. Rather than pay for a
+business associate agreement with Supabase and Vercel, it is to be a hybrid
+entity (45 CFR 164.105): the waiver and personal care services are the
+covered component, with their records in CareSmartz360; the USOR vocational
+rehab work, and so this CRM and its portal, sit outside it.
 
-- **Supabase:** HIPAA is a paid add-on on the Team plan only (Team starts at
-  $599 a month; the add-on price is quoted by Supabase). HIPAA projects need
-  point-in-time recovery, SSL enforcement, network restrictions and
-  connection logging on.
-- **Vercel:** a self-serve BAA is a paid add-on for Pro teams, signed from
-  the team billing dashboard.
+That holds only while no waiver record is kept here, so it is enforced:
 
-Building and testing on a preview with test clients does not need these. The
-pilot does.
+- 0226 (on main): no client, authorization or rate may be funded by HCBS
+  Medicaid.
+- 0227: a portal account can only be made for a client funded by Utah VR,
+  and a client whose funding changes away from Utah VR loses portal access
+  at once.
+
+Before the pilot: the written hybrid-entity designation and its policy, from
+a health-care attorney, and a confirmed BAA with CareSmartz360. Client
+records here stay confidential under USOR's rules (34 CFR 361.38 and the
+vendor contract), which do not need a BAA but do expect the security the
+portal already has.
