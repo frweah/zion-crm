@@ -5186,3 +5186,84 @@ grant - which is Margaret. The instruction was that Admin *can still* do it,
 which reads as keeping the escape hatch rather than narrowing it, and taking
 access away from Billing is not a change to make on an inference. Say the word
 and it becomes Admin-only.
+
+---
+
+## The 2025 caseload, closed out (22 Oct 2026)
+
+Done on the owner's instruction, in one transaction, attributed to the Admin
+who asked for it. Every row carries its own log line with its own reason,
+because `zion.directory_reason` is what the client change log reads.
+
+### What the counts turned on, and why they were reported first
+
+Two columns looked like an authorization's date and were not: `received_on`
+and `created_at` are stamped September and October 2026 on **all 162 rows** -
+they are the import, not the authorization. The real history is in
+`start_date` (2025-02-14 to 2026-09-20) and `bill_by`. Which one "dated 2026"
+meant moved the client count from **30 to 17 to 6**, so it went to the owner
+rather than being chosen here.
+
+The activity test was dropped in the end, which was the right call for a
+second reason the counts showed: the practice has **14 contact-log entries in
+total, across 10 clients**, so "no contact-log entry in 2026" was never going
+to protect anybody.
+
+### What was done
+
+| | |
+| --- | --- |
+| Clients referred in 2025 | 61 |
+| → marked **Inactive**, reason "2025 caseload close-out" | **41** |
+| → already Closed, left alone | 20 |
+| Authorizations closed, reason "2025 — not billed" | 4 |
+| Submitted or Paid, untouched | 144 |
+
+Active clients: 73 → **31**.
+
+**The twenty already-Closed clients were left Closed.** Closed is the more
+final of the two states and they are already off every active list; moving
+them to Inactive would have made them *easier* to reopen, which is not what
+closing out a caseload means. Said here because it is a reading of the
+instruction, not a literal execution of it.
+
+The four authorizations: `V1011562` Kristie Collins, `V101697` and `V1016978`
+both Jaxon Ewell, `V9997978` Gary Horrocks. Two of them are the same two rows
+the Stale filter had just started showing.
+
+### Still holding an open authorization
+
+Four of the deactivated clients have an authorization that is neither Paid nor
+Closed, which is the list the owner asked for:
+
+| Client | Stage | Open authorization |
+| --- | --- | --- |
+| Beindu Kamara | Job Development | V1041928 (Due) |
+| Bradley Johnson | Job Coaching | V999364 (Due) |
+| Isaiha Peay | Placement | V1041336 (Due) |
+| Tara Mercer | Closed | coaching 1058 (Due) |
+
+Their billing is untouched, as instructed. Reactivating any of them is one
+action on the All clients view.
+
+### The duplicate
+
+`Jaxon G. Ewell` was an import artefact: created 2026-09-29, no client number,
+one authorization, sitting Active while the real record - `Jaxon Ewell`,
+client 1064, referred 2025-11-24 - sat Closed with the same authorization
+dates one digit apart. Merged into 1064, which now holds **2 authorizations
+and 2 documents**, plus the stage history, tasks and notifications that came
+with it. `merge_clients` moves every foreign key to the kept record, fills its
+blanks without overwriting anything, and is Admin-only.
+
+### The footprint, measured
+
+`backup-fingerprint.mjs` before and after: 133 of 142 tables byte-identical.
+What moved is exactly what should have: `authorization_events` +4,
+`directory_changes` +43 (41 deactivations and 2 merge entries), and changed
+contents in `clients`, `authorizations`, `client_stage_history`,
+`client_recents`, `tasks` and `notifications`. Nothing else.
+
+The executed script is kept at `supabase/once_2026-10-22_close_out_2025.sql`.
+It is not a migration and is not meant to run again; the system of record for
+what it did is `public.directory_changes`.
