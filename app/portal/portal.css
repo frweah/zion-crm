@@ -214,6 +214,17 @@
   padding: 0.75rem 1rem;
 }
 
+/* A link drawn as a button keeps the button's own colours: the portal's
+   link colour on the gold button fill read at 2:1 (stress test, 21 Oct). */
+.portal a.btn {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.portal a.btn.ghost {
+  color: var(--ink);
+}
+
 .portal .btn {
   font-size: var(--text-lg);
   line-height: 1.4;
