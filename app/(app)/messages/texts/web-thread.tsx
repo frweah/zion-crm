@@ -30,7 +30,9 @@ export function WebThread({
   visitor,
   messages,
   canAnswer,
+  kind = "web",
 }: {
+  kind?: "web" | "portal";
   conversationId: string;
   visitor: string;
   messages: WebMessage[];
@@ -38,6 +40,7 @@ export function WebThread({
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(replyToWebChat, initial);
+  const where = kind === "portal" ? "Portal" : "Website";
   const form = useRef<HTMLFormElement>(null);
   const end = useRef<HTMLDivElement>(null);
 
@@ -64,17 +67,17 @@ export function WebThread({
 
   return (
     <>
-      <ol className="thread-list texts" aria-label={`Website chat with ${visitor}`}>
+      <ol className="thread-list texts" aria-label={`${kind === "portal" ? "Portal messages" : "Website chat"} with ${visitor}`}>
         {messages.length === 0 && <li className="empty">Nothing said yet.</li>}
         {messages.map((m) => (
           <li
             key={m.id}
             className={
-              "bubble " + (m.sender_kind === "visitor" ? "" : m.sender_kind === "system" ? "system" : "mine")
+              "bubble " + (m.sender_kind === "visitor" || m.sender_kind === "client" ? "" : m.sender_kind === "system" ? "system" : "mine")
             }
           >
             <div className="lock">
-              {m.sender_kind === "visitor" ? visitor : m.sender_kind === "system" ? "Website" : m.sender_label || "You"} ·{" "}
+              {m.sender_kind === "visitor" || m.sender_kind === "client" ? visitor : m.sender_kind === "system" ? where : m.sender_label || "You"} ·{" "}
               {new Date(m.created_at).toLocaleString("en-US", {
                 timeZone: "America/Denver",
                 month: "short",
@@ -93,6 +96,7 @@ export function WebThread({
         <form ref={form} action={action} className="composer" style={{ marginTop: 10 }}>
           {state.error && <div className="alert bad">{state.error}</div>}
           <input type="hidden" name="conversation_id" value={conversationId} />
+          <input type="hidden" name="kind" value={kind} />
           <label className="field" style={{ margin: 0, flex: 1 }}>
             <span className="sr-only">Reply to {visitor}</span>
             <textarea
@@ -116,7 +120,9 @@ export function WebThread({
         </form>
       ) : (
         <p className="lock" style={{ marginTop: 10 }}>
-          Your role does not answer the website chat.
+          {kind === "portal"
+            ? "Admin, Reports and the assigned staff member answer this client's portal."
+            : "Your role does not answer the website chat."}
         </p>
       )}
     </>

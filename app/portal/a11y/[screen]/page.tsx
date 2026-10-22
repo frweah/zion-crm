@@ -9,6 +9,7 @@ import {
   HomeView,
   SettingsView,
   TermsView,
+  MessagesView,
   type Terms,
 } from "../../_components/views";
 
@@ -74,6 +75,24 @@ const SCREENS: Record<string, { title: string; draw: () => React.ReactNode }> = 
     draw: () => <ConsentView me={{ ...notYet, texts: true }} terms={terms} withdrawn />,
   },
   home: { title: "Home", draw: () => <HomeView me={client} /> },
+  "home-unread": { title: "Home", draw: () => <HomeView me={client} unread={2} /> },
+  messages: {
+    title: "Messages",
+    draw: () => (
+      <MessagesView
+        me={client}
+        messages={[
+          { seq: 1, mine: false, sender: "ZZStaff", body: "Hi ZZ, can you send me your resume?", created_at: "2026-10-20T16:00:00Z" },
+          { seq: 2, mine: true, sender: "You", body: "I do not have one yet.", created_at: "2026-10-20T17:30:00Z" },
+        ]}
+      />
+    ),
+  },
+  "messages-empty": { title: "Messages", draw: () => <MessagesView me={client} messages={[]} /> },
+  "settings-alerts": {
+    title: "Settings",
+    draw: () => <SettingsView me={client} options={{ channel: "Email", can_text: false, has_email: true }} />,
+  },
   settings: { title: "Settings", draw: () => <SettingsView me={client} /> },
   "settings-texts-on": {
     title: "Settings",

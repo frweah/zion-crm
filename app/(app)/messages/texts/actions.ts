@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { markRead } from "../actions";
+import { notifyPortal } from "@/lib/portal/notify";
 
 /**
  * The inbox (Messaging brief, A and C): texts and website chats.
@@ -65,10 +67,25 @@ export async function markSpam(_prev: InboxState, formData: FormData): Promise<I
  *
  * A website chat has no client record to answer from - the person may not be
  * anybody the practice knows yet - so it is answered here, where it arrived.
+ *
+ * A portal thread is answered here too (0225), and a reply to one is followed
+ * by a notice that carries no content - at most one an hour.
  */
 export async function replyToWebChat(_prev: InboxState, formData: FormData): Promise<InboxState> {
   const supabase = await createClient();
   const conversation = String(formData.get("conversation_id") ?? "");
+  if (formData.get("kind") === "portal") {
+    const { error } = await supabase.rpc("post_portal_reply", {
+      p_conversation: conversation,
+      p_body: String(formData.get("body") ?? ""),
+    });
+    if (error) return { error: error.message, ok: null };
+    // The message stands whether or not the notice goes; the client sees it
+    // the next time they sign in either way.
+    await notifyPortal(supabase, conversation);
+    revalidatePath("/messages/texts");
+    return { error: null, ok: "sent" };
+  }
   const { error } = await supabase.rpc("post_web_reply", {
     p_conversation: conversation,
     p_body: String(formData.get("body") ?? ""),
@@ -80,4 +97,17 @@ export async function replyToWebChat(_prev: InboxState, formData: FormData): Pro
 
 export async function markInboxRead(conversationId: string, seq: number): Promise<void> {
   await markRead(conversationId, seq);
+}
+
+/**
+ * Writing first, from the client record: opens (or finds) the account's
+ * portal thread and goes to it.
+ */
+export async function openPortalThread(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("portal_open_thread", {
+    p_account: String(formData.get("account_id") ?? ""),
+  });
+  if (error || !data) throw new Error(error?.message ?? "That portal thread could not be opened.");
+  redirect(`/messages/texts?show=portal&c=${data}`);
 }

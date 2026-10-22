@@ -1,7 +1,16 @@
 import Link from "next/link";
 import type { PortalMe } from "@/lib/portal/session";
 import type { PortalFormState } from "../actions";
-import { SignInForm, VerifyForm, ConsentForm, TextsForm, WithdrawForm } from "./forms";
+import {
+  SignInForm,
+  VerifyForm,
+  ConsentForm,
+  TextsForm,
+  WithdrawForm,
+  MessageForm,
+  MarkRead,
+  NoticeChannelForm,
+} from "./forms";
 import { IdleWarning } from "./idle-warning";
 
 /**
@@ -27,7 +36,7 @@ export function SignedInBar({
   idlePreview = false,
 }: {
   me: PortalMe;
-  current: "home" | "settings" | "consent";
+  current: "home" | "messages" | "settings" | "consent";
   idlePreview?: boolean;
 }) {
   return (
@@ -45,6 +54,11 @@ export function SignedInBar({
                 <li>
                   <Link href="/portal" aria-current={current === "home" ? "page" : undefined}>
                     Home
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/portal/messages" aria-current={current === "messages" ? "page" : undefined}>
+                    Messages
                   </Link>
                 </li>
                 <li>
@@ -214,7 +228,15 @@ export function ConsentView({
   );
 }
 
-export function HomeView({ me, idlePreview = false }: { me: PortalMe; idlePreview?: boolean }) {
+export function HomeView({
+  me,
+  unread = 0,
+  idlePreview = false,
+}: {
+  me: PortalMe;
+  unread?: number;
+  idlePreview?: boolean;
+}) {
   const staff = me.staff_first_name;
   return (
     <>
@@ -235,12 +257,21 @@ export function HomeView({ me, idlePreview = false }: { me: PortalMe; idlePrevie
           </p>
         </section>
 
+        <section className="portal-card" aria-labelledby="messages-heading">
+          <h2 id="messages-heading">Messages</h2>
+          <p>
+            {unread > 0
+              ? `You have ${unread} new ${unread === 1 ? "message" : "messages"} from Zion.`
+              : "No new messages."}{" "}
+            <Link href="/portal/messages">{unread > 0 ? "Read your messages" : "Write to Zion"}</Link>
+          </p>
+        </section>
+
         <section className="portal-card" aria-labelledby="soon-heading">
           <h2 id="soon-heading">Coming to your portal</h2>
           <ul>
             <li>Documents Zion asks you for, which you can upload here</li>
-            <li>Updates on your services</li>
-            <li>Messages with {staff ?? "your Zion staff member"}</li>
+            <li>A resume builder, if you do not have a resume yet</li>
           </ul>
         </section>
 
@@ -262,7 +293,17 @@ const TEXT_NOTICE: Record<string, string> = {
   "not-saved": "You agreed to the terms, but your choice about text messages was not saved. Please choose again below.",
 };
 
-export function SettingsView({ me, notice }: { me: PortalMe; notice?: string }) {
+export type NoticeOptions = { channel: "Text" | "Email" | null; can_text: boolean; has_email: boolean };
+
+export function SettingsView({
+  me,
+  notice,
+  options,
+}: {
+  me: PortalMe;
+  notice?: string;
+  options?: NoticeOptions | null;
+}) {
   const message = notice ? TEXT_NOTICE[notice] : undefined;
   return (
     <>
@@ -278,6 +319,15 @@ export function SettingsView({ me, notice }: { me: PortalMe; notice?: string }) 
         <section className="portal-card" aria-labelledby="texts-heading">
           <h2 id="texts-heading">Text messages</h2>
           <TextsForm on={me.texts} phoneLast4={me.phone_last4} />
+        </section>
+
+        <section className="portal-card" aria-labelledby="notices-heading">
+          <h2 id="notices-heading">New message alerts</h2>
+          <NoticeChannelForm
+            channel={options?.channel ?? null}
+            canText={options?.can_text ?? false}
+            hasEmail={options?.has_email ?? false}
+          />
         </section>
 
         <section className="portal-card" aria-labelledby="consent-heading">
@@ -309,5 +359,50 @@ export function TermsView({ terms }: { terms: Terms | null }) {
         <Link href="/portal/sign-in">Go to sign in</Link>
       </p>
     </main>
+  );
+}
+
+export type PortalMessage = { seq: number; mine: boolean; sender: string; body: string; created_at: string };
+
+function when(at: string): string {
+  return new Date(at).toLocaleString("en-US", {
+    timeZone: "America/Denver",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function MessagesView({ me, messages }: { me: PortalMe; messages: PortalMessage[] }) {
+  const staff = me.staff_first_name ?? "Zion";
+  const last = messages.length > 0 ? Number(messages[messages.length - 1].seq) : 0;
+  return (
+    <>
+      <SignedInBar me={me} current="messages" />
+      <main id="main" className="portal-wrap portal-main">
+        <h1>Messages</h1>
+        {messages.length === 0 ? (
+          <p>No messages yet. You can write to {staff} below.</p>
+        ) : (
+          <ol className="portal-thread" aria-label="Your messages with Zion, oldest first">
+            {messages.map((m) => (
+              <li key={m.seq} className={m.mine ? "mine" : undefined}>
+                <p className="portal-from">
+                  {m.sender}, <time dateTime={m.created_at}>{when(m.created_at)}</time>
+                </p>
+                <p className="portal-said">{m.body}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+        <MarkRead seq={last} />
+        <section className="portal-card" aria-labelledby="write-heading">
+          <h2 id="write-heading">New message</h2>
+          <MessageForm staff={staff} />
+        </section>
+      </main>
+    </>
   );
 }

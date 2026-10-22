@@ -1469,6 +1469,8 @@ export type Database = {
       };
       conversations: {
         Row: {
+          portal_account_id: string | null;
+          portal_read_seq: number;
           id: string;
           kind: string;
           title: string;
@@ -1485,6 +1487,8 @@ export type Database = {
           spam: boolean;
         };
         Insert: {
+          portal_account_id?: string | null;
+          portal_read_seq?: number;
           id?: string;
           kind: string;
           title?: string;
@@ -1501,6 +1505,8 @@ export type Database = {
           spam?: boolean;
         };
         Update: {
+          portal_account_id?: string | null;
+          portal_read_seq?: number;
           id?: string;
           kind?: string;
           title?: string;
@@ -3368,6 +3374,7 @@ export type Database = {
       };
       portal_accounts: {
         Row: {
+          notice_channel: string | null;
           id: string;
           client_id: string;
           kind: string;
@@ -3387,6 +3394,7 @@ export type Database = {
           disabled_reason: string;
         };
         Insert: {
+          notice_channel?: string | null;
           id?: string;
           client_id: string;
           kind: string;
@@ -3406,6 +3414,7 @@ export type Database = {
           disabled_reason?: string;
         };
         Update: {
+          notice_channel?: string | null;
           id?: string;
           client_id?: string;
           kind?: string;
@@ -7027,6 +7036,46 @@ export type Database = {
       portal_me: {
         Args: Record<string, never>;
         Returns: { account_id: string | null; kind: string | null; name: string | null; relationship: string | null; client_first_name: string | null; staff_first_name: string | null; terms_version: string | null; electronic: boolean | null; texts: boolean | null; phone_last4: string | null }[];
+      };
+      portal_my_messages: {
+        Args: Record<string, never>;
+        Returns: { seq: number; mine: boolean; sender: string; body: string; created_at: string }[];
+      };
+      portal_unread: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      portal_mark_read: {
+        Args: { p_seq: number };
+        Returns: undefined;
+      };
+      portal_send_message: {
+        Args: { p_body: string };
+        Returns: number;
+      };
+      portal_set_notice_channel: {
+        Args: { p_channel: string };
+        Returns: undefined;
+      };
+      portal_my_notice_options: {
+        Args: Record<string, never>;
+        Returns: { channel: string | null; can_text: boolean; has_email: boolean }[];
+      };
+      portal_open_thread: {
+        Args: { p_account: string };
+        Returns: string;
+      };
+      post_portal_reply: {
+        Args: { p_conversation: string; p_body: string };
+        Returns: number;
+      };
+      portal_claim_notice: {
+        Args: { p_conversation: string };
+        Returns: { notice_id: string; channel: string; destination: string; name: string }[];
+      };
+      portal_note_notice: {
+        Args: { p_notice: string; p_sent: boolean; p_detail: string };
+        Returns: undefined;
       };
       portal_my_consent: {
         Args: { p_kind: string | null };

@@ -79,3 +79,51 @@ export function invitationText(params: { where: string }): string {
     `6-digit sign-in code. We will never ask you for the code. Questions: ${ORG.clientPhone}.`
   );
 }
+
+/**
+ * A notice that something is waiting in the portal (portal brief, section 2).
+ *
+ * It never says what: no service, no date, no name beyond the practice's. A
+ * lock screen, a shared inbox or a family member's glance learns only that
+ * Zion wrote. Like the invitation it carries no link to click - it names the
+ * address to type, for the same reason.
+ *
+ * Whether one may go at all, and by which channel, is decided in the database
+ * (portal_claim_notice, 0225): consent, texting hours, one an hour.
+ */
+export function noticeWords(where: string): { subject: string; text: string } {
+  return {
+    subject: "You have a new message from Zion Voc Rehab",
+    text:
+      `You have a new message from Zion Voc Rehab. Sign in to read it at ${where}. ` +
+      `Questions: ${ORG.clientPhone}.`,
+  };
+}
+
+export async function deliverNotice(params: {
+  channel: "Text" | "Email";
+  destination: string;
+  name: string;
+  where: string;
+}): Promise<Delivery> {
+  const words = noticeWords(params.where);
+  if (params.channel === "Email") {
+    const sent = await sendEmail({
+      to: params.destination,
+      subject: words.subject,
+      text: `${words.text}\n\nZion staff will never ask you for your sign-in code.\n\n${ORG.name}`,
+    });
+    return sent.ok ? { ok: true } : { ok: false, error: sent.error };
+  }
+
+  const found = await findContactByPhone(params.destination);
+  if (!found.ok) return { ok: false, error: found.error };
+  let contactId = found.data;
+  if (!contactId) {
+    const made = await upsertContact({ phone: params.destination, name: params.name });
+    if (!made.ok) return { ok: false, error: made.error };
+    contactId = made.data;
+  }
+  const sent = await sendSms({ contactId, message: words.text });
+  return sent.ok ? { ok: true } : { ok: false, error: sent.error };
+}

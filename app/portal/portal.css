@@ -284,6 +284,79 @@
   flex: none;
 }
 
+
+.portal textarea {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+  font: inherit;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  padding: 0.625rem 0.75rem;
+}
+
+.portal textarea[aria-invalid="true"] {
+  border: 2px solid var(--bad);
+}
+
+.portal fieldset.portal-field {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.portal fieldset.portal-field legend {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.portal .portal-field label.portal-choice {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  font-weight: 400;
+  min-height: 2.75rem;
+}
+
+.portal .portal-choice input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+  flex: none;
+}
+
+/* ── messages ──────────────────────────────────────────────── */
+.portal-thread {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.portal-thread li {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  max-width: 40rem;
+}
+
+.portal-thread li.mine {
+  margin-left: auto;
+  border-left: 4px solid var(--accent);
+}
+
+.portal-thread .portal-from {
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.portal-thread .portal-said {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ── the terms, word for word ──────────────────────────────── */
 .portal-terms {
   background: var(--paper);

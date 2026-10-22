@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestContext, requirePortal } from "@/lib/portal/session";
@@ -225,4 +226,33 @@ export async function withdrawConsent(): Promise<PortalFormState> {
 export async function keepAlive(): Promise<boolean> {
   await requirePortal({ consented: false });
   return true;
+}
+
+// ── messages (portal brief, section 2) ─────────────────────
+export async function sendPortalMessage(_prev: PortalFormState, formData: FormData): Promise<PortalFormState> {
+  await requirePortal();
+  const body = String(formData.get("body") ?? "");
+  if (!body.trim()) return { error: "Write your message first.", value: body };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_send_message", { p_body: body });
+  if (error) return { error: error.message, value: body };
+  revalidatePath("/portal/messages");
+  return { error: null, ok: "Sent. Zion will answer here, and we will let you know when we do." };
+}
+
+export async function markPortalRead(seq: number): Promise<void> {
+  await requirePortal();
+  const supabase = await createClient();
+  await supabase.rpc("portal_mark_read", { p_seq: seq });
+}
+
+/** How the client is told something is waiting: their choice, text or email. */
+export async function setNoticeChannel(_prev: PortalFormState, formData: FormData): Promise<PortalFormState> {
+  await requirePortal();
+  const channel = String(formData.get("channel") ?? "");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_set_notice_channel", { p_channel: channel });
+  if (error) return { error: error.message };
+  revalidatePath("/portal/settings");
+  return { error: null, ok: channel === "Text" ? "We will tell you by text." : "We will tell you by email." };
 }

@@ -28,6 +28,7 @@ const VIEWS = [
   { key: "mine", label: "Mine" },
   { key: "web", label: "Website" },
   { key: "texts", label: "Texts" },
+  { key: "portal", label: "Portal" },
   { key: "unmatched", label: "Unmatched" },
   { key: "spam", label: "Spam" },
 ] as const;
@@ -54,7 +55,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const clientList = clients ?? [];
 
   // The one open website chat, if a row was clicked into.
-  const open = openId ? inbox.find((r) => r.conversation_id === openId && r.kind === "web") : undefined;
+  const open = openId
+    ? inbox.find((r) => r.conversation_id === openId && (r.kind === "web" || r.kind === "portal"))
+    : undefined;
+  const isPortal = open?.kind === "portal";
   const [{ data: thread }, { data: visitorRow }] = open
     ? await Promise.all([
         supabase
@@ -63,7 +67,9 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           .eq("conversation_id", openId!)
           .order("seq", { ascending: true })
           .limit(200),
-        supabase.from("web_chats").select("visitor_name, contact, consent_text, consent_at").eq("conversation_id", openId!).maybeSingle(),
+        isPortal
+          ? Promise.resolve({ data: null })
+          : supabase.from("web_chats").select("visitor_name, contact, consent_text, consent_at").eq("conversation_id", openId!).maybeSingle(),
       ])
     : [{ data: null }, { data: null }];
 
@@ -91,14 +97,19 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       </div>
 
       {open && (
-        <section className="card" style={{ marginBottom: 14 }} aria-label={`Website chat with ${visitorRow?.visitor_name ?? "a visitor"}`}>
+        <section
+          className="card"
+          style={{ marginBottom: 14 }}
+          aria-label={isPortal ? `Portal messages with ${open.who}` : `Website chat with ${visitorRow?.visitor_name ?? "a visitor"}`}
+        >
           <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <h2 className="h2" style={{ margin: 0 }}>
-                {visitorRow?.visitor_name ?? "A visitor"} <span className="chip">website</span>
+                {isPortal ? open.who : (visitorRow?.visitor_name ?? "A visitor")}{" "}
+                <span className="chip">{isPortal ? "portal" : "website"}</span>
               </h2>
               <p className="lock" style={{ margin: "2px 0 0" }}>
-                {visitorRow?.contact}
+                {isPortal ? "Client portal" : visitorRow?.contact}
                 {open.client_id && (
                   <>
                     {" · "}
@@ -119,8 +130,9 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           <div className="two-pane">
             <div>
               <WebThread
+                kind={isPortal ? "portal" : "web"}
                 conversationId={openId!}
-                visitor={visitorRow?.visitor_name ?? "The visitor"}
+                visitor={isPortal ? (open.who ?? "The client") : (visitorRow?.visitor_name ?? "The visitor")}
                 messages={(thread ?? []) as WebMessage[]}
                 canAnswer={canWork}
               />
@@ -136,10 +148,12 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           </div>
 
           <p className="lock" style={{ marginTop: 10, marginBottom: 0 }}>
-            {visitorRow?.consent_at
+            {isPortal
+              ? "They are told something is waiting, never what. One alert an hour at most."
+              : visitorRow?.consent_at
               ? `They agreed on ${fmtStamp(visitorRow.consent_at)}: “${visitorRow.consent_text}”`
               : "No consent recorded with this conversation."}{" "}
-            Agreeing to be contacted here is not agreeing to be texted - that is still recorded on their record.
+            {!isPortal && "Agreeing to be contacted here is not agreeing to be texted - that is still recorded on their record."}
           </p>
         </section>
       )}
@@ -169,7 +183,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                     <b>{r.who || "(no contact)"}</b>
                   )}
                   <div className="lock">
-                    <span className="chip">{r.kind === "web" ? "Website" : "Text"}</span>{" "}
+                    <span className="chip">{r.kind === "web" ? "Website" : r.kind === "portal" ? "Portal" : "Text"}</span>{" "}
                     {r.client_id ? r.who : "Not matched to anybody"}
                     {(r.unread ?? 0) > 0 && (
                       <>
@@ -201,7 +215,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
               ),
               do: (
                 <div className="row2" style={{ gap: 6, flexWrap: "wrap" }}>
-                  {r.kind === "web" && (
+                  {(r.kind === "web" || r.kind === "portal") && (
                     <Link
                       className="btn ghost"
                       href={`/messages/texts?show=${show}&c=${r.conversation_id}`}
@@ -231,7 +245,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
               last: r.last_body ?? "",
               when: r.last_message_at ?? "",
             },
-            text: `${r.client_name ?? ""} ${r.who ?? ""} ${r.last_body ?? ""} ${r.assigned_name ?? ""} ${r.kind === "web" ? "website chat" : "text"}`,
+            text: `${r.client_name ?? ""} ${r.who ?? ""} ${r.last_body ?? ""} ${r.assigned_name ?? ""} ${r.kind === "web" ? "website chat" : r.kind === "portal" ? "portal" : "text"}`,
           }))}
           empty={
             show === "unmatched"
@@ -242,6 +256,8 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                   ? "No conversation is assigned to you."
                   : show === "web"
                     ? "Nobody has chatted on the website yet."
+                    : show === "portal"
+                      ? "No portal messages yet."
                     : "Nothing yet."
           }
         />

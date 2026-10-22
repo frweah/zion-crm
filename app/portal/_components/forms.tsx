@@ -8,6 +8,9 @@ import {
   giveConsent,
   setTexts,
   withdrawConsent,
+  sendPortalMessage,
+  markPortalRead,
+  setNoticeChannel,
   type PortalFormState,
 } from "../actions";
 
@@ -236,5 +239,112 @@ export function WithdrawForm() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Writing to Zion. What was typed survives an error; a success clears it. */
+export function MessageForm({ staff }: { staff: string }) {
+  const [state, action, pending] = useActionState(sendPortalMessage, { error: null });
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state.ok) form.current?.reset();
+  }, [state]);
+  const described = ["body-hint", state.error ? "body-error" : null].filter(Boolean).join(" ");
+
+  return (
+    <form ref={form} action={action} noValidate>
+      <div className="portal-field">
+        <label htmlFor="body">Write to {staff}</label>
+        <p id="body-hint" className="portal-hint">
+          For anything urgent, call 385-406-3432. Messages are read during office hours.
+        </p>
+        <textarea
+          key={state.ok ? "sent" : (state.value ?? "")}
+          id="body"
+          name="body"
+          rows={5}
+          maxLength={2000}
+          defaultValue={state.error ? (state.value ?? "") : ""}
+          aria-describedby={described}
+          aria-invalid={state.error ? true : undefined}
+        />
+        {state.error && (
+          <p id="body-error" className="portal-error" role="alert">
+            {state.error}
+          </p>
+        )}
+      </div>
+      {state.ok && (
+        <p className="portal-notice" role="status">
+          {state.ok}
+        </p>
+      )}
+      <div className="portal-actions">
+        <button className="btn" type="submit" disabled={pending}>
+          {pending ? "Sending…" : "Send message"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Marks the thread read once it has been drawn. Draws nothing. */
+export function MarkRead({ seq }: { seq: number }) {
+  useEffect(() => {
+    if (seq > 0) void markPortalRead(seq);
+  }, [seq]);
+  return null;
+}
+
+export function NoticeChannelForm({
+  channel,
+  canText,
+  hasEmail,
+}: {
+  channel: "Text" | "Email" | null;
+  canText: boolean;
+  hasEmail: boolean;
+}) {
+  const [state, action, pending] = useActionState(setNoticeChannel, { error: null });
+  const current = channel ?? (hasEmail ? "Email" : canText ? "Text" : null);
+
+  if (!canText && !hasEmail) {
+    return (
+      <p className="portal-hint">
+        We have no email address or text-enabled number for you yet. Call 385-406-3432 to add one.
+      </p>
+    );
+  }
+
+  return (
+    <form action={action}>
+      <fieldset className="portal-field">
+        <legend>When Zion writes to you, tell me by</legend>
+        <label className="portal-choice">
+          <input type="radio" name="channel" value="Email" defaultChecked={current === "Email"} disabled={!hasEmail} />{" "}
+          Email{!hasEmail && " (no email address on your account)"}
+        </label>
+        <label className="portal-choice">
+          <input type="radio" name="channel" value="Text" defaultChecked={current === "Text"} disabled={!canText} />{" "}
+          Text message{!canText && " (turn on text messages first)"}
+        </label>
+        <p className="portal-hint">The message never says what it is about, only that something is waiting.</p>
+      </fieldset>
+      {state.error && (
+        <p className="portal-error" role="alert">
+          {state.error}
+        </p>
+      )}
+      {state.ok && (
+        <p className="portal-notice" role="status">
+          {state.ok}
+        </p>
+      )}
+      <div className="portal-actions">
+        <button className="btn" type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save my choice"}
+        </button>
+      </div>
+    </form>
   );
 }

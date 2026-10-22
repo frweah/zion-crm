@@ -9,6 +9,7 @@ import {
   signOutOfPortal,
   type PortalAdminState,
 } from "./portal-actions";
+import { openPortalThread } from "../../messages/texts/actions";
 
 export type PortalAccountRow = {
   id: string;
@@ -262,6 +263,12 @@ export function PortalPanel({
                         </button>
                       </form>
                     )}
+                    <form action={openPortalThread}>
+                      <input type="hidden" name="account_id" value={a.id} />
+                      <button className="btn ghost" type="submit">
+                        Message in portal
+                      </button>
+                    </form>
                     <button className="btn ghost" type="button" onClick={() => setClosing(a.id)}>
                       Turn off access
                     </button>
