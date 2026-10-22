@@ -288,7 +288,7 @@ export function HomeView({
             {openRequests > 0
               ? `Zion has asked you for ${openRequests} ${openRequests === 1 ? "document" : "documents"}.`
               : "Zion is not waiting on any documents from you."}{" "}
-            {openRequests > 0 && <Link href="/portal/documents">Upload them</Link>}
+            {openRequests > 0 && <Link href="/portal/documents">{openRequests === 1 ? "Upload it" : "Upload them"}</Link>}
           </p>
         </section>
 

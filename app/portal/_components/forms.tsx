@@ -414,7 +414,7 @@ export function UploadForm({ requestId, name }: { requestId: string; name: strin
   return (
     <form onSubmit={onSubmit} noValidate>
       <div className="portal-field">
-        <label htmlFor={inputId}>Upload your {name.toLowerCase()}</label>
+        <label htmlFor={inputId}>Choose the file: {name}</label>
         <p id={`${inputId}-hint`} className="portal-hint">
           A photo, a PDF or a Word document, up to 50 MB.
         </p>

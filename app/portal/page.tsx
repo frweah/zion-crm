@@ -3,7 +3,8 @@ import { requirePortal } from "@/lib/portal/session";
 import { createClient } from "@/lib/supabase/server";
 import { HomeView } from "./_components/views";
 
-export const metadata: Metadata = { title: "Home" };
+// Absolute: a layout's title template does not reach a page in its own segment.
+export const metadata: Metadata = { title: { absolute: "Home · Zion client portal" } };
 export const dynamic = "force-dynamic";
 
 export default async function PortalHomePage() {

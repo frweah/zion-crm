@@ -365,10 +365,10 @@ export function ResumeBuilder({
             <fieldset className="portal-field">
               <legend>Have you had a job before?</legend>
               <label className="portal-choice">
-                <input type="radio" name="has-job" checked={!d.noJobs} onChange={() => set({ noJobs: false })} /> Yes
+                <input type="radio" name="has-job" value="yes" checked={!d.noJobs} onChange={() => set({ noJobs: false })} /> Yes
               </label>
               <label className="portal-choice">
-                <input type="radio" name="has-job" checked={d.noJobs} onChange={() => set({ noJobs: true })} /> No, I have
+                <input type="radio" name="has-job" value="no" checked={d.noJobs} onChange={() => set({ noJobs: true })} /> No, I have
                 not had a job yet
               </label>
             </fieldset>
@@ -513,7 +513,7 @@ export function ResumeBuilder({
               <legend>Start from an example, then change it to sound like you</legend>
               {SUMMARY_IDEAS.map((s, i) => (
                 <label key={i} className="portal-choice">
-                  <input type="radio" name="summary-idea" checked={d.summary === s} onChange={() => set({ summary: s })} /> {s}
+                  <input type="radio" name="summary-idea" value={String(i)} checked={d.summary === s} onChange={() => set({ summary: s })} /> {s}
                 </label>
               ))}
             </fieldset>
