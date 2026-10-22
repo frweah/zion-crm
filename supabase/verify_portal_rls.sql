@@ -446,18 +446,66 @@ begin
   end;
 
   -- ── no elevated function lacks a caller check ──────────────
-  select string_agg(p.proname, ', ' order by p.proname) into v_open
-    from pg_proc p
-   where p.pronamespace = 'public'::regnamespace
-     and p.prokind = 'f'
-     and p.prosecdef
-     and has_function_privilege('authenticated', p.oid, 'execute')
-     and pg_get_function_result(p.oid) not in ('trigger', 'event_trigger')
-     and pg_get_functiondef(p.oid) !~ '(is_active_staff|current_staff_role|is_admin|current_staff_id|filing_caller_role|can_see_restricted|can_manage_portal|portal_session_account_id|auth\.uid\(\)|auth\.jwt\(\))';
+  --
+  -- A guard one call deeper is still a guard. This used to look for the
+  -- *names* of the guard helpers in the function body, which meant
+  -- bulk_close - which checks billing_hands(), which checks
+  -- current_staff_role() - was reported as unguarded along with nine others
+  -- that refuse perfectly well when you call them. Thirty-nine names, ten of
+  -- them wrong, is how a check teaches people to skim past it.
+  --
+  -- So the guard is resolved through the call graph: a function is guarded if
+  -- it asks who is calling, or if it calls something that does. Writers are
+  -- named first because they can do damage rather than leak, but both fail
+  -- this - a reader answering a client with the practice's price list is how
+  -- 0226 and 0227 started.
+  select string_agg(
+           case when g.writes then g.name || ' (writes)' else g.name end,
+           ', ' order by g.writes desc, g.name)
+    into v_open
+    from (
+      with recursive
+      fn as (
+        select p.oid, p.proname as name, p.prosecdef as secdef, p.provolatile as vol,
+               pg_get_functiondef(p.oid) as def,
+               has_function_privilege('authenticated', p.oid, 'execute') as callable,
+               pg_get_function_result(p.oid) as res
+          from pg_proc p
+         where p.pronamespace = 'public'::regnamespace and p.prokind = 'f'
+      ),
+      asks as (
+        select oid, name from fn
+         where def ~ '(current_staff_id|current_staff_role|is_admin|is_active_staff|filing_caller_role|can_see_restricted|can_manage_portal|portal_session_account_id|portal_client_id|auth[.]uid[(][)]|auth[.]jwt[(][)])'
+      ),
+      guarded as (
+        select oid, name from asks
+        union
+        select f.oid, f.name
+          from fn f join guarded q on f.def like '%' || q.name || '%' and f.oid <> q.oid
+      )
+      select f.name,
+             f.def ~* '\\m(insert into|update |delete from|truncate)\\M' as writes
+        from fn f
+       where f.secdef and f.callable
+         and f.res not in ('trigger', 'event_trigger')
+         and f.oid not in (select oid from guarded)
+         -- A function named inside an RLS policy is exempt, and has to be.
+         -- The policy is the caller check; a second one inside the helper can
+         -- only disagree with it, and when it disagrees the policy refuses.
+         -- authorization_is_coaching is the one here: it decides whether a
+         -- Job Coach may log hours against an authorization, from inside the
+         -- WITH CHECK that asks the question.
+         and not exists (
+           select 1 from pg_policy pol
+            where coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') like '%' || f.name || '%'
+               or coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%' || f.name || '%'
+         )
+    ) as g(name, writes);
+
   if v_open is not null then
     failures := failures || format('FAILED: elevated functions a signed-in user can call with no check of who is calling: %s', v_open)::text;
   else
-    raise notice 'ok  every elevated function a signed-in user can call checks who is calling';
+    raise notice 'ok  every elevated function a signed-in user can call checks who is calling, directly or through a helper';
   end if;
 
   perform set_config('request.jwt.claims', '', true);

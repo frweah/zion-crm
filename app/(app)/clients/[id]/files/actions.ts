@@ -6,7 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentStaff } from "@/lib/session";
 import { dateComplaint } from "@/lib/constants";
 
-export type FileState = { error: string | null; ok: string | null; url?: string };
+export type FileState = {
+  error: string | null;
+  ok: string | null;
+  url?: string;
+  /** The row just written, for a caller that needs to point at it (0231). */
+  id?: string;
+};
 
 /**
  * Records a file that the browser has already put in storage.
@@ -43,7 +49,9 @@ export async function recordAttachment(
   if (dateProblem) return { error: dateProblem, ok: null };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("attachments").insert({
+  const { data: added, error } = await supabase
+    .from("attachments")
+    .insert({
     client_id: clientId,
     storage_path: storagePath,
     filename,
@@ -56,9 +64,11 @@ export async function recordAttachment(
     document_date: documentDate || undefined,
     sha256: sha256 || null,
     note: String(formData.get("note") ?? "").trim(),
-    uploaded_by: me.id,
-    uploaded_by_name: me.name,
-  });
+      uploaded_by: me.id,
+      uploaded_by_name: me.name,
+    })
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     // The file is in storage but unrecorded, so it is invisible everywhere.
@@ -79,7 +89,7 @@ export async function recordAttachment(
   }
 
   revalidatePath(`/clients/${clientId}`);
-  return { error: null, ok: `${filename} attached.` };
+  return { error: null, ok: `${filename} attached.`, id: added?.id };
 }
 
 /**

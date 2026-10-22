@@ -5435,3 +5435,171 @@ makes the rest of the deploy check safe to run unattended.
 function result as `string`. The board's `services` and the portal's
 `conversation_ids` were both mistyped, and every use of them as an array was a
 type error waiting for somebody to write one. Both levels fixed.
+
+---
+
+## The elevated functions, and a suite that is finally green (22 Oct 2026)
+
+### Two clients back on the board
+
+Beindu Kamara to Job Development and Isaiha Peay to Job Placement, both with
+"Still in service — reactivated 22 Oct" on the record and in their contact
+log, attributed to the Admin who asked for it.
+
+### The 39, counted properly
+
+`verify_portal_rls` named 39 security-definer functions "a signed-in user can
+call with no check of who is calling". Checked one at a time against the
+database, that number was wrong in both directions.
+
+**Ten were guarded and the check could not see it.** It looked for the *names*
+of the guard helpers in the function body, so a guard one call deeper was
+invisible. `bulk_close` checks `billing_hands()`, which checks
+`current_staff_role()`; the check saw neither. Called as a real Job Search
+member of staff, `bulk_close`, `bulk_mark_paid`, `set_authorization_status`,
+`edit_authorization` and `records_request_bundle` all refuse, in their own
+words. They were never open.
+
+That matters more than being tidy. Thirty-nine names with ten wrong is how a
+check teaches people to skim past it.
+
+**And one was wide open.** `billing_followups_on` went through: any member of
+staff could raise chase tasks across the whole practice and shift every
+follow-up date fourteen days. It is the nightly sweep, called from
+`/api/cron/notify` with the service role, and nobody signed in has any
+business running it by hand.
+
+| | Before | After |
+| --- | --- | --- |
+| `bulk_close` as Job Search | refused | refused |
+| `bulk_mark_paid` | refused | refused |
+| `set_authorization_status` | refused | refused |
+| `edit_authorization` | refused | refused |
+| **`billing_followups_on`** | **went through** | **refused** |
+| `placement_clock_started` | refused by luck | refused by grant |
+
+### A portal client is `authenticated`
+
+This is the part that changed the scope. There is a `portal_client` database
+role, and it is **not** what the portal signs in as. A client with a portal
+login is a Supabase auth user with role `authenticated` and a session claim,
+told apart from staff by `is_active_staff()` being false and nothing else.
+
+So everything `authenticated` may execute, a client of the practice may
+execute - and the 24 *readers* the check also named were not a footnote. What
+is due on each client, which referrals have no authorization, a staff member's
+email, the rate for a service, a billing-office reconciliation: all readable
+by any client who knew the function's name. Two tables as well -
+`billing_service_rules` answered `using (true)`, which was written when
+`authenticated` meant staff and stopped being true when the portal arrived.
+
+All of it is closed. 0225 guards the writers, 0226 and 0230 the readers, 0227
+the two tables.
+
+### Three mistakes made while closing it
+
+**`is_active_staff()` was the wrong predicate.** It is false for the server
+itself - the nightly sweep, the cron routes, every server action using the
+admin client. Fifteen verification scripts went red within a minute of 0226,
+which is where that would otherwise have been found: in production, a
+fortnight later, with a cron job quietly returning nothing.
+`reader_may_answer()` asks the question that actually matters - no claims at
+all is the server, the service role is the server acting as itself, a
+signed-in user has to be staff.
+
+**Marking a function STABLE broke a policy.** 0225 marked
+`authorization_is_coaching` stable on the grounds that it only reads. It does
+only read - and it is called from the WITH CHECK on `service_entries`, after a
+BEFORE trigger has created that month's authorization *in the same statement*.
+A STABLE function uses the statement's snapshot and cannot see a row the
+statement just made. It answered false, the policy refused, and a Job Coach
+could not log coaching hours. The volatility was load-bearing.
+
+**And a policy helper cannot carry a guard of its own.** Wrapping that same
+function in a caller check gave it a second rule that could disagree with the
+policy, and when it disagreed it returned null, and a null in a policy is a
+refusal. The policy *is* the caller check. The verification now exempts any
+function named inside a policy expression, which is a rule rather than an
+exception for this one.
+
+### The check, corrected
+
+`verify_portal_rls` now resolves guards **through the call graph** - a
+function is guarded if it asks who is calling or calls something that does -
+names writers by whether they actually contain a write rather than by
+volatility, and exempts policy helpers. It fails on any unguarded elevated
+function, reader or writer, which is stricter than it was asked to be and
+currently green.
+
+Refusals are logged by `refuse_elevated()` as a server WARNING carrying who,
+what and when. Not a table, and not for want of one: the exception rolls the
+calling transaction back and an INSERT made just before it would go back with
+everything else.
+
+### The suite is green: 113 of 113
+
+For the first time. The six that were failing:
+
+| | What it was |
+| --- | --- |
+| `verify_portal_rls` | the 39, above |
+| `verify_portal_role` | an eight-name allowlist, written when the portal did eight things and now does twenty-two. Replaced with the rule it was standing in for: the client role may execute nothing but the portal's own, and everything it may execute scopes itself to the session's account |
+| `verify_records_request` | `portal_requests` and `portal_resumes` hold the client's own words and were in no section of the bundle, so a client asking for their file would have been handed one with pages missing |
+| `verify_system_account` | three portal tables did not refuse the deploy account's writes |
+| `verify_retention` | **mine.** See below |
+| `verify_two_assignments` | a fixture writing a funding source its own constraint forbids |
+
+### The one I broke, and what could not be recovered
+
+0223 took 'Closed' out of the stages. `client_retention` worked out when a
+file closed by looking for the most recent stage-history row saying 'Closed' -
+so after the remap `closed_on` was null for everybody, `due` was false for
+everybody, and **nothing could ever come up for disposal again**. Nothing
+errors; a legally-required list is simply empty for ever.
+
+0229 puts the date where it now belongs: `clients.closed_at`, stamped by a
+trigger when the status becomes Closed and cleared if they are reopened.
+
+**What is gone.** The remap overwrote the stage-history rows that said
+'Closed'. Of the 25 closed clients, 22 never had such a row - their file holds
+one entry, the day they arrived - so nothing was lost and their closure date
+was already unknown. For the other three the row existed and now reads
+'Intake'; those dates are gone and are not guessed at here. A file whose
+closure date is unknown is never due for disposal, which is the safe
+direction: a record kept too long is a filing problem, a record destroyed too
+early is not recoverable. **Setting those three dates from the paper file is
+the owner's to do.**
+
+The trigger also fires only on a transition, not on insert: a client imported
+with status Closed was being recorded as closing the day they were imported,
+and an invented closure date starts a real retention clock.
+
+### A file can come with a move
+
+The move dialog takes an optional file and a document type. The bytes go
+straight from the browser to storage, the way Add file does it and for the
+same reason - a fifty-megabyte scan has no business passing through a server
+action - and only the row is recorded through the server, once the file is up.
+The move then carries that row's id, so the stage history says which document
+came with it. If the upload fails the move does not happen: a move that
+quietly lost its paperwork is worse than one that did not happen.
+
+Done end to end in the screen: a file attached to a move of a ZZ fixture, the
+attachment recorded with its own SHA-256 and a note saying which move it came
+with, and `client_stage_history.document_id` pointing at it. Then deleted,
+file and all.
+
+### The mockup
+
+**`zion-board-mockup.html` is not in the project folder, the parent folder,
+the Desktop or Downloads.** It has not arrived on this side either time. The
+board was built from the written description.
+
+There is a `client master board for 2026-09-22 023851.png` beside the briefs,
+and it is not that file: it is the practice's Notion master list from 22
+September - a **table**, one row per client with columns for assigned staff,
+status, stage, email, availability, date of birth, ethnicity, address and
+preferred location. A list, not a board, and from before the board was asked
+for. Two things in it are worth knowing anyway: it uses a stage called
+*Onboarding* that is not one of the seven, and statuses *New* and
+*Unreachable* that the CRM does not have.

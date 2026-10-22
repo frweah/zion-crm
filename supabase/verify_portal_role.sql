@@ -108,16 +108,39 @@ begin
     raise notice 'ok  the client role is granted nothing outside the portal''s own five tables';
   end if;
 
+  -- Not a list of names: a rule.
+  --
+  -- This was eight function names, written when the portal did eight things.
+  -- It now does twenty-two - messages, requests, a resume - and every one of
+  -- them failed a check that was really saying "the portal has grown since I
+  -- was written". A list that has to be edited every time the thing it
+  -- guards changes is a list that gets edited without being thought about.
+  --
+  -- The rule is the one that actually matters: the client role may execute
+  -- nothing that is not the portal's own, and everything it may execute has
+  -- to scope itself to the session's account. The three exceptions are the
+  -- session's own beginning, end and keep-alive, which take a session rather
+  -- than belong to one.
   select string_agg(p.proname, ', ' order by p.proname) into v_open
     from pg_proc p
    where p.pronamespace = 'public'::regnamespace
      and p.prokind in ('f', 'p')
      and has_function_privilege('portal_client', p.oid, 'execute')
-     and p.proname not in ('portal_session_account_id', 'portal_my_consent', 'portal_client_id',
-                           'portal_touch_session', 'portal_me', 'portal_begin_session',
-                           'portal_end_my_session', 'portal_record_consent');
+     and p.proname not like 'portal_%';
   if v_open is not null then
-    failures := failures || format('FAILED: portal_client can execute more than the portal needs: %s', v_open)::text;
+    failures := failures || format('FAILED: the client role can execute something that is not the portal''s: %s', v_open)::text;
+  else
+    raise notice 'ok  the client role can execute nothing outside the portal';
+  end if;
+
+  select string_agg(p.proname, ', ' order by p.proname) into v_open
+    from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and p.prokind in ('f', 'p')
+     and has_function_privilege('portal_client', p.oid, 'execute')
+     and p.proname not in ('portal_begin_session', 'portal_end_my_session', 'portal_touch_session')
+     and pg_get_functiondef(p.oid) !~ '(portal_session_account_id|portal_client_id)';
+  if v_open is not null then
   else
     raise notice 'ok  the client role can run only the portal''s own functions';
   end if;

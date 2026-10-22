@@ -1,9 +1,30 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { STAGES, stageLabel, stageNote, stageToken } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
+import { STAGES, stageLabel, stageNote, stageToken, today } from "@/lib/constants";
 import { moveClient, closeClient, type BoardState } from "./board-actions";
+import { recordAttachment, type FileState } from "./[id]/files/actions";
+
+/** A type of document, as client_file_categories has it (0203). */
+export type FileCategory = { key: string; label: string };
+
+const FIFTY_MB = 52428800;
+
+/**
+ * The file's own fingerprint, so one client cannot hold the same bytes twice
+ * (0202). Computed in the browser because that is where the bytes are, which
+ * is the same reason the upload does not go through a server action.
+ */
+async function fingerprint(file: File): Promise<string> {
+  try {
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return "";
+  }
+}
 
 /**
  * The caseload as a board (owner, 22 Oct 2026).
@@ -47,7 +68,15 @@ const initial: BoardState = { error: null, ok: null };
 const chipTone = (urgency: number | null) =>
   urgency === null ? "" : urgency <= 1 ? " bad" : urgency <= 4 ? " warn" : "";
 
-export function ClientsBoard({ cards, canClose }: { cards: Card[]; canClose: boolean }) {
+export function ClientsBoard({
+  cards,
+  canClose,
+  categories,
+}: {
+  cards: Card[];
+  canClose: boolean;
+  categories: FileCategory[];
+}) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [panel, setPanel] = useState<Card | null>(null);
@@ -166,7 +195,14 @@ export function ClientsBoard({ cards, canClose }: { cards: Card[]; canClose: boo
         />
       )}
 
-      {moving && <MoveDialog card={moving.card} to={moving.to} onDone={() => setMoving(null)} />}
+      {moving && (
+        <MoveDialog
+          card={moving.card}
+          to={moving.to}
+          categories={categories}
+          onDone={() => setMoving(null)}
+        />
+      )}
       {closing && <CloseDialog card={closing} onDone={() => setClosing(null)} />}
     </>
   );
@@ -254,8 +290,89 @@ function SidePanel({
 }
 
 /** Every move asks why, and Job Placement asks two things more. */
-function MoveDialog({ card, to, onDone }: { card: Card; to: string; onDone: () => void }) {
+function MoveDialog({
+  card,
+  to,
+  categories,
+  onDone,
+}: {
+  card: Card;
+  to: string;
+  categories: FileCategory[];
+  onDone: () => void;
+}) {
   const [state, action, pending] = useActionState(moveClient, initial);
+  const [busy, start] = useTransition();
+  const [uploading, setUploading] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  /**
+   * The file goes up before the move does.
+   *
+   * Straight from the browser to storage, the way Add file does it and for
+   * the same reason: a fifty-megabyte scan has no business passing through a
+   * server action. Only the row is recorded through the server, and only once
+   * the bytes are safely up - and then the move carries that row's id, so the
+   * stage history says which document came with it.
+   *
+   * If the upload fails the move does not happen. A move that quietly lost
+   * its paperwork would be worse than one that did not happen.
+   */
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setProblem(null);
+    const form = new FormData(e.currentTarget);
+    const file = form.get("file") as File | null;
+    form.delete("file");
+
+    if (file && file.size > 0) {
+      if (file.size > FIFTY_MB) {
+        setProblem(`${file.name} is over 50 MB. Scan it at a lower resolution, or split it.`);
+        return;
+      }
+      setUploading(true);
+      try {
+        const supabase = createClient();
+        const ext = file.name.includes(".") ? file.name.split(".").pop() : "";
+        const path = `clients/${card.client_id}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+        const { error } = await supabase.storage
+          .from("client-files")
+          .upload(path, file, { contentType: file.type || "application/octet-stream" });
+        if (error) {
+          setProblem(`That file did not go up: ${error.message}. Nobody was moved.`);
+          setUploading(false);
+          return;
+        }
+
+        const meta = new FormData();
+        meta.set("client_id", card.client_id);
+        meta.set("storage_path", path);
+        meta.set("filename", file.name);
+        meta.set("mime_type", file.type);
+        meta.set("size_bytes", String(file.size));
+        meta.set("category", String(form.get("category") ?? "Other"));
+        meta.set("document_date", today());
+        meta.set("note", `Attached when ${card.name} moved to ${stageLabel(to)}.`);
+        meta.set("sha256", await fingerprint(file));
+
+        const empty: FileState = { error: null, ok: null };
+        const recorded = await recordAttachment(empty, meta);
+        if (recorded.error) {
+          setProblem(`${recorded.error} Nobody was moved.`);
+          setUploading(false);
+          return;
+        }
+        if (recorded.id) form.set("document_id", recorded.id);
+      } catch (err) {
+        setProblem(err instanceof Error ? err.message : "That file did not go up. Nobody was moved.");
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
+
+    start(() => action(form));
+  }
 
   if (state.ok) {
     return (
@@ -273,12 +390,12 @@ function MoveDialog({ card, to, onDone }: { card: Card; to: string; onDone: () =
 
   return (
     <div className="board-dialog">
-      <form className="card" action={action}>
+      <form className="card" onSubmit={submit}>
         <h3 style={{ marginTop: 0 }}>
           {card.name} to {stageLabel(to)}
         </h3>
         <p className="sub">From {stageLabel(card.stage)}.</p>
-        {state.error && <div className="alert bad">{state.error}</div>}
+        {(problem || state.error) && <div className="alert bad">{problem ?? state.error}</div>}
 
         <input type="hidden" name="client_id" value={card.client_id} />
         <input type="hidden" name="stage" value={to} />
@@ -288,6 +405,25 @@ function MoveDialog({ card, to, onDone }: { card: Card; to: string; onDone: () =
           Why
           <textarea id="move-note" name="note" rows={3} required />
         </label>
+
+        <details>
+          <summary>Attach a file or a form</summary>
+          <label className="field" htmlFor="move-file">
+            File
+            <input id="move-file" name="file" type="file" />
+          </label>
+          <label className="field" htmlFor="move-category">
+            What it is
+            <select id="move-category" name="category" defaultValue="Other">
+              {categories.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="lock">It goes on the record and is kept with the move.</p>
+        </details>
 
         {to === "Job Placement" && (
           <>
@@ -304,10 +440,15 @@ function MoveDialog({ card, to, onDone }: { card: Card; to: string; onDone: () =
         )}
 
         <div className="row2" style={{ gap: 8 }}>
-          <button className="btn gold" type="submit" disabled={pending}>
-            {pending ? "Moving…" : "Move"}
+          <button className="btn gold" type="submit" disabled={pending || busy || uploading}>
+            {uploading ? "Sending the file…" : pending || busy ? "Moving…" : "Move"}
           </button>
-          <button className="btn ghost" type="button" onClick={onDone} disabled={pending}>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onDone}
+            disabled={pending || busy || uploading}
+          >
             Leave them where they are
           </button>
         </div>

@@ -47,7 +47,7 @@ begin
   -- ── Billing edits any client ──────────────────────────────
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_bill_uid, 'role', 'authenticated')::text, true);
-  update public.clients set funding_source = 'ZZ set by Billing' where id = v_client;
+  update public.clients set funding_source = 'Private Pay' where id = v_client;
   get diagnostics v_n = row_count;
   if v_n <> 1 then
     failures := failures || 'FAILED: Billing cannot edit a client it is not assigned to'::text;
@@ -58,7 +58,7 @@ begin
   insert into public.staff_access_grants (staff_id, area, level, reason) values (v_granted, 'billing', 'edit', 'ZZ covering billing');
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_granted_uid, 'role', 'authenticated')::text, true);
-  update public.clients set funding_source = 'ZZ set by a grant' where id = v_client;
+  update public.clients set funding_source = 'Other' where id = v_client;
   get diagnostics v_n = row_count;
   if v_n <> 1 then
     failures := failures || 'FAILED: a billing edit grant cannot edit a client'::text;

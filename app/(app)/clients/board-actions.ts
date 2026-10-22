@@ -35,13 +35,17 @@ export async function moveClient(_prev: BoardState, formData: FormData): Promise
   }
   if (!note) return { error: "Say why they are moving.", ok: null };
 
+  // A file attached to the move, already in storage and already recorded by
+  // the browser before it got here (0231). What arrives is the row's id.
+  const document = field(formData, "document_id") || null;
+
   try {
     const supabase = await createClient();
     const { error } = await supabase.rpc("move_client", {
       p_client: id,
       p_stage: stage,
       p_note: note,
-      p_document: null,
+      p_document: document,
     });
     if (error) return { error: error.message, ok: null };
 

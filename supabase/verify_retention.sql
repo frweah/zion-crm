@@ -51,9 +51,9 @@ begin
   -- most recent closure, which is the right rule and made the fixture wrong.
   insert into public.clients (name, stage, status, assigned_staff_id)
   values ('ZZ Retention Old', 'Intake', 'Closed', v_admin) returning id into v_old;
-  update public.client_stage_history
-     set at = (public.practice_today() - interval '9 years')::date
-   where client_id = v_old;
+  update public.clients
+     set closed_at = (public.practice_today() - interval '9 years')::date
+   where id = v_old;
 
   insert into public.clients (name, stage, status, assigned_staff_id)
   values ('ZZ Retention Recent', 'Intake', 'Closed', v_admin) returning id into v_recent;

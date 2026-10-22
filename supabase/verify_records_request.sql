@@ -55,6 +55,11 @@ declare
     -- The authorization is the bill (§§1, 10), so the billing section is
     -- its own history. There is no invoice and no billing item to disclose.
     'authorization_events=billing',
+    -- What the client asked for in their own portal and what they wrote
+    -- there. Their own words about themselves, so a records request that
+    -- left them out would be incomplete (0228).
+    'portal_requests=portal_requests',
+    'portal_resumes=portal_resume',
     'practice_form_entries=practice_forms',
     -- The ledger postings that name the person (0145), in words rather than
     -- in debits and credits.

@@ -20,7 +20,7 @@ import { SavedViews, type SavedView } from "./saved-views";
 import { loadCaseload } from "@/lib/caseload";
 import { CaseloadSummary } from "../caseload-summary";
 import { LIVE_STATUSES } from "@/lib/billing";
-import { ClientsBoard, type Card } from "./board";
+import { ClientsBoard, type Card, type FileCategory } from "./board";
 import { ClientRowActions } from "./row-actions";
 
 type Row = {
@@ -95,7 +95,7 @@ export default async function ClientsPage({
   if (filters.hasImportReview) query = query.neq("import_review", "");
   if (filters.since) query = query.gte("created_at", filters.since);
 
-  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult, categoriesResult] =
     await Promise.all([
       readBillingOffices(supabase),
       query,
@@ -120,9 +120,14 @@ export default async function ClientsPage({
       // services authorized and the one alert. Measured at 501 clients:
       // ~103ms, against a one-second budget.
       supabase.rpc("clients_board"),
+      // The document types, for a file attached to a move (0231). One small
+      // read rather than a list kept in the component, which is the rule
+      // 0203 set when this list stopped being hard-coded.
+      supabase.from("client_file_categories").select("key, label").order("key"),
     ]);
 
   const boardCards = (boardResult.data ?? []) as Card[];
+  const fileCategories = (categoriesResult.data ?? []) as FileCategory[];
   // Who may take a client off the board (owner, 22 Oct). Everybody who can
   // see Clients may move a card; this is the narrower one.
   const canClose = ["Admin", "Reports", "Billing"].includes(me.role);
@@ -410,7 +415,7 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      {tab === "board" && <ClientsBoard cards={boardCards} canClose={canClose} />}
+      {tab === "board" && <ClientsBoard cards={boardCards} canClose={canClose} categories={fileCategories} />}
 
       {tab === "all" && (
       <>
