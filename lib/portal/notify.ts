@@ -2,8 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { deliverNotice } from "./deliver";
-
-export const portalUrl = () => `${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`;
+import { portalAddressToType } from "./address";
 
 /**
  * Tell a client something is waiting in their portal, if the database says a
@@ -32,7 +31,7 @@ export async function notifyPortal(
     channel,
     destination: row.destination,
     name: row.name ?? "",
-    where: portalUrl().replace(/^https?:\/\//, ""),
+    where: portalAddressToType(),
   });
   await supabase.rpc("portal_note_notice", {
     p_notice: row.notice_id,

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { PORTAL_HOSTS, portalHost } from "./lib/portal/address";
 
 /**
  * Keeps unauthenticated visitors out of the app, and does nothing else.
@@ -126,6 +127,30 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
   const pass = () => NextResponse.next({ request: { headers: requestHeaders } });
+
+  // ── the client portal's own address (21 Oct 2026) ──────────
+  // On portal.zionvocrehab.com only the portal answers: "/" is the portal's
+  // home, "/messages" its messages, and anything else - the staff app, the
+  // login, the API - is looked for under /portal, where it does not exist.
+  // A client can never land on a staff screen from the portal's address.
+  const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  if (PORTAL_HOSTS.includes(host)) {
+    if (pathname === "/portal" || pathname.startsWith("/portal/")) return pass();
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === "/" ? "/portal" : `/portal${pathname}`;
+    requestHeaders.set("x-pathname", url.pathname);
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  }
+  // Once the portal's address is live, the old one forwards to it, so an
+  // invitation or a bookmark from before still arrives.
+  const movedTo = portalHost();
+  if (movedTo && (pathname === "/portal" || pathname.startsWith("/portal/"))) {
+    const url = new URL(request.nextUrl.toString());
+    url.host = movedTo;
+    url.port = "";
+    url.protocol = "https:";
+    return NextResponse.redirect(url, 308);
+  }
 
   // ── the cheapest thing first ───────────────────────────────
   // A path that authenticates itself does not need a session looked up, and

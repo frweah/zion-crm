@@ -16,7 +16,8 @@ const text = (formData: FormData, key: string): string | null => {
   return value || null;
 };
 
-const portalUrl = () => `${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`;
+import { portalAddressToType } from "@/lib/portal/address";
+const portalUrl = portalAddressToType;
 
 /**
  * Telling somebody they have portal access. The owner's rule, in order:

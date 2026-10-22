@@ -46,6 +46,7 @@ import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
 import { LIVE_STATUSES, isLive } from "@/lib/billing";
 import { PortalRequests } from "./portal-requests";
+import { portalAddressToType } from "@/lib/portal/address";
 import {
   PortalPanel,
   type PortalAccountRow,
@@ -470,7 +471,7 @@ export default async function ClientPage({
             // checks it again (can_manage_portal, 0087).
             canManage={canSeeRestricted}
             canText={Boolean(consent?.can_text)}
-            portalUrl={`${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/portal`}
+            portalUrl={portalAddressToType()}
           />
         )}
         {(canEdit || canSeeRestricted) && (
