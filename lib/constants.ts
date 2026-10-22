@@ -26,7 +26,9 @@ export const NOTE_TYPES = [
   "No-show / not responding",
 ] as const;
 
-export const FUNDING_SOURCES = ["Utah VR", "HCBS Medicaid", "Private Pay", "Other"] as const;
+// No "HCBS Medicaid": the CRM is the USOR side of a hybrid entity, and waiver
+// clients' records live in CareSmartz360 (0226).
+export const FUNDING_SOURCES = ["Utah VR", "Private Pay", "Other"] as const;
 
 /** Who may edit client records and pipeline. Matches the prototype's canEditClients. */
 export const CAN_EDIT_CLIENTS = ["Admin", "Job Search", "Reports", "Job Coach", "Case Manager"];
