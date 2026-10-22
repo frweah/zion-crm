@@ -59,3 +59,18 @@ export async function reviewUpload(_prev: RequestState, formData: FormData): Pro
   revalidatePath(`/clients/${String(formData.get("client_id") ?? "")}`);
   return { error: null, ok: accept ? "Accepted." : "Sent back, with your reason." };
 }
+
+/** Approving the client's resume, or sending it back with what to change. */
+export async function reviewResume(_prev: RequestState, formData: FormData): Promise<RequestState> {
+  const supabase = await createClient();
+  const approve = formData.get("decision") === "approve";
+  const { data, error } = await supabase.rpc("portal_review_resume", {
+    p_resume: String(formData.get("resume_id") ?? ""),
+    p_approve: approve,
+    p_note: String(formData.get("note") ?? ""),
+  });
+  if (error) return { error: error.message, ok: null };
+  if (!approve) await tell(data);
+  revalidatePath(`/clients/${String(formData.get("client_id") ?? "")}`);
+  return { error: null, ok: approve ? "Resume approved." : "Sent back, with your note." };
+}

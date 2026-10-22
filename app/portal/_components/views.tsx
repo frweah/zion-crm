@@ -13,6 +13,8 @@ import {
   UploadForm,
 } from "./forms";
 import { IdleWarning } from "./idle-warning";
+import { ResumeBuilder } from "./resume-builder";
+import type { ResumeData } from "@/lib/portal/resume";
 
 /**
  * Every portal screen, drawn from what it is given. The pages fetch; these
@@ -37,7 +39,7 @@ export function SignedInBar({
   idlePreview = false,
 }: {
   me: PortalMe;
-  current: "home" | "messages" | "documents" | "settings" | "consent";
+  current: "home" | "messages" | "documents" | "resume" | "settings" | "consent";
   idlePreview?: boolean;
 }) {
   return (
@@ -65,6 +67,11 @@ export function SignedInBar({
                 <li>
                   <Link href="/portal/documents" aria-current={current === "documents" ? "page" : undefined}>
                     Documents
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/portal/resume" aria-current={current === "resume" ? "page" : undefined}>
+                    Resume
                   </Link>
                 </li>
                 <li>
@@ -285,11 +292,12 @@ export function HomeView({
           </p>
         </section>
 
-        <section className="portal-card" aria-labelledby="soon-heading">
-          <h2 id="soon-heading">Coming to your portal</h2>
-          <ul>
-            <li>A resume builder, if you do not have a resume yet</li>
-          </ul>
+        <section className="portal-card" aria-labelledby="resume-heading">
+          <h2 id="resume-heading">Resume</h2>
+          <p>
+            No resume yet? Build one here, a step at a time.{" "}
+            <Link href="/portal/resume">Build or update your resume</Link>
+          </p>
         </section>
 
         <section className="portal-card" aria-labelledby="choices-heading">
@@ -475,6 +483,30 @@ export function DocumentsView({ me, requests }: { me: PortalMe; requests: Portal
             </ul>
           </section>
         )}
+      </main>
+    </>
+  );
+}
+
+export function ResumeView({
+  me,
+  resume,
+  step,
+  status,
+  returnNote,
+}: {
+  me: PortalMe;
+  resume: ResumeData;
+  step: number;
+  status: "None" | "Draft" | "Returned" | "Submitted" | "Approved";
+  returnNote: string;
+}) {
+  return (
+    <>
+      <SignedInBar me={me} current="resume" />
+      <main id="main" className="portal-wrap portal-main">
+        <h1>Resume</h1>
+        <ResumeBuilder initial={resume} initialStep={status === "Draft" || status === "Returned" ? step : 0} status={status} returnNote={returnNote} />
       </main>
     </>
   );

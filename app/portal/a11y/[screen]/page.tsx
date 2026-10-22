@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { PortalMe } from "@/lib/portal/session";
+import { emptyResume } from "@/lib/portal/resume";
 import v1 from "../../../../supabase/portal-terms/v1.json";
 import {
   SignInView,
@@ -11,6 +12,7 @@ import {
   TermsView,
   MessagesView,
   DocumentsView,
+  ResumeView,
   type Terms,
 } from "../../_components/views";
 
@@ -101,6 +103,16 @@ const SCREENS: Record<string, { title: string; draw: () => React.ReactNode }> = 
         ]}
       />
     ),
+  },
+  resume: {
+    title: "Resume",
+    draw: () => (
+      <ResumeView me={client} resume={{ ...emptyResume(), contact: { name: "ZZ Example Client", phone: "801-555-0101", email: "", city: "" } }} step={1} status="Draft" returnNote="" />
+    ),
+  },
+  "resume-returned": {
+    title: "Resume",
+    draw: () => <ResumeView me={client} resume={emptyResume()} step={5} status="Returned" returnNote="Add the dates for your last job." />,
   },
   "home-requests": { title: "Home", draw: () => <HomeView me={client} unread={1} openRequests={2} /> },
   "messages-empty": { title: "Messages", draw: () => <MessagesView me={client} messages={[]} /> },

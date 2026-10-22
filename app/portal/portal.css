@@ -325,6 +325,66 @@
   flex: none;
 }
 
+/* ── resume builder ──────────────────────────────────────── */
+.portal fieldset.portal-month {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.portal fieldset.portal-month legend {
+  width: 100%;
+}
+
+.portal select {
+  font: inherit;
+  font-size: var(--text-lg);
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.portal input[type="tel"],
+.portal input[type="email"] {
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  padding: 0.625rem 0.75rem;
+  min-height: 3rem;
+  max-width: 24rem;
+  width: 100%;
+}
+
+.portal-subcard {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.portal-subcard h3 {
+  margin-top: 0;
+}
+
+.portal-resume-preview {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 1.25rem;
+  background: var(--paper);
+  overflow-wrap: anywhere;
+}
+
+.portal-resume-preview .portal-resume-name {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.portal-resume-preview h3 {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.25rem;
+  margin: 1rem 0 0.5rem;
+}
+
 /* ── messages ──────────────────────────────────────────────── */
 .portal-thread {
   list-style: none;

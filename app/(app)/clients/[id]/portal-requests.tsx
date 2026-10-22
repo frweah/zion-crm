@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { fmtStamp } from "@/lib/constants";
-import { askForDocument, withdrawRequest, reviewUpload, type RequestState } from "./request-actions";
+import { askForDocument, withdrawRequest, reviewUpload, reviewResume, type RequestState } from "./request-actions";
 import { OpenFile } from "./authorization-files";
 
 export type PortalRequestRow = {
@@ -18,6 +18,23 @@ export type PortalRequestRow = {
   answered_at: string | null;
   storage_path: string | null;
   filename: string | null;
+};
+
+export type PortalResumeRow = {
+  id: string;
+  status: string;
+  submitted_at: string | null;
+  return_note: string;
+  updated_at: string;
+  pdf_path: string | null;
+  docx_path: string | null;
+};
+
+const RESUME_STATUS: Record<string, string> = {
+  Draft: "Being written by the client",
+  Submitted: "Finished, needs review",
+  Returned: "Sent back to the client",
+  Approved: "Approved",
 };
 
 const ITEMS = ["Resume", "Photo ID", "Social Security card", "Signed form", "Other"] as const;
@@ -40,8 +57,10 @@ export function PortalRequests({
   requests,
   canManage,
   hasAccess,
+  resume,
 }: {
   clientId: string;
+  resume: PortalResumeRow | null;
   requests: PortalRequestRow[];
   canManage: boolean;
   hasAccess: boolean;
@@ -50,9 +69,11 @@ export function PortalRequests({
   const [wState, wAction, withdrawing] = useActionState(withdrawRequest, initial);
   const [rState, rAction, reviewing] = useActionState(reviewUpload, initial);
   const [item, setItem] = useState<string>("Resume");
+  const [resState, resAction, reviewingResume] = useActionState(reviewResume, initial);
   const [returning, setReturning] = useState<string | null>(null);
-  const error = askState.error ?? wState.error ?? rState.error;
-  const ok = askState.ok ?? wState.ok ?? rState.ok;
+  const [resumeBack, setResumeBack] = useState(false);
+  const error = askState.error ?? wState.error ?? rState.error ?? resState.error;
+  const ok = askState.ok ?? wState.ok ?? rState.ok ?? resState.ok;
 
   return (
     <div className="card" style={{ marginTop: 14 }} id="portal-requests">
@@ -93,6 +114,57 @@ export function PortalRequests({
         </form>
       )}
       {canManage && !hasAccess && <p className="lock">Give portal access first to ask for documents here.</p>}
+
+      {resume && (
+        <div className="row2" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
+          <b>Resume builder</b>
+          <span>{RESUME_STATUS[resume.status] ?? resume.status}</span>
+          <span className="lock">
+            {resume.submitted_at ? `finished ${fmtStamp(resume.submitted_at)}` : `saved ${fmtStamp(resume.updated_at)}`}
+          </span>
+          {resume.pdf_path && resume.status !== "Draft" && <OpenFile file={{ storage_path: resume.pdf_path }} />}
+          {resume.docx_path && resume.status !== "Draft" && (
+            <span className="lock">
+              Word copy <OpenFile file={{ storage_path: resume.docx_path }} />
+            </span>
+          )}
+          {canManage && resume.status === "Submitted" && !resumeBack && (
+            <>
+              <form action={resAction}>
+                <input type="hidden" name="client_id" value={clientId} />
+                <input type="hidden" name="resume_id" value={resume.id} />
+                <input type="hidden" name="decision" value="approve" />
+                <button className="btn" type="submit" disabled={reviewingResume}>
+                  Approve
+                </button>
+              </form>
+              <button className="btn ghost" type="button" onClick={() => setResumeBack(true)}>
+                Send back
+              </button>
+            </>
+          )}
+          {resume.status === "Returned" && resume.return_note && <span className="lock">{resume.return_note}</span>}
+        </div>
+      )}
+      {resume && resumeBack && (
+        <form action={resAction} style={{ marginTop: 6 }}>
+          <input type="hidden" name="client_id" value={clientId} />
+          <input type="hidden" name="resume_id" value={resume.id} />
+          <input type="hidden" name="decision" value="return" />
+          <label className="field" style={{ margin: 0 }}>
+            <span>What the client should change</span>
+            <input name="note" required maxLength={300} placeholder="Add the dates for your last job" />
+          </label>
+          <div className="row2" style={{ gap: 6, marginTop: 6 }}>
+            <button className="btn danger" type="submit" disabled={reviewingResume}>
+              Send back
+            </button>
+            <button className="btn ghost" type="button" onClick={() => setResumeBack(false)}>
+              Keep it
+            </button>
+          </div>
+        </form>
+      )}
 
       {requests.length === 0 ? (
         <p className="lock" style={{ marginBottom: 0 }}>

@@ -7,6 +7,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestContext, requirePortal } from "@/lib/portal/session";
 import { deliverCode } from "@/lib/portal/deliver";
+import { createHash } from "node:crypto";
+import type { Json } from "@/lib/database.types";
+import { cleanResume, resumeProblems } from "@/lib/portal/resume";
+import { buildResumePdf, buildResumeDocx } from "@/lib/portal/resume-files";
 
 export type PortalFormState = {
   error: string | null;
@@ -343,4 +347,70 @@ export async function finishUpload(params: {
   revalidatePath("/portal/documents");
   revalidatePath("/portal");
   return { error: null, ok: "Uploaded. Zion will look at it and let you know if anything is missing." };
+}
+
+// ── the resume builder (portal brief, section 4) ───────────
+/** Saved after every step, so leaving and coming back carries on. */
+export async function saveResume(data: unknown, step: number): Promise<PortalFormState> {
+  await requirePortal();
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_save_resume", {
+    p_data: cleanResume(data) as unknown as Json,
+    p_step: Math.max(0, Math.min(20, Math.floor(step))),
+  });
+  return error ? { error: error.message } : { error: null };
+}
+
+/**
+ * Finishing: the PDF and the Word file are drawn here, from the saved draft
+ * and nothing else, put in storage by the server, and filed by the database
+ * with a task for the client's staff member to review.
+ */
+export async function finishResume(data: unknown): Promise<PortalFormState> {
+  await requirePortal();
+  const resume = cleanResume(data);
+  const problems = resumeProblems(resume);
+  if (problems.length) return { error: problems[0] };
+
+  const supabase = await createClient();
+  const { error: saveError } = await supabase.rpc("portal_save_resume", {
+    p_data: resume as unknown as Json,
+    p_step: 8,
+  });
+  if (saveError) return { error: saveError.message };
+  const { data: folder, error: folderError } = await supabase.rpc("portal_resume_folder");
+  if (folderError || !folder) return { error: folderError?.message ?? "Your resume could not be finished. Try again." };
+
+  const [pdf, docx] = await Promise.all([buildResumePdf(resume), buildResumeDocx(resume)]);
+  const stamp = Date.now();
+  const pdfPath = `${folder}${stamp}-resume.pdf`;
+  const docxPath = `${folder}${stamp}-resume.docx`;
+  const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+
+  const storage = createAdminClient().storage.from("client-files");
+  const up1 = await storage.upload(pdfPath, pdf, { contentType: "application/pdf" });
+  const up2 = await storage.upload(docxPath, docx, {
+    contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+  if (up1.error || up2.error) {
+    await storage.remove([pdfPath, docxPath]);
+    console.error(`[portal] resume files not stored: ${up1.error?.message ?? up2.error?.message}`);
+    return { error: `Your resume could not be saved just now. Try again in a minute, or ${HELP}.` };
+  }
+
+  const { error } = await supabase.rpc("portal_submit_resume", {
+    p_pdf_path: pdfPath,
+    p_pdf_size: pdf.byteLength,
+    p_pdf_sha: sha(pdf),
+    p_docx_path: docxPath,
+    p_docx_size: docx.byteLength,
+    p_docx_sha: sha(docx),
+  });
+  if (error) {
+    await storage.remove([pdfPath, docxPath]);
+    return { error: error.message };
+  }
+  revalidatePath("/portal/resume");
+  revalidatePath("/portal");
+  return { error: null, ok: "Your resume is with Zion. They will look at it and let you know." };
 }

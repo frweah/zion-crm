@@ -362,6 +362,7 @@ export default async function ClientPage({
       { data: guardianshipDocs },
       { data: portalTerms },
       { data: portalRequests },
+      { data: portalResume },
     ] = await Promise.all([
       supabase.from("conversations").select("id").eq("kind", "sms").eq("client_id", id).maybeSingle(),
       supabase.from("client_sms_consent").select("can_text, consented_phone, client_phone, state").eq("client_id", id).maybeSingle(),
@@ -404,10 +405,21 @@ export default async function ClientPage({
         .neq("status", "Cancelled")
         .order("created_at", { ascending: false })
         .limit(30),
+      supabase
+        .from("portal_resumes")
+        .select("id, status, submitted_at, return_note, updated_at, pdf_id, docx_id")
+        .eq("client_id", id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
     // The uploaded file for each answered request, where this person may see
     // it - a restricted ID document stays hidden from staff who may not.
-    const requestFileIds = (portalRequests ?? []).map((r) => r.attachment_id).filter((x): x is string => Boolean(x));
+    const requestFileIds = [
+      ...(portalRequests ?? []).map((r) => r.attachment_id),
+      portalResume?.pdf_id,
+      portalResume?.docx_id,
+    ].filter((x): x is string => Boolean(x));
     const { data: requestFiles } = requestFileIds.length
       ? await supabase.from("attachments").select("id, storage_path, filename").in("id", requestFileIds)
       : { data: [] as { id: string; storage_path: string; filename: string }[] };
@@ -464,6 +476,15 @@ export default async function ClientPage({
         {(canEdit || canSeeRestricted) && (
           <PortalRequests
             clientId={id}
+            resume={
+              portalResume
+                ? {
+                    ...portalResume,
+                    pdf_path: portalResume.pdf_id ? (fileFor.get(portalResume.pdf_id)?.storage_path ?? null) : null,
+                    docx_path: portalResume.docx_id ? (fileFor.get(portalResume.docx_id)?.storage_path ?? null) : null,
+                  }
+                : null
+            }
             canManage={canSeeRestricted}
             hasAccess={(portalAccounts ?? []).some((a) => !a.disabled_at)}
             requests={(portalRequests ?? []).map((r) => {

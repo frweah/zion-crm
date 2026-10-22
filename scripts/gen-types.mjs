@@ -231,6 +231,12 @@ const RPC_FUNCTIONS = [
   "portal_open_requests",
   "portal_upload_path",
   "portal_answer_request",
+  // The resume builder (0229).
+  "portal_my_resume",
+  "portal_save_resume",
+  "portal_resume_folder",
+  "portal_submit_resume",
+  "portal_review_resume",
   "portal_client_id",
   "portal_session_account_id",
   "record_identity_inspection",

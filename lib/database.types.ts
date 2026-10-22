@@ -3663,6 +3663,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      portal_resumes: {
+        Row: {
+          id: string;
+          client_id: string;
+          account_id: string | null;
+          data: Json;
+          step: number;
+          status: string;
+          return_note: string;
+          pdf_id: string | null;
+          docx_id: string | null;
+          submitted_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          account_id?: string | null;
+          data?: Json;
+          step?: number;
+          status?: string;
+          return_note?: string;
+          pdf_id?: string | null;
+          docx_id?: string | null;
+          submitted_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          account_id?: string | null;
+          data?: Json;
+          step?: number;
+          status?: string;
+          return_note?: string;
+          pdf_id?: string | null;
+          docx_id?: string | null;
+          submitted_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       portal_terms: {
         Row: {
           version: string;
@@ -7130,6 +7181,26 @@ export type Database = {
       portal_answer_request: {
         Args: { p_request: string; p_path: string; p_filename: string; p_mime: string; p_size: number; p_sha256: string };
         Returns: string;
+      };
+      portal_my_resume: {
+        Args: Record<string, never>;
+        Returns: { id: string | null; data: Json; step: number; status: string; return_note: string; record_name: string | null; record_phone: string | null; record_email: string | null; record_city: string | null }[];
+      };
+      portal_save_resume: {
+        Args: { p_data: Json; p_step: number };
+        Returns: string;
+      };
+      portal_resume_folder: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      portal_submit_resume: {
+        Args: { p_pdf_path: string; p_pdf_size: number; p_pdf_sha: string; p_docx_path: string; p_docx_size: number; p_docx_sha: string };
+        Returns: string;
+      };
+      portal_review_resume: {
+        Args: { p_resume: string; p_approve: boolean; p_note?: string };
+        Returns: string[];
       };
       portal_my_messages: {
         Args: Record<string, never>;
