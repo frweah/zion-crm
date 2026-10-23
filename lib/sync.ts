@@ -35,8 +35,12 @@ export type TokenAccess = {
 
 export type MailRow = {
   clientId: string | null;
-  /** "auto" when a reply landed on a thread already filed (0233). */
-  filedHow?: "sent" | "auto" | "by hand" | null;
+  /**
+   * How it came to be here. The sweep sets "auto" only when the thread was
+   * already filed by a person; left null, the writer records "matched",
+   * which is what an address match is and all it is (0233, 0247).
+   */
+  filedHow?: "sent" | "auto" | "by hand" | "matched" | null;
   counselorId: string | null;
   messageId: string;
   conversationId: string;

@@ -349,6 +349,47 @@ begin
     raise notice 'ok  and it is on My day, not only in the bell';
   end if;
 
+  -- ── 6b. matching an address is not filing, and tells nobody ──
+  --
+  -- This is the assertion that was missing, and the one that cost something.
+  -- The writer defaulted `filed_how` to "auto", so every message the sweep
+  -- recognised by address claimed to be a reply on a filed thread - and the
+  -- trigger fired on all of it. One sweep put 38 notifications and 38 My day
+  -- items in front of Margaret and Rei about mail that was not a reply to
+  -- anything (0247).
+  --
+  -- Two things have to hold, and neither is about counting notifications
+  -- afterwards: an address match tells nobody, and it does not become a
+  -- filing by being replied to.
+  perform public.log_mail_message_for_sync(
+    v_coach, v_client, null, 'zz-matched-1', 'zz-conv-3', 'Something that mentioned them',
+    now(), 'Incoming', 'zq-counselor@example.test', '', null);
+
+  select m.filed_how into v_how from public.mail_log m where m.graph_message_id = 'zz-matched-1';
+  if v_how <> 'matched' then
+    failures := failures ||
+      format('FAILED: an address match records itself as "%s", so it claims somebody filed it', v_how)::text;
+  else
+    raise notice 'ok  an address match says it is an address match';
+  end if;
+
+  select count(*)::int into v_n from public.notifications n
+   where n.kind = 'mail_reply' and n.client_id = v_client
+     and n.dedupe_key like '%' || (select id::text from public.mail_log where graph_message_id = 'zz-matched-1') || '%';
+  if v_n > 0 then
+    failures := failures ||
+      'FAILED: an address match raised a notification, which is how one sweep fills somebody''s My day with mail nobody sent them'::text;
+  else
+    raise notice 'ok  and tells nobody, because nobody replied to anything';
+  end if;
+
+  if public.client_for_thread('zz-conv-3') is not null then
+    failures := failures ||
+      'FAILED: a thread the sweep matched by address answers as filed, so the next reply to it would file itself and notify'::text;
+  else
+    raise notice 'ok  and a matched thread is not a filed one, so a reply to it does not become one';
+  end if;
+
   -- ── 7. a client is written to at their own address ─────────
   --
   -- The screen refuses it, and this is the fact the screen refuses it on:

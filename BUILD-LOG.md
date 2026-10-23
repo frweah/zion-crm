@@ -6108,3 +6108,54 @@ the sweep's counselor matching predates this instruction by months. It is the
 owner's call: either those rows go and the sweep stops writing them, or
 counselor mail is a deliberate second case and the sentence means client mail.
 Either way, nothing new reaches a client without somebody filing it.
+
+### Matching an address is not filing
+
+This one was caught by deploying it, which is the wrong place to catch
+something, and it is worth writing down exactly how.
+
+0234 gave the single mail writer a `filed_how` parameter and defaulted it to
+**auto**. That conflated two things which are not the same:
+
+- **matched** — the sweep found a known address in a message and wrote a line
+  about it. Nobody decided anything. This is what the sweep has done since it
+  was built.
+- **auto** — a reply arrived on a thread a person had filed. Somebody did
+  decide; they decided when they filed the thread.
+
+Because the default was "auto", every address match claimed to be the second.
+The screen said *"filed by the sync, on a thread somebody filed"* about mail
+nobody had ever touched — and the trigger that tells two people about a reply
+fired on all of it. One sweep run after the deploy put **38 notifications and
+38 My day items** in front of Margaret and Rei about mail that was not a reply
+to anything. That is precisely the noise the owner's "nobody else" was written
+to prevent, arriving through the front door.
+
+0247 fixes it at the root rather than at the trigger:
+
+- the word `matched` exists and is the writer's default, so only an explicit
+  "auto" means a filed thread;
+- every row already in `mail_log` becomes `matched`, because every one of them
+  is an address match — nothing had ever been filed by a person, so there was
+  no filed thread for any of them to be a reply to;
+- and `client_for_thread` answers only for a thread a **person** filed. Without
+  this the back door stays open: an address match puts a client on a thread,
+  the next reply files as "auto", and somebody gets told, with nobody having
+  chosen anything.
+
+The 38 items were removed in the same transaction. None of them could have
+been real — there was not one row in `mail_log` filed by hand or by sending,
+so there was no filed thread for a reply to have arrived on.
+
+Three assertions now stand where none did: an address match records itself as
+an address match, raises no notification, and does not become a filing by
+being replied to. Each was proved by putting the default back to "auto" inside
+a rolled-back transaction and watching all three fail.
+
+The deeper lesson is about where the default lived. A parameter that defaults
+to the *interesting* case will be the interesting case everywhere it is left
+out, and "left out" is the normal path. The default should have been the dull
+one from the start.
+
+114 of 114 verify scripts pass, with 24 assertions in
+`supabase/verify_client_email.sql`.

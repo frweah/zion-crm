@@ -114,7 +114,9 @@ export async function MailSection({ clientId, clientName }: { clientId: string; 
                         ? `sent by ${head.filed_by_name || "the practice"}`
                         : head.filed_how === "auto"
                           ? "filed by the sync, on a thread somebody filed"
-                          : `filed by ${head.filed_by_name || "somebody"}`}
+                          : head.filed_how === "matched"
+                            ? "recognised by the sync, filed by nobody"
+                            : `filed by ${head.filed_by_name || "somebody"}`}
                       {!readable && head.mailbox_address && ` · in ${head.mailbox_address}`}
                       {!readable && !head.mailbox_address && " · in a colleague's mailbox"}
                     </>
