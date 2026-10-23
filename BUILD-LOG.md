@@ -6209,3 +6209,115 @@ the gate removed, a personal mailbox deciding by address, and nothing deciding
 by address at all.
 
 25 assertions in `verify_client_email.sql`; 114 of 114 verify scripts pass.
+
+---
+
+## A day, written the way it was typed (23 Oct 2026)
+
+Rei's feedback, which is the kind worth having: she writes a day's tasks with
+sub-points indented under them, and the form threw all of it away. Two causes,
+both ordinary and both wrong here.
+
+**Description and Notes were single-line inputs.** A line break could not be
+typed into them at all, and Enter submitted the form. They are boxes now, and
+so are Bottlenecks and Actions taken, and all four grow with what is in them -
+measured from the DOM on input and once on mount, so a note loaded from the
+record opens at its full height instead of a two-line slot with a scrollbar.
+
+**And every field was trimmed.** `trim()` is the right thing to do to almost
+any form field and the wrong thing to do to these: it ate the indentation of
+the first line and every blank line at the end. `keepAsTyped` replaces it and
+does exactly two things, neither of which changes what anybody typed - CRLF
+becomes LF, because a browser posts a textarea's breaks as CRLF whatever the
+keyboard did and storing it raw would mean the text coming back differs from
+the text going in; and a field of nothing but whitespace becomes empty, so an
+untouched Notes box does not put four spaces on a client's record. A field
+with any content keeps its leading and trailing whitespace exactly.
+
+### Enter, and Tab
+
+**Enter adds a line**, because that is what a textarea does. The day is saved
+with the button, which is the change: the add-task row used to submit on
+Enter, and now it does not.
+
+**Tab is left alone**, deliberately and as the owner asked. A box that
+captured Tab to insert an indent would strand a keyboard user in the middle of
+a form, and the check fails any `onKeyDown` that touches it. Indentation is
+typed with spaces, and the spaces are kept - which is the whole of the fix
+rather than a workaround for it.
+
+### Shown the same way in all three places
+
+One class, `.kept`, with `white-space: pre-wrap` - `pre-wrap` and not `pre`,
+so a long line still wraps to its column instead of scrolling it sideways. It
+is on the task's description and notes in the day's table, and on the
+bottlenecks and actions when the day is read rather than written. The team
+view needed nothing: it is a list of days that opens the same form.
+
+The summary email is the third place, and the one where this went least as
+expected. The note used to be written out as `E'\n    ' || notes` - four
+spaces, then the note - and **that was not mangling anything**. A prefix
+leaves the note itself untouched, which I established by putting the four
+spaces back and watching the round-trip still pass rather than by reasoning
+about it. The real destruction was always the `trim()` and the single-line
+input.
+
+The four spaces still go, for a smaller and honest reason: they indent the
+*first* line of a three-line note and leave the other two flush against the
+margin, which reads as a hierarchy that is not there. The day record now shows
+a note in its own shape and the email should agree with it rather than add a
+shape of its own (0249).
+
+The cost of that choice, stated rather than discovered later: a note whose own
+line begins with a hyphen or a number will be read back as a task if somebody
+pastes yesterday's email into the paste box. The alternative was to re-indent
+every line, and re-indenting is rewriting what somebody wrote.
+
+### Numbered lines paste in
+
+`splitPastedReport` read `-`, `–`, `—`, `*` and `•`. It now reads `1.` and
+`2)` as well, up to three digits, because half the practice writes a list that
+way and a paste that silently read none of it was indistinguishable from a
+paste that had not worked.
+
+### What the new check found
+
+`scripts/check-kept-text.mjs` runs the real functions rather than reading the
+source for the two things that are behaviour: nine cases through
+`keepAsTyped`, and a pasted list with both kinds of number in it. On its first
+run it failed on something I had not gone looking for.
+
+**`[In-Progress]` did not paste back.** The status parser lowercased the
+bracketed word and stripped spaces and slashes - but not hyphens - so
+"In-Progress" became "in-progress", matched nothing, and came back as
+Complete. The summary email writes the status as `[In-Progress]`, so the one
+form guaranteed to be pasted in was the one form that did not read, and the
+function's own comment claimed the opposite: *"that is how the summary this app
+sends writes them out, so yesterday's email pastes back in."* It does now.
+
+Seven faults put back and caught: `keepAsTyped` trimming again, a field
+trimmed in the action, a note shown without the class, the class no longer
+keeping white space, a field returned to a single-line input, Tab captured,
+and numbers no longer counting as bullets.
+
+### The round-trip, through the real database
+
+`scripts/check-end-of-day.mjs` already submits a day as a Job Search user
+inside a rolled-back transaction, so the owner's test went there: a note with
+a leading space, two levels of indentation, a blank line in the middle and a
+trailing space, written to a line, read back out, carried through a reopen and
+a second submit, and compared byte for byte - in the row, and as a substring
+of the summary the email carries. A two-line description and a numbered
+bottleneck go with it.
+
+Three faults put back there too, in rolled-back DDL: a summary that re-indents
+the note's inner lines, one that flattens them to a single line, and a field
+trimmed on the way in. All three fail the assertion. A summary that merely
+prefixes the note passes, correctly, because prefixing is not changing it.
+
+That script had also been failing quietly since the stage rename in 0223 - its
+fixture client was created at stage 'Placement', which the constraint stopped
+accepting. It is run by hand rather than in `prebuild`, so nothing said so.
+Fixed, and the reason is in the fixture.
+
+114 of 114 verify scripts pass; 18 checks in `prebuild`.

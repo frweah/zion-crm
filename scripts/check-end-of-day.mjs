@@ -72,7 +72,10 @@ try {
     ),
     fixture as (
       insert into public.clients (name, stage, status)
-      values ('ZZ Smoke Client', 'Placement', 'Active') returning id
+      -- 'Job Placement' since the stage rename (0223). It was 'Placement',
+      -- and this script is run by hand, so it had been failing on the
+      -- constraint quietly ever since.
+      values ('ZZ Smoke Client', 'Job Placement', 'Active') returning id
     )
     select (select id from linked) as staff_id,
            (select id from account) as user_id,
@@ -130,6 +133,70 @@ try {
     fail(`the summary is missing ${missing.map(([what]) => what).join(", ")}`);
   } else {
     ok("and the summary carries the template's headings, the task and the client");
+  }
+
+  // ── a multi-line note, unchanged all the way round ───────
+  //
+  // The owner's test (23 Oct 2026, from Rei): a note with line breaks and
+  // indentation in it has to come back the way it went in - out of the
+  // database, through a reopen, and inside the email.
+  //
+  // The note below is deliberately awkward: a leading space on its first
+  // line, two levels of indentation, a blank line in the middle, and a
+  // trailing space. Every one of those is something `trim()` or a
+  // single-line input used to destroy.
+  const NOTE = [
+    " Rang the counselor and left a message.",
+    "    - she is back on Thursday",
+    "      - try the office line first",
+    "",
+    "  Chasing the signed intake tomorrow. ",
+  ].join("\n");
+  const BOTTLENECK = ["Two things held it up:", "  1. the printer", "  2. the authorization"].join("\n");
+
+  await client.query("select public.reopen_staff_day($1, 'Adding the detail Rei asked for.')", [dayId]);
+
+  const { rows: written } = await client.query(
+    `insert into public.staff_day_lines (day_id, status, description, notes, sort_order)
+     values ($1, 'In-Progress', $2, $3, 2) returning id`,
+    [dayId, "ZZ a task\n  with a second line", NOTE],
+  );
+  await client.query(`update public.staff_days set bottlenecks = $2 where id = $1`, [dayId, BOTTLENECK]);
+
+  // Out of the database, as the screen reads it.
+  const { rows: read } = await client.query(
+    `select l.description, l.notes, d.bottlenecks
+       from public.staff_day_lines l join public.staff_days d on d.id = l.day_id
+      where l.id = $1`,
+    [written[0].id],
+  );
+  if (read[0].notes !== NOTE) {
+    fail(`the note came back changed:\n      wanted ${JSON.stringify(NOTE)}\n      got    ${JSON.stringify(read[0].notes)}`);
+  } else if (read[0].description !== "ZZ a task\n  with a second line") {
+    fail(`the description came back changed: ${JSON.stringify(read[0].description)}`);
+  } else if (read[0].bottlenecks !== BOTTLENECK) {
+    fail(`the bottlenecks came back changed: ${JSON.stringify(read[0].bottlenecks)}`);
+  } else {
+    ok("a note with line breaks, indentation and a blank line survives save and reopen");
+  }
+
+  // And inside the email, byte for byte. A substring test rather than a
+  // comparison of the whole message: what has to be unchanged is the note,
+  // and the summary has headings around it.
+  const { rows: again } = await client.query("select public.submit_staff_day($1) as summary", [dayId]);
+  const resent = again[0].summary ?? "";
+  const notInEmail = [
+    ["the note", NOTE],
+    ["the two-line description", "ZZ a task\n  with a second line"],
+    ["the bottlenecks", BOTTLENECK],
+  ].filter(([, text]) => !resent.includes(text));
+  if (notInEmail.length > 0) {
+    fail(
+      `the summary email does not carry ${notInEmail.map(([what]) => what).join(", ")} as written` +
+        `\n      summary was:\n${resent.split("\n").map((l) => `      | ${l}`).join("\n")}`,
+    );
+  } else {
+    ok("and goes into the summary email exactly as it was typed");
   }
 
   await client.query("rollback");

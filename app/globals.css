@@ -3222,3 +3222,25 @@ button.attach-chip:hover {
 .mail-thread + .mail-thread {
   border-top: 1px solid var(--line);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Text kept exactly as it was typed (owner, 23 Oct 2026, from Rei).
+
+   `pre-wrap` rather than `pre`: the line breaks and the leading spaces are
+   the writer's and are shown, but a long line still wraps to the column
+   instead of scrolling it sideways. One class, used on the day record, in
+   the team view and anywhere else a day's own words are shown, so that
+   "the same way everywhere" is one declaration rather than a convention.
+   ───────────────────────────────────────────────────────────── */
+.kept {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* A box that grows with what is typed into it. The height is set by script
+   on input; this is what it looks like before that happens and if script
+   never runs. */
+.grows {
+  min-height: 2.6em;
+  resize: vertical;
+  overflow-y: hidden;
+}

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { sendEmail, emailConfigured } from "@/lib/email";
 import { ORG } from "@/lib/roles";
-import { STATUSES, splitPastedReport, type DayStatus } from "./day";
+import { STATUSES, hasWords, keepAsTyped, splitPastedReport, tooLong, type DayStatus } from "./day";
 
 export type DayState = { error: string | null; ok: string | null };
 
@@ -25,8 +25,13 @@ export async function addLine(_prev: DayState, formData: FormData): Promise<DayS
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
 
-  const description = String(formData.get("description") ?? "").trim();
-  if (!description) return { error: "What was the task?", ok: null };
+  // Kept as typed, checked on a trimmed copy (0249). The description has to
+  // say something; what it says, and how it is laid out, is the writer's.
+  const description = keepAsTyped(formData.get("description"));
+  const notes = keepAsTyped(formData.get("notes"));
+  if (!hasWords(description)) return { error: "What was the task?", ok: null };
+  const long = tooLong(description, "The description") ?? tooLong(notes, "The note");
+  if (long) return { error: long, ok: null };
 
   const status = String(formData.get("status") ?? "Complete");
   if (!STATUSES.includes(status as DayStatus)) return { error: "Unknown status.", ok: null };
@@ -48,7 +53,7 @@ export async function addLine(_prev: DayState, formData: FormData): Promise<DayS
     day_id: id,
     status,
     description,
-    notes: String(formData.get("notes") ?? "").trim(),
+    notes,
     client_id: String(formData.get("client_id") ?? "") || null,
     sort_order: (last?.sort_order ?? 0) + 1,
   });
@@ -110,13 +115,19 @@ export async function editLine(_prev: DayState, formData: FormData): Promise<Day
   const status = String(formData.get("status") ?? "");
   if (!STATUSES.includes(status as DayStatus)) return { error: "Unknown status.", ok: null };
 
+  const description = keepAsTyped(formData.get("description"));
+  const notes = keepAsTyped(formData.get("notes"));
+  if (!hasWords(description)) return { error: "What was the task?", ok: null };
+  const long = tooLong(description, "The description") ?? tooLong(notes, "The note");
+  if (long) return { error: long, ok: null };
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("staff_day_lines")
     .update({
       status,
-      description: String(formData.get("description") ?? "").trim(),
-      notes: String(formData.get("notes") ?? "").trim(),
+      description,
+      notes,
       client_id: String(formData.get("client_id") ?? "") || null,
     })
     .eq("id", lineId)
@@ -150,6 +161,11 @@ export async function saveBottlenecks(_prev: DayState, formData: FormData): Prom
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
 
+  const bottlenecks = keepAsTyped(formData.get("bottlenecks"));
+  const actionsTaken = keepAsTyped(formData.get("actions_taken"));
+  const long = tooLong(bottlenecks, "What got in the way") ?? tooLong(actionsTaken, "The actions");
+  if (long) return { error: long, ok: null };
+
   const day = String(formData.get("day") ?? "") || undefined;
   const { id, error } = await myDay(day);
   if (!id) return { error, ok: null };
@@ -158,8 +174,8 @@ export async function saveBottlenecks(_prev: DayState, formData: FormData): Prom
   const { error: saveError } = await supabase
     .from("staff_days")
     .update({
-      bottlenecks: String(formData.get("bottlenecks") ?? "").trim(),
-      actions_taken: String(formData.get("actions_taken") ?? "").trim(),
+      bottlenecks,
+      actions_taken: actionsTaken,
     })
     .eq("id", id);
   if (saveError) return { error: saveError.message, ok: null };

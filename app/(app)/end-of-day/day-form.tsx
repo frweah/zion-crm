@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { DataTable } from "../data-table";
 import {
   addLine,
@@ -27,6 +27,67 @@ export type DayLine = {
 };
 
 type Client = { id: string; name: string };
+
+/**
+ * A box that grows with what is typed in it (owner, 23 Oct 2026, from Rei).
+ *
+ * Three things it deliberately does not do:
+ *
+ *   **It does not capture Tab.** Tab is how somebody moves off a field, and a
+ *   box that swallowed it would strand a keyboard user in the middle of a
+ *   form. Indentation is typed with spaces, which is what the fields keep.
+ *
+ *   **It does not submit on Enter.** That is what a textarea does, and it is
+ *   the point: Enter adds a line, and the day is saved with the button.
+ *
+ *   **It does not control its own value.** The text belongs to the form, and
+ *   a controlled box here would fight the server action's re-render for it.
+ *   The height is measured from the DOM instead, on input and once on mount
+ *   so that a note loaded from the record opens at its full height.
+ */
+function Growing({
+  id,
+  name,
+  defaultValue,
+  required,
+  placeholder,
+  minRows = 2,
+}: {
+  id: string;
+  name: string;
+  defaultValue?: string;
+  required?: boolean;
+  placeholder?: string;
+  minRows?: number;
+}) {
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  const fit = () => {
+    const el = box.current;
+    if (!el) return;
+    // Measured from scratch each time, because scrollHeight never shrinks
+    // below the height already set.
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  useEffect(fit, []);
+
+  return (
+    <textarea
+      id={id}
+      ref={box}
+      name={name}
+      className="grows"
+      defaultValue={defaultValue}
+      required={required}
+      placeholder={placeholder}
+      rows={minRows}
+      onInput={fit}
+      spellCheck
+    />
+  );
+}
 
 function Message({ state }: { state: DayState }) {
   if (state.error) return <div className="alert bad">{state.error}</div>;
@@ -70,13 +131,13 @@ function LineEditor({
             ))}
           </select>
         </label>
-        <label className="field" style={{ flex: 2 }}>
+        <label className="field" style={{ flex: 2, minWidth: 220 }}>
           Description
-          <input name="description" defaultValue={line.description} required />
+          <Growing id={`desc-${line.id}`} name="description" defaultValue={line.description} required />
         </label>
-        <label className="field" style={{ flex: 2 }}>
+        <label className="field" style={{ flex: 2, minWidth: 220 }}>
           Notes
-          <input name="notes" defaultValue={line.notes} />
+          <Growing id={`notes-${line.id}`} name="notes" defaultValue={line.notes} />
         </label>
         <label className="field" style={{ maxWidth: 200 }}>
           Client
@@ -244,11 +305,11 @@ export function DayForm({
                   ),
                   description: (
                     <>
-                      {l.description}
+                      <span className="kept">{l.description}</span>
                       {client && <span className="sub"> · {client.name}</span>}
                     </>
                   ),
-                  notes: <span className="sub">{l.notes}</span>,
+                  notes: <span className="sub kept">{l.notes}</span>,
                   actions: editable ? (
                     <button
                       className="btn ghost"
@@ -271,7 +332,12 @@ export function DayForm({
         )}
 
         {editable && (
-          <form action={add} className="row2" style={{ alignItems: "flex-end", gap: 8, marginTop: 10 }}>
+          <form
+            key={`add-${lines.length}`}
+            action={add}
+            className="row2"
+            style={{ alignItems: "flex-end", gap: 8, marginTop: 10 }}
+          >
             <input type="hidden" name="day" value={day} />
             <label className="field" style={{ maxWidth: 150 }}>
               Status
@@ -283,13 +349,13 @@ export function DayForm({
                 ))}
               </select>
             </label>
-            <label className="field" style={{ flex: 2 }}>
+            <label className="field" style={{ flex: 2, minWidth: 220 }}>
               Description
-              <input name="description" required placeholder="What was done" />
+              <Growing id="add-description" name="description" required placeholder="What was done" />
             </label>
-            <label className="field" style={{ flex: 2 }}>
+            <label className="field" style={{ flex: 2, minWidth: 220 }}>
               Notes
-              <input name="notes" placeholder="Anything worth saying" />
+              <Growing id="add-notes" name="notes" placeholder="Anything worth saying" />
             </label>
             <label className="field" style={{ maxWidth: 200 }}>
               Client
@@ -317,11 +383,11 @@ export function DayForm({
             <input type="hidden" name="day" value={day} />
             <label className="field">
               What got in the way
-              <textarea name="bottlenecks" rows={3} defaultValue={bottlenecks} />
+              <Growing id="bottlenecks" name="bottlenecks" defaultValue={bottlenecks} minRows={3} />
             </label>
             <label className="field">
               Actions taken / suggestions
-              <textarea name="actions_taken" rows={3} defaultValue={actionsTaken} />
+              <Growing id="actions-taken" name="actions_taken" defaultValue={actionsTaken} minRows={3} />
             </label>
             <button className="btn" type="submit" disabled={saving}>
               {saving ? "…" : "Save"}
@@ -329,9 +395,9 @@ export function DayForm({
           </form>
         ) : (
           <>
-            <p>{bottlenecks || "None."}</p>
+            <p className="kept">{bottlenecks || "None."}</p>
             <h4>Actions taken / suggestions</h4>
-            <p>{actionsTaken || "None."}</p>
+            <p className="kept">{actionsTaken || "None."}</p>
           </>
         )}
       </div>
