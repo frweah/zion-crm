@@ -69,40 +69,47 @@ export default async function ComposePage({
             </Link>
           }
         />
-        {!access.ok ? (
-          <div className="card">
-            <p style={{ margin: 0 }}>{access.message}</p>
+        {/*
+          The screen is drawn whether or not Outlook is connected, and only
+          Send is withheld.
+
+          It used to be one or the other: no connection, no screen, just the
+          message about connecting. But the recipients and the three letters
+          are the practice's own facts and have nothing to do with Microsoft -
+          somebody whose Outlook has quietly expired could not even see what
+          the message would say, which is the wrong half to take away. It also
+          meant nothing about this screen could be exercised on a deploy,
+          because a throwaway account has no mailbox and never will.
+        */}
+        {!access.ok && (
+          <div className="alert" style={{ marginBottom: 12 }}>
+            {access.message}{" "}
             {access.reason !== "not-signed-in" && (
-              <p style={{ margin: "12px 0 0" }}>
-                <Link className="btn gold" href="/dashboard#outlook" style={{ textDecoration: "none" }}>
-                  Connect Outlook
-                </Link>
-              </p>
+              <Link href="/dashboard#outlook" style={{ color: "inherit" }}>
+                <b>Connect Outlook</b>
+              </Link>
             )}
           </div>
-        ) : (
-          <>
-            {!access.canSend && (
-              <div className="alert" style={{ marginBottom: 12 }}>
-                Sending is not turned on for your Outlook yet.{" "}
-                <a href="/api/auth/microsoft/start?send=1" style={{ color: "inherit" }}>
-                  <b>Turn sending on</b>
-                </a>{" "}
-                - one reconnect - and this message can go.
-              </div>
-            )}
-            <ClientComposeForm
-              clientId={params.client}
-              clientName={clientName}
-              recipients={recipients}
-              documents={documents}
-              templates={templates}
-              from={access.email}
-              canSend={access.canSend}
-              defaultTo={recipients.filter((r) => r.kind === "counselor").map((r) => r.address.toLowerCase())}
-            />
-          </>
         )}
+        {access.ok && !access.canSend && (
+          <div className="alert" style={{ marginBottom: 12 }}>
+            Sending is not turned on for your Outlook yet.{" "}
+            <a href="/api/auth/microsoft/start?send=1" style={{ color: "inherit" }}>
+              <b>Turn sending on</b>
+            </a>{" "}
+            - one reconnect - and this message can go.
+          </div>
+        )}
+        <ClientComposeForm
+          clientId={params.client}
+          clientName={clientName}
+          recipients={recipients}
+          documents={documents}
+          templates={templates}
+          from={access.ok ? access.email : (access.me?.email ?? "your own mailbox")}
+          canSend={access.ok && access.canSend}
+          defaultTo={recipients.filter((r) => r.kind === "counselor").map((r) => r.address.toLowerCase())}
+        />
       </>
     );
   }

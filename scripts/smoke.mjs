@@ -703,7 +703,9 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
    * different elevated function, and any of them refusing this role is a
    * blank screen rather than an error.
    */
-  const zz = await open("/clients?q=ZZ&view=all");
+  // All clients, which is a table of links - the board shows cards whose
+  // record link lives in the side panel, so there is no href to read there.
+  const zz = await open("/clients?tab=all&q=ZZ");
   const client = zz.ok ? (zz.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1] : null;
   if (!client) {
     all.push({
