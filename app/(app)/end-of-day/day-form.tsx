@@ -68,7 +68,13 @@ function Growing({
     // Measured from scratch each time, because scrollHeight never shrinks
     // below the height already set.
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    // Plus the borders. `box-sizing: border-box` means the height set here
+    // includes them, while scrollHeight does not - so setting one to the
+    // other leaves the content two pixels taller than the box and
+    // `overflow: hidden` shaves the bottom off the last line. Watched
+    // happening in a browser rather than reasoned about.
+    const borders = el.offsetHeight - el.clientHeight;
+    el.style.height = `${el.scrollHeight + borders}px`;
   };
 
   useEffect(fit, []);
