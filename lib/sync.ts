@@ -35,6 +35,8 @@ export type TokenAccess = {
 
 export type MailRow = {
   clientId: string | null;
+  /** "auto" when a reply landed on a thread already filed (0233). */
+  filedHow?: "sent" | "auto" | "by hand" | null;
   counselorId: string | null;
   messageId: string;
   conversationId: string;
@@ -55,6 +57,9 @@ export type MailRow = {
  */
 export type MailWriter = (row: MailRow) => Promise<{ logged: boolean; error?: string }>;
 
+/** Which client a thread is already filed on, if any (0233). */
+export type ThreadLookup = (conversationId: string) => Promise<string | null>;
+
 /** How far back a sweep looks when it has never run before. */
 const FIRST_RUN_DAYS = 14;
 /** How far either side of today the calendar pull looks. */
@@ -68,6 +73,12 @@ export async function syncStaffMember(
   writeMail: MailWriter,
 ): Promise<SyncResult> {
   const result: SyncResult = { mailLogged: 0, eventsPulled: 0, skippedNoMatch: 0, errors: [] };
+
+  /** Which client this thread is already filed on, if any (0233). */
+  const clientForThread = async (conversationId: string): Promise<string | null> => {
+    const { data } = await supabase.rpc("client_for_thread", { p_conversation: conversationId });
+    return (data as string | null) ?? null;
+  };
 
   const bundle = await tokens.read();
   if (!bundle) {
@@ -191,6 +202,8 @@ export async function syncStaffMember(
       let clientId: string | null = null;
       let counselorId: string | null = null;
       let counterpart = "";
+      // How this one came to be filed, which only the auto case changes.
+      let filedHow: MailRow["filedHow"] = null;
 
       for (const address of addresses) {
         const c = clientByEmail.get(address);
@@ -203,6 +216,26 @@ export async function syncStaffMember(
         if (k && !counselorId) {
           counselorId = k;
           counterpart = address;
+        }
+      }
+
+    // A reply on a thread somebody already filed belongs to the same
+    // client, and nobody should have to decide twice (owner, 23 Oct 2026).
+    // This is the only way a message reaches a client without a person
+    // choosing it, and it is not really an exception: the choice was made
+    // when the thread was filed, and the sweep is honouring it.
+    //
+    // A thread taken *off* a client does not come back this way. Unfiling is
+    // a decision too, and the lookup ignores unfiled rows on purpose.
+      if (!clientId && conversationId) {
+        const already = await clientForThread(conversationId);
+        if (already) {
+          clientId = already;
+          counselorId = null;
+          if (!counterpart) {
+            counterpart = message.from?.emailAddress?.address?.toLowerCase() ?? "";
+          }
+          filedHow = "auto";
         }
       }
 
@@ -233,6 +266,7 @@ export async function syncStaffMember(
         direction,
         counterpart,
         webLink: message.webLink ?? "",
+        filedHow,
       });
 
       if (written.error) {
@@ -306,6 +340,11 @@ export async function syncSharedMailbox(
   }
   const excluded = new Set((exclusions ?? []).map((e) => e.conversation_id));
 
+  const clientForThread = async (conversationId: string): Promise<string | null> => {
+    const { data } = await supabase.rpc("client_for_thread", { p_conversation: conversationId });
+    return (data as string | null) ?? null;
+  };
+
   const since = mailbox.last_mail_sync_at
     ? new Date(mailbox.last_mail_sync_at)
     : new Date(Date.now() - FIRST_RUN_DAYS * 86400000);
@@ -323,6 +362,7 @@ export async function syncSharedMailbox(
       let clientId: string | null = null;
       let counselorId: string | null = null;
       let counterpart = "";
+      let filedHow: MailRow["filedHow"] = null;
 
       for (const address of addresses) {
         // The mailbox's own address is not a counterpart to itself.
@@ -337,6 +377,18 @@ export async function syncSharedMailbox(
         if (k && !counselorId) {
           counselorId = k;
           counterpart = address;
+        }
+      }
+
+      if (!clientId && conversationId) {
+        const already = await clientForThread(conversationId);
+        if (already) {
+          clientId = already;
+          counselorId = null;
+          if (!counterpart) {
+            counterpart = message.from?.emailAddress?.address?.toLowerCase() ?? "";
+          }
+          filedHow = "auto";
         }
       }
 
@@ -363,6 +415,7 @@ export async function syncSharedMailbox(
         direction,
         counterpart,
         webLink: message.webLink ?? "",
+        filedHow,
       });
 
       if (written.error) result.errors.push(`Mail: ${written.error}`);

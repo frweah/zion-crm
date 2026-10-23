@@ -1,21 +1,28 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { fmtStamp } from "@/lib/constants";
+import { fmtAgo, fmtStamp } from "@/lib/constants";
 import { myMailAccess, resolveMailbox } from "@/lib/mail-access";
 import { listMessages, getMessage, listAttachments, MailError, type MessageSummary, type Folder } from "@/lib/mail";
 import { PageHead } from "../page-head";
 import { RespondForms, DeleteMessage } from "./mail-forms";
+import { DragSource, FileToClient, KeepAttachment, Unfile } from "./filing-forms";
 
 /**
  * Mail (Messaging brief, M).
  *
  * The signed-in person's inbox and sent mail, and the shared service@ mailbox
  * for those Exchange has given it - read live from Microsoft with their own
- * token. A message body is shown and never stored: the database keeps what it
- * always kept, the log line on a client or counselor record (subject, date,
- * direction, link), written by the nightly sweep. Nothing about a client's
- * restricted details is shown here - the context beside a matched message is
- * their name, number, stage, who has them and their counselor.
+ * token. A message body is shown and never stored.
+ *
+ * What the CRM keeps is what somebody filed (owner, 23 Oct 2026). Nothing in
+ * a mailbox is read, scored or stored unless a person drags it onto a client
+ * or picks the name - and then only the log line: subject, date, direction,
+ * counterpart, link. A reply on a thread already filed comes with it, because
+ * the decision was made when the thread was filed.
+ *
+ * Nothing about a client's restricted details is shown here - the context
+ * beside a matched message is their name, number, stage, who has them and
+ * their counselor.
  */
 type Params = { box?: string; folder?: string; q?: string; id?: string };
 
@@ -57,15 +64,19 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
   };
 
   const supabase = await createClient();
-  const [listResult, clientsResult, counselorsResult, staffResult] = await Promise.all([
+  const [listResult, clientsResult, counselorsResult, staffResult, syncResult, categoryResult] = await Promise.all([
     mailbox === false
       ? Promise.resolve({ error: "That mailbox is not one you can open here." as string, messages: [] as MessageSummary[] })
       : listMessages(access.token, { mailbox, folder, search: q })
           .then((messages) => ({ error: null as string | null, messages }))
           .catch((e) => ({ error: e instanceof Error ? e.message : "Microsoft did not answer.", messages: [] as MessageSummary[] })),
-    supabase.from("clients").select("id, name, client_no, email, stage, assigned_staff_id, counselor_id"),
+    supabase.from("clients").select("id, name, client_no, email, stage, assigned_staff_id, counselor_id, status"),
     supabase.from("counselors").select("id, name, email, office"),
     supabase.from("staff").select("id, name"),
+    // When this person's mailbox was last swept, which is the question
+    // somebody asks of a mail screen that is not their mail client.
+    supabase.from("microsoft_sync_state").select("last_run_at").eq("staff_id", access.me.id).maybeSingle(),
+    supabase.from("client_file_categories").select("key, label").eq("active", true).order("sort_order"),
   ]);
 
   // Who an address belongs to, the same matching the sweep logs by.
@@ -86,7 +97,7 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
   let open: Awaited<ReturnType<typeof getMessage>> | null = null;
   let openError: string | null = null;
   let attachments: Awaited<ReturnType<typeof listAttachments>> = [];
-  let logged: { client_id: string | null; counselor_id: string | null }[] = [];
+  let logged: { id: string; client_id: string | null; counselor_id: string | null; filed_how: string | null }[] = [];
   if (params.id && mailbox !== false) {
     try {
       [open, attachments] = await Promise.all([
@@ -95,14 +106,31 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
       ]);
       const { data } = await supabase
         .from("mail_log")
-        .select("client_id, counselor_id")
-        .eq("graph_message_id", params.id);
+        .select("id, client_id, counselor_id, filed_how")
+        .eq("graph_message_id", params.id)
+        .is("unfiled_at", null);
       logged = data ?? [];
     } catch (e) {
       openError = e instanceof MailError || e instanceof Error ? e.message : "That message could not be opened.";
     }
   }
   const openMatch = open ? matchOf(open) : null;
+
+  // Where this message is filed, if anywhere. The record, not the address
+  // match: a message can be matched to a client by address and filed on
+  // nobody, which is the whole point of filing being a decision.
+  const filedOn = logged.find((l) => l.client_id);
+  const filedClient = filedOn ? clients.find((c) => c.id === filedOn.client_id) ?? null : null;
+
+  // Who a message can be dropped on: the caseload, closed clients last,
+  // because filing a reply onto somebody closed is rarer than onto somebody
+  // being worked with and the list is read from the top.
+  const targets = clients
+    .filter((c) => c.status !== "Deleted")
+    .map((c) => ({ id: c.id, name: c.name, client_no: c.client_no, stage: c.stage ?? "" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const categories = (categoryResult.data ?? []).map((c) => c.key);
+  const lastSync = syncResult.data?.last_run_at ?? null;
 
   const boxes: { key: string; label: string; folder: Folder }[] = [
     { key: "me", label: "Inbox", folder: "inbox" },
@@ -114,7 +142,10 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
     <>
       <PageHead
         title="Mail"
-        context={mailbox ? `The shared mailbox ${mailbox}` : `Your Outlook mail, ${access.email}`}
+        context={
+          (mailbox ? `The shared mailbox ${mailbox}` : `Your Outlook mail, ${access.email}`) +
+          ` · synced ${fmtAgo(lastSync)}`
+        }
         actions={
           access.canSend ? (
             <Link className="btn gold" href="/mail/compose" style={{ textDecoration: "none" }}>
@@ -177,6 +208,7 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
                 const who = folder === "sent" ? m.to.map((a) => a.name || a.address).join(", ") : m.from?.name || m.from?.address || "";
                 return (
                   <li key={m.id}>
+                    <DragSource id={m.id}>
                     <Link href={href({ id: m.id })} className={"mail-row" + (m.id === params.id ? " on" : "") + (m.isRead ? "" : " unread")} aria-current={m.id === params.id ? "true" : undefined}>
                       <span className="mail-who">
                         {!m.isRead && <span className="chip gold">New</span>} {who}
@@ -191,6 +223,7 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
                         </span>
                       )}
                     </Link>
+                    </DragSource>
                   </li>
                 );
               })}
@@ -198,13 +231,45 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
           )}
         </div>
 
-        <div>
+        <div style={{ display: "grid", gap: 16, alignItems: "start" }}>
           {openError && <div className="alert bad">{openError}</div>}
           {!open && !openError && (
             <div className="card">
               <p className="empty" style={{ margin: 0 }}>
-                Choose a message to read it, live from Outlook and never kept in the CRM.
+                Choose a message to read it, live from Outlook and kept in the CRM only if you file it.
               </p>
+            </div>
+          )}
+
+          {/* Filing, beside the message rather than inside it: the same panel
+              is the drop target for anything dragged out of the list, so it
+              has to be there whether a message is open or not. */}
+          <FileToClient
+            clients={targets}
+            box={boxParam}
+            selected={open?.id ?? null}
+            selectedSubject={open?.subject ?? ""}
+          />
+
+          {filedClient && filedOn && (
+            <div className="card">
+              <div className="row2" style={{ justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span>
+                  Filed on{" "}
+                  <Link href={`/clients/${filedClient.id}`}>
+                    <b>{filedClient.name}</b>
+                  </Link>
+                  <span className="lock">
+                    {" "}
+                    {filedOn.filed_how === "auto"
+                      ? "by the sync, on a thread somebody filed"
+                      : filedOn.filed_how === "sent"
+                        ? "because the practice sent it"
+                        : "by hand"}
+                  </span>
+                </span>
+                <Unfile mailId={filedOn.id} clientId={filedClient.id} clientName={filedClient.name} />
+              </div>
             </div>
           )}
           {open && (
@@ -250,9 +315,9 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
                     </div>
                   )}
                   <div className="lock">
-                    {logged.length > 0
-                      ? "Logged on the record - subject, date, direction and link."
-                      : "Logged on the record by the nightly sync - subject, date, direction and link, never the text."}
+                    {filedClient
+                      ? "On the record - subject, date, direction and link, never the text."
+                      : "Not on anybody's record. File it to keep it."}
                   </div>
                 </aside>
               )}
@@ -264,15 +329,29 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
                   <div className="label" style={{ marginBottom: 6 }}>
                     Attachments
                   </div>
-                  <div className="row2" style={{ gap: 6 }}>
+                  <div style={{ display: "grid", gap: 8 }}>
                     {attachments.map((a) => (
-                      <a
-                        key={a.id}
-                        className="btn ghost"
-                        href={`/api/mail/attachment?${new URLSearchParams({ box: boxParam, m: open!.id, a: a.id, n: a.name })}`}
-                      >
-                        {a.name} <span className="lock">({Math.max(1, Math.round(a.size / 1024))} KB)</span>
-                      </a>
+                      <div key={a.id} className="row2" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        <a
+                          className="btn ghost"
+                          href={`/api/mail/attachment?${new URLSearchParams({ box: boxParam, m: open!.id, a: a.id, n: a.name })}`}
+                        >
+                          {a.name} <span className="lock">({Math.max(1, Math.round(a.size / 1024))} KB)</span>
+                        </a>
+                        {/* Only off a filed message: an attachment belongs to
+                            a client's record, and a message nobody has filed
+                            is not on one. */}
+                        {filedClient && (
+                          <KeepAttachment
+                            messageId={open!.id}
+                            attachmentId={a.id}
+                            name={a.name}
+                            clientId={filedClient.id}
+                            box={boxParam}
+                            categories={categories}
+                          />
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

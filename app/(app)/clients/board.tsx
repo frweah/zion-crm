@@ -348,6 +348,12 @@ function SidePanel({
         <Link className="btn ghost" href={`/clients/${card.client_id}`}>
           Open the record
         </Link>
+        {/* Writing to the counselor is the commonest next thing after moving
+            a card, so it is here rather than two screens away (owner, 23 Oct
+            2026). It files on the client like any message from the record. */}
+        <Link className="btn ghost" href={`/mail/compose?client=${card.client_id}`}>
+          Write
+        </Link>
       </div>
     </aside>
   );

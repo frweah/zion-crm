@@ -327,6 +327,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // Each feature's settings on its own page (Design language, §3); what
       // stays on System is the record the system keeps about itself.
       { label: "Settings", href: "/admin/settings-hub", roles: ADMIN, note: "One page per feature." },
+      // The letters the practice keeps writing, with the signature and the
+      // standing recipient beside them (owner, 23 Oct 2026).
+      { label: "Templates", href: "/admin/templates", roles: ADMIN, note: "Authorization requests, report covers, renewal chases." },
       { label: "System", href: "/admin/system", roles: ADMIN, note: "The access log, and what the system records about itself." },
       { label: "Money", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },

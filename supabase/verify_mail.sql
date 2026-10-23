@@ -23,10 +23,14 @@ begin
   select string_agg(column_name, ',' order by column_name) into v_cols
     from information_schema.columns
    where table_schema = 'public' and table_name = 'mail_log';
-  if v_cols <> 'client_id,conversation_id,counselor_id,counterpart_email,created_at,direction,graph_message_id,id,mailbox_address,mailbox_key,sent_at,staff_id,subject,web_link' then
-    failures := failures || format('FAILED: mail_log has columns beyond its log line: %s', v_cols)::text;
+  -- The log line, and - since filing became a decision somebody makes
+  -- (0233) - the record of that decision: who filed it, when, how, whether
+  -- the thread is restricted, and who took it off again and why. Still not a
+  -- word of the message.
+  if v_cols <> 'client_id,conversation_id,counselor_id,counterpart_email,created_at,direction,filed_at,filed_by,filed_how,graph_message_id,id,mailbox_address,mailbox_key,restricted,sent_at,staff_id,subject,unfiled_at,unfiled_by,unfiled_reason,web_link' then
+    failures := failures || format('FAILED: mail_log has columns beyond its log line and its filing: %s', v_cols)::text;
   else
-    raise notice 'ok  mail_log holds the log line only - subject, date, direction, counterpart, link';
+    raise notice 'ok  mail_log holds the log line and who filed it - never the message';
   end if;
 
   select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name) into v_extra
@@ -39,7 +43,11 @@ begin
        -- Chat and texts, written in the CRM (0104) - never an email's body.
        ('messages', 'body'),
        -- Text templates: the practice's own words, ready to send (0105).
-       ('sms_templates', 'body'));
+       ('sms_templates', 'body'),
+       -- The three letters the practice keeps writing (0238). The practice's
+       -- own words again, which is the whole distinction this list draws:
+       -- what the practice wrote is kept, what arrived in a mailbox is not.
+       ('mail_templates', 'body'));
   if v_extra is not null then
     failures := failures || format('FAILED: somewhere a message body could be kept: %s', v_extra)::text;
   else

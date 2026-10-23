@@ -5812,3 +5812,299 @@ closing them."* With that one paid, closing went through, took the one Due
 authorization with it, and said so.
 
 113 of 113 verify scripts still pass.
+
+---
+
+## Client email (23 Oct 2026)
+
+The practice already read its mail in the CRM and already sent from it. What
+it could not do was keep any of it on a client, which meant the record of what
+had been said to a counselor lived in whoever's Outlook had said it.
+
+### Filing is a decision somebody makes
+
+The sentence the whole feature is built on is the owner's: *"Nothing in a
+mailbox is read, scored or stored unless filed; the CRM stores only filed
+messages."* Everything below follows from taking it literally.
+
+`mail_log` has carried a line about every message that matched a known
+address since the sync was built — subject, date, direction, counterpart,
+link. 0233 gave it the record of the *decision*: `filed_by`, `filed_at`,
+`filed_how` (one of **sent**, **auto**, **by hand**), `restricted`, and
+`unfiled_at`/`unfiled_by`/`unfiled_reason`.
+
+Three ways a message comes to be on a client, and the screen says which:
+
+- **sent** — the practice wrote it from the record.
+- **by hand** — somebody dragged it onto a client, or opened it and pressed a
+  name.
+- **auto** — a reply arrived on a thread somebody had already filed. This is
+  the only way a message reaches a client without a person choosing it, and it
+  is not really an exception: the choice was made when the thread was filed
+  and the sweep is honouring it. `client_for_thread` answers which client a
+  conversation belongs to, **ignoring unfiled rows** — taking a thread off a
+  client is a decision too, and a reply should not quietly undo it.
+
+**Unfiling keeps the row.** It has to: the owner asked for unfiling to be
+logged, and a log you can erase by using it is not a log. The row stays with
+the reason on it and drops out of `client_mail`, which is what "removes the
+message from the client's view, never from the mailbox" means from the
+database's side.
+
+### Where two instructions pulled against each other
+
+> "Replies to a filed thread file onto the same client, marked auto; **anyone
+> can unfile one**."
+> "Unfile: the person who filed, or Admin."
+
+Under the second rule alone, an auto-filed reply could only be unfiled by an
+Admin — because nobody filed it, so nobody is the person who filed it. The two
+are not actually in conflict. The second exists because the person who put
+something on a record knows whether it belonged; the first says what to do
+when there is no such person. 0242 reads them together: **a message nobody
+filed can be taken off by anybody on the staff; a message somebody filed stays
+theirs or Admin's.**
+
+### Composing from the record
+
+`/mail/compose?client=…` is a different screen from the blank one, not the
+same screen with the boxes filled in. The recipients are **picked, not
+typed** — counselor, billing office, the client's own address if it is on
+file, the assigned staff member, each from the record — because an address
+typed into a box is the one way a client's business reaches the wrong person
+with the same surname. Anybody else goes in Cc by hand.
+
+Three rules the owner set, checked in this order:
+
+1. **A client is written to at the address on their own record.** Any
+   recipient that is *some* client's address has to be *this* client's.
+2. **A form goes as an attachment, never a link.** A body containing a link to
+   the CRM, the portal or a storage URL is refused in one sentence naming the
+   fix.
+3. **Documents are attached from the client's file**, by reference. The bytes
+   come out of storage through the sender's own client, so the storage policy
+   decides whether they may have the file — a restricted document somebody
+   cannot open is one they cannot attach, and that is one rule in one place
+   rather than two that have to agree.
+
+Anything sent is filed on the client as **sent**, and a line goes in the
+contact log with who wrote, to whom, about what and when.
+
+### Finding out what was sent
+
+`sendMail` answers 202 and says nothing, which was fine while nobody needed to
+know what had been sent and is useless now that it has to be filed. So the
+message is written as a draft first — Graph answers that with an id and a
+conversation — and the draft is then sent. Sending moves it to Sent Items and
+may change its id, so the copy there is found by thread (a `$filter` on
+`conversationId` with a sort is the kind of query Exchange answers with "too
+complex", so the last ten are read and matched in memory). If it is not
+indexed yet the draft's facts are filed with its thread, and the sweep files
+the Sent Items copy onto the same client when it next runs — two rows on one
+thread, both correctly on the client, which the record shows as one
+conversation.
+
+### The three letters
+
+Admin → Templates holds **Authorization request**, **Progress report cover
+note** and **Renewal chase**, with the merge fields the owner named:
+`{client}` `{client_no}` `{counselor}` `{authorization}` `{service}`
+`{issued}` `{ends}` `{me}` `{signature}`. The merge happens in the database so
+the fields come from one place and a name is spelt the way the record spells
+it. A field with nothing behind it leaves a visible gap — `——` — because a
+sentence that reads perfectly with the date missing is a sentence that gets
+sent with the date missing. Editing refuses an unknown field by name; a
+counselor should never receive `{client_number}` in curly brackets.
+
+Note and text templates stay where they are edited today. Moving them would be
+a change nobody asked for.
+
+### Who hears about a reply
+
+A reply that filed itself tells the client's assigned staff member and one
+standing recipient the practice names — Margaret, Admin-configurable on
+Admin → Templates — in the bell and on My day. **Nobody else**, and that is
+why the notification is written by name rather than through `notify_person`,
+which stamps the recipient's *role* into `roles`. The read policy on
+`notifications` lets anybody with that role see the row, so the convenient
+path would have shown one client's correspondence to every Job Coach in the
+practice. An empty `roles` and a `staff_id` is the same table saying "this
+person, nobody else".
+
+Only an **incoming** reply, and only an auto-filed one. Outgoing mail is
+somebody in the practice writing and they know they wrote it; a message filed
+by hand was read by the person filing it.
+
+### Mail within a minute, with the sweep still behind it
+
+Each connected mailbox is subscribed to Microsoft's change notifications
+(0241). Microsoft posts to `/api/graph/notify`, which echoes the validation
+token to be created at all, checks that every notification carries the
+`clientState` its row holds, believes nothing else in the payload, and syncs
+that mailbox. The sync runs *after* the response, because Microsoft treats a
+slow endpoint as a failing one and drops the subscription after enough of
+them.
+
+`includeResourceData` is false on purpose. A notification carrying the message
+would be a body arriving uninvited, which is the one thing the whole feature
+is arranged to prevent.
+
+**The fifteen-minute sweep stays, and it is what creates and renews the
+subscriptions.** A delegated subscription is tied to a token that can be
+revoked and expires inside three days whatever happens; anything depending on
+a webhook arriving needs something behind it that does not. The subscription
+makes mail arrive sooner. It is not what makes it arrive. The Mail screen says
+when the mailbox was last swept, in words rather than a timestamp — "synced 4
+minutes ago" answers the question somebody is actually asking.
+
+### The rule that had to change, and the check that had to get sharper
+
+`scripts/check-mail.mjs` held one blunt rule: nothing that touches mail
+touches the database. Filing made that untrue — a sent message has to land on
+the client and in the contact log — and the honest response was not to weaken
+the rule but to write the thing it had been protecting.
+
+`lib/mail-filing.ts` is now the one module that writes to the database about
+an email, and it is deliberately the one module that cannot read one: it
+imports neither Graph module, and none of its types has anywhere to put a
+body. The check holds three things that together mean a body can never reach a
+column — the two Graph modules cannot see the database; a module that can see
+a body writes nothing itself; and the filing module cannot see a body. The far
+end is `supabase/verify_mail.sql`: no column exists to put one in.
+
+Each part was proved by putting the fault back and watching it fail. Four out
+of five did. The fifth — "this check is checking nothing if the filing module
+has stopped writing" — **passed the bug**, because `DB_WRITE` matched
+`createHash(...).update(bytes)` and read a hash as a database write. It now
+matches supabase's own shape, a table and then the verb.
+
+### Verified
+
+`supabase/verify_client_email.sql`, rolled back, 21 assertions:
+
+- a message sent from the record is on the client and says it was sent, and
+  the contact log carries who wrote to whom about what
+- a reply on a filed thread files itself, marked auto, **with nobody's name on
+  it**
+- unfiling is refused without a reason; it comes off the client; **the row
+  stays with who took it off and why**; a reply nobody filed can be taken off
+  by anybody on the staff; a fully unfiled thread stops answering, so a reply
+  does not undo the decision
+- nothing unfiled can be stored at all — asked as "there is nowhere to put one
+  and no way in", not as "there is none", which proves nothing: no column a
+  body could occupy, nobody signed in can insert a row, and filing refuses a
+  client who is not there
+- a restricted thread is readable by the client's own staff member and is **a
+  row with no words in it** to everybody else — redacted, not hidden
+- the reply tells the assigned staff member and the standing recipient, none
+  of the notifications carries a role, and a colleague in the same role who was
+  told nothing can read none of them
+- it is on My day as well as in the bell
+- every template fills in, in one question, and leaves no field in brackets
+
+Two of those were bent to be sure: a notification stamped with a role, and a
+`client_mail` that hides a restricted thread instead of redacting it, both
+inside a rolled-back transaction. The first attempt at the role test **read a
+deliberately leaking notification as unreadable**. Every role in the practice
+currently has exactly one person in it, so asking as whoever happens to be
+third proves nothing — their role would not match either way. The fixture now
+borrows the assigned staff member's role for the length of the transaction, so
+the condition is made rather than hoped for.
+
+### What the suite caught on the way
+
+Four failures that were nothing to do with mail, and two that were:
+
+**A grant nobody wrote.** `org_settings` is granted column by column, because
+it holds the practice's EIN. Two new settings arrived without grants, and the
+screen that edits them would have read null and written nothing, silently.
+This is the third time — 0218 is the same fault on `require_two_factor` and
+says so in its own first paragraph.
+
+**Four writers where there should have been one.** Adding a defaulted
+parameter to `log_mail_message_internal` and its three wrappers created a
+*second function beside each*, because a new parameter is a new signature. Two
+things went wrong at once: a ten-argument call became ambiguous, and — worse —
+a new function starts with EXECUTE to PUBLIC, so three writers that had been
+deliberately withheld from `authenticated` arrived wide open. 0235 drops the
+originals and sets the grants explicitly. The lesson the elevated-function
+sweep already wrote down, learned again: **a new signature is a new function,
+with a new function's default grant.**
+
+**An elevated reader that asked nothing.** `verify_portal_rls` named
+`client_for_thread` — security definer, granted to anybody signed in, checking
+nothing. It is a read and what it reads is small, but "small" is not a rule:
+handed a conversation id it answers which client that correspondence belongs
+to. It cannot simply be revoked, because a person's own sync calls it with
+their session, so it asks `reader_may_answer` instead.
+
+**A median that had outlived its fixture.** `verify_money_baseline` asserted
+the median days-to-submit reads 10, which was true while the fixture's
+authorization was the only one the practice had ever submitted. On 21 and 22
+October two real ones were submitted, 22 and 23 days after they arrived, and
+the median became 16. The measure was right and the assertion was quoting a
+table it does not own — the same mistake the retention figures in that script
+had already been rewritten for once. It now asserts the median lies inside the
+spread the practice actually took, and that adding a faster authorization
+pulls it towards itself and never away.
+
+**A checklist line that answered neither yes nor no.**
+`verify_submission_gate` asks that no line of the submission checklist, on any
+authorization the practice actually has, comes back null — because a null
+reads as a tick. One did: *"Service dates are the work's own"*, on V1037898.
+The test was `not (service_start = start_date and service_end = end_date)`,
+and that authorization has a service end in October and **no end date at
+all**. So `service_end = end_date` is null rather than false, `true and null`
+is null, and `not null` is null — three-valued logic in a line that looks like
+it cannot have any. `is distinct from` is the comparison that was meant, and
+it gives the honest answer as well as the useful one: the work's end date is
+recorded and the authorization has none, so the dates are the work's own.
+
+**And two new tables that did not refuse the system account.**
+`verify_system_account` named `microsoft_subscriptions`. `mail_templates` went
+with it, though nothing complained: it had the three policies hand-written,
+which is the same three policies spelled a second time, and
+`apply_system_read_only` is the one spelling.
+
+114 of 114 verify scripts pass.
+
+### On screen
+
+- **Mail** — a message drags onto a name in the side list, or opens and files
+  by pressing one; "the whole thread" brings the rest of the conversation with
+  it. A filed message says which client it is on and how it got there, and
+  offers to take it off. An attachment on a filed message can be kept on the
+  client's record, under the one-document rule. The header says when the
+  mailbox was last swept.
+- **The client record** — a **Mail** section above the Activity timeline:
+  filed threads newest first, the newest message standing for each and a count
+  when there are more, because six rows saying "Re: Re: Re:" are the same
+  thing six times. Nothing there is the message: opening one reads it live
+  from Outlook, because there is no copy. A thread in a colleague's mailbox
+  says so and offers Outlook's own link. **Restrict** is here, with the same
+  rule as a restricted document.
+- **The board's card panel** — **Write**, because writing to the counselor is
+  the commonest next thing after moving a card.
+- **Admin → Templates** — the three letters, the signature, and who hears
+  about a reply.
+
+### Smoke
+
+A Reports account opens Compose on a ZZ client and the template list loads.
+Opened rather than posted: posting would send a real email to a real counselor
+on every deploy. What a GET proves is the part that breaks — the screen
+rendering at all, under a role that is not Admin, with its recipient list and
+its three templates on it, each of which comes from a different elevated
+function.
+
+### Still open
+
+**The sweep stores mail nobody filed.** Of the 176 rows in `mail_log` today,
+101 are on a *counselor* and no client, put there by the address sweep with
+nobody deciding anything — which is not what *"the CRM stores only filed
+messages"* says. They are kept for now, because deleting a year of
+correspondence records is not something to do without being asked, and because
+the sweep's counselor matching predates this instruction by months. It is the
+owner's call: either those rows go and the sweep stops writing them, or
+counselor mail is a deliberate second case and the sentence means client mail.
+Either way, nothing new reaches a client without somebody filing it.

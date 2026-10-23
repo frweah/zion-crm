@@ -318,6 +318,12 @@ const RPC_FUNCTIONS = [
   "close_client",
   "reactivate_client",
   "deactivate_client",
+  "client_for_thread",
+  "file_mail_to_client",
+  "unfile_mail",
+  "set_mail_restricted",
+  "mail_template_for",
+  "mail_templates_for",
   "authorizations_fall_due",
   "close_empty_coaching_months",
   // Removing a client who should never have been a record (0178).

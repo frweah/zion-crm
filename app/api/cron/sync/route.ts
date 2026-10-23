@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncStaffMember, syncSharedMailbox } from "@/lib/sync";
+import { syncStaffMember, syncSharedMailbox, type TokenAccess } from "@/lib/sync";
 import { sweepAccess } from "@/lib/sync-callers";
+import { randomUUID } from "node:crypto";
 import { ensureFreshToken } from "@/lib/graph";
+import { notifyUrl, renew, subscribe } from "@/lib/mail-subscriptions";
 import { pushPendingEvents } from "@/lib/calendar-push";
 
 export const maxDuration = 300;
@@ -50,6 +52,12 @@ export async function GET(request: NextRequest) {
       // unreachable reaches the calendar before the pull looks at it.
       const sent = await pushPendingEvents(admin, staffId, tokens);
       const result = await syncStaffMember(admin, staffId, tokens, writeMail);
+      // And make sure Microsoft will tell us before the next run (0241). The
+      // sweep is what keeps the subscription alive, and the subscription is
+      // what makes mail arrive in a minute rather than fifteen. Neither is
+      // load-bearing for the other: a subscription that cannot be made is
+      // recorded and the sweep carries on.
+      const watch = await keepWatching(admin, staffId, tokens);
       summary.push({
         staff_id: staffId,
         events_pushed: sent.pushed,
@@ -57,6 +65,7 @@ export async function GET(request: NextRequest) {
         mail_logged: result.mailLogged,
         events_pulled: result.eventsPulled,
         skipped_no_match: result.skippedNoMatch,
+        subscription: watch,
         errors: result.errors,
       });
     } catch (err) {
@@ -108,6 +117,7 @@ export async function GET(request: NextRequest) {
           p_direction: row.direction,
           p_counterpart: row.counterpart,
           p_web_link: row.webLink,
+          p_filed_how: row.filedHow ?? null,
         });
         return { logged: data === true, error: error?.message };
       });
@@ -129,4 +139,90 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({ ran: summary.length, results: summary });
+}
+
+/**
+ * Make sure Microsoft will tell us about this mailbox (0241).
+ *
+ * Called once per person per sweep, which is every fifteen minutes - so the
+ * cheap case has to be cheap: a live subscription with hours left is left
+ * alone and costs one row read. Anything inside its last six hours is
+ * renewed, and anything missing or already gone is made again.
+ *
+ * Nothing here is allowed to stop the sweep. A subscription cannot be created
+ * from a machine Microsoft cannot reach, cannot be created before the route
+ * is deployed, and stops working the moment somebody disconnects Outlook -
+ * none of which is a reason for a person's mail not to be swept. The failure
+ * is written on the row and the sweep moves on.
+ */
+async function keepWatching(
+  admin: ReturnType<typeof createAdminClient>,
+  staffId: string,
+  tokens: TokenAccess,
+): Promise<string> {
+  if (!notifyUrl()) return "no public address";
+
+  const { data: existing } = await admin
+    .from("microsoft_subscriptions")
+    .select("subscription_id, client_state, expires_at")
+    .eq("staff_id", staffId)
+    .eq("mailbox_address", "")
+    .maybeSingle();
+
+  const live =
+    existing?.subscription_id &&
+    existing.expires_at &&
+    new Date(existing.expires_at).getTime() - Date.now() > 6 * 3600 * 1000;
+  if (live) return "live";
+
+  try {
+    const bundle = await tokens.read();
+    if (!bundle) return "not connected";
+    const token = await ensureFreshToken(bundle, tokens.write);
+
+    // A state that outlives the subscription it belongs to, so renewing does
+    // not invalidate notifications already in flight.
+    const clientState = existing?.client_state || randomUUID();
+
+    let made;
+    if (existing?.subscription_id) {
+      try {
+        made = await renew(token, existing.subscription_id);
+      } catch {
+        // Microsoft has dropped it, or it was never there. Making a new one
+        // is the same act from here.
+        made = await subscribe(token, "", clientState);
+      }
+    } else {
+      made = await subscribe(token, "", clientState);
+    }
+
+    await admin.from("microsoft_subscriptions").upsert(
+      {
+        staff_id: staffId,
+        mailbox_address: "",
+        subscription_id: made.id,
+        client_state: clientState,
+        expires_at: made.expiresAt,
+        renewed_at: new Date().toISOString(),
+        last_error: "",
+      },
+      { onConflict: "staff_id,mailbox_address" },
+    );
+    return existing?.subscription_id === made.id ? "renewed" : "subscribed";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "The subscription failed.";
+    await admin.from("microsoft_subscriptions").upsert(
+      {
+        staff_id: staffId,
+        mailbox_address: "",
+        subscription_id: existing?.subscription_id ?? "",
+        client_state: existing?.client_state || randomUUID(),
+        expires_at: existing?.expires_at ?? null,
+        last_error: message.slice(0, 500),
+      },
+      { onConflict: "staff_id,mailbox_address" },
+    );
+    return "not subscribed";
+  }
 }

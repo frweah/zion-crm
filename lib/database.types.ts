@@ -2779,6 +2779,13 @@ export type Database = {
           created_at: string;
           mailbox_address: string;
           mailbox_key: string | null;
+          filed_by: string | null;
+          filed_at: string | null;
+          filed_how: string | null;
+          restricted: boolean;
+          unfiled_at: string | null;
+          unfiled_by: string | null;
+          unfiled_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -2795,6 +2802,13 @@ export type Database = {
           created_at?: string;
           mailbox_address?: string;
           mailbox_key?: string | null;
+          filed_by?: string | null;
+          filed_at?: string | null;
+          filed_how?: string | null;
+          restricted?: boolean;
+          unfiled_at?: string | null;
+          unfiled_by?: string | null;
+          unfiled_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -2811,6 +2825,46 @@ export type Database = {
           created_at?: string;
           mailbox_address?: string;
           mailbox_key?: string | null;
+          filed_by?: string | null;
+          filed_at?: string | null;
+          filed_how?: string | null;
+          restricted?: boolean;
+          unfiled_at?: string | null;
+          unfiled_by?: string | null;
+          unfiled_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      mail_templates: {
+        Row: {
+          key: string;
+          label: string;
+          subject: string;
+          body: string;
+          sort_order: number;
+          active: boolean;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          subject?: string;
+          body?: string;
+          sort_order?: number;
+          active?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          subject?: string;
+          body?: string;
+          sort_order?: number;
+          active?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -2910,6 +2964,45 @@ export type Database = {
           last_refreshed_at?: string | null;
           last_error?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      microsoft_subscriptions: {
+        Row: {
+          staff_id: string;
+          mailbox_address: string;
+          subscription_id: string;
+          client_state: string;
+          expires_at: string | null;
+          created_at: string;
+          renewed_at: string | null;
+          last_notified_at: string | null;
+          notifications: number;
+          last_error: string;
+        };
+        Insert: {
+          staff_id: string;
+          mailbox_address?: string;
+          subscription_id?: string;
+          client_state: string;
+          expires_at?: string | null;
+          created_at?: string;
+          renewed_at?: string | null;
+          last_notified_at?: string | null;
+          notifications?: number;
+          last_error?: string;
+        };
+        Update: {
+          staff_id?: string;
+          mailbox_address?: string;
+          subscription_id?: string;
+          client_state?: string;
+          expires_at?: string | null;
+          created_at?: string;
+          renewed_at?: string | null;
+          last_notified_at?: string | null;
+          notifications?: number;
+          last_error?: string;
         };
         Relationships: [];
       };
@@ -3225,6 +3318,8 @@ export type Database = {
           placement_staff_id: string | null;
           billing_notify_staff_id: string | null;
           require_two_factor: boolean;
+          mail_notice_staff_id: string | null;
+          mail_signature: string;
         };
         Insert: {
           id?: boolean;
@@ -3249,6 +3344,8 @@ export type Database = {
           placement_staff_id?: string | null;
           billing_notify_staff_id?: string | null;
           require_two_factor?: boolean;
+          mail_notice_staff_id?: string | null;
+          mail_signature?: string;
         };
         Update: {
           id?: boolean;
@@ -3273,6 +3370,8 @@ export type Database = {
           placement_staff_id?: string | null;
           billing_notify_staff_id?: string | null;
           require_two_factor?: boolean;
+          mail_notice_staff_id?: string | null;
+          mail_signature?: string;
         };
         Relationships: [];
       };
@@ -6190,6 +6289,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_mail: {
+        Row: {
+          id: string | null;
+          client_id: string | null;
+          conversation_id: string | null;
+          graph_message_id: string | null;
+          sent_at: string | null;
+          direction: string | null;
+          restricted: boolean | null;
+          filed_how: string | null;
+          filed_at: string | null;
+          filed_by: string | null;
+          filed_by_name: string | null;
+          can_open: boolean | null;
+          subject: string | null;
+          counterpart_email: string | null;
+          web_link: string | null;
+          mailbox_address: string | null;
+        };
+        Relationships: [];
+      };
       client_next_up: {
         Row: {
           client_id: string | null;
@@ -6715,6 +6835,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      client_for_thread: {
+        Args: { p_conversation: string | null };
+        Returns: string;
+      };
       client_last_activity_for: {
         Args: { p_clients: string[] | null };
         Returns: { client_id: string | null; last_activity_at: string | null }[];
@@ -6822,6 +6946,10 @@ export type Database = {
       file_emailed_day: {
         Args: { p_staff: string | null; p_day: string | null; p_file_id: string | null };
         Returns: string;
+      };
+      file_mail_to_client: {
+        Args: { p_client: string | null; p_messages?: Json | null; p_thread?: string | null; p_how?: string | null };
+        Returns: { filed: number | null; moved: number | null }[];
       };
       fmt_hours: {
         Args: { n: number | null };
@@ -7000,20 +7128,28 @@ export type Database = {
         Returns: { attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
       };
       log_mail_message: {
-        Args: { p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
+        Args: { p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null; p_filed_how?: string | null };
         Returns: boolean;
       };
       log_mail_message_for_sync: {
-        Args: { p_staff_id: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
+        Args: { p_staff_id: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null; p_filed_how?: string | null };
         Returns: boolean;
       };
       log_shared_mail_message: {
-        Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null };
+        Args: { p_mailbox: string | null; p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null; p_filed_how?: string | null };
         Returns: boolean;
       };
       log_staff_document: {
         Args: { p_staff: string | null; p_action: string | null; p_changes: Json | null; p_note?: string | null };
         Returns: undefined;
+      };
+      mail_template_for: {
+        Args: { p_key: string | null; p_client?: string | null; p_authorization?: string | null };
+        Returns: { subject: string | null; body: string | null }[];
+      };
+      mail_templates_for: {
+        Args: { p_client?: string | null; p_authorization?: string | null };
+        Returns: { key: string | null; label: string | null; subject: string | null; body: string | null }[];
       };
       mark_conversation_spam: {
         Args: { p_conversation: string | null; p_spam?: boolean | null };
@@ -7483,6 +7619,10 @@ export type Database = {
         Args: { p_legal_name: string | null; p_address: string | null; p_ein: string | null };
         Returns: undefined;
       };
+      set_mail_restricted: {
+        Args: { p_conversation: string | null; p_client: string | null; p_restricted: boolean | null };
+        Returns: number;
+      };
       set_microsoft_error: {
         Args: { p_staff_id: string | null; p_error: string | null };
         Returns: undefined;
@@ -7590,6 +7730,10 @@ export type Database = {
       two_factor_state: {
         Args: Record<string, never>;
         Returns: { required: boolean | null; enrolled: boolean | null }[];
+      };
+      unfile_mail: {
+        Args: { p_id: string | null; p_reason: string | null };
+        Returns: { subject: string | null }[];
       };
       vendor_1099_candidates: {
         Args: { p_year: number | null };

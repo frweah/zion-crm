@@ -47,9 +47,15 @@ const PUBLIC_PATHS = [
   "/api/sms",
   "/api/agent",
   "/api/widget",
+  "/api/graph",
   "/widget.js",
   "/portal",
 ];
+// /api/graph is Microsoft's change notifications (0241). Same shape as the
+// others: no session, and it proves itself instead - it echoes a validation
+// token to be created at all, and every notification after that has to carry
+// the secret the subscription was made with. A session check here would fail
+// the handshake and no subscription would ever exist.
 // /portal is the client portal. Its sign-in, code and terms pages are for
 // people with no session, and every page past them checks its own session
 // (lib/portal/session.ts requirePortal) - a CRM login page is the wrong place

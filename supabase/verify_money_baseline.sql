@@ -33,6 +33,9 @@ declare
   v_o_uid  uuid := gen_random_uuid();
   v_id     uuid;
   v_as_of  date := public.practice_today() - 1;
+  v_fast   integer;
+  v_slow   integer;
+  v_dts0   numeric;
   v_screen numeric;
   v_kept   numeric;
   v_n      integer;
@@ -148,16 +151,64 @@ begin
       into v_dts, v_dtp, v_place, v_r4, v_k4, v_r90, v_k90, v_stages
       from public.money_baselines where id = v_id2;
 
-    if coalesce(v_dts, -1) <> 10 then
-      failures := failures || format('FAILED: the median to submit reads %s, not the 10 days it took', v_dts)::text;
+    /*
+     * Asserted as a spread rather than as a number, for the same reason the
+     * retention figures below are asserted as a relationship.
+     *
+     * These two read 10 and 30 when they were written, because the fixture's
+     * authorization was the only one the practice had ever submitted and its
+     * ten days were the whole median. On 21 and 22 October 2026 two real
+     * authorizations were submitted, twenty-two and twenty-three days after
+     * they arrived, and the median became 16 - the measure was right and the
+     * assertion was quoting a table it does not own. Left as it was it would
+     * have failed again on every billing week for the rest of the practice's
+     * life.
+     *
+     * What is asserted instead cannot drift and still catches the mistakes
+     * worth catching: a measure that is nought when it should be unknown, a
+     * median computed on the wrong columns (which comes out negative), and a
+     * window that takes in authorizations it should not. The fixture's own
+     * ten days are asserted through their effect: a faster row pulls the
+     * median towards itself and never away from it.
+     */
+    select min(a.submitted_on - a.received_on), max(a.submitted_on - a.received_on)
+      into v_fast, v_slow
+      from public.authorizations a
+     where a.received_on is not null and a.submitted_on is not null
+       and a.submitted_on <= v_as_of - 1 and a.submitted_on >= a.received_on;
+
+    if v_dts is null then
+      failures := failures || 'FAILED: the median to submit is unknown, with a submitted authorization to measure'::text;
+    elsif v_dts < v_fast or v_dts > v_slow then
+      failures := failures ||
+        format('FAILED: the median to submit reads %s, outside the %s to %s days the practice actually took', v_dts, v_fast, v_slow)::text;
     else
-      raise notice 'ok  the median days to submit is measured (%)', v_dts;
+      raise notice 'ok  the median days to submit is measured (%), inside the % to % days actually taken', v_dts, v_fast, v_slow;
     end if;
 
-    if coalesce(v_dtp, -1) <> 30 then
-      failures := failures || format('FAILED: the median to pay reads %s, not 30', v_dtp)::text;
+    -- The fixture took ten days, which is at or below everything real on
+    -- file, so adding it cannot have made the median slower.
+    select days_to_submit into v_dts0 from public.money_baselines where id = v_id;
+    if v_dts0 is not null and v_dts > v_dts0 then
+      failures := failures ||
+        format('FAILED: adding a ten-day authorization moved the median to submit from %s up to %s', v_dts0, v_dts)::text;
     else
-      raise notice 'ok  and the median days to pay (%)', v_dtp;
+      raise notice 'ok  and a faster authorization pulls it towards itself, not away';
+    end if;
+
+    select min(a.paid_on - a.submitted_on), max(a.paid_on - a.submitted_on)
+      into v_fast, v_slow
+      from public.authorizations a
+     where a.submitted_on is not null and a.paid_on is not null
+       and a.paid_on <= v_as_of - 1 and a.paid_on >= a.submitted_on;
+
+    if v_dtp is null then
+      failures := failures || 'FAILED: the median to pay is unknown, with a paid authorization to measure'::text;
+    elsif v_dtp < v_fast or v_dtp > v_slow then
+      failures := failures ||
+        format('FAILED: the median to pay reads %s, outside the %s to %s days the practice actually waited', v_dtp, v_fast, v_slow)::text;
+    else
+      raise notice 'ok  and the median days to pay (%), inside the % to % actually waited', v_dtp, v_fast, v_slow;
     end if;
 
     if v_place < 2 then

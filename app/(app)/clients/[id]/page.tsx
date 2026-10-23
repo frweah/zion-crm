@@ -44,6 +44,7 @@ import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
+import { MailSection } from "./mail-section";
 import { LIVE_STATUSES, isLive } from "@/lib/billing";
 import { PortalRequests } from "./portal-requests";
 import { portalAddressToType } from "@/lib/portal/address";
@@ -561,6 +562,11 @@ export default async function ClientPage({
       <>
         {header}
         <ComingUp clientId={id} tasks={tasks} events={events} myId={me.id} now={new Date().toISOString()} />
+        {/* The mail filed on this client, above the timeline rather than
+            inside it: the timeline says a message arrived, and this says
+            which conversation it belongs to and what to do about it
+            (owner, 23 Oct 2026). */}
+        <MailSection clientId={id} clientName={detail.name} />
         <ActivityTab
           clientId={id}
           clientName={detail.name}

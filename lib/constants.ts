@@ -382,3 +382,24 @@ export function formatPayRate(rate: number, unit: string): string {
   });
   return unit === "Hourly" ? `${amount} an hour` : `${amount} flat`;
 }
+
+/**
+ * How long ago, in words, for a sync time (0240).
+ *
+ * The question somebody asks of a sync time is never "when" - it is "is this
+ * current". "4 minutes ago" answers that and a timestamp does not. Over a day
+ * old it stops being reassuring and becomes a thing to look into, so it says
+ * the day instead and lets the reader decide.
+ */
+export function fmtAgo(iso: string | null): string {
+  if (!iso) return "never";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "never";
+  const seconds = Math.round((Date.now() - then) / 1000);
+  if (seconds < 90) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return hours === 1 ? "an hour ago" : `${hours} hours ago`;
+  return fmtStamp(iso);
+}

@@ -64,6 +64,7 @@ export function ownAccess(
         p_direction: row.direction,
         p_counterpart: row.counterpart,
         p_web_link: row.webLink,
+        p_filed_how: row.filedHow ?? null,
       });
       return { logged: data === true, error: error?.message };
     },
@@ -119,6 +120,7 @@ export function sweepAccess(
         p_direction: row.direction,
         p_counterpart: row.counterpart,
         p_web_link: row.webLink,
+        p_filed_how: row.filedHow ?? null,
       });
       return { logged: data === true, error: error?.message };
     },

@@ -83,7 +83,7 @@ if (orphans.length) {
 // caseload, and Admin, who sees everybody's of everything.
 const EXPECTED = {
   Admin: [
-    "/admin/documents", "/admin/people", "/admin/settings-hub", "/admin/system",
+    "/admin/documents", "/admin/people", "/admin/settings-hub", "/admin/system", "/admin/templates",
     "/billing",
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
     "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",

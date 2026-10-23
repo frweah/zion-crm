@@ -692,6 +692,47 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
   const reports = await pass("Reports");
   all.push(...reports.results.map((r) => ({ ...r, role: "Reports" })));
 
+  /**
+   * Compose, on a client, with the templates filled in (owner, 23 Oct 2026).
+   *
+   * Opened rather than posted: posting would send a real email to a real
+   * counselor, which is not a thing to do on every deploy. What a GET proves
+   * is the part that broke the last time something like this shipped - the
+   * screen renders at all, under a role that is not Admin, with its recipient
+   * list and its three templates on it. Every one of those comes from a
+   * different elevated function, and any of them refusing this role is a
+   * blank screen rather than an error.
+   */
+  const zz = await open("/clients?q=ZZ&view=all");
+  const client = zz.ok ? (zz.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1] : null;
+  if (!client) {
+    all.push({
+      role: "Reports",
+      path: "/mail/compose?client=…",
+      ok: false,
+      why: "no ZZ client to compose about - the smoke fixture is missing",
+    });
+  } else {
+    const compose = await open(`/mail/compose?client=${client}`);
+    if (!compose.ok) {
+      all.push({ ...compose, role: "Reports" });
+    } else {
+      // The three letters, by the names Admin can rename them to - so this
+      // reads the picker rather than the words, which are the owner's.
+      const hasPicker = /id="mail-template"/.test(compose.body);
+      const options = (compose.body.match(/<option value="[a-z_]+"/g) ?? []).length;
+      all.push({
+        role: "Reports",
+        path: `/mail/compose?client=${client}`,
+        ok: hasPicker && options >= 3,
+        why: hasPicker
+          ? options >= 3
+            ? undefined
+            : `the template list loaded ${options} of the three letters`
+          : "Compose opened with no template list, so no template can be chosen",
+      });
+    }
+  }
 } else {
   console.log("  note  no SMOKE_REPORTS_EMAIL, so no billing action was exercised as the role the 19 Oct outage was reported on");
   console.log(

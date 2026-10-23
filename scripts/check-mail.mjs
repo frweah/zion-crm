@@ -49,19 +49,75 @@ const ACTIONS = "app/(app)/mail/actions.ts";
 // being the whole truth and a rule that is nearly true is worse than one that
 // says exactly what it means.
 const INTAKE = "lib/intake-mail.ts";
-const DB_WRITE = /\.(insert|update|upsert|delete)\(|\.rpc\(/;
+// The one module that writes to the database about an email, and the one that
+// is not allowed to read one (0233-0239).
+const FILING = "lib/mail-filing.ts";
+// A write to the database, in the shape supabase-js writes one: a table, then
+// the verb. Not a bare `.update(` - `createHash(...).update(bytes)` is a
+// hash, and the first version of this read that as a database write, which
+// made the "is this check checking anything" guard below pass on a module
+// that had stopped writing entirely.
+const DB_WRITE = /\.from\(\s*["'][^"']+["']\s*\)[\s\S]{0,400}?\.(insert|update|upsert|delete)\(|\.rpc\(/;
+// What a body is called, wherever it has been called something: Graph's own
+// fields, and the names this codebase gives them. Word-bounded, so
+// `contentType` and `subject` are not a body and `preview` is.
+const BODY_WORDS = /\b(body|bodyText|bodyPreview|preview|content|html|text)\b/;
+
+const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 // ── bodies are never stored ──────────────────────────────────
+//
+// This used to be one blunt rule: nothing that touches mail touches the
+// database. Filing mail on purpose (owner, 23 Oct 2026) made that untrue - a
+// sent message has to land on the client and in the contact log - so the rule
+// is now the thing the blunt one was protecting, in three parts that together
+// say a body can never reach a column:
+//
+//   the two Graph modules cannot see the database at all;
+//   a module that can see a body writes nothing itself, and reaches the
+//     database only through lib/mail-filing.ts;
+//   and lib/mail-filing.ts cannot see a body - it imports neither Graph
+//     module, and nowhere in it is there an identifier a body goes by.
+//
+// supabase/verify_mail.sql holds the far end: no column exists to put one in.
 for (const f of [READ, SEND]) {
   if (!src.has(f)) fail(`${f} is missing`);
-  else if (/supabase/i.test(src.get(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1"))) fail(`${f} reaches for the database`);
+  else if (/supabase/i.test(bare(src.get(f)))) fail(`${f} reaches for the database`);
 }
+
 const usesMail = [...src.entries()].filter(([f, s]) => f !== READ && /from "@\/lib\/mail"/.test(s));
 const usesSend = [...src.entries()].filter(([f, s]) => f !== SEND && /from "@\/lib\/mail-send"/.test(s));
 for (const [f, s] of [...usesMail, ...usesSend]) {
-  if (DB_WRITE.test(s)) fail(`${f} reads or sends mail and also writes to the database`);
+  // The filing module is held to the stricter rule below - it must not be
+  // here at all - and its own message says why, rather than this one.
+  if (f === FILING) continue;
+  if (DB_WRITE.test(bare(s))) {
+    fail(`${f} reads or sends mail and writes to the database itself; the write belongs in ${FILING}`);
+  }
 }
-if (!problems.length) ok(`mail is read and sent without touching the database (${usesMail.length + usesSend.length} files use it)`);
+
+if (!src.has(FILING)) {
+  fail(`${FILING} is missing, so nothing can file mail and nothing holds the rule`);
+} else {
+  const filing = bare(src.get(FILING));
+  if (/from "@\/lib\/mail(-send)?"/.test(filing)) {
+    fail(`${FILING} imports a Graph mail module; it writes to the database and so must never see a body`);
+  }
+  if (BODY_WORDS.test(filing)) {
+    const found = filing.match(BODY_WORDS)[0];
+    fail(`${FILING} names “${found}”, which is what a mail body is called; it may hold the facts only`);
+  }
+  if (!DB_WRITE.test(filing)) {
+    fail(`${FILING} writes nothing, so this check is checking nothing`);
+  }
+}
+
+if (!problems.length) {
+  ok(
+    `a body exists only where nothing writes, and ${FILING} writes only facts ` +
+      `(${usesMail.length + usesSend.length} files read or send mail)`,
+  );
+}
 
 // ── Mail.Send only from Send, Reply and Forward ─────────────
 const sendPaths = /\/sendMail|\/replyAll|\/reply["`/]|\/forward["`/]|\/send["`]|\/move["`]/;
