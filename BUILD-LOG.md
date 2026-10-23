@@ -6159,3 +6159,53 @@ one from the start.
 
 114 of 114 verify scripts pass, with 24 assertions in
 `supabase/verify_client_email.sql`.
+
+### Matched, settled (23 Oct 2026)
+
+The owner's decision on the 286 rows: **keep them**, and address matching
+continues **for service@ only**.
+
+That turned out to be a fact about one mailbox rather than a category.
+`shared_mailboxes` is empty - there are no shared mailboxes connected at all -
+and service@ is reached through Francis's own connection, because
+`microsoft_connections` records his mailbox as `Service@zionvocrehab.com`. It
+is the address on the letterhead: counselors write to it, referrals arrive at
+it, and `INTAKE_MAILBOX` has named it since the intake was built.
+
+So the gate is that constant and not a new flag. One person's sweep loads the
+address book and consults it only when their mailbox *is* service@; for
+everybody else the only reason to keep a message is that it belongs to a
+thread somebody filed. Margaret's 132 rows, Rei's 6 and Melanie's 2 stop
+growing; Francis's 151 carry on.
+
+`syncSharedMailbox` keeps address matching, because a shared mailbox is the
+practice's own correspondence by definition. One ordering bug fixed while
+there: it matched by address *before* asking whether a person had filed the
+thread, so a message whose address happened to match would record itself as
+`matched` on a thread somebody had already filed - the less true of the two
+answers.
+
+**On the record, four words.** `Sent`, `Filed`, `Reply`, `Matched`, as a chip
+on the thread's own row. Three of them mean somebody or something in the
+practice put it there deliberately; **Matched** means the sweep recognised an
+address and nobody read it or chose it. That is the distinction worth seeing
+at a glance, so it is a word on the row rather than a sentence underneath it,
+and it is the one chip without the accent.
+
+**And anybody can take a matched message off**, with a reason (0248). The rule
+is now one sentence instead of a list: *what somebody chose to put on a client
+can be taken off by that person or an Admin; what nobody chose can be taken
+off by anybody on the staff.* "Chose" is `filed_how in ('by hand', 'sent')`,
+which is exactly the two values that record a person in `filed_by`.
+
+**Checked, not remembered.** `check-mail` now asserts where the address book
+is *read*: every place one person's sweep decides a message by address has to
+sit inside a block guarded by the service@ gate. A check that merely looked
+for `INTAKE_MAILBOX` in the file would pass a file that mentions it and then
+matches everybody's mail anyway - and the first draft of this check was wrong
+in a quieter way, asserting the reads were inside the block that *fills* the
+maps rather than any block that guards them. Three faults put back and caught:
+the gate removed, a personal mailbox deciding by address, and nothing deciding
+by address at all.
+
+25 assertions in `verify_client_email.sql`; 114 of 114 verify scripts pass.

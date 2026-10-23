@@ -390,6 +390,22 @@ begin
     raise notice 'ok  and a matched thread is not a filed one, so a reply to it does not become one';
   end if;
 
+  -- Anybody may take a matched message off a client, with a reason (owner,
+  -- 23 Oct 2026). Nobody chose it and nobody read it, so there is nobody to
+  -- defer to - the same reasoning as an auto-filed reply, with more force.
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_third_uid::text, 'role', 'authenticated')::text, true);
+  begin
+    perform public.unfile_mail(
+      (select id from public.mail_log where graph_message_id = 'zz-matched-1'),
+      'Not about this client.');
+    raise notice 'ok  and anybody on the staff can take a matched message off, with a reason';
+  exception when insufficient_privilege then
+    failures := failures ||
+      'FAILED: only Admin can take off a message nobody filed and nobody read'::text;
+  end;
+
   -- ── 7. a client is written to at their own address ─────────
   --
   -- The screen refuses it, and this is the fact the screen refuses it on:

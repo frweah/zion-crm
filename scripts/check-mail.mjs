@@ -119,6 +119,67 @@ if (!problems.length) {
   );
 }
 
+// ── only service@ matches a message to a client by address ──
+//
+// A personal mailbox keeps what its owner filed and nothing else (owner,
+// 23 Oct 2026). service@ is the address the practice gives out, so what is in
+// it is the practice's correspondence and recognising a client in it is the
+// practice keeping its own records.
+//
+// Asserted structurally rather than by looking for the constant: a check that
+// asks "is INTAKE_MAILBOX mentioned in this file" passes a file that mentions
+// it and then matches everybody's mail anyway. What is asked is where the
+// address book is *read* - every `clientByEmail.get` and `counselorByEmail.get`
+// in one person's sweep has to sit inside the block the gate opens.
+const SYNC = "lib/sync.ts";
+if (!src.has(SYNC)) {
+  fail(`${SYNC} is missing`);
+} else {
+  const sync = bare(src.get(SYNC));
+  // One person's sweep ends where the shared mailbox's begins; the shared one
+  // is allowed to match by address and is not part of this.
+  const personal = sync.slice(0, sync.indexOf("export async function syncSharedMailbox"));
+  const decides = /\b(clientByEmail|counselorByEmail)\.get\(/g;
+
+  /** Every block whose own condition names the gate, as [start, end] pairs. */
+  const guarded = [];
+  for (const m of personal.matchAll(/if \([^)]*\bmatchesByAddress\b[^)]*\) \{/g)) {
+    const open = personal.indexOf("{", m.index);
+    let depth = 0;
+    for (let i = open; i < personal.length; i += 1) {
+      if (personal[i] === "{") depth += 1;
+      else if (personal[i] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          guarded.push([m.index, i]);
+          break;
+        }
+      }
+    }
+  }
+
+  const reads = [...personal.matchAll(decides)];
+  const outside = reads.filter(({ index }) => !guarded.some(([a, b]) => index > a && index < b));
+
+  if (!/const matchesByAddress = mine === INTAKE_MAILBOX/.test(personal)) {
+    fail(`${SYNC} does not gate address matching on being service@`);
+  } else if (guarded.length === 0) {
+    fail(`${SYNC} has the gate but guards nothing with it, so nothing is inside it`);
+  } else if (reads.length === 0) {
+    fail(`${SYNC} reads the address book nowhere in one person's sweep, so this check is checking nothing`);
+  } else if (outside.length > 0) {
+    fail(
+      `${SYNC} decides a message by address outside the service@ gate (${outside.length} place(s)), ` +
+        `so a personal mailbox would store mail nobody filed`,
+    );
+  } else {
+    ok(
+      `only service@ matches a message by address, in ${guarded.length} guarded place(s); ` +
+        `a personal mailbox keeps what was filed`,
+    );
+  }
+}
+
 // ── Mail.Send only from Send, Reply and Forward ─────────────
 const sendPaths = /\/sendMail|\/replyAll|\/reply["`/]|\/forward["`/]|\/send["`]|\/move["`]/;
 for (const [f, s] of src) {

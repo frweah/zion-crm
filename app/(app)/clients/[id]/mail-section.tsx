@@ -22,6 +22,22 @@ import { Unfile } from "../../mail/filing-forms";
  * restricted document does: hiding it entirely teaches people the record is
  * complete when it is not.
  */
+/**
+ * The four ways a message is here, in one word each.
+ *
+ * Three of them mean somebody or something in the practice put it on this
+ * client deliberately. **Matched** does not: the sweep recognised an address
+ * in service@ and wrote a line, and nobody read it or chose it. That is the
+ * distinction the owner asked to be visible, so it is a word on the row
+ * rather than a sentence underneath it.
+ */
+const STATE: Record<string, string> = {
+  sent: "Sent",
+  "by hand": "Filed",
+  auto: "Reply",
+  matched: "Matched",
+};
+
 type Row = {
   id: string;
   conversation_id: string;
@@ -102,7 +118,17 @@ export async function MailSection({ clientId, clientName }: { clientId: string; 
                     )}
                     {count > 1 && <span className="lock"> · {count} messages</span>}
                   </span>
-                  <span className="lock">{fmtStamp(head.sent_at)}</span>
+                  <span className="row2" style={{ gap: 6, alignItems: "baseline" }}>
+                    {/* How it got here, as a word rather than a sentence to
+                        read: somebody scanning a record wants to know which
+                        of these is the practice's own correspondence and
+                        which is a line the sweep wrote (owner, 23 Oct 2026).
+                        "Matched" is the one that means nobody chose it. */}
+                    <span className={"chip" + (head.filed_how === "matched" ? "" : " ok")}>
+                      {STATE[head.filed_how ?? "matched"] ?? "Matched"}
+                    </span>
+                    <span className="lock">{fmtStamp(head.sent_at)}</span>
+                  </span>
                 </div>
 
                 <div className="lock">
@@ -113,9 +139,9 @@ export async function MailSection({ clientId, clientName }: { clientId: string; 
                       {head.filed_how === "sent"
                         ? `sent by ${head.filed_by_name || "the practice"}`
                         : head.filed_how === "auto"
-                          ? "filed by the sync, on a thread somebody filed"
+                          ? "a reply on a thread somebody filed"
                           : head.filed_how === "matched"
-                            ? "recognised by the sync, filed by nobody"
+                            ? "the sync recognised the address — nobody filed it"
                             : `filed by ${head.filed_by_name || "somebody"}`}
                       {!readable && head.mailbox_address && ` · in ${head.mailbox_address}`}
                       {!readable && !head.mailbox_address && " · in a colleague's mailbox"}

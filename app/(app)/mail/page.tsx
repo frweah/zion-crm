@@ -255,17 +255,19 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
             <div className="card">
               <div className="row2" style={{ justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span>
-                  Filed on{" "}
+                  {filedOn.filed_how === "matched" ? "Matched to" : "Filed on"}{" "}
                   <Link href={`/clients/${filedClient.id}`}>
                     <b>{filedClient.name}</b>
                   </Link>
                   <span className="lock">
                     {" "}
                     {filedOn.filed_how === "auto"
-                      ? "by the sync, on a thread somebody filed"
+                      ? "a reply on a thread somebody filed"
                       : filedOn.filed_how === "sent"
                         ? "because the practice sent it"
-                        : "by hand"}
+                        : filedOn.filed_how === "matched"
+                          ? "the sync recognised the address - nobody filed it"
+                          : "by hand"}
                   </span>
                 </span>
                 <Unfile mailId={filedOn.id} clientId={filedClient.id} clientName={filedClient.name} />

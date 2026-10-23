@@ -9,6 +9,9 @@ import {
   clientNoFromSubject,
   type TokenBundle,
 } from "@/lib/graph";
+// The one place service@ is named, because the sweep and the intake are
+// saying the same thing about the same mailbox (0248).
+import { INTAKE_MAILBOX } from "@/lib/intake-source";
 
 /**
  * One person's sync.
@@ -105,28 +108,56 @@ export async function syncStaffMember(
     .maybeSingle();
 
   // ── who we know ────────────────────────────────────────────
-  // Matching is by address, so the address book is loaded once rather than
-  // queried per message. A practice this size has hundreds of rows, not
-  // millions, and the alternative is a round trip for every email.
-  const [{ data: clients }, { data: counselors }, { data: exclusions }] = await Promise.all([
-    supabase.from("clients").select("id, client_no, email, name"),
-    supabase.from("counselors").select("id, email, name"),
+  //
+  // Client numbers only. The addresses and the whole counselors table were
+  // loaded here to match a message by address, and a personal mailbox does
+  // not do that any more (owner, 23 Oct 2026): what the practice keeps from
+  // somebody's own mailbox is what they filed, by dragging it onto a client
+  // or by writing it from the record. The numbers stay because the calendar
+  // reads an event's client out of its subject.
+  const [{ data: clients }, { data: exclusions }, { data: connection }] = await Promise.all([
+    supabase.from("clients").select("id, client_no"),
     supabase.from("mail_exclusions").select("conversation_id"),
+    supabase.from("microsoft_connections").select("microsoft_email").eq("staff_id", staffId).maybeSingle(),
   ]);
 
-  const clientByEmail = new Map<string, string>();
   const clientByNo = new Map<number, string>();
   for (const c of clients ?? []) {
-    if (c.email) clientByEmail.set(c.email.toLowerCase().trim(), c.id);
     if (c.client_no !== null) clientByNo.set(Number(c.client_no), c.id);
   }
 
-  const counselorByEmail = new Map<string, string>();
-  for (const c of counselors ?? []) {
-    if (c.email) counselorByEmail.set(c.email.toLowerCase().trim(), c.id);
-  }
-
   const excluded = new Set((exclusions ?? []).map((e) => e.conversation_id));
+  /** This mailbox's own address, which is how the other party is told apart. */
+  const mine = (connection?.microsoft_email ?? "").toLowerCase().trim();
+
+  /**
+   * Whether this mailbox matches a message to a client by address.
+   *
+   * service@ only (owner, 23 Oct 2026). It is the address the practice gives
+   * out - counselors write to it, referrals arrive at it, and what is in it is
+   * the practice's correspondence rather than anybody's private mail. A
+   * personal mailbox keeps only what its owner filed, by dragging a message
+   * onto a client or by writing from the record.
+   *
+   * The same constant the intake reads by, because it is the same fact about
+   * the same mailbox and a second copy of it would drift.
+   */
+  const matchesByAddress = mine === INTAKE_MAILBOX.toLowerCase();
+
+  const clientByEmail = new Map<string, string>();
+  const counselorByEmail = new Map<string, string>();
+  if (matchesByAddress) {
+    const [{ data: addressed }, { data: counselors }] = await Promise.all([
+      supabase.from("clients").select("id, email"),
+      supabase.from("counselors").select("id, email"),
+    ]);
+    for (const c of addressed ?? []) {
+      if (c.email) clientByEmail.set(c.email.toLowerCase().trim(), c.id);
+    }
+    for (const c of counselors ?? []) {
+      if (c.email) counselorByEmail.set(c.email.toLowerCase().trim(), c.id);
+    }
+  }
 
   // ── calendar: pull events tagged to a client ───────────────
   try {
@@ -201,61 +232,59 @@ export async function syncStaffMember(
       const conversationId = message.conversationId ?? "";
       if (conversationId && excluded.has(conversationId)) continue;
 
-      const addresses = addressesOf(message);
+      /*
+       * Two reasons to keep a message, and the second one only from service@.
+       *
+       * **A thread a person filed.** A reply to it belongs to the same
+       * client and nobody should have to decide twice. This is the only way a
+       * message reaches a client out of anybody's personal mailbox - the
+       * decision was made when the thread was filed, and the sweep is
+       * honouring it rather than making one.
+       *
+       * **A known address, in service@.** The address the practice gives out,
+       * where counselors write in. Nobody decides anything here, so the row
+       * records itself as "matched" rather than filed (0247), and it tells
+       * nobody.
+       *
+       * A thread taken *off* a client does not come back either way, and nor
+       * does one that was only ever matched: client_for_thread answers for a
+       * thread a person filed and for nothing else.
+       */
+      const filed = conversationId ? await clientForThread(conversationId) : null;
 
-      let clientId: string | null = null;
+      let clientId: string | null = filed;
       let counselorId: string | null = null;
-      let counterpart = "";
-      // How this one came to be filed, which only the auto case changes.
-      let filedHow: MailRow["filedHow"] = null;
+      let filedHow: MailRow["filedHow"] = filed ? "auto" : null;
 
-      for (const address of addresses) {
-        const c = clientByEmail.get(address);
-        if (c) {
-          clientId = c;
-          counterpart = address;
-          break;
-        }
-        const k = counselorByEmail.get(address);
-        if (k && !counselorId) {
-          counselorId = k;
-          counterpart = address;
-        }
-      }
-
-    // A reply on a thread somebody already filed belongs to the same
-    // client, and nobody should have to decide twice (owner, 23 Oct 2026).
-    // This is the only way a message reaches a client without a person
-    // choosing it, and it is not really an exception: the choice was made
-    // when the thread was filed, and the sweep is honouring it.
-    //
-    // A thread taken *off* a client does not come back this way. Unfiling is
-    // a decision too, and the lookup ignores unfiled rows on purpose.
-      if (!clientId && conversationId) {
-        const already = await clientForThread(conversationId);
-        if (already) {
-          clientId = already;
-          counselorId = null;
-          if (!counterpart) {
-            counterpart = message.from?.emailAddress?.address?.toLowerCase() ?? "";
+      if (!clientId && matchesByAddress) {
+        for (const address of addressesOf(message)) {
+          const c = clientByEmail.get(address);
+          if (c) {
+            clientId = c;
+            break;
           }
-          filedHow = "auto";
+          const k = counselorByEmail.get(address);
+          if (k && !counselorId) counselorId = k;
         }
       }
 
-      // No match, no record. This is the rule that keeps everything else in
-      // the mailbox out of the CRM entirely: not stored and hidden, not
-      // stored at all.
       if (!clientId && !counselorId) {
-        // Looked at and deliberately not kept. The watermark still moves: not
+        // Read and deliberately not kept. The watermark still moves: not
         // storing a message is not a reason to read it again tomorrow.
         result.skippedNoMatch += 1;
         if (message.receivedDateTime) watermark = message.receivedDateTime;
         continue;
       }
 
+      // Who it was with. The mailbox's owner is not a counterpart to
+      // themselves, which is also what tells an incoming message from one
+      // they sent.
       const fromAddress = message.from?.emailAddress?.address?.toLowerCase() ?? "";
-      const direction = fromAddress === counterpart ? "Incoming" : "Outgoing";
+      const incoming = fromAddress !== "" && fromAddress !== mine;
+      const counterpart = incoming
+        ? fromAddress
+        : (addressesOf(message).find((a) => a !== mine) ?? "");
+      const direction = incoming ? "Incoming" : "Outgoing";
       const sentAt = message.receivedDateTime ?? message.sentDateTime;
       if (!sentAt) continue;
       watermark = sentAt;
@@ -270,6 +299,9 @@ export async function syncStaffMember(
         direction,
         counterpart,
         webLink: message.webLink ?? "",
+        // "auto" for a reply on a filed thread; left null for an address
+        // match, which the writer records as "matched" - the honest word for
+        // something nobody chose (0247).
         filedHow,
       });
 
@@ -320,6 +352,20 @@ export async function syncStaffMember(
  * link, only where an address is already on a client or counselor record, and
  * nothing at all otherwise.
  */
+/**
+ * A shared mailbox's sweep.
+ *
+ * This is where matching by address still happens (owner, 23 Oct 2026). A
+ * shared mailbox is the practice's own correspondence - the address on the
+ * letterhead, which counselors write to - rather than anybody's private mail,
+ * so recognising a client's address in it and writing a line about it is the
+ * practice keeping its own records. It still records itself honestly:
+ * "matched", not filed, because nobody decided anything.
+ *
+ * A personal mailbox keeps only what its owner filed. service@ is swept
+ * through its owner's connection rather than as a shared mailbox, and
+ * syncStaffMember gates address matching on being that address.
+ */
 export async function syncSharedMailbox(
   supabase: SupabaseClient<Database>,
   mailbox: { address: string; last_mail_sync_at: string | null },
@@ -368,32 +414,38 @@ export async function syncSharedMailbox(
       let counterpart = "";
       let filedHow: MailRow["filedHow"] = null;
 
+      // A thread somebody filed first, because that is a decision and an
+      // address is not. Without this order a message whose address happens to
+      // match would record itself as "matched" on a thread a person had
+      // already filed, which is the less true of the two answers.
+      if (conversationId) {
+        const already = await clientForThread(conversationId);
+        if (already) {
+          clientId = already;
+          filedHow = "auto";
+        }
+      }
+
       for (const address of addresses) {
         // The mailbox's own address is not a counterpart to itself.
         if (address === mailbox.address.toLowerCase()) continue;
-        const c = clientByEmail.get(address);
-        if (c) {
-          clientId = c;
-          counterpart = address;
-          break;
+        if (!clientId) {
+          const c = clientByEmail.get(address);
+          if (c) {
+            clientId = c;
+            counterpart = address;
+            break;
+          }
         }
         const k = counselorByEmail.get(address);
-        if (k && !counselorId) {
+        if (k && !counselorId && !clientId) {
           counselorId = k;
           counterpart = address;
         }
       }
 
-      if (!clientId && conversationId) {
-        const already = await clientForThread(conversationId);
-        if (already) {
-          clientId = already;
-          counselorId = null;
-          if (!counterpart) {
-            counterpart = message.from?.emailAddress?.address?.toLowerCase() ?? "";
-          }
-          filedHow = "auto";
-        }
+      if (!counterpart) {
+        counterpart = message.from?.emailAddress?.address?.toLowerCase() ?? "";
       }
 
       if (!clientId && !counselorId) {
