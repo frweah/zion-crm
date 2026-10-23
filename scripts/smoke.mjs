@@ -672,27 +672,6 @@ async function invokeActions(path, role) {
 if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
   await signIn(process.env.SMOKE_REPORTS_EMAIL, process.env.SMOKE_REPORTS_PASSWORD, "automated-check (reports)");
   /**
-   * Only /billing, and deliberately.
-   *
-   * It is the screen that carried both of the broken modules - the worklist
-   * form and the import form - so a POST to it is exactly the request that
-   * 500'd. And its actions are the ones that refuse an empty submission by
-   * their own validation: no rows chosen, no file chosen.
-   *
-   * The authorization record is opened by the pass above but its actions are
-   * not posted blind. Several of them act on a record, one of them sends a
-   * packet to USOR, and this account - unlike the Job Search one - is not a
-   * system account, because a system account can only be Job Search. An
-   * empty submission ought to be refused by each of them; "ought to" is not
-   * the standard for a thing that runs unattended on every deploy against
-   * production.
-   */
-  all.push(...(await invokeActions("/billing", "Reports")));
-
-  const reports = await pass("Reports");
-  all.push(...reports.results.map((r) => ({ ...r, role: "Reports" })));
-
-  /**
    * Compose, on a client, with the templates filled in (owner, 23 Oct 2026).
    *
    * Opened rather than posted: posting would send a real email to a real
@@ -712,7 +691,9 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
       role: "Reports",
       path: "/mail/compose?client=…",
       ok: false,
-      why: "no ZZ client to compose about - the smoke fixture is missing",
+      why: zz.ok
+        ? "All clients listed no ZZ client to compose about - the smoke fixture is missing"
+        : `All clients did not open: ${zz.why}`,
     });
   } else {
     const compose = await open(`/mail/compose?client=${client}`);
@@ -735,6 +716,27 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
       });
     }
   }
+  /**
+   * Only /billing, and deliberately.
+   *
+   * It is the screen that carried both of the broken modules - the worklist
+   * form and the import form - so a POST to it is exactly the request that
+   * 500'd. And its actions are the ones that refuse an empty submission by
+   * their own validation: no rows chosen, no file chosen.
+   *
+   * The authorization record is opened by the pass above but its actions are
+   * not posted blind. Several of them act on a record, one of them sends a
+   * packet to USOR, and this account - unlike the Job Search one - is not a
+   * system account, because a system account can only be Job Search. An
+   * empty submission ought to be refused by each of them; "ought to" is not
+   * the standard for a thing that runs unattended on every deploy against
+   * production.
+   */
+  all.push(...(await invokeActions("/billing", "Reports")));
+
+  const reports = await pass("Reports");
+  all.push(...reports.results.map((r) => ({ ...r, role: "Reports" })));
+
 } else {
   console.log("  note  no SMOKE_REPORTS_EMAIL, so no billing action was exercised as the role the 19 Oct outage was reported on");
   console.log(

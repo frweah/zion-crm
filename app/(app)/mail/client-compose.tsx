@@ -85,7 +85,6 @@ export function ClientComposeForm({
               />
               <span>
                 {r.label} <span className="lock">{r.address}</span>
-                {r.kind === "client" && <span className="chip"> the client</span>}
               </span>
             </label>
           ))}
