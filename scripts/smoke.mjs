@@ -39,6 +39,15 @@ const env = (k) => {
 const BASE = env("SMOKE_BASE_URL").replace(/\/$/, "");
 const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
 
+/**
+ * The practice's one permanent fixture client.
+ *
+ * Inactive, on nobody's board, and the single name
+ * supabase/verify_zz_no_fixtures.sql permits to be on file. Two steps below
+ * need a client to exist on production and must not create one.
+ */
+const SMOKE_CLIENT = "ZZ Smoke Board";
+
 // ── sign in, keeping the session in a jar the requests carry ──
 // One of these per account. A role only ever sees its own screens, so
 // Billing's - Invoices, Authorizations, the Service log, Export, Overview,
@@ -684,30 +693,26 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
    */
   // All clients, which is a table of links - the board shows cards whose
   // record link lives in the side panel, so there is no href to read there.
-  const zz = await open("/clients?tab=all&q=ZZ");
+  const zz = await open(`/clients?tab=all&q=${encodeURIComponent(SMOKE_CLIENT)}`);
   const client = zz.ok ? (zz.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1] : null;
   if (!client) {
     /*
-     * No ZZ client on file, so Compose cannot be opened about one.
+     * The fixture is missing, and that is a failure (owner, 24 Oct 2026).
      *
-     * A warning rather than a failure, which is how this file treats every
-     * other piece of coverage it cannot run. The two rules behind it pull
-     * against each other and the owner has the casting vote:
-     * supabase/verify_zz_no_fixtures.sql asserts that nothing ZZ-shaped is
-     * left on the database, and this step needs exactly such a row to exist
-     * permanently. A failing deploy is the wrong way to ask that question
-     * (24 Oct 2026).
+     * The practice carries exactly one permanent client for this -
+     * SMOKE_CLIENT, inactive, the single name verify_zz_no_fixtures permits
+     * on file. If it is gone, these two steps are not running, and a step
+     * that quietly stops running is worse than no step: the Jobs one below
+     * is what would have caught Margaret's row-level security bug.
      */
-    if (!zz.ok) {
-      all.push({ role: "Reports", path: "/clients?tab=all", ok: false, why: zz.why });
-    } else {
-      console.log("  note  no ZZ client on file, so Compose was not opened about one");
-      console.log(
-        "::warning title=Compose unexercised::" +
-          "No ZZ client exists, so Compose on a client and its template list are not opened on any deploy. " +
-          "A permanent inactive ZZ client would need an exception in verify_zz_no_fixtures.",
-      );
-    }
+    all.push({
+      role: "Reports",
+      path: "/mail/compose?client=…",
+      ok: false,
+      why: zz.ok
+        ? `All clients listed no "${SMOKE_CLIENT}" - the practice's one permanent fixture is missing, so Compose is not exercised`
+        : `All clients did not open: ${zz.why}`,
+    });
   } else {
     const compose = await open(`/mail/compose?client=${client}`);
     if (!compose.ok) {
@@ -745,20 +750,18 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
    * a role that cannot do its job on the next deploy, and that is worth the
    * two seconds and the clean-up.
    */
-  const zzClient = await open("/clients?tab=all&q=ZZ");
+  const zzClient = await open(`/clients?tab=all&q=${encodeURIComponent(SMOKE_CLIENT)}`);
   const forJobs = zzClient.ok ? (zzClient.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1] : null;
   if (!forJobs) {
-    // The same gap, and the same reason it is a warning: see Compose above.
-    if (!zzClient.ok) {
-      all.push({ role: "Reports", path: "/clients?tab=all", ok: false, why: zzClient.why });
-    } else {
-      console.log("  note  no ZZ client on file, so no job search update was added");
-      console.log(
-        "::warning title=Job search updates unexercised::" +
-          "No ZZ client exists, so the Jobs panel is not posted as Reports on any deploy. " +
-          "That is the gap Margaret's row-level security bug went through.",
-      );
-    }
+    // The same fixture, and the same reason it is a failure: see Compose.
+    all.push({
+      role: "Reports",
+      path: "/clients/…?tab=jobs",
+      ok: false,
+      why: zzClient.ok
+        ? `All clients listed no "${SMOKE_CLIENT}" - the practice's one permanent fixture is missing, so the Jobs panel is not posted`
+        : `All clients did not open: ${zzClient.why}`,
+    });
   } else {
     const record = await open(`/clients/${forJobs}?tab=jobs`);
     if (!record.ok) {

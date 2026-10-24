@@ -12,6 +12,7 @@ import { TaxYearEditor, type TaxYearRow } from "../contractors/contractor-forms"
 import { MileageRateForm } from "../../hours/expenses";
 import { SharedMailboxCard, type SharedMailboxRow } from "../../dashboard/shared-mailbox-card";
 import { WebChatSettingsForm, type WebChatSettings } from "./web-chat";
+import MailboxWatchSection from "./mailbox-watch";
 
 /**
  * Admin → System.
@@ -84,7 +85,7 @@ export default async function SystemPage({
 
   const webChatError = webChatFailure?.message ?? null;
 
-  const toc: [string, string][] = [["access-log", "Access log"]];
+  const toc: [string, string][] = [["mailbox-watch", "Mailbox watch"], ["access-log", "Access log"]];
 
   return (
     <>
@@ -115,6 +116,15 @@ export default async function SystemPage({
       {isAdmin && (
         <section id="problems" className="page-section">
           <ProblemsSection />
+        </section>
+      )}
+
+      {/* When Microsoft stops telling us about each mailbox (0241). Above
+          the access log because one is a thing to act on and the other is a
+          record. */}
+      {isAdmin && (
+        <section id="mailbox-watch" className="page-section">
+          <MailboxWatchSection />
         </section>
       )}
 

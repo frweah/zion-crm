@@ -169,10 +169,31 @@ async function keepWatching(
     .eq("mailbox_address", "")
     .maybeSingle();
 
+  /**
+   * How much life a subscription needs before it is left alone.
+   *
+   * Two days, where it was six hours (owner, 24 Oct 2026). The sweep is the
+   * only thing that renews these, and six hours of grace meant six hours of
+   * outage - a bad deploy, a refused token, a scheduler stopped - between a
+   * working mailbox and a dead one.
+   *
+   * Two days is also what makes the alarm beside it mean anything.
+   * supabase/verify_mail_subscriptions.sql fails when a subscription is
+   * inside twenty-four hours of expiry, and with a six-hour window every
+   * healthy subscription spent eighteen hours a day in that state. Renewing
+   * at two days out means a subscription is never legitimately inside one
+   * day, so being inside one day is a fault and can be reported as one.
+   *
+   * It costs one PATCH about every twenty-two hours per mailbox. Microsoft's
+   * ceiling on a delegated mail subscription is around seventy hours, so
+   * there is no arrangement of these numbers where renewing is late.
+   */
+  const RENEW_WITHIN_MS = 48 * 3600 * 1000;
+
   const live =
     existing?.subscription_id &&
     existing.expires_at &&
-    new Date(existing.expires_at).getTime() - Date.now() > 6 * 3600 * 1000;
+    new Date(existing.expires_at).getTime() - Date.now() > RENEW_WITHIN_MS;
   if (live) return "live";
 
   try {

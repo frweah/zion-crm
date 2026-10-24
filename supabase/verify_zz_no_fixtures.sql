@@ -18,14 +18,42 @@
 --
 -- scripts/check-verify-scripts.mjs is the other half: it stops a script that
 -- could leak from being written at all.
+--
+-- ## The one exception
+--
+-- "ZZ Smoke Board", and nothing else (owner, 24 Oct 2026).
+--
+-- Two of the deploy's smoke steps need a client to exist on production: one
+-- opens Compose about them, the other posts the Jobs panel as Reports, which
+-- is the step that would have caught Margaret's row-level security bug. They
+-- cannot build one - smoke must not write a client to the practice's records
+-- on every deploy - and they cannot be useful without one.
+--
+-- So the practice carries exactly one, inactive, named here by its full name.
+-- A list of one is still a rule: any other ZZ or ZQ row fails this script as
+-- it always did, and renaming the fixture, or adding a second, fails it too.
+-- The alternative was the two steps warning forever, which is a check nobody
+-- reads.
 
 do $$
 declare
   found text[] := '{}';
   v_n   bigint;
+  -- Exactly this, and exactly one of it.
+  KEPT  constant text := 'ZZ Smoke Board';
 begin
-  select count(*) into v_n from public.clients where name like 'ZZ %' or name like 'ZQ %';
+  select count(*) into v_n from public.clients
+   where (name like 'ZZ %' or name like 'ZQ %') and name <> KEPT;
   if v_n > 0 then found := found || format('clients (%s)', v_n); end if;
+
+  -- The permitted one has to be there, has to be inactive, and has to be
+  -- alone. A second copy is a leak wearing the exception's name.
+  select count(*) into v_n from public.clients where name = KEPT;
+  if v_n <> 1 then
+    found := found || format('%s is on file %s times, and should be exactly once', KEPT, v_n);
+  elsif not exists (select 1 from public.clients where name = KEPT and status = 'Inactive') then
+    found := found || format('%s is not inactive, so it is on somebody''s board', KEPT);
+  end if;
 
   select count(*) into v_n from public.counselors
    where name like 'ZZ %' or name like 'ZQ %' or email like '%example.invalid%' or email like '%example.test%';
