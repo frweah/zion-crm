@@ -129,7 +129,7 @@ begin
   insert into public.employers (name) values ('ZZ Perms Employer') returning id into v_employer;
 
   for r in
-    select s.role, s.name, u.id as uid
+    select s.id as staff_id, s.role, s.name, u.id as uid
       from public.staff s join auth.users u on u.id = s.user_id
      -- Not the deploy check's account: it is Job Search and can write
      -- nothing at all by design (0120), so "what a Job Search person may do"
@@ -143,8 +143,13 @@ begin
 
     select count(*) > 0 into can_read from public.employers where name = 'ZZ Perms Employer';
 
+    -- With the writer on it. Since 0250 a row that does not say who added
+    -- it cannot be added at all, so a probe without `created_by` would
+    -- answer "this role may not add an opening" for every role in the
+    -- practice - which is what it did until this line was changed.
     begin
-      insert into public.job_leads (employer_id, title) values (v_employer, 'ZZ perms probe');
+      insert into public.job_leads (employer_id, title, created_by)
+      values (v_employer, 'ZZ perms probe', r.staff_id);
       can_write := true;
       delete from public.job_leads where title = 'ZZ perms probe';
     exception when insufficient_privilege or others then
@@ -160,7 +165,19 @@ begin
       failures := failures || format('%s cannot see the board', r.role);
     end if;
 
-    if r.role in ('Admin', 'Job Search') then
+    /*
+     * Everybody who can see a client (owner, 23 Oct 2026).
+     *
+     * It was Admin and Job Search, which is what the board was for. Then
+     * Margaret, who is Reports, was asked to add a job search update from a
+     * client's record - and a job added there is a row on this board, so the
+     * board's rule was the one refusing her. `can_record_job_search()` is
+     * now the single answer (0250) and this is held to the same list.
+     *
+     * Billing is the one active role outside it, and is still refused:
+     * without that half this would pass on a policy that let everybody in.
+     */
+    if r.role in ('Admin', 'Job Search', 'Reports', 'Job Coach', 'Case Manager') then
       if not can_write then failures := failures || format('%s should be able to add an opening', r.role); end if;
     else
       if can_write then failures := failures || format('LEAK: %s can add an opening', r.role); end if;

@@ -388,6 +388,7 @@ export type Database = {
           zero_hours_confirmed_by: string | null;
           zero_hours_confirmed_at: string | null;
           is_placeholder: boolean;
+          has_usor_number: boolean | null;
         };
         Insert: {
           id?: string;
@@ -437,6 +438,7 @@ export type Database = {
           zero_hours_confirmed_by?: string | null;
           zero_hours_confirmed_at?: string | null;
           is_placeholder?: boolean;
+          has_usor_number?: boolean | null;
         };
         Update: {
           id?: string;
@@ -486,6 +488,7 @@ export type Database = {
           zero_hours_confirmed_by?: string | null;
           zero_hours_confirmed_at?: string | null;
           is_placeholder?: boolean;
+          has_usor_number?: boolean | null;
         };
         Relationships: [];
       };

@@ -111,6 +111,14 @@ export type NavItem = {
   roles?: Role[];
   /** The area a grant opens it in, for somebody whose role does not include it. */
   area?: Area;
+  /**
+   * How much of that area the screen needs. "view" unless said otherwise.
+   *
+   * Documents needs "edit": its inbox writes, and a view-only grant that put
+   * the item in the sidebar would be an item that answers with a redirect -
+   * which is the one thing a navigation must never do (owner, 23 Oct 2026).
+   */
+  level?: Level;
   /** Also seen by anybody who manages somebody, whatever their role. */
   managers?: true;
   /** One line on the hub card saying what the screen is for. */
@@ -323,7 +331,9 @@ export const NAV_GROUPS: NavGroup[] = [
     // the Insights reports with it (21 Sept 2026). Billing confirms the
     // authorizations from the inbox on Billing → Authorizations.
     items: [
-      { label: "Documents", href: "/admin/documents", roles: ADMIN },
+      // The inbox half of it is a billing edit grant's too, because the
+      // database has said so since 0103 (owner, 23 Oct 2026).
+      { label: "Documents", href: "/admin/documents", roles: BILLS, area: "billing", level: "edit" },
       // Each feature's settings on its own page (Design language, §3); what
       // stays on System is the record the system keeps about itself.
       { label: "Settings", href: "/admin/settings-hub", roles: ADMIN, note: "One page per feature." },
@@ -390,7 +400,7 @@ export function visibleItems(group: NavGroup, who: Role | Access): NavItem[] {
     // No audience named at all means everybody, as it always has.
     if (!i.roles && !i.managers) return true;
     if (i.roles?.includes(a.role)) return true;
-    if (i.area !== undefined && can(a, i.area)) return true;
+    if (i.area !== undefined && can(a, i.area, i.level ?? "view")) return true;
     if (i.managers && a.manages) return true;
     return false;
   });

@@ -394,20 +394,6 @@ export default async function DashboardPage({
         </div>
       )}
 
-      {/* ── the work session ─────────────────────────────────── */}
-      {logsHours && (
-        <section className="day-section" aria-labelledby="day-work">
-          {/* One line: what it is, and today's figure. What it is *for*
-              is said once, in the hint, and then never again - a sentence of
-              explanation on a card somebody reads every morning is a sentence
-              they stop seeing by the second week (owner, 30 Sept 2026). */}
-          <h2 className="h2" id="day-work">
-            Work session <span className="day-total">{Number(summaryResult.data?.today_hours ?? 0).toFixed(2)} h today</span>
-          </h2>
-          <WorkTimer running={timerResult.data ?? null} clients={clients.filter((c) => c.status === "Active")} categories={(categoriesResult.data ?? []).map((c) => ({ key: c.key!, label: c.label! }))} today={day} />
-        </section>
-      )}
-
       {/* ── the tiles (Design language, §1) ──────────────────── */}
       {/* One number each, and a tap to the thing itself. What cannot be
           counted without being read is in the sections below, which is the
@@ -454,7 +440,7 @@ export default async function DashboardPage({
           },
           {
             key: "alerts",
-            label: "Alerts for you",
+            label: "Notifications",
             value: String(shownAlerts.length),
             note: "raised by the practice",
             href: "/dashboard#alerts",
@@ -463,8 +449,107 @@ export default async function DashboardPage({
         ]}
       />
 
+      {/* ── the work session ─────────────────────────────────── */}
+      {logsHours && (
+        <section className="day-section" aria-labelledby="day-work">
+          {/* One line: what it is, and today's figure. What it is *for*
+              is said once, in the hint, and then never again - a sentence of
+              explanation on a card somebody reads every morning is a sentence
+              they stop seeing by the second week (owner, 30 Sept 2026). */}
+          <h2 className="h2" id="day-work">
+            Work session <span className="day-total">{Number(summaryResult.data?.today_hours ?? 0).toFixed(2)} h today</span>
+          </h2>
+          <WorkTimer running={timerResult.data ?? null} clients={clients.filter((c) => c.status === "Active")} categories={(categoriesResult.data ?? []).map((c) => ({ key: c.key!, label: c.label! }))} today={day} />
+        </section>
+      )}
+
+      {/* ── today's appointments ─────────────────────────────── */}
+      <section className="day-section" aria-labelledby="day-appts">
+        <h2 className="h2" id="day-appts">
+          Today&apos;s appointments
+          <Link className="day-total" href="/calendar">
+            The calendar
+          </Link>
+        </h2>
+        {appointments.length === 0 ? (
+          <p className="empty">
+            Nothing on your calendar today{access.ok ? "" : " in the CRM - connect Outlook to see your whole day"}.
+          </p>
+        ) : (
+          <ul className="day-list">
+            {appointments.map((a) => {
+              const client = a.clientId ? clientById.get(a.clientId) : null;
+              const over = a.end <= nowWall;
+              return (
+                <li key={a.key} className={over ? "day-past" : undefined}>
+                  <span className="day-when" style={{ minWidth: 72 }}>
+                    {a.allDay ? "All day" : hm(a.start)}
+                  </span>
+                  <span className="day-main">
+                    <b>{a.title}</b>
+                    {a.location && <span className="lock"> · {a.location}</span>}
+                  </span>
+                  <span className="day-actions">
+                    {client && (
+                      <Link className="btn ghost" href={`/clients/${client.id}`}>
+                        {client.name}
+                      </Link>
+                    )}
+                    {client && over && (
+                      <Link className="btn ghost" href={`/clients/${client.id}?tab=billing`}>
+                        Log hours
+                      </Link>
+                    )}
+                    {a.webLink && (
+                      <a className="btn ghost" href={a.webLink} target="_blank" rel="noopener noreferrer">
+                        Outlook
+                      </a>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* ── notifications ────────────────────────────────────── */}
+      <section className="day-section" aria-labelledby="day-alerts">
+        <h2 className="h2" id="day-alerts">
+          Notifications
+        </h2>
+        {shownAlerts.length === 0 ? (
+          <p className="empty">
+            No alerts{snoozed.size > 0 ? ` - ${snoozed.size} put aside until tomorrow` : ""}: no authorization short of hours or expiring, no
+            invoice overdue, no counselor follow-up due.
+          </p>
+        ) : (
+          <ul className="day-list">
+            {shownAlerts.map((a) => (
+              <li key={a.id}>
+                <span className={"chip " + (a.level === "bad" ? "bad" : "warn")}>{a.level === "bad" ? "Now" : "Soon"}</span>
+                <span className="day-main">{a.text}</span>
+                <span className="day-actions">
+                  {a.href && (
+                    <Link className="btn ghost" href={a.href}>
+                      Open
+                    </Link>
+                  )}
+                  <form action={snoozeAlert}>
+                    <input type="hidden" name="notification_id" value={a.id} />
+                    <button className="btn ghost" type="submit" title="Out of your way until tomorrow. Nobody else's dashboard changes.">
+                      Hide until tomorrow
+                    </button>
+                  </form>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* ── waiting for a reply ──────────────────────────────── */}
-      <section className="card day-section" aria-labelledby="day-replies">
+      <section className="day-section" aria-labelledby="day-replies">
         <h2 className="h2" id="day-replies">
           Waiting for your reply{" "}
           {waiting.length + mailMore > 0 && <span className="chip warn">{waiting.length + mailMore}</span>}
@@ -538,7 +623,7 @@ export default async function DashboardPage({
       </section>
 
       {/* ── tasks ────────────────────────────────────────────── */}
-      <section className="card day-section" aria-labelledby="day-tasks">
+      <section className="day-section" aria-labelledby="day-tasks">
         <h2 className="h2" id="day-tasks">
           Your tasks due today or overdue
         </h2>
@@ -570,56 +655,9 @@ export default async function DashboardPage({
         )}
       </section>
 
-      {/* ── today's appointments ─────────────────────────────── */}
-      <section className="card day-section" aria-labelledby="day-appts">
-        <h2 className="h2" id="day-appts">
-          Today&apos;s appointments
-        </h2>
-        {appointments.length === 0 ? (
-          <p className="empty">
-            Nothing on your calendar today{access.ok ? "" : " in the CRM - connect Outlook to see your whole day"}.
-          </p>
-        ) : (
-          <ul className="day-list">
-            {appointments.map((a) => {
-              const client = a.clientId ? clientById.get(a.clientId) : null;
-              const over = a.end <= nowWall;
-              return (
-                <li key={a.key} className={over ? "day-past" : undefined}>
-                  <span className="day-when" style={{ minWidth: 72 }}>
-                    {a.allDay ? "All day" : hm(a.start)}
-                  </span>
-                  <span className="day-main">
-                    <b>{a.title}</b>
-                    {a.location && <span className="lock"> · {a.location}</span>}
-                  </span>
-                  <span className="day-actions">
-                    {client && (
-                      <Link className="btn ghost" href={`/clients/${client.id}`}>
-                        {client.name}
-                      </Link>
-                    )}
-                    {client && over && (
-                      <Link className="btn ghost" href={`/clients/${client.id}?tab=billing`}>
-                        Log hours
-                      </Link>
-                    )}
-                    {a.webLink && (
-                      <a className="btn ghost" href={a.webLink} target="_blank" rel="noopener noreferrer">
-                        Outlook
-                      </a>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
       {/* ── my clients today ─────────────────────────────────── */}
       {hasCaseload && (
-        <section className="card day-section" aria-labelledby="day-clients">
+        <section className="day-section" aria-labelledby="day-clients">
           <h2 className="h2" id="day-clients">
             Your clients today
           </h2>
@@ -657,41 +695,6 @@ export default async function DashboardPage({
           )}
         </section>
       )}
-
-      {/* ── alerts ───────────────────────────────────────────── */}
-      <section className="card day-section" aria-labelledby="day-alerts">
-        <h2 className="h2" id="day-alerts">
-          Alerts
-        </h2>
-        {shownAlerts.length === 0 ? (
-          <p className="empty">
-            No alerts{snoozed.size > 0 ? ` - ${snoozed.size} put aside until tomorrow` : ""}: no authorization short of hours or expiring, no
-            invoice overdue, no counselor follow-up due.
-          </p>
-        ) : (
-          <ul className="day-list">
-            {shownAlerts.map((a) => (
-              <li key={a.id}>
-                <span className={"chip " + (a.level === "bad" ? "bad" : "warn")}>{a.level === "bad" ? "Now" : "Soon"}</span>
-                <span className="day-main">{a.text}</span>
-                <span className="day-actions">
-                  {a.href && (
-                    <Link className="btn ghost" href={a.href}>
-                      Open
-                    </Link>
-                  )}
-                  <form action={snoozeAlert}>
-                    <input type="hidden" name="notification_id" value={a.id} />
-                    <button className="btn ghost" type="submit" title="Out of your way until tomorrow. Nobody else's dashboard changes.">
-                      Hide until tomorrow
-                    </button>
-                  </form>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       {/* ── the caseload, for everyone, in their own scope ───── */}
       <CaseloadSummary caseload={caseload} />

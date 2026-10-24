@@ -106,6 +106,7 @@ const EXPECTED = {
     "/time-clock", "/updates",
   ],
   Billing: [
+    "/admin/documents",
     "/billing", "/calendar", "/clients", "/counselors",
     "/dashboard", "/directory",
     "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
@@ -342,7 +343,10 @@ const mismatch = [];
 for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.area)) {
   for (const role of ROLES) {
     const byNav = !item.roles || item.roles.includes(role);
-    const byArea = Boolean(ROLE_AREAS[role][item.area]);
+    // At the level the item asks for. Documents needs the area at "edit",
+    // so a role holding it only at "view" should not see it (0251).
+    const held = ROLE_AREAS[role][item.area];
+    const byArea = Boolean(held) && (item.level !== "edit" || held === "edit");
     if (byNav !== byArea) mismatch.push(`${role} / ${item.label}`);
   }
 }
@@ -354,7 +358,10 @@ else ok("the sidebar and the role defaults agree on every area");
 const everything = AREAS.flatMap((area) => AREA_LEVELS[area].map((level) => ({ area, level })));
 for (const role of ["Job Search", "Reports", "Billing"]) {
   const reach = reachableFor({ role, grants: everything }).map((i) => navPath(i.href));
-  const never = ["/admin/people", "/admin/documents", "/admin/system", "/insights/capacity"];
+  // Documents came off this list deliberately (owner, 23 Oct 2026): the
+  // database has opened its inbox to a billing edit grant since 0103, and the
+  // screen saying Admin only was the grant meaning two things at once.
+  const never = ["/admin/people", "/admin/system", "/insights/capacity"];
   const leak = never.filter((p) => reach.includes(p));
   if (leak.length) fail(`${role} given every area reaches ${leak.join(", ")}, which no grant may open`);
   if (reach.includes("/hours") && reachableFor({ role, grants: everything }).some((i) => i.label === "Statement approvals")) {
@@ -773,6 +780,40 @@ if (backWrong.length) {
   for (const w of backWrong) fail(`the way back is wrong: ${w}`);
 } else {
   ok(`all ${BACK_CASES.length} cases of the way back off a hub tab land where they should`);
+}
+
+
+// ── a group's screens, under the group ──────────────────────
+//
+// The sidebar was the six groups and nothing else; the owner asked for each
+// group's screens to open beneath it (23 Oct 2026). Four things make that
+// true rather than nearly true, and each is a way it has gone wrong before
+// in some other menu:
+//
+//   the sub-list exists at all;
+//   one group's at a time, so pressing another closes the first;
+//   none of it in the rail, where a label has nowhere to go;
+//   and the phone's bottom bar is not involved.
+const navLinks = await readFile(new URL("../app/(app)/nav-links.tsx", import.meta.url), "utf8");
+const appLayout = await readFile(new URL("../app/(app)/layout.tsx", import.meta.url), "utf8");
+const phoneBar = await readFile(new URL("../app/(app)/bottom-bar.tsx", import.meta.url), "utf8");
+
+const sidebar = [
+  ["the sub-list is drawn from the group's own items", /\{open && \([\s\S]{0,200}?className="nav-sub"[\s\S]{0,400}?items\.map\(/],
+  ["one group is open at a time", /const openKey = pressed \?\? here;/],
+  ["and the open one is the group you are in, or the one you pressed", /\bconst open = !narrow && openKey === group\.key;/],
+  ["the rail shows none of it", /\bconst open = !narrow &&/],
+  ["the layout tells it which it is", /<NavLinks groups=\{nav\} narrow=\{narrow\} \/>/],
+];
+const sidebarMissing = sidebar.filter(
+  ([, re]) => !re.test(re.source.includes("NavLinks groups") ? appLayout : navLinks),
+);
+if (sidebarMissing.length) {
+  fail(`the sidebar's groups do not open properly: ${sidebarMissing.map(([what]) => what).join("; ")}`);
+} else if (/nav-sub/.test(phoneBar)) {
+  fail("the phone's bottom bar has grown a sub-list; it is five destinations and was to be left alone");
+} else {
+  ok(`a group opens its own screens beneath it, one group at a time, never in the rail`);
 }
 
 console.log("");

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -78,6 +79,14 @@ function LoginForm() {
 
   return (
     <div className="panel">
+      {/* The practice's own mark, on the white plate it was drawn for - the
+          same plate the sidebar uses, and the one surface that does not turn
+          over with the theme. The sign-in page had the name and no logo at
+          all, which is what "the logo is not displaying" turned out to mean
+          here (owner, 23 Oct 2026). */}
+      <span className="brand-plate panel-brand">
+        <Image src="/zion-logo.png" alt="" width={56} height={56} priority />
+      </span>
       <h1>Zion Voc Rehab</h1>
       <p className="sub">Sign in with your work email address.</p>
 

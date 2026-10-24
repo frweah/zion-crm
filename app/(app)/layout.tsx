@@ -130,7 +130,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         {/* It reads ?tab= to tell same-path screens apart, like the tab strip. */}
         <Suspense fallback={null}>
-          <NavLinks groups={nav} />
+          <NavLinks groups={nav} narrow={narrow} />
         </Suspense>
 
         {/* Microsoft 365 Copilot Chat: the one AI tool client information may

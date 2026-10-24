@@ -37,7 +37,13 @@ export default async function PendingAuthorizations({
     supabase
       .from("authorizations")
       .select("id, client_id, number, service_type, carried_used, total_hours")
-      .like("number", "(workbook)%"),
+      // Whatever an authorization without a USOR number looks like this year
+      // (0251). It was `.like("number", "(workbook)%")`, which was the
+      // spreadsheet import's own label and has not matched a row since every
+      // one of those was given its real number - so this list was empty and
+      // "Replace with this number" was never offered for the authorizations
+      // that actually need it.
+      .eq("has_usor_number", false),
   ]);
 
   const pending = ((pendingRows ?? []) as unknown as PendingRow[]).filter(isAuthorization);

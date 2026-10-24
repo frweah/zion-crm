@@ -82,6 +82,20 @@ export default async function EndOfDayPage({
             ? "Your day, in the practice's own form"
             : `${person?.name ?? "Somebody"}'s day`
         }
+        actions={
+          /*
+           * Somebody who manages somebody gets here from their own day as
+           * well as from HR (owner, 23 Oct 2026). The team view has always
+           * been in the navigation for a manager, but a manager filling in
+           * their own day is exactly when they think of reading their
+           * people's, and the way there was a different group.
+           */
+          me.manages ? (
+            <Link className="btn ghost" href="/end-of-day/team" style={{ textDecoration: "none" }}>
+              The team&apos;s days
+            </Link>
+          ) : undefined
+        }
       />
 
       {!mine && (

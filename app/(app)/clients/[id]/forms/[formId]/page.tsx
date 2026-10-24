@@ -51,7 +51,7 @@ export default async function FormPage({
     form.auth_id
       ? supabase
           .from("authorizations")
-          .select("number, service_type")
+          .select("number, service_type, has_usor_number")
           .eq("id", form.auth_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -111,10 +111,10 @@ export default async function FormPage({
           ? "No authorization is attached, so this form cannot count towards any invoice."
           : "No authorization is attached.",
       });
-    } else if (auth?.number?.startsWith("(workbook)")) {
+    } else if (auth && auth.has_usor_number === false) {
       blockers.push({
         tone: "bad",
-        text: `It is on ${auth.number}, a workbook placeholder with no USOR number, so it cannot be sent. Put the USOR number on it first.`,
+        text: `It is on ${auth.number || "an authorization"} with no USOR number, so it cannot be sent. Put the USOR number on it first.`,
         href: "/billing?tab=authorizations",
         linkText: "Billing → Authorizations",
       });

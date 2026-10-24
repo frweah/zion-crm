@@ -18,8 +18,21 @@ import { InboxView, type PendingRow, type Placeholder } from "./inbox-view";
  */
 export default async function InboxSection() {
   const me = await requireStaff();
-  if (me.role !== "Admin") redirect("/dashboard");
+  /**
+   * Admin, or somebody holding a billing edit grant (owner, 23 Oct 2026).
+   *
+   * This used to redirect everybody who was not Admin and then, on the very
+   * next line, work out whether they held the grant - a question that could
+   * only ever be asked of an Admin. The grant meant one thing here and
+   * another in the database, where `inbox_documents` has opened the
+   * authorization documents to a billing edit grant since 0103.
+   *
+   * The database is still what limits them: a grantee reads and writes the
+   * authorizations in this inbox and nothing else in it, so the section is
+   * safe to draw for them without a second rule here deciding which rows.
+   */
   const canBill = can(me, "billing", "edit");
+  if (me.role !== "Admin" && !canBill) redirect("/dashboard");
 
   const supabase = await createClient();
 
@@ -27,11 +40,12 @@ export default async function InboxSection() {
     supabase.from("inbox_pending").select("*").order("first_seen", { ascending: false }),
     supabase.from("clients").select("id, name").order("name"),
     supabase.from("inbox_documents").select("state").neq("state", "Pending"),
-    // Imported "(workbook)" authorizations, which a confirmed scan can replace.
+    // Authorizations USOR has not numbered yet, which a confirmed scan can
+    // replace. One definition, on the row (0251).
     supabase
       .from("authorizations")
       .select("id, client_id, number, service_type, carried_used, total_hours")
-      .like("number", "(workbook)%"),
+      .eq("has_usor_number", false),
   ]);
 
   const pending = (pendingResult.data ?? []) as unknown as PendingRow[];

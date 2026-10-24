@@ -3244,3 +3244,56 @@ button.attach-chip:hover {
   resize: vertical;
   overflow-y: hidden;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   A group's screens, under the group (owner, 23 Oct 2026).
+
+   Only the open group's, and only in the full sidebar: closed to icons there
+   is no room for a label, and a screen's name is all a sub-item has.
+   ───────────────────────────────────────────────────────────── */
+.nav-group {
+  display: contents;
+}
+.nav-sub {
+  display: grid;
+  gap: 1px;
+  /* Lined up under the group's label rather than its icon, so the indent
+     reads as "inside this" and not as a second column of links. */
+  margin: 1px 0 5px 30px;
+  padding-left: 9px;
+  border-left: 1px solid var(--side-line);
+}
+.nav-sub-link {
+  padding: 5px 8px;
+  border-radius: 6px;
+  /* The sidebar's quieter ink rather than faded white: a screen's name is
+     read, and the house rule is that text is never faded. */
+  color: var(--side-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  transition: background-color var(--motion), color var(--motion);
+}
+.nav-sub-link:hover {
+  background: var(--side-hover);
+  color: var(--side-ink);
+}
+.nav-sub-link.on {
+  background: var(--side-active-bg);
+  color: var(--side-active-ink);
+  font-weight: 600;
+}
+.shell.side-narrow .nav-sub {
+  display: none;
+}
+
+/* The logo on a centred page (login, no access). Centred above the name, and
+   the artwork sized for the plate rather than the plate for the artwork. */
+.panel-brand {
+  width: fit-content;
+  margin: 0 auto 14px;
+}
+.panel-brand img {
+  display: block;
+  width: 56px;
+  height: 56px;
+}

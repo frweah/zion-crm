@@ -716,6 +716,62 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
       });
     }
   }
+
+  /**
+   * A job search update, added on a client, as Reports (owner, 23 Oct 2026).
+   *
+   * Margaret's bug: the panel was offered to five roles and the policy
+   * accepted it from two, so three of them got "new row violates row-level
+   * security policy for table job_leads" and nothing else. The database half
+   * is asserted per role in supabase/verify_job_search_updates.sql, rolled
+   * back; this is the other half, against the real deployment, through the
+   * screen's own action.
+   *
+   * It writes, which almost nothing in this file does - three rows, on a ZZ
+   * client, and it takes them out again afterwards. A refused insert here is
+   * a role that cannot do its job on the next deploy, and that is worth the
+   * two seconds and the clean-up.
+   */
+  const zzClient = await open("/clients?tab=all&q=ZZ");
+  const forJobs = zzClient.ok ? (zzClient.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1] : null;
+  if (!forJobs) {
+    all.push({
+      role: "Reports",
+      path: "/clients/…?tab=jobs",
+      ok: false,
+      why: zzClient.ok
+        ? "All clients listed no ZZ client to add a job search update to"
+        : `All clients did not open: ${zzClient.why}`,
+    });
+  } else {
+    const record = await open(`/clients/${forJobs}?tab=jobs`);
+    if (!record.ok) {
+      all.push({ ...record, role: "Reports" });
+    } else {
+      // The panel has to be offered before anything can be posted through it.
+      const offered = /name="new_employer"|name="title"/.test(record.body);
+      all.push({
+        role: "Reports",
+        path: `/clients/${forJobs}?tab=jobs`,
+        ok: offered,
+        why: offered ? undefined : "the Jobs tab offers this role no way to add a job search update",
+      });
+
+      if (offered) {
+        const posted = await invokeActions(`/clients/${forJobs}?tab=jobs`, "Reports");
+        // An empty submission is refused by the action's own validation, which
+        // is a different answer from the database refusing the row - and it is
+        // the database's refusal this is looking for.
+        const rls = posted.filter((r) => /row-level security|violates row-level/i.test(String(r.why ?? "")));
+        all.push({
+          role: "Reports",
+          path: `/clients/${forJobs}?tab=jobs actions`,
+          ok: rls.length === 0,
+          why: rls.length === 0 ? undefined : `the database refused ${rls.length} of them: ${rls[0].why}`,
+        });
+      }
+    }
+  }
   /**
    * Only /billing, and deliberately.
    *

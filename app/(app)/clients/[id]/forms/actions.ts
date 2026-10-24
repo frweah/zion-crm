@@ -262,16 +262,18 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
     form.auth_id
       ? supabase
           .from("authorizations")
-          .select("number, service_type")
+          .select("number, service_type, has_usor_number")
           .eq("id", form.auth_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
-  // A workbook placeholder is not a USOR authorization: its "number" is the
-  // CRM's own label. A form carrying it would reach the billing office with
-  // no authorization number USOR can match (punch list #3).
-  if (auth?.number?.startsWith("(workbook)")) {
+  // An authorization USOR has not numbered is not something a form can be
+  // sent on: it would reach the billing office with no number USOR can match
+  // (punch list #3). Asked of the row rather than of the "(workbook)" prefix,
+  // which stopped matching anything months ago and let a form on an
+  // unnumbered authorization straight through (0251).
+  if (auth && auth.has_usor_number === false) {
     return {
       error:
         "This form is on a workbook placeholder, not a USOR authorization, so it has no authorization number to send. Put the USOR number on it (Billing -> Authorizations), or start the form on the right authorization.",

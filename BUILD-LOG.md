@@ -6321,3 +6321,171 @@ accepting. It is run by hand rather than in `prebuild`, so nothing said so.
 Fixed, and the reason is in the fixture.
 
 114 of 114 verify scripts pass; 18 checks in `prebuild`.
+
+---
+
+## Margaret's six (23 Oct 2026)
+
+Six things from the person who uses the CRM hardest. Two were real bugs, two
+were already working and the finding is *why* she saw what she saw, and two
+were changes to how the screens are arranged.
+
+### 1. Job search updates were refused by the database
+
+Real, and the plainest kind: the screen offered a panel the database would
+not accept from her.
+
+`addClientJob` gates on `CAN_EDIT_CLIENTS` — Admin, Job Search, Reports, Job
+Coach, Case Manager. The policies on `job_leads`, `employers` and
+`lead_matches` asked for Admin or Job Search. So the panel was offered to five
+roles, accepted from two, and the three in between got *"new row violates
+row-level security policy for table job_leads"* — which is the one thing a
+person reading a screen can do nothing with.
+
+`can_record_job_search()` is the single answer now (0250), because adding one
+job writes to three tables and five role names written into six policies is
+what drifts. **And the writer is recorded by the rule rather than by the
+caller**: every insert in the app already set `created_by`, and "already does"
+is not a guarantee, so the policy requires it to be the person inserting. A
+row that does not say who added it cannot be added.
+
+`supabase/verify_job_search_updates.sql` asks it once per role, *as* that
+role, with a login of its own — all five add the employer, the job and the
+client against it, and Billing is refused, because without that half the
+script would pass on a policy that let everybody in. Three faults put back:
+the old two-role policy, a policy that let everybody in, and one that did not
+require the writer.
+
+### 2. The billing grant — honoured, except in one place
+
+I could not reproduce "cannot edit authorizations", and I tried hard enough to
+say so plainly. As a Reports account holding billing/edit, **over the real
+API**: editing the rate works, labelling an unnumbered authorization works,
+reading the confirm queue works, the authorization record offers her the
+number field, the status form, Correct and Submit, and `billing_hands()` — the
+helper every billing RPC guards on — returns true for her. The screens all ask
+`can(me, "billing", "edit")`, which honours a grant.
+
+The likeliest explanation is that her report predates the 19 October outage
+fix, when every billing screen answered a server exception for her role.
+
+What I did find is one place the grant meant two different things at once, and
+it is the place she needs:
+
+**`InboxSection` redirected everybody who was not Admin and then, on the very
+next line, worked out whether they held the grant** — a question that could
+only ever be asked of an Admin. The database has opened the authorization
+documents in that inbox to a billing edit grant since 0103. So the data said
+yes and the screen said no, and the "Replace with this number" action lives
+nowhere else. Admin → Documents now opens for a billing edit grant, showing
+the inbox and not Retention or records requests, which are about the
+practice's own obligations rather than about billing a client.
+
+**And the unnumbered authorizations were invisible to the machinery meant to
+label them.** Four places asked the same question the same way:
+
+    .like("number", "(workbook)%")
+
+which was right in January. The spreadsheet import (0079) labelled the
+authorizations it had no number for that way, and **every one of those has
+since been given its real number — there are none left**. What exists now is
+authorizations with an empty number, and not one of the four places recognised
+them. The confirm queue has never offered "Replace with this number" for an
+authorization that actually needed it.
+
+`authorizations.has_usor_number` is a generated column now (0251): the
+question is about the row, so it is answered on the row, once. The two screens
+that block a form from being sent on an unnumbered authorization were asking
+the same stale question, so a form on one of Vicki Kuhn's two unnumbered
+authorizations would have gone to the billing office with no number USOR could
+match. They ask the column now too.
+
+One more thing fell out of it: the navigation can say what *level* of an area
+a screen needs. Documents needs billing at "edit", and without that a
+view-only grant would have put it in the sidebar and then answered with a
+redirect — which is the one thing a navigation must never do.
+
+### 3. End of day, for a manager who is not Admin
+
+Also already working, and verified rather than assumed: as a Reports account
+managing somebody, on production, the HR group appears with **End of day —
+team**, the screen opens, and the managed person's days are listed. The
+database agrees — `day_is_mine_to_see` gives Margaret Rei's five days and
+nobody else's.
+
+What was missing is the second half of what the owner asked for: a manager
+filling in their own day had no way across to their people's. **The team's
+days** is now an action on the person's own End of day, for anybody who
+manages anybody.
+
+### 4. Home, in sections
+
+Clock-in status, today's appointments and the calendar, notifications, then
+the My day items as they were — each a plain block with its own heading rather
+than a card, so nothing is a card inside a card. The one-number billing tile
+stays where it was, and so does the tile row above: those are one number each
+and a tap to the thing itself, which is what §1 asks of them.
+
+**Alerts is called Notifications.** It reads the `notifications` table and
+always did; the heading was the only place that said otherwise.
+
+### 5. The logo
+
+Three places checked, and the answer was different in each.
+
+**The sidebar, both themes, and the narrow rail: correct.** On its white plate
+— the one surface that does not turn over with the theme, because the artwork
+is a full-colour gradient drawn for white — 36px in the sidebar, 26px in the
+64px rail, and sharp: the srcset carries a 2× candidate, so a high-resolution
+screen gets 96px for a 36px slot.
+
+**The sign-in page had no logo at all.** Just the name. That is the most
+likely thing "not displaying properly" meant, since it is the screen she sees
+before anything else. It has the mark now, on the same plate, above the name.
+
+**The summary emails cannot have one.** Every email the CRM sends is plain
+text — `sendEmail` takes a `text` and nothing else — so there is no image to
+be broken. Worth saying rather than quietly skipping.
+
+**And there was no browser tab icon.** No `app/icon`, no favicon, nothing in
+the metadata: every tab showed the browser's blank page mark. There is a 64px
+icon and a 180px touch icon now, both resized from the practice's own artwork.
+
+### 6. A group opens its screens
+
+The sidebar was the six groups and nothing else, which was the right call in
+September — each group's screens are also the tab strip across the top, so
+listing them down the side as well was the same list twice. What makes it
+not-twice now is that only one group's are shown: the one you are in, or the
+one you just pressed.
+
+Pressing a group opens it, closes whichever was open, and goes to its first
+screen. There is no closing a group by pressing it again — a sidebar where
+every group can be shut is one somebody can leave showing nothing, and the
+group holding the screen you are on should always be showing its screens.
+
+**Not in the rail.** Closed to icons there is no room for a label, and a
+screen's name is all a sub-item has, so the rail stays the six icons it was.
+The phone's bottom bar is untouched: its own component, its own five
+destinations, and `check-nav` now fails if a sub-list appears in it.
+
+Five faults put back there: the sub-list removed, two groups open at once, the
+rail showing them, the layout no longer saying whether it is narrow, and a
+sub-list growing in the phone bar.
+
+### What the suite caught
+
+`verify_leads` asserted the rule 0250 replaced — "only Admin and Job Search
+may add an opening" — and its probe inserted a lead **without** `created_by`,
+which the new policy refuses. Left alone it would have reported that no role
+in the practice can add an opening. Both halves updated, and Billing is still
+asserted to be refused.
+
+115 of 115 verify scripts pass; 18 checks in `prebuild`.
+
+### Smoke
+
+A Reports account opens a ZZ client's Jobs tab, the add panel is there, and
+its actions are posted — a submission refused by the action's own validation
+is fine, and one refused by the *database* fails the deploy. That is Margaret's
+bug, asked on every deploy.
