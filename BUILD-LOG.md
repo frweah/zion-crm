@@ -6489,3 +6489,120 @@ A Reports account opens a ZZ client's Jobs tab, the add panel is there, and
 its actions are posted — a submission refused by the action's own validation
 is fine, and one refused by the *database* fails the deploy. That is Margaret's
 bug, asked on every deploy.
+
+---
+
+## The sweep that reported success and never ran (24 Oct 2026)
+
+Asked to put `/api/cron/sync` on the same scheduler as the others, every
+fifteen minutes. It was already on it, and the reason it was not working was
+not the schedule.
+
+### Where the scheduler actually is
+
+Not Vercel. `vercel.json` holds `regions` and nothing else — no `crons` block
+— and every `/api/cron/*` route is driven by **pg_cron inside Supabase**,
+calling them with `net.http_post` and the shared secret as a bearer token.
+Eight jobs, named `zion-*`. Looking only at `vercel.json`, as I did first,
+makes it appear nothing is scheduled at all.
+
+`zion-outlook-sync` was there, at `50 12 * * *` — once a day. Altered in place
+with `cron.alter_job` rather than added beside: two schedulers calling one
+route double-fire, and BUILD-LOG §6 already records what that costs when the
+route sends a client a text.
+
+### And then it still did not run
+
+Fifteen minutes later the job had fired twice, reported `succeeded` twice, and
+not one mailbox had been swept. pg_cron's "succeeded" means the SQL that
+*queued* the request ran — `net.http_post` is asynchronous and returns a
+request id. The answer is in `net._http_response`, and the answer was:
+
+    #8190  405
+    #8184  405
+
+**`/api/cron/sync` exported `GET` alone.** The scheduler posts. So the job has
+answered "method not allowed" every day since it was created, while recording
+a success every day, and the only sweeps that have ever happened were somebody
+pressing Sync on the dashboard or the change-notification webhook firing.
+
+The seven other cron routes all export both verbs. This one was the odd one
+out, and nothing inside the database could notice: the job's own history says
+it worked. `scripts/check-agent-routes.mjs` holds the convention now — all
+eight routes answer POST, proved by taking it away and watching it fail.
+
+That is also the honest correction to what I reported yesterday. I said the
+sweep "is not scheduled anywhere". It was scheduled, daily, and broken.
+
+### The renewal window
+
+Six hours, now two days.
+
+Six hours of grace meant six hours of outage — a bad deploy, a refused token,
+a scheduler stopped — between a working mailbox and a dead one. It also made
+any alarm beside it meaningless: a healthy subscription spent eighteen hours a
+day inside twenty-four hours of expiry, so a check on that threshold would
+have fired every day for ever.
+
+At two days, a subscription is renewed with a clear day to spare and never
+legitimately sits inside twenty-four hours. Being inside one is therefore a
+fault, and can be reported as one. The cost is one PATCH per mailbox roughly
+every twenty-two hours, against a ceiling of about seventy.
+
+### What watches it now
+
+`supabase/verify_mail_subscriptions.sql` — read-only, and about the practice's
+live rows rather than a fixture, which is unusual here and is the point: no
+arrangement of test data can tell you whether the real subscriptions are being
+renewed. It fails when a subscription is inside a day of expiry, when one
+carries an error, and when a connected mailbox has not been swept for two
+hours. The third is there because the first two would not notice a scheduler
+that stopped this morning: a subscription renewed yesterday looks healthy for
+another two days.
+
+**Admin → System → Mailbox watch** shows the same four facts for each mailbox:
+watched until, renewed, swept, and how many times Microsoft has told us
+anything. The date is the number to read.
+
+### Confirmed
+
+- The job runs `*/15 * * * *`, and the route answers its POST with 200.
+- All four subscriptions renewed from **Mon 26 Oct 15:00** to **Tue 27 Oct
+  18:04** — seventy hours out, past Monday.
+- Every mailbox swept, and `verify_mail_subscriptions` passes on live rows.
+- 116 of 116 verify scripts.
+
+### A timestamp that nearly became an outage
+
+Worth writing down because it cost twenty minutes and almost cost a false
+alarm in a report. A probe of mine printed the database clock with
+`select now() at time zone 'utc'`, which returns a timestamp **without** a
+zone; node-postgres handed it to `new Date()`, which read it as local time and
+shifted it six hours. The result said every pg_cron job had stopped six hours
+earlier — four jobs at once, one of which I had just altered.
+
+Nothing had stopped. Asking the database to do the arithmetic instead —
+`round(extract(epoch from (now() - start_time)) / 60)` — gave "14 minutes
+ago". When a timestamp implies an outage, confirm it a second way before
+saying so.
+
+## One permanent fixture (24 Oct 2026)
+
+The practice now carries exactly one client that is not a client: **ZZ Smoke
+Board**, inactive, on nobody's board.
+
+Two smoke steps need a client to exist on production — one opens Compose about
+them, the other posts the Jobs panel as Reports, which is the step that would
+have caught Margaret's row-level security bug. They must not create one: smoke
+writing a client to the practice's records on every deploy is worse than the
+gap it fills.
+
+`verify_zz_no_fixtures` permits that one name and nothing else. It is still a
+rule rather than an exemption: any other ZZ or ZQ row fails as before, a
+second copy of the name fails, and the fixture being anything but inactive
+fails — a permanent fixture on somebody's board is a fixture that has stopped
+being one.
+
+Both steps fail again when it is missing, rather than warning. Proved by
+pointing the constant at a name that is not on file and watching both fail,
+which tests the branch without touching the live record.
