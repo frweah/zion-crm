@@ -19,6 +19,7 @@
  * computes, so this reads the sources for the shape that keeps each one fixed.
  */
 import { readFileSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
 import {
   INBOX_BUCKET,
   STORAGE_MAX_BYTES,
@@ -314,6 +315,42 @@ if (arrivalFiling < 0 || insertAt < 0 || arrivalFiling < insertAt) {
   } else {
     ok("a warrant stub in a client folder is read through the warrant checks and never settled from the inbox");
   }
+}
+
+
+// ── every cron route answers the scheduler ──────────────────
+//
+// The scheduler is pg_cron inside Supabase, and it calls these with
+// `net.http_post`. A route exporting only GET therefore answers 405 - and
+// pg_cron still records the job as "succeeded", because the SQL that queued
+// the request ran. `/api/cron/sync` was that route: the mail sweep reported
+// success every day for months and never once ran (owner, 24 Oct 2026).
+//
+// There is nothing to notice from inside the database, so the convention is
+// held here instead: a cron route exports both verbs, and the one that
+// matters is POST.
+const cronDir = new URL("../app/api/cron/", import.meta.url);
+const cronRoutes = (await readdir(cronDir, { withFileTypes: true }))
+  .filter((e) => e.isDirectory())
+  .map((e) => e.name);
+
+const noPost = [];
+for (const name of cronRoutes) {
+  const route = await readFile(new URL(`${name}/route.ts`, cronDir), "utf8");
+  const bare = route.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const posts = /export (async function POST|const POST)\b/.test(bare);
+  if (!posts) noPost.push(name);
+}
+
+if (cronRoutes.length === 0) {
+  fail("no cron routes were found, so this check is checking nothing");
+} else if (noPost.length) {
+  fail(
+    `these cron routes do not answer POST, which is how the scheduler calls them, ` +
+      `so they would answer 405 while pg_cron reported success: ${noPost.join(", ")}`,
+  );
+} else {
+  ok(`all ${cronRoutes.length} cron routes answer the scheduler's POST`);
 }
 
 console.log("");

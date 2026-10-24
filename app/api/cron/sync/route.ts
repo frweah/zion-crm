@@ -21,7 +21,29 @@ export const maxDuration = 300;
  * the middleware's public paths for the same reason — it arrives without a
  * session because there is nobody signed in at three in the morning.
  */
+/**
+ * Both verbs, like every other cron route.
+ *
+ * This one exported GET alone, and the scheduler posts: `net.http_post` from
+ * pg_cron's `zion-outlook-sync`. So the job reported "succeeded" every day -
+ * which only means the SQL that queued the request ran - while the request
+ * itself came back **405 Method Not Allowed**, and no mailbox was swept by
+ * the scheduler once. Every sweep that has happened was somebody pressing
+ * Sync, or the change-notification webhook (owner, 24 Oct 2026).
+ *
+ * The seven other cron routes all export both. This was the odd one out, and
+ * scripts/check-agent-routes.mjs now holds the convention so the next route
+ * cannot be.
+ */
+export async function POST(request: NextRequest) {
+  return handle(request);
+}
+
 export async function GET(request: NextRequest) {
+  return handle(request);
+}
+
+async function handle(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const provided =
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
