@@ -6795,3 +6795,109 @@ statement per view.
 - **119 of 119** verify scripts, including the new `verify_add_authorization`
   and `verify_billing_filters`.
 - Both new checks proved by putting the fault back and watching them fail.
+
+## The grants nobody asked for, and the intake's five seconds (26 Oct 2026)
+
+Both of the things left for the owner earlier the same day, answered yes to.
+
+### Nine views, not thirteen
+
+The note above says thirteen existing views onto `authorizations` carry
+Supabase's default write grants, and that `client_documents` is auto-updatable
+with no `security_invoker` and refused an insert only because one of its
+columns is computed. Both numbers were wrong and are corrected here rather
+than quietly in place.
+
+It is **nine** views - `authorization_economics`, `authorization_record`,
+`billed_work`, `billing_position`, `client_activity`, `client_last_activity`,
+`client_paperwork`, `client_pipeline` and `staff_capacity` - counted by
+walking `pg_depend` through intermediate views rather than by eye. And
+`client_documents` has no INSERT for `authenticated` at all; its ACL is
+`authenticated=r`. The computed-column refusal that was observed was a second
+wall behind a door that was already shut.
+
+0257 takes the writes off all nine and grants SELECT back. The default
+privilege itself is left alone, and that is a decision rather than an
+omission: switching it off would take the writes off every future *table* in
+the same breath, and some tables lean on it - `mail_templates` (0238) has no
+grant of its own and the Mail screen writes to it. One question at a time.
+
+The half worth checking was not that the writes went. It is that nothing
+anybody uses went with them. Counted as each of the five people on the
+practice - Admin, Billing, Case Manager, Job Search, Reports - across all ten
+views, before and after: 169, 169, 148, 169, 2365/2171/1546/2257/2281, 169,
+80, 25, 80, 7, identical on both sides. And a write through `billed_work`,
+which is the one of them Postgres can write through, is now refused with
+*permission denied for view billed_work*.
+
+### The view that should not read as the invoker
+
+`client_documents` was to be given `security_invoker` and was not, because the
+verification the owner asked for is the thing that says no.
+
+The view reads `attachments` with its owner's rights, and that is what makes
+the restricted-document design possible: a document somebody may not open
+comes back as a **row**, with its category, filename, note, path and size
+blanked and `can_open` false. The screen says a document is there and that
+this person cannot open it. The base table's own read policy stops at
+`not restricted or can_see_restricted(client_id)`, so reading as the invoker
+would not blank those rows - it would remove them. Measured inside a
+rolled-back transaction, with the option switched on and the same question
+asked again as each person:
+
+| | sees now | blanked | with `security_invoker` | lost |
+|---|---|---|---|---|
+| Admin | 776 | 0 | 776 | 0 |
+| Billing | 776 | 109 | 667 | **109** |
+| Case Manager | 776 | 109 | 667 | **109** |
+| Job Search | 776 | 42 | 734 | **42** |
+| Reports | 776 | 0 | 776 | 0 |
+
+The tempting repair - letting restricted rows through `attachments`'s read
+policy and leaving the blanking to the view - is much worse than the thing it
+fixes: `attachments` is a table the app reads directly, so the filename and
+storage path of every restricted document would be one query away.
+
+So the answer is that `security_invoker` is not what keeps this view safe.
+Having no way in is. `verify_view_grants` asserts both halves - that it has no
+invoker, and that `authenticated` holds SELECT and nothing else on it - so the
+day somebody grants a write there, that fails rather than being a quiet
+exception to a rule stated as "every view gets `security_invoker`".
+
+It also puts the fault back: it creates a view of exactly the dangerous shape
+inside the transaction, grants INSERT on it, and fails if the general
+assertion does not notice.
+
+### Thirty seconds for the intake
+
+`zion-intake` had logged a pg_net error every fifteen minutes since it was
+turned on - 96 a day - because five seconds is pg_net's default and reading
+the forty most recent messages in service@ through Graph takes about 4.9 of
+them before the response even starts. Nothing was lost: the route is
+`maxDuration = 300` and finishes on Vercel long after pg_net has stopped
+waiting. What was lost is the log, which is where the next real error has to
+be visible.
+
+0258 raises it to thirty seconds. The shared secret is not written down: the
+command is read back out of `cron.job`, the parameter appended to it, and the
+whole thing handed to `cron.alter_job` - the same reason 0183 copies its
+command from a job that already carries the secret rather than typing it.
+`zion-outlook-sync` and `zion-sms-reminders` already pass 240000, so this is
+the third job to say how long it will wait rather than the first.
+
+### What it took
+
+- 0257 and 0258 applied.
+- **120 of 120** verify scripts, including the new `verify_view_grants`.
+- 20 prebuild checks.
+- The new script proved twice over: run before 0257 it failed on all fifty-four
+  grants, and its general assertion catches a dangerous view planted on purpose.
+
+**Still the owner's:** twenty-four other views in `public` carry the same
+default write grants, none of them onto `authorizations`. Three are
+auto-updatable - `my_tour_progress`, `offboarding_readiness` and
+`updates_for_me` - and all three have `security_invoker`, so a write through
+one of them is checked against the base table as the person, which is why
+none of the twenty-four is a door today. One statement each if you want them
+gone. And whether to turn off the default privilege for the whole schema,
+which is the tables question above, not this one.
