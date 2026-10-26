@@ -105,6 +105,12 @@ Everything in `prebuild` runs before every build and gates the deploy. Add a
 check rather than a convention whenever a rule is worth keeping: a rule that
 is only written down is a rule that drifts.
 
+**A check outside `prebuild` is a check that rots.** `check-quick-add` named
+the six kinds the "+" offered and the number each role got; three kinds were
+added over the following month and every assertion went stale at once. Nobody
+found out, because nothing ran it. Ask the rule rather than the roster, and
+put it in `prebuild`.
+
 Two checks need database credentials and so are run by hand rather than in
 `prebuild`, which runs on Vercel:
 
