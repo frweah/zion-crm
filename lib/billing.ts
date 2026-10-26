@@ -91,3 +91,42 @@ export const emptyImport: ImportState = {
   stagedPath: null,
   bytes: null,
 };
+
+/**
+ * What to call an authorization USOR has not numbered yet (owner, 26 Oct 2026).
+ *
+ * Four of the practice's authorizations carry a placeholder label - "coaching
+ * 1006" - from the spreadsheet import, and two carry nothing at all. Both
+ * kinds were being shown where a V-number goes, so the list read as though
+ * USOR had issued a number called "coaching 1006". It had not.
+ *
+ * The label never pretends. It says there is no number, and then says the two
+ * things that actually identify the record to a person: what the service is
+ * and who it is for. The placeholder's own text is not shown anywhere,
+ * because it is the CRM's filing note and means nothing to USOR or to
+ * anybody reading a list.
+ */
+export function authorizationLabel(a: {
+  number?: string | null;
+  has_usor_number?: boolean | null;
+  service_type?: string | null;
+  client_name?: string | null;
+}): string {
+  const numbered =
+    a.has_usor_number ?? /^V[0-9]+/i.test((a.number ?? "").trim());
+  const service = a.service_type ?? "";
+  const client = a.client_name ?? "";
+
+  if (numbered) return (a.number ?? "").trim();
+  const said = [service, client].filter(Boolean).join(", ");
+  return said ? `No number yet — ${said}` : "No number yet";
+}
+
+/** The same, for a place that has the client's name in its own column. */
+export function authorizationNumberLabel(a: {
+  number?: string | null;
+  has_usor_number?: boolean | null;
+}): string {
+  const numbered = a.has_usor_number ?? /^V[0-9]+/i.test((a.number ?? "").trim());
+  return numbered ? (a.number ?? "").trim() : "No number yet";
+}

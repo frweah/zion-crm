@@ -47,7 +47,10 @@ begin
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
   values (v_b, '(workbook) coaching ZZ02', 'Job Coaching', 'Hourly', 45, 40, 'Authorized') returning id into v_phB;
   insert into public.authorizations (client_id, number, service_type, rate_type, rate, total_hours, status)
-  values (v_a, 'ZQ9700001', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_real;
+  -- V-shaped on purpose: "real" means "has a USOR number" since 0252, and a
+  -- USOR number is V and digits. V0000 is the fixtures' own prefix, which no
+  -- USOR number uses.
+  values (v_a, 'V0000001', 'Job Coaching', 'Hourly', 45, 20, 'Authorized') returning id into v_real;
 
   insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path)
   values ('zx' || repeat('1', 62), 'ZZ Placeholder One', 'ZZ Placeholder One/a.pdf', 'Job coaching auth.pdf', v_a,
@@ -97,7 +100,7 @@ begin
     perform public.replace_placeholder_authorization(v_doc2, v_real, 'ZQ9700998');
     failures := failures || 'FAILED: a real authorization was renumbered as if it were a placeholder'::text;
   exception when check_violation then
-    raise notice 'ok  only a "(workbook)" placeholder is replaced, never a real authorization';
+    raise notice 'ok  only an authorization without a USOR number is replaced, never a real one';
   end;
 
   begin
@@ -114,7 +117,7 @@ begin
   values (v_a, 'coaching ZZ03', 'Job Coaching', 'Hourly', 45, 40, 'Authorized', true) returning id into v_phB;
   perform set_config('role', 'authenticated', true);
   begin
-    perform public.replace_placeholder_authorization(v_doc2, v_phB, 'zq-970 0001');
+    perform public.replace_placeholder_authorization(v_doc2, v_phB, 'v-0000 001');
     failures := failures || 'FAILED: a placeholder was given a number already on file'::text;
   exception when check_violation then
     raise notice 'ok  a number already on file, however it is written, is refused';
@@ -135,7 +138,7 @@ begin
 
   begin
     insert into public.authorization_corrections (auth_id, auth_number, field, was_value, new_value, reason)
-    values (v_real, 'ZQ9700001', 'Document', 'scan.pdf', 'taken off', 'OCR shows another number');
+    values (v_real, 'V0000001', 'Document', 'scan.pdf', 'taken off', 'OCR shows another number');
     update public.attachments set review_note = 'OCR reads a different number' where storage_path = 'inbox/zx/1.pdf';
     raise notice 'ok  the log takes a document taken off an authorization, and a file takes a review note';
   exception when others then

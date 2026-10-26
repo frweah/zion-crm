@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
@@ -275,7 +276,7 @@ export default async function CounselorsPage({
     // a closed or flat-fee one is not a thing the counselor can act on.
     const authOptions = auths.map((a) => ({
       id: a.id,
-      name: `${a.number || "(no number)"} · ${clientName.get(a.client_id) ?? "—"} · ${a.service_type}`,
+      name: `${authorizationNumberLabel(a)} · ${clientName.get(a.client_id) ?? "—"} · ${a.service_type}`,
     }));
 
     const requests: HoursRequestRow[] = (requestsResult.data ?? []).map((r) => {

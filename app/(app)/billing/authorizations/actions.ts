@@ -1,4 +1,5 @@
 "use server";
+import { authorizationNumberLabel } from "@/lib/billing";
 
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/session";
@@ -144,11 +145,11 @@ export async function submitAuthorization(
     : [rec.service_start, rec.service_end].filter(Boolean).join(" to ");
   const amount = Number(rec.amount ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-  const subject = `${rec.client_name} — ${rec.service_type}${period ? ` — ${period}` : ""} — authorization ${rec.number || "(no number)"}`;
+  const subject = `${rec.client_name} — ${rec.service_type}${period ? ` — ${period}` : ""} — authorization ${authorizationNumberLabel(rec)}`;
   const text = [
     `Billing for ${rec.client_name}.`,
     "",
-    `Authorization: ${rec.number || "(no number)"}`,
+    `Authorization: ${authorizationNumberLabel(rec)}`,
     `Service: ${rec.service_type}`,
     period ? `Period: ${period}` : null,
     rec.rate_type === "Hourly" ? `Hours: ${Number(rec.hours_logged ?? 0)}` : null,
@@ -178,7 +179,7 @@ export async function submitAuthorization(
     client_id: rec.client_id,
     date: today(),
     method: "Billing submitted",
-    topic: `${rec.service_type}${period ? ` (${period})` : ""} — authorization ${rec.number || "(no number)"}`,
+    topic: `${rec.service_type}${period ? ` (${period})` : ""} — authorization ${authorizationNumberLabel(rec)}`,
     outcome: `Packet emailed to ${to}${cc.length ? `, copy to ${cc[0]}` : ""} — ${amount}`,
     staff_id: me.id,
   });

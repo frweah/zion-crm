@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { can } from "@/lib/roles";
@@ -144,7 +145,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
       <RecordHeader
         back={{ href: "/billing", label: "Authorizations" }}
         title={`${rec.client_name} — ${rec.service_type}${monthName ? `, ${monthName}` : ""}`}
-        standing={`${rec.number || "no USOR number"} · ${rec.status} — ${
+        standing={`${authorizationNumberLabel(rec)} · ${rec.status} — ${
           STATUS_MEANING[rec.status as AuthorizationStatus] ?? ""
         }`}
       />

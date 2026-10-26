@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { money, today } from "@/lib/constants";
 import { DataTable, type DataRow } from "../data-table";
@@ -55,7 +56,7 @@ export function worklistRows(rows: WorklistRow[], withClient: boolean): DataRow[
           href={`/billing/authorizations/${w.id}`}
           style={{ color: "var(--teal)", fontWeight: 600 }}
         >
-          {w.number || "no number"}
+          {authorizationNumberLabel(w)}
         </Link>
       ),
       ...(withClient
@@ -181,7 +182,7 @@ export async function ClientBillingHistory({ clientId }: { clientId: string }) {
             cells: {
               number: (
                 <Link href={`/billing/authorizations/${r.id}`} style={{ color: "var(--teal)" }}>
-                  {r.number || (r.is_placeholder ? "no USOR number" : "—")}
+                  {authorizationNumberLabel(r)}
                 </Link>
               ),
               service: (

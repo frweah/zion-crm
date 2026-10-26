@@ -1,4 +1,5 @@
 "use client";
+import { authorizationNumberLabel } from "@/lib/billing";
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
@@ -115,7 +116,7 @@ export function BillFlow({
               >
                 <span className="bill-code">{serviceCode(b.service)}</span>
                 <span className="bill-auth-main">
-                  <b>{b.number || "No V-number"}</b>
+                  <b>{authorizationNumberLabel(b)}</b>
                   <span className="lock">
                     {b.service} · {b.price}
                   </span>
@@ -157,7 +158,7 @@ export function BillFlow({
             </p>
             <dl className="bill-facts">
               <dt>Authorization</dt>
-              <dd>{chosen?.number || "—"}</dd>
+              <dd>{chosen ? authorizationNumberLabel(chosen) : "—"}</dd>
               <dt>Counselor</dt>
               <dd>{counselorName || "not set"}</dd>
               <dt>Agency</dt>

@@ -1,5 +1,6 @@
 import { can, ORG } from "@/lib/roles";
 import Link from "next/link";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { notFound, redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -190,7 +191,7 @@ export default async function ClientPage({
     rate_type: string;
     total_hours: number | null;
     status: string;
-  }) => `${a.service_type} · ${a.number || "no V-number"} · ${priceOf(a)} · ${a.status}`;
+  }) => `${a.service_type} · ${authorizationNumberLabel(a)} · ${priceOf(a)} · ${a.status}`;
 
   const withAuthPdf = new Set((authFiles ?? []).map((f) => f.auth_id).filter(Boolean) as string[]);
 
@@ -773,7 +774,7 @@ export default async function ClientPage({
     const authsForForms = authRows ?? [];
     const authChoices: AuthChoice[] = authsForForms.map((a) => ({
       id: a.id,
-      label: `${a.number || "(no number)"} · ${a.service_type}`,
+      label: `${authorizationNumberLabel(a)} · ${a.service_type}`,
       serviceType: a.service_type,
     }));
     // The same test the database applies before letting an invoice be sent,

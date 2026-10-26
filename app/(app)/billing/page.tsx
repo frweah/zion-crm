@@ -1,5 +1,6 @@
 import { can } from "@/lib/roles";
 import Link from "next/link";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -189,7 +190,7 @@ export default async function BillingPage({
     );
     const toOption = (a: (typeof auths)[number]): AuthOption => ({
       id: a.id,
-      label: `${a.number || "(no number)"} · ${clientName.get(a.client_id) ?? "—"} · ${a.service_type}`,
+      label: `${authorizationNumberLabel(a)} · ${clientName.get(a.client_id) ?? "—"} · ${a.service_type}`,
       serviceType: a.service_type,
       rateType: a.rate_type,
       rate: Number(a.rate),
