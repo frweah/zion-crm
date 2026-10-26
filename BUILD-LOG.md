@@ -6885,6 +6885,12 @@ command from a job that already carries the secret rather than typing it.
 `zion-outlook-sync` and `zion-sms-reminders` already pass 240000, so this is
 the third job to say how long it will wait rather than the first.
 
+Watched for three ticks afterwards - 21:00, 21:15 and 21:30 - and all twelve
+calls those quarter-hours make answered 200, with nothing timing out at five
+seconds or at thirty. Worth saying because one clean tick would have proved
+nothing: intake had been timing out on roughly two ticks in three, so three in
+a row is the first run of them the log has.
+
 ### What it took
 
 - 0257 and 0258 applied.
