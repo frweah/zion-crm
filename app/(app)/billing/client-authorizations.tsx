@@ -102,7 +102,15 @@ export function ClientAuthorizations({
   ) as Record<Group, number>;
   const showing = rows.filter((r) => on[r.bucket as Group]);
   const chose = GROUPS.filter((g) => on[g]);
-  const acting = open ? (showing.find((r) => r.id === open.id) ?? null) : null;
+  /**
+   * Looked up in every row, not only the ones showing.
+   *
+   * Recording a payment moves the row to Past, which is off to begin with -
+   * so finding it among the showing rows would close the panel and take the
+   * "Recorded, and this authorization is Paid" with it, leaving somebody
+   * watching a row disappear with nothing said.
+   */
+  const acting = open ? (rows.find((r) => r.id === open.id) ?? null) : null;
 
   return (
     <>
