@@ -65,6 +65,18 @@ create view public.client_authorizations as
    where (select public.reader_may_answer());
 
 alter view public.client_authorizations set (security_invoker = true);
+
+-- Read, and only read.
+--
+-- Supabase's default privileges grant every new table and view in `public` to
+-- `authenticated` in full, so creating this view handed staff INSERT, UPDATE
+-- and DELETE on it - and it is a simple enough select to be auto-updatable,
+-- which makes it shaped like a second door into `authorizations`. It is not
+-- one today: `security_invoker` means the base table's privileges are checked
+-- as the person, who has no insert on `authorizations` (verify_one_door), so
+-- the attempt is refused. But that is the base table saving a view that should
+-- not have been asking, so the grant goes.
+revoke all on public.client_authorizations from anon, authenticated;
 grant select on public.client_authorizations to authenticated;
 
 comment on view public.client_authorizations is

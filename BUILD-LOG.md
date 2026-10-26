@@ -6761,6 +6761,33 @@ function that no longer existed — a question nothing can fail. It finds the
 signature in the catalogue now, and asserts there is exactly **one** of it,
 which is the 0235 trap this check should have been watching for all along.
 
+### A view arrives with grants nobody asked for
+
+Creating `client_authorizations` handed every signed-in person INSERT,
+UPDATE and DELETE on it. Nothing in 0256 granted that: Supabase’s default
+privileges grant every new table and view in `public` to `authenticated` in
+full, and the view is a simple enough select that Postgres will write through
+it - so a read-only list arrived shaped like a second door into
+`authorizations`, which is the one thing `verify_one_door` exists to prevent.
+
+It was not a door in practice, and the reason is worth knowing: with
+`security_invoker` set, the base table’s privileges are checked **as the
+person**, and no signed-in person has insert on `authorizations`. The attempt
+is refused with "permission denied for table authorizations". Tested rather
+than reasoned about. Without `security_invoker` the write would have run as
+the view’s owner and consulted neither the grant nor the policies.
+
+The grant is gone from this view. `verify_one_door` now asks the question that
+matters - is any writable view onto this table one that writes as postgres -
+and that assertion was proved by creating such a view inside a rolled-back
+transaction and watching it get caught.
+
+**Left for the owner:** thirteen existing views onto `authorizations` carry
+the same default write grants, and `client_documents` is auto-updatable with
+no `security_invoker` at all - its insert is refused today only because one of
+its columns happens to be computed. Removing grants is changing who can access
+what, so it is not something to do without being asked. The fix is one
+statement per view.
 ### What it took
 
 - 0252, 0253, 0254, 0255 and 0256 applied.

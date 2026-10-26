@@ -96,6 +96,65 @@ begin
     raise notice 'ok  one door, %, reachable by staff and by nobody else', v_sig;
   end if;
 
+  /**
+   * ── and no view is a door either ──────────────────────
+   *
+   * Supabase''s default privileges grant every new view in `public` to
+   * `authenticated` in full, so thirteen views onto this table carry INSERT,
+   * UPDATE and DELETE that nobody asked for. Those grants are the owner''s to
+   * remove and are left alone here.
+   *
+   * What this asks is whether any of them is a door somebody could walk
+   * through, which needs three things at once: the grant, a view simple
+   * enough for Postgres to write through, and no `security_invoker` - because
+   * without it the write runs as the view''s owner and the base table''s
+   * privileges and policies are never consulted.
+   *
+   * Two of these views are auto-updatable, `billed_work` and
+   * `client_authorizations`, and both set `security_invoker`, so a write
+   * through either is refused as the person rather than allowed as postgres.
+   * The day somebody adds a third and forgets, this says so.
+   */
+  for v_doors in
+    select c.relname
+      from pg_class c
+      join pg_namespace ns on ns.oid = c.relnamespace
+      join information_schema.views v
+        on v.table_schema = ns.nspname and v.table_name = c.relname
+      join information_schema.view_table_usage u
+        on u.view_schema = ns.nspname and u.view_name = c.relname
+     where ns.nspname = 'public' and c.relkind = 'v'
+       and u.table_schema = 'public' and u.table_name = 'authorizations'
+       and (v.is_insertable_into = 'YES' or v.is_updatable = 'YES')
+       and not coalesce(c.reloptions::text like '%security_invoker=true%', false)
+       and (has_table_privilege('authenticated', c.oid, 'insert')
+         or has_table_privilege('authenticated', c.oid, 'update')
+         or has_table_privilege('authenticated', c.oid, 'delete'))
+  loop
+    failures := failures || format(
+      'FAILED: the view %s can be written through as its owner, which is a second door',
+      v_doors)::text;
+  end loop;
+
+  -- And the check is reading something: there are auto-updatable views onto
+  -- this table, and every one of them sets security_invoker.
+  select count(*)::int into v_n
+    from pg_class c
+    join pg_namespace ns on ns.oid = c.relnamespace
+    join information_schema.views v
+      on v.table_schema = ns.nspname and v.table_name = c.relname
+    join information_schema.view_table_usage u
+      on u.view_schema = ns.nspname and u.view_name = c.relname
+   where ns.nspname = 'public' and c.relkind = 'v'
+     and u.table_schema = 'public' and u.table_name = 'authorizations'
+     and (v.is_insertable_into = 'YES' or v.is_updatable = 'YES');
+  if v_n = 0 then
+    failures := failures ||
+      'FAILED: no view onto authorizations is writable at all, so this asks nothing'::text;
+  elsif array_length(failures, 1) is null then
+    raise notice 'ok  and all % writable views onto it answer to the person, not to postgres', v_n;
+  end if;
+
   -- ── and nothing else creates one ──────────────────────────
   --
   -- Every function that inserts into authorizations, named. Each one on this
