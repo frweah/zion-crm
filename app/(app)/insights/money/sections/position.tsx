@@ -1,3 +1,4 @@
+import { authorizationNumberLabel } from "@/lib/billing";
 import { can } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -116,7 +117,7 @@ export default async function PositionPage({
           <ul style={{ listStyle: "none", margin: "6px 0 0", padding: 0 }}>
             {c.rows.map((r) => (
               <li key={r.auth_id} className="lock" style={{ padding: "2px 0" }}>
-                <Link href={`/clients/${id}?tab=billing`}>{r.auth_number || "(no number)"}</Link> ·{" "}
+                <Link href={`/clients/${id}?tab=billing`}>{authorizationNumberLabel({ number: r.auth_number })}</Link> ·{" "}
                 {r.service_type} · {r.status} — {money(Number(r.authorized ?? 0))} authorized ·{" "}
                 {money(Number(r.invoiced ?? 0))} invoiced · {money(Number(r.paid ?? 0))} paid ·{" "}
                 {money(Number(r.outstanding ?? 0))} outstanding

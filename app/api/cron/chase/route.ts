@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sweepAccess } from "@/lib/sync-callers";
 import { ensureFreshToken } from "@/lib/graph";
@@ -212,7 +213,7 @@ async function handle(request: NextRequest) {
     // One per authorization, and nothing is emailed to the counselor: the
     // draft rides along in the notification for Margaret to send.
     const text =
-      `${e.client_name}'s authorization ${e.auth_number || "(no number)"} for ${e.service_type}` +
+      `${e.client_name}'s ${e.service_type} authorization (${authorizationNumberLabel({ number: e.auth_number })})` +
       ` ends ${e.end_date} (${e.days_left} days). Ask for a renewal.\n\nDraft:\n${e.body}`;
 
     for (const staffId of [settings?.intake_staff_id, settings?.billing_notify_staff_id]) {

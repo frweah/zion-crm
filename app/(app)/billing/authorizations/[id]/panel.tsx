@@ -11,6 +11,7 @@ import {
   recordServiceDates,
   resolveZeroHours,
   recordPayment,
+  correctPaymentDate,
   editAuthorization,
   setStatus,
   type ActionState,
@@ -521,6 +522,53 @@ export function SetStatus({ authId, status }: { authId: string; status: string }
       </label>
       <button className="btn" disabled={pending}>
         {pending ? "…" : "Set it"}
+      </button>
+      <Said state={state} />
+    </form>
+  );
+}
+
+/**
+ * Moving a payment to the month it arrived in (owner, 26 Oct 2026).
+ *
+ * Income by month counts on this date, so a payment typed with the wrong one
+ * is income reported in the wrong month. The whole record can already be
+ * edited below, but a person correcting one date should not have to open a
+ * form of twenty fields to do it, and the month it would move to is worth
+ * saying before the button rather than after.
+ */
+export function CorrectPaidDate({
+  authId,
+  paidOn,
+  today,
+}: {
+  authId: string;
+  paidOn: string | null;
+  today: string;
+}) {
+  const [state, action, pending] = useActionState(correctPaymentDate, EMPTY);
+  const month = paidOn
+    ? new Date(`${paidOn}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : null;
+  return (
+    <form action={action} className="card">
+      <input type="hidden" name="auth_id" value={authId} />
+      <h3 className="h2">Date paid</h3>
+      <p className="lock">
+        {month ? `Counted as ${month} income.` : "No date, so Money is not counting it."}
+      </p>
+      <div className="grid">
+        <label className="field">
+          <span>Date paid</span>
+          <input type="date" name="paid_on" defaultValue={paidOn ?? ""} max={today} required />
+        </label>
+        <label className="field">
+          <span>Why</span>
+          <input name="reason" required placeholder="The warrant is dated the 3rd, not the 30th" />
+        </label>
+      </div>
+      <button className="btn" disabled={pending}>
+        {pending ? "Moving…" : "Move it"}
       </button>
       <Said state={state} />
     </form>

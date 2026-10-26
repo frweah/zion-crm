@@ -51,6 +51,11 @@ async function billingHands() {
 const done = (authId: string, clientId?: string) => {
   revalidatePath(`/billing/authorizations/${authId}`);
   revalidatePath("/billing");
+  // Money reads the payments, so a payment recorded, corrected or undone
+  // here changes what Income by month says. It was not revalidated,
+  // which meant a payment recorded today and Money opened afterwards
+  // disagreed until something else happened to clear the cache.
+  revalidatePath("/insights/money");
   if (clientId) revalidatePath(`/clients/${clientId}`);
 };
 
@@ -540,4 +545,46 @@ export async function bulkCloseAuthorizations(
   revalidatePath("/billing");
   for (const id of ids) revalidatePath(`/billing/authorizations/${id}`);
   return batchResult((data ?? []) as BatchRow[], "closed");
+}
+
+/**
+ * Correcting the month a payment landed in (owner, 26 Oct 2026).
+ *
+ * Income by month counts on `paid_on` through `billed_work`, so a payment
+ * entered with the wrong
+ * date is income reported in the wrong month - and the one thing an accountant
+ * cannot work around. This moves it, and the move needs a reason because
+ * somebody will ask which of the two dates was right.
+ *
+ * It is a front door onto the same update the record’s own edit form makes:
+ * the reason is required and logged by the trigger on the table (0255), not by
+ * this file, so the correction is recorded however it arrives.
+ */
+export async function correctPaymentDate(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { supabase } = await billingHands();
+  const id = String(formData.get("auth_id") ?? "");
+  const date = String(formData.get("paid_on") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { error: "That date does not look right.", ok: null };
+  }
+  if (!reason) return { error: "Say why the date is moving. Somebody will ask.", ok: null };
+
+  const { data, error } = await supabase.rpc("correct_payment_date", {
+    p_auth: id,
+    p_on: date,
+    p_reason: reason,
+  });
+  if (error) return refusal(error.message);
+
+  done(id);
+  const moved = new Date(`${String(data ?? date)}T00:00:00`).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  return { error: null, ok: `Moved to ${moved}, with the reason on the record.` };
 }

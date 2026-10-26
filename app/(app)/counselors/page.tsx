@@ -289,7 +289,7 @@ export default async function CounselorsPage({
         response: r.response,
         approved: r.approved,
         approved_date: r.approved_date,
-        auth_number: auth?.number ?? "—",
+        auth_number: auth ? authorizationNumberLabel(auth) : "—",
         client_name: auth?.client_id ? (clientName.get(auth.client_id) ?? "—") : "—",
         counselor_name: r.counselor_id ? (counselorName.get(r.counselor_id) ?? "—") : "—",
       };

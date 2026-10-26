@@ -19,6 +19,7 @@ import {
   ZeroHours,
   Forms,
   RecordPayment,
+  CorrectPaidDate,
   EditEverything,
   SetStatus,
 } from "./panel";
@@ -374,6 +375,18 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
           number arriving after payment is the ordinary case: the owner's own
           test for this is editing the number on a paid authorization and
           finding its PDF still attached. */}
+      {/* The one field a paid record is corrected for on its own: the month
+          Money counts it in. Everything else goes through the whole
+          record below. */}
+      {canBill && rec.status === "Paid" ? (
+        <section className="page-section">
+          <CorrectPaidDate
+            authId={rec.id as string}
+            paidOn={(rec.paid_on as string) ?? null}
+            today={today()}
+          />
+        </section>
+      ) : null}
       {canBill ? (
         <section className="page-section">
           <EditEverything

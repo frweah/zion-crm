@@ -114,7 +114,8 @@ export default async function FormPage({
     } else if (auth && auth.has_usor_number === false) {
       blockers.push({
         tone: "bad",
-        text: `It is on ${auth.number || "an authorization"} with no USOR number, so it cannot be sent. Put the USOR number on it first.`,
+        text:
+          "This authorization has no USOR number yet, so the form cannot be sent — put the number on it first.",
         href: "/billing?tab=authorizations",
         linkText: "Billing → Authorizations",
       });

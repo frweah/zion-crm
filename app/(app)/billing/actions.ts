@@ -15,6 +15,11 @@ export type BillingState = { error: string | null; ok: string | null };
  * something vaguer.
  */
 function friendly(error: { message: string; code?: string }): string {
+  // The one the practice hits most: the same authorization typed in twice,
+  // which arrives as a unique-index violation naming the index (0254).
+  if (error.code === "23505" && /authorizations_number_unique/.test(error.message)) {
+    return "That authorization number is already on file. Open the one that is there rather than adding a second.";
+  }
   const m = error.message.replace(/^new row for relation .* violates /, "");
   return m.charAt(0).toUpperCase() + m.slice(1);
 }
@@ -37,6 +42,23 @@ export async function addAuthorization(
     return { error: "An hourly authorization needs its authorized hours.", ok: null };
   }
 
+  /*
+   * Already paid, when the switch is on (owner, 26 Oct 2026).
+   *
+   * The practice has a backlog that was issued, worked, invoiced and paid
+   * before any of it reached the CRM. Walking one through Due, Submitted and
+   * Paid to record that is four steps and three reasons nobody has.
+   *
+   * The date is required and the amount is not: left blank, the payment is
+   * for what the authorization is worth, which is what `record_payment`
+   * already works out.
+   */
+  const paid = formData.get("mark_paid") === "on";
+  const paidOn = str("paid_on");
+  if (paid && !paidOn) {
+    return { error: "Give the day the payment was received.", ok: null };
+  }
+
   // Through the one door (§10): direct insert is revoked, so this is how a
   // billable record comes into being and there is no second way.
   //
@@ -54,12 +76,25 @@ export async function addAuthorization(
     p_end: str("end_date") || null,
     p_requires_forms: str("requires_forms"),
     p_funding_source: str("funding_source") || "Utah VR",
+    p_received_on: str("received_on") || null,
+    p_paid_on: paid ? paidOn : null,
+    p_paid_amount: paid && str("paid_amount") ? Number(str("paid_amount")) : null,
+    p_warrant: paid ? str("warrant") : "",
   });
 
   if (error) return { error: friendly(error), ok: null };
 
   revalidatePath("/billing");
-  return { error: null, ok: `Authorization ${str("number")} saved.` };
+  revalidatePath(`/clients/${str("client_id")}`);
+  revalidatePath("/insights/money");
+
+  const named = str("number") || "The authorization";
+  return {
+    error: null,
+    ok: paid
+      ? `${named} saved, and recorded as paid on ${paidOn}.`
+      : `${named} saved.`,
+  };
 }
 
 /**

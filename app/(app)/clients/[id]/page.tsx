@@ -39,7 +39,10 @@ import { TextThread } from "./messages-tab";
 import { RecordActions } from "./record-actions";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
-import { Worklist, ClientBillingHistory, type WorklistRow } from "../../billing/worklist";
+import { type WorklistRow } from "../../billing/worklist";
+import { ClientAuthorizations, type ClientAuthRow } from "../../billing/client-authorizations";
+import { AddAuthorizationForm } from "../../billing/billing-forms";
+import { readRateSchedule } from "@/lib/rate-schedule";
 import { WarrantLink } from "../../billing/warrants/warrant-link";
 import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
@@ -679,8 +682,8 @@ export default async function ClientPage({
   /**
    * The client's Billing tab (Billing Simplification Brief §12.6).
    *
-   * One component, the same list the Billing page shows, filtered to this
-   * client, with History collapsed. What was here before was five things
+   * One list in three groups - Past, Current and Upcoming - with the add
+   * form above it. What was here before was five things
    * saying overlapping versions of the same story: a received/outstanding
    * card, a billing-items table, an authorizations table, an invoices table
    * and the paperwork strip. §11's rule is that if two screens show the same
@@ -689,12 +692,41 @@ export default async function ClientPage({
    * authorization record where the person working on it can see them (§9).
    */
   if (tab === "billing") {
-    // This client's rows, asked for as this client's. It used to fetch the
-    // whole practice's working list and throw away everybody else's, which
-    // meant every client record paid for counting the hours behind every
-    // open authorization in the practice (stress test finding 3).
-    const { data: worklist } = await supabase.rpc("billing_worklist", { p_client: id });
-    const mine = (worklist ?? []) as WorklistRow[];
+    /**
+     * Three groups of one list (owner, 26 Oct 2026).
+     *
+     * The groups come from `client_authorizations`, which decides what is
+     * Past, Current and Upcoming once (0256), so this screen, Money and the
+     * verification suite cannot disagree about whether a paid authorization
+     * is still current.
+     *
+     * The working list is still read, for one column: the single line about
+     * what a row is waiting on. It is asked for as this client’s rows - it
+     * used to fetch the whole practice’s and throw everybody else’s away,
+     * which meant every client record paid for counting the hours behind
+     * every open authorization in the practice (stress test finding 3).
+     */
+    const [{ data: worklist }, { data: authRows }, rates] = await Promise.all([
+      supabase.rpc("billing_worklist", { p_client: id }),
+      supabase
+        .from("client_authorizations")
+        .select(
+          "id, number, has_usor_number, service_type, status, bucket, period, start_date, end_date, received_on, paid_on, paid_amount, warrant, closed_reason, rate_type, rate, total_hours, funding_source, bill_by, service_start, service_end, recipient, note, amount",
+        )
+        .eq("client_id", id)
+        .order("start_date", { ascending: false, nullsFirst: false })
+        .order("number", { ascending: false }),
+      readRateSchedule(supabase),
+    ]);
+
+    const waiting = new Map(
+      ((worklist ?? []) as WorklistRow[]).map((w) => [w.id, w]),
+    );
+    const authorizations = ((authRows ?? []) as ClientAuthRow[]).map((r) => ({
+      ...r,
+      attention: waiting.get(r.id)?.attention ?? null,
+      urgency: waiting.get(r.id)?.urgency ?? null,
+    }));
 
     return (
       <>
@@ -704,14 +736,21 @@ export default async function ClientPage({
           <p className="lock">Read-only for your role. Admin and Billing act here.</p>
         )}
 
-        <Worklist
-          canClear={canBill}
-          rows={mine}
-          withClient={false}
-          empty="Nothing is being billed for this client. Authorizations are added from Billing, and a coaching month opens itself."
-        />
+        {canBill ? (
+          <details className="card" style={{ marginBottom: 14 }}>
+            <summary>Add an authorization</summary>
+            <div style={{ marginTop: 10 }}>
+              <AddAuthorizationForm
+                clients={[]}
+                rates={rates}
+                client={{ id, name: detail.name }}
+                compact
+              />
+            </div>
+          </details>
+        ) : null}
 
-        <ClientBillingHistory clientId={id} />
+        <ClientAuthorizations rows={authorizations} canBill={canBill} />
 
         <p className="lock">
           Each authorization carries its own forms, files, submission checklist and payment —{" "}

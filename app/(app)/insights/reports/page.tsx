@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -248,7 +249,7 @@ export default async function ReportsPage({
           : "in progress";
     return {
       key: a.id,
-      cells: { number: a.number || "—", service: a.service_type, used },
+      cells: { number: authorizationNumberLabel(a), service: a.service_type, used },
       // The share of hours used; a flat fee has no share and sorts last.
       sort: { used: a.total_hours ? (usedByAuth.get(a.id) ?? 0) / Number(a.total_hours) : null },
       text: [a.number, a.service_type, used].filter(Boolean).join(" "),

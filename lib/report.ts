@@ -1,4 +1,5 @@
 import "server-only";
+import { authorizationNumberLabel } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { money, fmtStamp, today } from "@/lib/constants";
@@ -300,7 +301,7 @@ export async function buildReportText(
     L.push("BILLING IN PERIOD");
     for (const i of invoices) {
       L.push(
-        `${i.billed_on} — ${i.number || "no USOR number"} — ${money(
+        `${i.billed_on} — ${authorizationNumberLabel(i)} — ${money(
           Number(i.paid_amount ?? i.amount),
         )} — ${i.status}${i.paid_on ? " " + i.paid_on : ""}`,
       );

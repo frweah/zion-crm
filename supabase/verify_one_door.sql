@@ -34,6 +34,7 @@ declare
   v_client  uuid;
   v_auth    uuid;
   v_doors   text;
+  v_sig     text;
   v_n       int;
   failures  text[] := '{}';
 begin
@@ -68,13 +69,31 @@ begin
   else
     raise notice 'ok  a bill cannot be created except through add_authorization';
   end if;
-  if not has_function_privilege('authenticated',
-      'public.add_authorization(uuid, text, text, text, numeric, numeric, date, date, text, text, text)', 'execute') then
+  /**
+   * The door, found rather than named.
+   *
+   * Its eleven argument types were written out here as a string, and 0254
+   * added four more - so this stopped asking about add_authorization and
+   * started asking about a function that no longer existed, which is a
+   * question nothing can fail.
+   *
+   * And there must be exactly one of it. `create or replace` with a new
+   * defaulted parameter leaves the old function in place and creates a
+   * second one with a second one''s grants, executable by anybody (0235) -
+   * and a check that asks after one signature by name would never see it.
+   */
+  select count(*)::int, min(p.oid::regprocedure::text) into v_n, v_sig
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public' and p.proname = 'add_authorization';
+
+  if v_n <> 1 then
+    failures := failures || format('FAILED: there are %s add_authorization functions, and only one of them is a door', v_n)::text;
+  elsif not has_function_privilege('authenticated', v_sig, 'execute') then
     failures := failures || 'FAILED: staff cannot reach the one door'::text;
-  end if;
-  if has_function_privilege('anon',
-      'public.add_authorization(uuid, text, text, text, numeric, numeric, date, date, text, text, text)', 'execute') then
+  elsif has_function_privilege('anon', v_sig, 'execute') then
     failures := failures || 'FAILED: somebody not signed in can create a bill'::text;
+  else
+    raise notice 'ok  one door, %, reachable by staff and by nobody else', v_sig;
   end if;
 
   -- ── and nothing else creates one ──────────────────────────

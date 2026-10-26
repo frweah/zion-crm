@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useActionState } from "react";
+import type { ServiceRate } from "@/lib/rate-schedule";
 import {
   addAuthorization,
   logServiceEntry,
@@ -34,12 +35,12 @@ function Message({ state }: { state: BillingState }) {
   return null;
 }
 
-/** What the rate schedule says each service costs (§13.13). */
-export type ServiceRate = { fee: number; rateType: "Hourly" | "Flat Fee"; basis: string };
 
 export function AddAuthorizationForm({
   clients,
   rates,
+  client,
+  compact,
 }: {
   clients: Option[];
   /**
@@ -51,106 +52,205 @@ export function AddAuthorizationForm({
    * the schedule Admin can change, in one place.
    */
   rates: Record<string, ServiceRate>;
+  /** Preset and fixed, when the form is opened from a client's own record. */
+  client?: Option;
+  /** Without the card and heading, for a panel that has its own. */
+  compact?: boolean;
 }) {
   const [state, action, pending] = useActionState(addAuthorization, initial);
   const [service, setService] = useState("Job Coaching");
   const scheduled = rates[service];
   const [rateType, setRateType] = useState(scheduled?.rateType ?? "Hourly");
+  const [paid, setPaid] = useState(false);
+  const [find, setFind] = useState("");
 
+  /**
+   * The client, found by typing rather than scrolled to.
+   *
+   * A select of every client the practice has ever had is a scroll of several
+   * hundred, and the one being billed is the one just spoken to (owner,
+   * 26 Oct 2026). Opened from a client's own record there is nothing to find:
+   * the name is shown and the id travels in a hidden field.
+   */
+  const matching = client
+    ? []
+    : find.trim().length < 2
+      ? []
+      : clients
+          .filter((c) => c.name.toLowerCase().includes(find.trim().toLowerCase()))
+          .slice(0, 8);
+  const [chosen, setChosen] = useState<Option | null>(null);
+  const picked = client ?? chosen;
+
+  const body = (
+    <form action={action}>
+      <Message state={state} />
+
+      {/* ── who it is for ─────────────────────────────────── */}
+      {client ? (
+        <input type="hidden" name="client_id" value={client.id} />
+      ) : (
+        <div className="field">
+          <label htmlFor="add-auth-client">Client</label>
+          {picked ? (
+            <div className="row2" style={{ gap: 8, alignItems: "center" }}>
+              <input type="hidden" name="client_id" value={picked.id} />
+              <b>{picked.name}</b>
+              <button type="button" className="btn ghost" onClick={() => { setChosen(null); setFind(""); }}>
+                Somebody else
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                id="add-auth-client"
+                type="search"
+                value={find}
+                onChange={(e) => setFind(e.target.value)}
+                placeholder="Start typing a name"
+                autoComplete="off"
+              />
+              {matching.length > 0 && (
+                <div className="file-targets" style={{ marginTop: 4 }}>
+                  {matching.map((c) => (
+                    <button key={c.id} type="button" className="file-target" onClick={() => setChosen(c)}>
+                      <span>{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {find.trim().length >= 2 && matching.length === 0 && (
+                <p className="empty" style={{ margin: "4px 0 0" }}>
+                  Nobody matches “{find}”.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── what it is ────────────────────────────────────── */}
+      <div className="row2">
+        <label className="field">
+          Authorization number
+          <input name="number" placeholder="V10…" autoComplete="off" />
+        </label>
+        <label className="field">
+          Service
+          <select
+            name="service_type"
+            value={service}
+            onChange={(e) => {
+              setService(e.target.value);
+              const d = rates[e.target.value];
+              if (d) setRateType(d.rateType);
+            }}
+          >
+            {SERVICE_TYPES.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field" style={{ maxWidth: 170 }}>
+          Start
+          <input name="start_date" type="date" defaultValue={today()} />
+        </label>
+        <label className="field" style={{ maxWidth: 170 }}>
+          End
+          <input name="end_date" type="date" />
+        </label>
+      </div>
+
+      {/* ── what it is worth ──────────────────────────────── */}
+      <div className="row2" style={{ marginTop: 10 }}>
+        <label className="field" style={{ maxWidth: 150 }}>
+          Priced
+          <select
+            name="rate_type"
+            value={rateType}
+            onChange={(e) => setRateType(e.target.value as "Hourly" | "Flat Fee")}
+          >
+            <option value="Flat Fee">As an amount</option>
+            <option value="Hourly">By the hour</option>
+          </select>
+        </label>
+        <label className="field" style={{ maxWidth: 150 }}>
+          {rateType === "Hourly" ? "Rate an hour ($)" : "Amount ($)"}
+          <input
+            name="rate"
+            type="number"
+            step="0.01"
+            key={service}
+            defaultValue={scheduled?.fee ?? ""}
+            required
+          />
+        </label>
+        {rateType === "Hourly" && (
+          <label className="field" style={{ maxWidth: 150 }}>
+            Hours
+            <input name="total_hours" type="number" step="0.25" required />
+          </label>
+        )}
+        {/* Where the figure came from, so a different one on the PDF is a
+            decision somebody makes rather than a field they overwrite
+            without knowing what it was (§13.13). */}
+        <p className="lock" style={{ alignSelf: "end", margin: 0, flex: 1 }}>
+          {scheduled ? scheduled.basis : "The rate schedule does not price this service"}
+        </p>
+      </div>
+
+      <div className="row2" style={{ marginTop: 10 }}>
+        <label className="field" style={{ maxWidth: 180 }}>
+          Received on
+          <input name="received_on" type="date" defaultValue={today()} />
+        </label>
+        <label className="field" style={{ flex: 2 }}>
+          Required forms before payment
+          <input name="requires_forms" placeholder="e.g. Form 93, Form 95" />
+        </label>
+      </div>
+
+      {/* ── already paid ──────────────────────────────────── */}
+      <label className="row2" style={{ gap: 8, alignItems: "baseline", marginTop: 12 }}>
+        <input type="checkbox" name="mark_paid" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
+        <span>
+          Already paid <span className="lock">it was issued, worked and settled before now</span>
+        </span>
+      </label>
+
+      {paid && (
+        <div className="row2" style={{ marginTop: 8 }}>
+          <label className="field" style={{ maxWidth: 180 }}>
+            Date paid
+            <input name="paid_on" type="date" defaultValue={today()} required max={today()} />
+          </label>
+          <label className="field" style={{ maxWidth: 170 }}>
+            Amount paid ($)
+            <input name="paid_amount" type="number" step="0.01" placeholder="what it is worth" />
+          </label>
+          <label className="field" style={{ maxWidth: 200 }}>
+            Warrant number
+            <input name="warrant" placeholder="if the stub has arrived" autoComplete="off" />
+          </label>
+        </div>
+      )}
+
+      <button
+        className="btn gold"
+        type="submit"
+        disabled={pending || !picked}
+        style={{ marginTop: 12 }}
+      >
+        {pending ? "Saving…" : paid ? "Save it as paid" : "Save authorization"}
+      </button>
+    </form>
+  );
+
+  if (compact) return body;
   return (
     <div className="card">
-      <h3>Add authorization</h3>
-      <Message state={state} />
-      <form action={action}>
-        <div className="row2">
-          <label className="field">
-            Client
-            <select name="client_id" required defaultValue="">
-              <option value="">— choose —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            Authorization #
-            <input name="number" placeholder="V10…" required />
-          </label>
-          <label className="field">
-            Service
-            <select
-              name="service_type"
-              value={service}
-              onChange={(e) => {
-                setService(e.target.value);
-                const d = rates[e.target.value];
-                if (d) setRateType(d.rateType);
-              }}
-            >
-              {SERVICE_TYPES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            Rate type
-            <select
-              name="rate_type"
-              value={rateType}
-              onChange={(e) => setRateType(e.target.value as "Hourly" | "Flat Fee")}
-            >
-              <option>Hourly</option>
-              <option>Flat Fee</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="row2" style={{ marginTop: 10 }}>
-          <label className="field" style={{ maxWidth: 140 }}>
-            Rate ($)
-            <input
-              name="rate"
-              type="number"
-              step="0.01"
-              key={service}
-              defaultValue={scheduled?.fee ?? ""}
-              required
-            />
-          </label>
-          {/* Where the figure came from, so a different one on the PDF is a
-              decision somebody makes rather than a field they overwrite
-              without knowing what it was (§13.13). */}
-          <p className="lock" style={{ alignSelf: "end", margin: 0 }}>
-            {scheduled
-              ? scheduled.basis
-              : "The rate schedule does not price this service, so enter what the authorization says."}
-          </p>
-          {rateType === "Hourly" && (
-            <label className="field" style={{ maxWidth: 160 }}>
-              Authorized hours
-              <input name="total_hours" type="number" step="0.25" required />
-            </label>
-          )}
-          <label className="field" style={{ maxWidth: 170 }}>
-            Begin
-            <input name="start_date" type="date" defaultValue={today()} />
-          </label>
-          <label className="field" style={{ maxWidth: 170 }}>
-            End
-            <input name="end_date" type="date" />
-          </label>
-          <label className="field" style={{ flex: 2 }}>
-            Required forms before payment
-            <input name="requires_forms" placeholder="e.g. Form 93, Form 95" />
-          </label>
-        </div>
-
-        <button className="btn gold" type="submit" disabled={pending} style={{ marginTop: 12 }}>
-          {pending ? "Saving…" : "Save authorization"}
-        </button>
-      </form>
+      <h3>Type it in</h3>
+      {body}
     </div>
   );
 }

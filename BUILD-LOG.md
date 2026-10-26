@@ -6606,3 +6606,165 @@ being one.
 Both steps fail again when it is missing, rather than warning. Proved by
 pointing the constant at a name that is not on file and watching both fail,
 which tests the branch without touching the live record.
+
+## Typing in an authorization, the stray prefix, and three groups (26 Oct 2026)
+
+Three things the owner asked for in one sitting, all of them on the billing
+side of the practice.
+
+### An authorization can be typed in, and can arrive already paid
+
+The PDF drop was the way in and the typed form was folded underneath it behind
+"No text in the PDF? Type it in instead". The practice has a backlog of
+authorizations that were issued, worked, invoiced and paid before any of it
+went through the CRM, and for those the PDF is beside the point.
+
+So the two sit side by side now, **From the PDF** and **Type it in**, and the
+typed form asks for things in the order a person reads them off the paper:
+client, number, service, dates, what it is worth, the day it arrived. The
+client is found by typing rather than scrolled to — a select of every client
+the practice has ever had is a scroll of several hundred, and the one being
+billed is the one just spoken to.
+
+Then a switch: **Already paid**, which reveals the date, the amount and the
+warrant number. Saving with it on produces a record that is Paid, carrying the
+payment, counted in Money for the month the payment arrived, and not on the
+working list.
+
+The part worth writing down is what it does *not* do. It does not insert a row
+with `status = 'Paid'`. Status on an authorization is not a column somebody
+sets, it is what the ledger watches: `authorizations_post` fires on an
+**update** of status, and `post_authorization` already has a branch for this
+exact case — paid without having been submitted here — which raises the
+receivable on the way past so the books balance. An inserted paid row would
+skip all of it and show income in Money the ledger had never heard of. So
+`add_authorization` does the same three things a person would do, in one
+transaction: insert it, move it to Due, and hand the payment to
+`record_payment`, which is the function that already knows how.
+
+A new parameter is a new signature, and a new signature is a new function with
+a new function's grants — the lesson from 0235, where three security-definer
+writers arrived executable by anybody. The eleven-argument version is dropped
+first and the grants on the fifteen-argument one are set explicitly.
+
+The same form is now on the client's own Billing tab with that client already
+chosen, and in the "+" in the header, where the authorization kind used to be
+a sentence pointing at Billing — which is to say the "+" offered something it
+could not do.
+
+### The stray prefix
+
+Every authorization dropdown and list was showing `~~` on some entries. What
+wrote it was a placeholder marker for a record with no USOR number, and
+0251 — mine, four days earlier — had tried to define "no number" by the shapes
+those placeholders used to take: an empty string, or `(workbook)...`. The live
+ones are called `coaching 1006`, so the definition recognised none of them and
+163 real numbers *and* six records without one all read as numbered.
+
+0252 replaces the guesswork with what a USOR number actually looks like:
+`number ~* '^V[0-9]+'`, a generated column, indexed. 163 numbers recognised,
+two empty and four placeholders not. `replace_placeholder_authorization` was
+asking the same wrong question and would have refused all four records it
+exists for; it asks the column now.
+
+On screen the wording lives in two helpers in `lib/billing.ts` and nowhere
+else: a number where there is one, and otherwise **No number yet**, with the
+service and the client where there is room for them. Thirteen call sites were
+moved onto it.
+
+Finding the other six was `check-auth-number-display`, written for this and
+run before it was believed. Four different stand-ins had accumulated over the
+months — `~~`, `(workbook) coaching 1006`, `(no number)`, an em dash — and the
+check found live ones still in Money, in the position report, in the
+authorization report, in the counselor directory, in the progress report and
+in the renewal-chase email. It holds two rules: the wording exists only in
+`lib/billing.ts`, and no file writes its own string on the other side of
+`number ||` or `number ??`, which is the shape every one of those four
+arrived in. It reads the code with comments stripped, because the house style
+writes down *why* at length and a rule about what a screen says, applied to a
+comment saying what a screen used to say, is nonsense.
+
+### Past, Current and Upcoming
+
+The client's Billing tab was the working list with "History (N paid or
+closed)" folded underneath. So "what has this client got coming" had no answer
+at all, and an authorization that had not started yet appeared in neither
+list.
+
+Three groups instead, two of them on when the screen opens:
+
+- **Past** — paid or closed. The work and the money are both done with.
+- **Current** — being worked, and its money has not arrived.
+- **Upcoming** — it starts after today.
+
+The groups are the database's, not the screen's. `client_authorizations`
+decides which of the three a record is in, once, which is why "a paid
+authorization never shows in Current" is a thing the verification suite can
+assert rather than a filter somebody reads and agrees with.
+
+One deliberate reading, recorded because it is a judgement and not a fact: an
+authorization that is neither paid nor future and whose dates have run out is
+still **Current**. It is money owed and nobody is finished with it. Calling it
+Past because its end date has gone by would hide exactly the rows the practice
+most needs to chase.
+
+Record payment, Close and Edit are on every row of every group. They are the
+same forms the authorization's own page shows, imported rather than rewritten
+— a second, shorter edit form is how the two stop agreeing about what may be
+changed.
+
+### Income by month, and a view that was written and thrown away
+
+Money now has **Income by month**: every month there was income, newest first,
+each month's total and a line per service beneath it, counted on `paid_on` —
+the day the warrant arrived, which can be a year after the authorization was
+issued and is the only date that says when the practice had the money.
+
+It was first built on a view of its own, `income_by_month`, which was applied
+to production and then dropped again. Two reasons, the second of which is the
+real one.
+
+The first is that it duplicated `billed_work`, where every other figure on the
+Money screen comes from.
+
+The second is that it was **wrong in a way that would have shown up later**.
+`billed_work` leaves out an authorization whose months are counted separately;
+the new view counted every Paid row. They agree today, because no coaching
+parent has ever been marked paid as well as its months. The day one is, the
+second definition would have reported that year's income twice. Two
+definitions of the same figure do not disagree on the day you write them; they
+disagree on the day somebody does something ordinary.
+
+A payment date can be corrected on a Paid record, with a reason, which moves
+it to the right month. The reason is required and logged by the trigger on the
+table rather than by the action, so the correction is recorded however it
+arrives — through this control or through the record's own edit form.
+
+### The check that had been failing for weeks
+
+`check-quick-add` was written when the "+" offered six kinds, and asserted
+that it offered exactly those six by name and that each role was offered a
+particular *number* of them. Three kinds were added over the following month.
+Every one of those assertions went stale at once, and because the check is not
+in `prebuild`, nobody found out: by today it had been failing on ten counts
+for weeks.
+
+It asks the rules now rather than the roster — a kind either dispatches or
+hands over to the form its own screen uses, and a role is offered a kind only
+if it may do that thing, with both lists read from the code that decides them.
+It is in `prebuild`, which is the only reason to believe any of it tomorrow.
+
+`verify_one_door` had the same disease in a different place: it named
+`add_authorization`'s eleven argument types as a string, so the moment 0254
+added four it stopped asking about the door and started asking about a
+function that no longer existed — a question nothing can fail. It finds the
+signature in the catalogue now, and asserts there is exactly **one** of it,
+which is the 0235 trap this check should have been watching for all along.
+
+### What it took
+
+- 0252, 0253, 0254, 0255 and 0256 applied.
+- 20 prebuild checks, two of them new.
+- **119 of 119** verify scripts, including the new `verify_add_authorization`
+  and `verify_billing_filters`.
+- Both new checks proved by putting the fault back and watching them fail.

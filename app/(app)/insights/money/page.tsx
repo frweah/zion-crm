@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { can } from "@/lib/roles";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
@@ -7,7 +8,7 @@ import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 import { Kpi as Stat, lastTwelveMonths } from "../kpi";
 import { FollowupForm } from "./followup-form";
-import { LIVE_STATUSES } from "@/lib/billing";
+import { LIVE_STATUSES, authorizationNumberLabel } from "@/lib/billing";
 import PositionSection from "./sections/position";
 import ExportsSection from "./sections/exports";
 import BaselineSection from "./sections/baseline";
@@ -134,6 +135,47 @@ export default async function RevenuePage({
       .reduce((s, i) => s + Number(i.amount), 0),
   }));
   const peak = Math.max(1, ...byMonth.map((b) => Math.max(b.received, b.invoiced)));
+  /**
+   * Income by the month it arrived, and what it was for (owner, 26 Oct 2026).
+   *
+   * The chart above is the last twelve months against what was invoiced. What
+   * an accountant needs is the figure, every month there was one, broken down
+   * by service - and counted on `paid_on`, the day the warrant arrived, which
+   * can be a year after the authorization was issued and is the only date
+   * that says when the practice had the money.
+   *
+   * Built from `billed_work`, which is where every other figure on this page
+   * comes from. A view of its own was written for this and thrown away: it
+   * counted every Paid authorization, where `billed_work` leaves out a parent
+   * whose months are counted separately - so the day somebody marked a
+   * coaching parent paid as well as its months, the second definition would
+   * have reported the year twice.
+   */
+  const arrived = invoices.filter((i) => i.paid && i.paid_on);
+  const incomeByMonth = [...new Set(arrived.map((i) => String(i.paid_on).slice(0, 7)))]
+    .sort()
+    .reverse()
+    .map((month) => {
+      const rows = arrived.filter((i) => String(i.paid_on).startsWith(month));
+      const byService = [...new Set(rows.map((r) => r.service_type ?? "Other"))]
+        .map((service) => {
+          const theirs = rows.filter((r) => (r.service_type ?? "Other") === service);
+          return {
+            service,
+            payments: theirs.length,
+            received: theirs.reduce((t, r) => t + Number(r.paid_amount ?? r.amount), 0),
+          };
+        })
+        .sort((a, b) => b.received - a.received);
+      return {
+        month,
+        payments: rows.length,
+        received: byService.reduce((t, x) => t + x.received, 0),
+        byService,
+      };
+    });
+  const monthName = (m: string) =>
+    new Date(`${m}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const received12 = byMonth.reduce((s, b) => s + b.received, 0);
   const earning = byMonth.filter((b) => b.received > 0);
   const monthlyAverage = earning.length ? received12 / earning.length : 0;
@@ -229,7 +271,7 @@ export default async function RevenuePage({
               <b>{client}</b>
             </Link>
             <div className="lock">
-              {e.auth_number || "(no number)"} · {e.service_type}
+              {authorizationNumberLabel({ number: e.auth_number })} · {e.service_type}
             </div>
             <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>{reasons.join(" · ")}</div>
           </>
@@ -251,7 +293,7 @@ export default async function RevenuePage({
             <Link href={`/clients/${e.client_id}`} style={{ color: "var(--teal)" }}>
               {client}
             </Link>
-            <div className="lock">{e.auth_number || "(no number)"}</div>
+            <div className="lock">{authorizationNumberLabel({ number: e.auth_number })}</div>
           </>
         ),
         service: (
@@ -395,7 +437,7 @@ export default async function RevenuePage({
                         <b>{client}</b>
                       </Link>
                       <div className="lock">
-                        {e.auth_number || "(no number)"} · {e.service_type}
+                        {authorizationNumberLabel({ number: e.auth_number })} · {e.service_type}
                       </div>
                     </>
                   ),
@@ -490,6 +532,58 @@ export default async function RevenuePage({
         </div>
       </section>
 
+      <section id="income-by-month" style={{ marginBottom: 24 }}>
+        <h2 className="h2">Income by month</h2>
+        <p className="sub" style={{ marginBottom: 12 }}>
+          Counted on the day the warrant arrived, not the day authorized.
+        </p>
+        <div className="card" style={{ padding: 0 }}>
+          <table
+            className="t"
+            data-layout="what arrived each month, and the services it was for"
+          >
+            <tbody>
+              {incomeByMonth.length === 0 ? (
+                <tr>
+                  <td className="empty">Nothing has been paid yet — the first warrant starts this.</td>
+                </tr>
+              ) : (
+                incomeByMonth.map((m) => (
+                  <Fragment key={m.month}>
+                    <tr>
+                      <th scope="rowgroup" style={{ textAlign: "left", whiteSpace: "nowrap" }}>
+                        {monthName(m.month)}
+                      </th>
+                      <td className="lock" style={{ whiteSpace: "nowrap" }}>
+                        {m.payments} {m.payments === 1 ? "payment" : "payments"}
+                      </td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <b>{money(m.received)}</b>
+                      </td>
+                    </tr>
+                    {m.byService.map((x) => (
+                      <tr key={`${m.month}-${x.service}`}>
+                        <td className="lock" style={{ paddingLeft: 22 }}>
+                          {x.service}
+                        </td>
+                        <td className="lock" style={{ whiteSpace: "nowrap" }}>
+                          {x.payments}
+                        </td>
+                        <td className="lock" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          {money(x.received)}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="lock" style={{ marginTop: 8 }}>
+          A date typed wrong is corrected on the authorization itself.
+        </p>
+      </section>
       <section style={{ marginBottom: 24 }}>
         <h2 className="h2">Worth watching</h2>
         <p className="sub" style={{ marginBottom: 12 }}>

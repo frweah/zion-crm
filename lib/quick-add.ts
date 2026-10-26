@@ -26,7 +26,7 @@ export const QUICK_KINDS = [
    * create a bill, which is entering an authorization.
    */
   { key: "hours", label: "Log hours", hint: "Billable hours against an authorization" },
-  { key: "authorization", label: "Add authorization", hint: "Read off the PDF USOR sent" },
+  { key: "authorization", label: "Add authorization", hint: "The number, service, dates and amount" },
   /**
    * A file, from wherever somebody is (owner, 15 Oct 2026).
    *

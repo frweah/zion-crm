@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { NOTE_TYPES, JOB_STATUSES } from "@/lib/constants";
 import { QUICK_KINDS, type QuickKind } from "@/lib/quick-add";
 import { AddFileForm } from "./add-file";
+import { AddAuthorizationForm } from "./billing/billing-forms";
 import {
   quickAdd,
   quickAddOptions,
@@ -136,6 +136,15 @@ export function QuickAdd({
 
           {!options ? (
             <p className="sub">Loading…</p>
+          ) : kind === "authorization" ? (
+            /*
+              An authorization is not a quickAdd() row either, and it is the one
+              kind that finds its own client - so it is the whole form, outside
+              the quickAdd form rather than nested in it. It used to be a
+              sentence pointing at Billing, which meant the "+" offered a thing
+              it could not do (owner, 26 Oct 2026).
+            */
+            <AddAuthorizationForm clients={options.clients} rates={options.rates} compact />
           ) : (
             <form action={action}>
               <input type="hidden" name="what" value={kind} />
@@ -364,18 +373,6 @@ export function QuickAdd({
                 </>
               )}
 
-              {/* §§12.1, 13.14: an authorization is read off its PDF, on Billing. */}
-              {kind === "authorization" && (
-                <p className="lock">
-                  An authorization is read off the PDF USOR sent, so that the number, the dates, the
-                  service, the rate and the hours come off the document rather than somebody&rsquo;s
-                  typing.{" "}
-                  <Link href="/billing#new-authorization" style={{ color: "var(--teal)" }}>
-                    Drop the PDF on Billing
-                  </Link>
-                  .
-                </p>
-              )}
 
               {kind === "session" && (
                 <>
@@ -411,12 +408,10 @@ export function QuickAdd({
               )}
 
               {/*
-                Nothing to submit when there is nothing to submit: adding an
-                authorization happens on Billing, and hours need an
-                authorization to go against.
+                Nothing to submit when there is nothing to submit: hours need an
+                authorization to go against, and an interview needs a job.
               */}
-              {kind !== "authorization" &&
-                !(kind === "hours" && options.auths.length === 0) &&
+              {!(kind === "hours" && options.auths.length === 0) &&
                 !(kind === "interview" && (!clientId || (jobs?.length ?? 0) === 0)) && (
                 <div className="row2" style={{ marginTop: 12 }}>
                   <button className="btn gold" type="submit" disabled={pending}>

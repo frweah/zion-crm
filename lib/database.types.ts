@@ -6216,6 +6216,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_authorizations: {
+        Row: {
+          id: string | null;
+          client_id: string | null;
+          number: string | null;
+          has_usor_number: boolean | null;
+          service_type: string | null;
+          status: string | null;
+          period: string | null;
+          start_date: string | null;
+          end_date: string | null;
+          received_on: string | null;
+          paid_on: string | null;
+          paid_amount: number | null;
+          warrant: string | null;
+          closed_reason: string | null;
+          rate_type: string | null;
+          rate: number | null;
+          total_hours: number | null;
+          is_placeholder: boolean | null;
+          parent_id: string | null;
+          funding_source: string | null;
+          bill_by: string | null;
+          service_start: string | null;
+          service_end: string | null;
+          recipient: string | null;
+          requires_forms: string | null;
+          note: string | null;
+          amount: number | null;
+          bucket: string | null;
+        };
+        Relationships: [];
+      };
       client_billing_office: {
         Row: {
           client_id: string | null;
@@ -6699,7 +6732,7 @@ export type Database = {
     };
     Functions: {
       add_authorization: {
-        Args: { p_client: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null; p_requires_forms?: string | null; p_funding_source?: string | null; p_note?: string | null };
+        Args: { p_client: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null; p_requires_forms?: string | null; p_funding_source?: string | null; p_note?: string | null; p_received_on?: string | null; p_paid_on?: string | null; p_paid_amount?: number | null; p_warrant?: string | null };
         Returns: string;
       };
       add_conversation_participant: {
@@ -6889,6 +6922,10 @@ export type Database = {
       correct_authorization: {
         Args: { p_auth: string | null; p_reason: string | null; p_service_type?: string | null; p_client?: string | null };
         Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
+      };
+      correct_payment_date: {
+        Args: { p_auth: string | null; p_on: string | null; p_reason: string | null };
+        Returns: string;
       };
       create_due_recurring_bills: {
         Args: { p_today?: string | null };

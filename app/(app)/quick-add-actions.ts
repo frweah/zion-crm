@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { LIVE_STATUSES } from "@/lib/billing";
+import { LIVE_STATUSES, authorizationNumberLabel } from "@/lib/billing";
+import { readRateSchedule, type ServiceRate } from "@/lib/rate-schedule";
 import { today } from "@/lib/constants";
 import { kindsForRole, type QuickKind } from "@/lib/quick-add";
 import { addNote, addTask, addPlacement } from "./clients/[id]/actions";
@@ -49,6 +50,14 @@ export async function quickAddOptions(): Promise<{
    * to pick a month would be asking them to do what the database does.
    */
   auths: { id: string; label: string }[];
+  /**
+   * The rate schedule, for the authorization form (§13.13).
+   *
+   * The form is the same one Billing and the client’s record show, and it
+   * prices a service from the schedule Admin can change. Read here so the
+   * modal does not keep a third copy of what Job Development costs.
+   */
+  rates: Record<string, ServiceRate>;
   kinds: QuickKind[];
   today: string;
 }> {
@@ -56,7 +65,7 @@ export async function quickAddOptions(): Promise<{
   if (!me) {
     return {
       clients: [], employers: [], categories: [], fileCategories: [],
-      canRestrictFor: [], auths: [], kinds: [], today: today(),
+      canRestrictFor: [], auths: [], rates: {}, kinds: [], today: today(),
     };
   }
 
@@ -68,6 +77,7 @@ export async function quickAddOptions(): Promise<{
     { data: fileCategories },
     { data: canRestrict },
     { data: auths },
+    rates,
   ] = await Promise.all([
       supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
       supabase.from("employers").select("id, name").order("name"),
@@ -85,6 +95,7 @@ export async function quickAddOptions(): Promise<{
         .is("parent_id", null)
         .in("status", [...LIVE_STATUSES])
         .order("number"),
+      readRateSchedule(supabase),
     ]);
 
   const nameOf = new Map((clients ?? []).map((c) => [c.id, c.name]));
@@ -99,8 +110,9 @@ export async function quickAddOptions(): Promise<{
       .filter((a) => nameOf.has(a.client_id))
       .map((a) => ({
         id: a.id,
-        label: `${a.number || "(no number)"} · ${nameOf.get(a.client_id)} · ${a.service_type}`,
+        label: `${authorizationNumberLabel(a)} · ${nameOf.get(a.client_id)} · ${a.service_type}`,
       })),
+    rates,
     kinds: kindsForRole(me.role),
     today: today(),
   };

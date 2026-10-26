@@ -9,8 +9,8 @@ import {
   AddAuthorizationForm,
   ServiceEntryForm,
   type AuthOption,
-  type ServiceRate,
 } from "./billing-forms";
+import { readRateSchedule } from "@/lib/rate-schedule";
 import { WarrantsToReview, loadWarrantsToReview } from "./warrants/review-section";
 import { PageHead } from "../page-head";
 import { DataTable, type DataRow } from "../data-table";
@@ -95,7 +95,7 @@ export default async function BillingPage({
   const showAll = show === "all";
   const showStale = show === "stale";
 
-  const [worklistResult, authsResult, clientsResult, entriesResult, billing, ratesResult] = await Promise.all([
+  const [worklistResult, authsResult, clientsResult, entriesResult, billing, rates] = await Promise.all([
     supabase.rpc("billing_worklist"),
     // What the hours form needs to offer, and what the log needs to name.
     supabase
@@ -115,9 +115,9 @@ export default async function BillingPage({
           .range(logPage * LOG_PAGE, logPage * LOG_PAGE + LOG_PAGE - 1)
       : Promise.resolve({ data: [] as never[] }),
     readBillingOffices(supabase),
-    // §13.13: the rate comes from the schedule, which Admin can change, and
-    // never from a constant in the code.
-    supabase.from("rate_schedule").select("crm_service, fee, unit, service, sub").not("crm_service", "is", null),
+    // §13.13: the rate comes from the schedule, which Admin can change,
+    // and never from a constant in the code.
+    readRateSchedule(supabase),
   ]);
 
   const worklist = (worklistResult.data ?? []) as WorklistRow[];
@@ -126,17 +126,6 @@ export default async function BillingPage({
   const entries = entriesResult.data ?? [];
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
 
-  // One entry per service: every row that prices a service carries the same
-  // fee and unit, so the last one read is the figure.
-  const rates: Record<string, ServiceRate> = {};
-  for (const r of ratesResult.data ?? []) {
-    if (!r.crm_service) continue;
-    rates[r.crm_service] = {
-      fee: Number(r.fee),
-      rateType: r.unit === "per hour" ? "Hourly" : "Flat Fee",
-      basis: `The rate schedule: ${r.service}${r.sub ? `, ${r.sub}` : ""}`,
-    };
-  }
 
   const bo = readBoParam(rawBo, billing.billingOffices);
 
@@ -352,21 +341,38 @@ export default async function BillingPage({
         />
       )}
 
-      {/*
-        §§9, 12.1: Add authorization at the top of the page, and the PDF is the
-        way in.
+{      /*
+        §§9, 12.1: Add authorization at the top of the page, two ways in.
 
-        "Drop a PDF - the number, dates, service, rate and hours are read off it
-        - confirm - saved, with the PDF referenced." The typed form is the
-        fallback for a scan with no text in it, which is why it is behind a fold
-        rather than gone: a photographed authorization still has to be typed, and
-        a rate keyed as 4.50 instead of 45.00 is not noticed until the payment is
-        short.
+        The PDF was the way in and typing was a fold at the bottom marked "No
+        text in the PDF?", which made the commoner case the apologetic one -
+        most of what the practice enters has no PDF at all, or has one that is
+        a photograph (owner, 26 Oct 2026). They are side by side now, same
+        heading, neither behind the other.
       */}
       {canBill && (
         <section id="new-authorization" className="page-section">
           <h2 className="h2">Add authorization</h2>
-          <ImportForm clients={clients.filter((c) => c.status !== "Closed")} />
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 12 }}>
+            <div>
+              <h3 className="h2" style={{ fontSize: "var(--text-md)", margin: "0 0 6px" }}>
+                From the PDF
+              </h3>
+              <ImportForm clients={clients.filter((c) => c.status !== "Closed")} />
+            </div>
+            <div>
+              <h3 className="h2" style={{ fontSize: "var(--text-md)", margin: "0 0 6px" }}>
+                Type it in
+              </h3>
+              <div className="card">
+                <AddAuthorizationForm
+                  clients={clients.filter((c) => c.status === "Active")}
+                  rates={rates}
+                  compact
+                />
+              </div>
+            </div>
+          </div>
           <details className="card" style={{ marginTop: 12 }}>
             <summary>How this reads a file</summary>
             <p className="sub" style={{ marginTop: 8 }}>
@@ -382,14 +388,6 @@ export default async function BillingPage({
               The rules live in one file with names on them, so a field that comes out wrong on a
               real USOR form is a rule to fix rather than a mystery.
             </p>
-          </details>
-          <details className="card" style={{ marginTop: 12 }}>
-            <summary>No text in the PDF? Type it in instead</summary>
-            <p className="lock">
-              A scanned or photographed authorization has no text to read, so there is nothing to
-              check against. Everything below is typed, and the rate comes from the rate schedule.
-            </p>
-            <AddAuthorizationForm clients={clients.filter((c) => c.status === "Active")} rates={rates} />
           </details>
         </section>
       )}

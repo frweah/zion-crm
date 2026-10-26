@@ -369,6 +369,8 @@ const RPC_FUNCTIONS = [
   "record_my_mailbox_address",
   // Who may put a restricted document on a client (0203).
   "clients_i_can_restrict",
+  // Moving a payment to the month it actually arrived in (0255).
+  "correct_payment_date",
 ];
 
 const { rows: fns } = await client.query(
