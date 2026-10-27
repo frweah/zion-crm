@@ -6907,3 +6907,75 @@ one of them is checked against the base table as the person, which is why
 none of the twenty-four is a door today. One statement each if you want them
 gone. And whether to turn off the default privilege for the whole schema,
 which is the tables question above, not this one.
+
+## The other twenty-four, and a list stops being the rule (26 Oct 2026)
+
+The note directly above left twenty-four views carrying Supabase's default
+write grants and said it was the owner's call. The answer came back the same
+day: take them off, keep SELECT, leave the schema-wide default privilege on.
+
+### Twenty-four views, one hundred and forty-four grants
+
+0259 revokes and re-grants each of them. The count is exact and worth writing
+down, because it is what the check was then shown to catch: six privileges -
+INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER - on twenty-four views,
+144 grants, every one of them to `authenticated` and none to `anon`.
+
+None of the twenty-four was a door. Three of them are simple enough for
+Postgres to write through - `my_tour_progress`, `offboarding_readiness` and
+`updates_for_me` - and all three had `security_invoker`, so the write would
+have been checked against the base table as the person and refused there. The
+other twenty-one are not auto-updatable and refused a write on their own
+account. But both of those are properties of how a view happens to be
+written, not of what anybody decided, and the second wall is not a reason to
+leave the door open. All three now refuse at the view itself: *permission
+denied for view my_tour_progress*, and the same for the other two.
+
+Nothing writes through a view, asked again rather than carried over from
+0257: no `.insert`, `.update`, `.delete` or `.upsert` anywhere in the app
+against one of these names; no function body in `public` with a write
+statement against a view; and no view in `public` with an INSTEAD OF trigger
+or a rule of its own, which is what a view meant to be written through would
+have.
+
+And the half that matters more than the grants going: nothing anybody uses
+went with them. Counted as each of the five people on the practice - Admin,
+Billing, Case Manager, Job Search, Reports - across all twenty-four views,
+before the revokes and after, inside one rolled-back transaction. 120 pairs,
+every one identical, and not one role refused a view on either side.
+
+### A list is what let this happen
+
+`verify_view_grants` named ten views when it was written yesterday. Adding
+twenty-four more names to it would have made it longer and no better, because
+the way these grants arrived in the first place is that nobody was asking the
+question of anything new. So the first section now asks the catalogue: does
+any view in `public` give `anon` or `authenticated` more than SELECT. A view
+created next month is judged by that without being added to anything, and
+when it fails it names the view and the privilege rather than saying a number.
+
+Run against the schema as it stood before 0259 it failed on exactly 144
+grants, named, across exactly 24 views. It also puts a fault back on purpose
+- grants UPDATE on `updates_for_me` inside the transaction - and fails if
+that one is not found and named. That injection only runs when the baseline
+is clean, which is the point: from a dirty schema the planted grant proves
+nothing, and complaining about it would bury the 144 real ones underneath.
+
+The older, narrower assertion stays: a view `authenticated` can write through
+has to send the write back to the base table, which is what `security_invoker`
+does. It is strictly redundant while no view has any write grant at all. It is
+kept because the day somebody deliberately makes a view writable, that is the
+condition that still has to hold, and it keeps its own planted fault.
+
+The schema-wide default privilege stays on, as the owner decided: turning it
+off would take the writes off every future *table* in the same breath, and
+`mail_templates` (0238) has no grant of its own while the Mail screen writes
+to it.
+
+### What it took
+
+- 0259 applied; **35 of 35** views in `public` now SELECT-only for
+  `authenticated`, nothing for `anon`.
+- **120 of 120** verify scripts, 20 prebuild checks, build and typecheck clean.
+- The rewritten check proved twice: 144 named failures before 0259, and a
+  grant planted on purpose afterwards.

@@ -1,19 +1,29 @@
--- Zion Vocational Rehab CRM — what a view lets somebody do (0257)
+-- Zion Vocational Rehab CRM — what a view lets somebody do (0257, 0259)
 --
--- Supabase's default privileges hand `authenticated` INSERT, UPDATE, DELETE
--- and TRUNCATE on everything created in schema `public`, views included, so a
--- view written to be read arrives writable without anybody granting a thing.
--- 0257 took those back on the nine views that read `authorizations`. What has
--- to hold afterwards is both halves of that:
+-- Supabase's default privileges hand `authenticated` INSERT, UPDATE, DELETE,
+-- TRUNCATE, REFERENCES and TRIGGER on everything created in schema `public`,
+-- views included, so a view written to be read arrives writable without
+-- anybody granting a thing. 0257 took those back on the nine views that read
+-- `authorizations`; 0259 took them off the remaining twenty-four. What has to
+-- hold afterwards is both halves of that:
 --
---   nobody can write through one of them;
+--   nobody can write through a view in `public`;
 --   every role still reads everything it read before.
 --
--- Then the rule underneath, stated as the hazard rather than as a list of
--- names: a view `authenticated` can write through has to send the write back
--- to the base table to be checked as the person, which is what
--- `security_invoker` does. Without it the write runs as the view's owner and
--- neither the table's privileges nor its policies are consulted.
+-- The first half is asked of the catalogue rather than of a list of names.
+-- A list is what let this happen in the first place: `check-quick-add` named
+-- six kinds and went stale the month three more arrived, and a list of views
+-- here would go stale the day somebody adds one. So the question is whether
+-- any view in `public` gives anybody more than SELECT, and a view created
+-- tomorrow is judged by it without being added to anything.
+--
+-- Then the rule underneath, which is narrower and worse: a view
+-- `authenticated` can write through has to send the write back to the base
+-- table to be checked as the person, which is what `security_invoker` does.
+-- Without it the write runs as the view's owner and neither the table's
+-- privileges nor its policies are consulted. That one is kept even though the
+-- clause above rules it out today, because the day a view is deliberately
+-- made writable it is the condition that still has to hold.
 --
 -- And `client_documents`, which is the one view in `public` with no
 -- `security_invoker` and keeps it that way deliberately. It reads
@@ -34,13 +44,30 @@ begin;
 
 do $$
 declare
-  v_views text[] := array[
-    'authorization_economics', 'authorization_record', 'billed_work',
-    'billing_position', 'client_activity', 'client_authorizations',
-    'client_last_activity', 'client_paperwork', 'client_pipeline',
-    'staff_capacity'];
+  -- Every view in `public`, read from the catalogue each time this runs.
+  v_views text[] := (select array_agg(c.relname order by c.relname)
+                       from pg_class c
+                       join pg_namespace ns on ns.oid = c.relnamespace
+                      where ns.nspname = 'public' and c.relkind = 'v');
+  -- The offending (role, privilege, view) triples, counted and named. Held as
+  -- text because it is asked twice: once of the schema as it stands, once
+  -- with a write put back on purpose.
+  v_sql text := $q$
+    select count(*),
+           coalesce(string_agg(format('%s has %s on %s', who, upper(priv), relname),
+                               ', ' order by relname, priv), '')
+      from (
+        select c.relname, p.priv, w.who
+          from pg_class c
+          join pg_namespace ns on ns.oid = c.relnamespace
+          cross join unnest(array['insert','update','delete','truncate','references','trigger']) as p(priv)
+          cross join unnest(array['anon','authenticated']) as w(who)
+         where ns.nspname = 'public' and c.relkind = 'v'
+           and has_table_privilege(w.who, c.oid, p.priv)
+      ) t
+  $q$;
   v_name     text;
-  v_priv     text;
+  v_detail   text;
   v_n        integer;
   v_rows     integer;
   v_blanked  integer;
@@ -48,26 +75,43 @@ declare
   v_mark     integer;
   failures   text[] := '{}';
 begin
-  -- ── 1. read, and nothing else ─────────────────────────────
+  if coalesce(array_length(v_views, 1), 0) = 0 then
+    raise exception 'no views found in public, so this suite is asking nothing';
+  end if;
+
+  -- ── 1. a view is a way to read, and nothing else ──────────
+  execute v_sql into v_n, v_detail;
+  if v_n <> 0 then
+    failures := failures || format('FAILED: %s', v_detail)::text;
+  else
+    raise notice 'ok  none of the % views in public gives anybody more than SELECT', array_length(v_views, 1);
+
+    -- Put one back and it has to be found and named, or the clause above is a
+    -- question nothing can fail. Only worth asking when the schema is clean:
+    -- from a dirty one the extra grant proves nothing, and saying so would
+    -- bury the grants that are really there under a complaint about this one.
+    grant update on public.updates_for_me to authenticated;
+    execute v_sql into v_n, v_detail;
+    if v_n <> 1 or v_detail not like '%UPDATE on updates_for_me%' then
+      failures := failures ||
+        format('FAILED: a write granted on a view on purpose was not noticed (%s found: %s)', v_n, v_detail)::text;
+    else
+      raise notice 'ok  and one granted on purpose is named';
+    end if;
+    revoke update on public.updates_for_me from authenticated;
+  end if;
+
   v_mark := coalesce(array_length(failures, 1), 0);
   foreach v_name in array v_views loop
     if not has_table_privilege('authenticated', 'public.' || v_name, 'select') then
       failures := failures || format('FAILED: authenticated cannot read %s', v_name)::text;
     end if;
-    foreach v_priv in array array['insert', 'update', 'delete', 'truncate', 'references', 'trigger'] loop
-      if has_table_privilege('authenticated', 'public.' || v_name, v_priv) then
-        failures := failures || format('FAILED: authenticated has %s on %s', upper(v_priv), v_name)::text;
-      end if;
-      if has_table_privilege('anon', 'public.' || v_name, v_priv) then
-        failures := failures || format('FAILED: anon has %s on %s', upper(v_priv), v_name)::text;
-      end if;
-    end loop;
     if has_table_privilege('anon', 'public.' || v_name, 'select') then
       failures := failures || format('FAILED: anon can read %s', v_name)::text;
     end if;
   end loop;
   if coalesce(array_length(failures, 1), 0) = v_mark then
-    raise notice 'ok  each of the % views onto authorizations gives authenticated SELECT and nothing else', array_length(v_views, 1);
+    raise notice 'ok  authenticated reads every one of them and anon reads none';
   end if;
 
   -- ── 2. and every role still reads all of them ─────────────
@@ -152,20 +196,6 @@ begin
       'FAILED: client_documents reads as the invoker, which drops every restricted document instead of blanking it'::text;
   else
     raise notice 'ok  client_documents still reads with the owner rights that let it blank a restricted document';
-  end if;
-
-  v_mark := coalesce(array_length(failures, 1), 0);
-  foreach v_priv in array array['insert', 'update', 'delete', 'truncate'] loop
-    if has_table_privilege('authenticated', 'public.client_documents', v_priv) then
-      failures := failures ||
-        format('FAILED: authenticated has %s on client_documents, which reads as its owner', upper(v_priv))::text;
-    end if;
-  end loop;
-  if has_table_privilege('anon', 'public.client_documents', 'select') then
-    failures := failures || 'FAILED: anon can read client_documents'::text;
-  end if;
-  if coalesce(array_length(failures, 1), 0) = v_mark then
-    raise notice 'ok  and it is SELECT and nothing else, which is what keeps that safe';
   end if;
 
   -- And the blanking it exists for is really happening. Billing is not the
