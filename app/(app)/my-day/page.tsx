@@ -34,7 +34,7 @@ export default async function MyDayPage() {
   const dayStart = new Date(`${day}T00:00:00`);
   const dayEnd = new Date(`${day}T23:59:59`);
 
-  const [{ data: events }, { data: tasks }, { data: due }] = await Promise.all([
+  const [{ data: events }, { data: tasks }, { data: due }, { data: weeksDue }, { data: monthsDue }] = await Promise.all([
     supabase
       .from("calendar_events")
       .select("id, client_id, kind, title, starts_at, ends_at, location")
@@ -58,7 +58,36 @@ export default async function MyDayPage() {
       .eq("status", "Active")
       .order("name")
       .limit(60),
+    // Reports due. The weeks are this person's to confirm and the months are
+    // theirs to sign and send, and both are read by owner rather than by
+    // caseload: a client reassigned mid-month leaves the week with the person
+    // who did the work, which is who can say whether it is right.
+    supabase
+      .from("client_weekly_reports")
+      .select("id, client_id, week_start, due_on")
+      .eq("owner_id", me.id)
+      .eq("status", "Draft")
+      .order("week_start")
+      .limit(60),
+    supabase
+      .from("client_monthly_reports")
+      .select("id, client_id, month, status, due_on")
+      .eq("owner_id", me.id)
+      .neq("status", "Sent")
+      .order("month")
+      .limit(60),
   ]);
+
+  const reportClientIds = [
+    ...new Set([
+      ...(weeksDue ?? []).map((w) => w.client_id),
+      ...(monthsDue ?? []).map((m) => m.client_id),
+    ]),
+  ];
+  const { data: reportClients } = reportClientIds.length
+    ? await supabase.from("clients").select("id, name").in("id", reportClientIds)
+    : { data: [] as { id: string; name: string }[] };
+  const reportName = new Map((reportClients ?? []).map((c) => [c.id, c.name] as const));
 
   const mineIds = (due ?? []).map((c) => c.id);
   const { data: nextUp } = mineIds.length
@@ -105,6 +134,29 @@ export default async function MyDayPage() {
     });
   }
 
+  // Kept out of `rows` so an empty day still says what is owed: a person with
+  // no appointments and three weeks to confirm does not have nothing to do.
+  const reports: Row[] = [
+    ...(weeksDue ?? []).map((w) => ({
+      key: `week-${w.id}`,
+      at: null,
+      kind: "Week",
+      what: reportName.get(w.client_id) ?? "A client",
+      detail: `week of ${w.week_start}, due ${w.due_on}`,
+      href: `/clients/${w.client_id}/reports`,
+      bad: w.due_on < day,
+    })),
+    ...(monthsDue ?? []).map((m) => ({
+      key: `month-${m.id}`,
+      at: null,
+      kind: m.status === "Signed" ? "Send" : "Month",
+      what: reportName.get(m.client_id) ?? "A client",
+      detail: `${m.month.slice(0, 7)} — ${m.status.toLowerCase()}, due ${m.due_on}`,
+      href: `/clients/${m.client_id}/reports`,
+      bad: m.due_on < day,
+    })),
+  ];
+
   const timed = rows.filter((r) => r.at).sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
   const untimed = rows.filter((r) => !r.at);
 
@@ -119,7 +171,7 @@ export default async function MyDayPage() {
         context={me.name}
       />
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && reports.length === 0 ? (
         <p className="empty">
           Nothing is scheduled and nothing is due. What is waiting for a reply is on{" "}
           <Link href="/dashboard">Home</Link>.
@@ -169,6 +221,25 @@ export default async function MyDayPage() {
             )}
           </section>
         </>
+      )}
+
+      {reports.length > 0 && (
+        <section className="page-section">
+          <h2 className="h2">Reports due</h2>
+          <ul className="day-list">
+            {reports.map((r) => (
+              <li key={r.key}>
+                <span className={"chip" + (r.bad ? " warn" : "")}>{r.kind}</span>
+                <span className="day-main">
+                  <Link href={r.href}>
+                    <b>{r.what}</b>
+                  </Link>
+                  <span className="lock"> {r.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );

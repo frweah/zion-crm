@@ -78,7 +78,11 @@ declare
     'access_log=who_read_this_record',
     'portal_accounts=portal_access',
     'portal_consents=portal_consent',
-    'portal_activity=portal_activity'
+    'portal_activity=portal_activity',
+    -- The reports about this person: the month the practice signs and sends to
+    -- the counselor, and the weeks it is assembled from (0260, 0263).
+    'client_weekly_reports=weekly_reports',
+    'client_monthly_reports=monthly_reports'
   ];
 
   -- Tables carrying a client_id that are deliberately not in a bundle, each

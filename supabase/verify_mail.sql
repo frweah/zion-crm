@@ -47,7 +47,15 @@ begin
        -- The three letters the practice keeps writing (0238). The practice's
        -- own words again, which is the whole distinction this list draws:
        -- what the practice wrote is kept, what arrived in a mailbox is not.
-       ('mail_templates', 'body'));
+       ('mail_templates', 'body'),
+       -- The weekly and monthly reports (0260). The practice's own writing
+       -- about its own work: dated lines built from hours, appointments,
+       -- notes, applications, placements and the *subjects* of filed mail.
+       -- A body could not get in even by mistake, because there is nowhere
+       -- for one to be copied from - `mail_log` has no body column, which is
+       -- what the clause above this list asserts.
+       ('client_weekly_reports', 'content'),
+       ('client_monthly_reports', 'content'));
   if v_extra is not null then
     failures := failures || format('FAILED: somewhere a message body could be kept: %s', v_extra)::text;
   else

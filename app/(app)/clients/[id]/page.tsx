@@ -844,9 +844,21 @@ export default async function ClientPage({
             <p className="sub" style={{ margin: "4px 0 0" }}>
               Built from the record, and emailed to the counselor on it.</p>
           </div>
-          <Link className="btn" href={`/clients/${id}?tab=documents&report=Weekly`} style={{ textDecoration: "none" }}>
-            Send report
-          </Link>
+          <div className="row2" style={{ gap: 8 }}>
+            {/*
+              Two kinds of report sit side by side for now. "Send report" is
+              the one-off built and emailed on the spot; "Reports" is the
+              weekly and monthly ones the scheduler drafts, confirms and signs
+              (0260). They are not merged here because merging them would
+              change what the first button does to somebody who uses it today.
+            */}
+            <Link className="btn ghost" href={`/clients/${id}/reports`} style={{ textDecoration: "none" }}>
+              Reports
+            </Link>
+            <Link className="btn" href={`/clients/${id}?tab=documents&report=Weekly`} style={{ textDecoration: "none" }}>
+              Send report
+            </Link>
+          </div>
         </div>
         <div className="card" style={{ marginBottom: 14, padding: 0 }}>
           <DataTable

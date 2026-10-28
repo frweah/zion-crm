@@ -6979,3 +6979,122 @@ to it.
 - **120 of 120** verify scripts, 20 prebuild checks, build and typecheck clean.
 - The rewritten check proved twice: 144 named failures before 0259, and a
   grant planted on purpose afterwards.
+
+## A week is what a month is made of (28 Oct 2026)
+
+The Monthly Reports brief asked for one report per active client per calendar
+month, a section per service, drafted from the record on the 1st, signed and
+sent to the counselor. The owner amended it the same week: build the week
+first, and let the month be made of weeks.
+
+That amendment is the whole design, and it is worth saying why rather than
+recording it as a preference. A month read off the record four weeks later is
+read by somebody who no longer remembers it, so the reading is whatever the
+record says and the holes in it are invisible. A week read on the Monday after
+is read by the person who was there: they know that Tuesday's appointment did
+happen and was logged as a no-show, and they fix it while fixing it is cheap.
+By the 1st the month is four confirmations instead of one act of recall — and
+it can be honest about what it does not have, because it knows which weeks
+somebody looked at and which nobody did.
+
+### Dated lines, not prose
+
+Both reports hold `content` as sections of dated lines rather than finished
+text, and that is what makes the month out of the weeks. A week straddles the
+month boundary five times a year; the month takes the lines dated inside it
+and leaves the rest, so the same week serves October and November without
+anything being counted twice or dropped. Where no weekly report covers a
+stretch of the month — a client taken on mid-month, a week nobody drafted —
+the month reads those days off the record directly and records the stretch in
+`gaps`, so "nobody looked at 4 to 10 November" is on the screen rather than
+absent from it.
+
+A service the client holds an authorization for is a section whether or not
+anything happened under it, and says "No activity recorded". A service they do
+not hold is not a section at all. The two together are the brief's "empty
+sections omitted" and its "the gap is visible, not hidden", which read as a
+contradiction until you notice that one is about services and the other about
+activity.
+
+### What a timer may copy
+
+This is the part that needed slowing down for. The existing progress report
+pastes note text into an activity log and is safe because it runs as the
+person: RLS has already removed the notes they may not read. These are drafted
+at ten to one in the morning UTC by the service role, which no policy applies
+to.
+
+So two rules, in two places. A report carries `visible_roles` the way a note
+does and is read by the roles it names, by Admin, or by the person whose
+client it is — that last clause by name, because an ordinary note is visible
+to four of the six roles and a report about a client their own job coach
+cannot open is a rule protecting nobody. And a note narrowed below those four
+is narrowed on purpose, so its words are not copied into a document that will
+be signed and posted to the state: the line says the note's type and date, the
+count goes in `withheld`, and the screen says how many were held back. 34 CFR
+361.38 is the rule underneath — what reaches a counselor is what the service
+needed.
+
+### The order a month goes in
+
+Draft, Reviewed, Signed, Sent, enforced by a trigger rather than by a screen.
+Sent needs a signature, an address and the PDF that was signed. A sent report
+cannot be changed, because the record of what the counselor was told does not
+change after they were told it. A signed report that turns out to be wrong is
+reopened, and reopening says why — the reason is kept on the row.
+
+And a signed month freezes the weeks it was assembled from, the straddling one
+included. A PDF the practice has signed whose own weeks no longer add up to it
+is worse than either version alone, so the week refuses and names the way
+round: reopen the month, which somebody has to give a reason for.
+
+### Daily, because pg_cron does not know about Utah
+
+`zion-reports` runs every day at 12:50 UTC and the route asks whether it is
+Monday in Utah, or the 1st in Utah. A job pinned to a UTC day of the month is
+a job that drafts March twice and skips November one year in some number of
+years, and nobody would find that for a month. The unique keys on client and
+week and on client and month make every other run cost one query. 12:50 sits
+twenty minutes ahead of the nightly digest on purpose: the drafts have to
+exist before the mail that tells somebody about them goes out.
+
+### Three things the rest of the practice had to be asked about
+
+Each of these was a check already in `prebuild` or the verify suite refusing
+the new tables, which is the suite working rather than the suite being in the
+way.
+
+`verify_mail` fails any new `content` column until somebody looks at it, on
+the grounds that no table may hold an email body. These two hold the
+practice's own writing about its own work, and the *subjects* of filed mail —
+a body could not get in even by mistake, because `mail_log` has no body column
+to copy one from. Added to the list with that reason.
+
+`verify_records_request` fails any table with a `client_id` that is in neither
+the bundle nor a written list of exclusions. Both are in the bundle (0263),
+including the weekly one: most of its lines are disclosed through their own
+sections already, but the week's own sentence is nowhere else, and the
+`staff_day_lines` exclusion turns on there being another copy.
+
+`verify_portal_rls` caught `weekly_report_is_frozen` as an elevated function a
+signed-in person could call without it checking who was asking. It is not
+granted to anybody now: its only caller is a trigger, which is security
+definer itself and so calls it with the owner's rights whoever set it off.
+
+### What it took
+
+- 0260 to 0263 applied. `check-reports` is the 21st check in `prebuild`;
+  **121 of 121** verify scripts pass, build and typecheck clean.
+- `check-reports` runs the real week arithmetic over every day of two years:
+  every day of all 24 months belongs to exactly one of the weeks its month is
+  assembled from, and the four clock changes add up.
+- Seven faults put back on purpose and every one of them named: the freeze
+  trigger dropped, the status trigger dropped, the read policy's owner clause
+  removed, the scheduled job absent, the note gate removed, the job pinned to
+  a day, and the week arithmetic switched to local time.
+- That last one is why `check-reports` collects its dates instead of walking
+  them. With local getters on a UTC instant, `addDays` returns the day it was
+  given at the clock change, and the first version of the check looped for
+  ever instead of failing. A check that hangs before every build is worse than
+  the bug it was looking for, so a step that does not move is now a named
+  failure: *stepping a day at a time did not get past 2026-03-08.*
