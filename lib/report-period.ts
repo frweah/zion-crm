@@ -175,10 +175,25 @@ export async function buildPeriodContent(
     .from("authorizations")
     .select("id, service_type, start_date, end_date, status")
     .eq("client_id", clientId)
-    .neq("status", "Closed")
-    .lte("start_date", to);
+    .neq("status", "Closed");
 
-  const auths = (authRows ?? []).filter((a) => !a.end_date || a.end_date >= from);
+  // A date the record does not have is an end the service does not have.
+  //
+  // This was `start_date <= to` in the query and it was wrong, measured
+  // against the practice on 28 Oct 2026: twelve of the forty-five
+  // authorizations on Active clients have no start date, so asking the
+  // database for the ones starting before the month quietly dropped a quarter
+  // of them. Eleven clients hold a service open in October; the first version
+  // of this found four, and the nine months of coaching the other seven were
+  // getting would have been reported as no service at all.
+  //
+  // Dates arrive off a scanned authorization (`dates_from_ocr`), so a gap is
+  // ordinary rather than a fault. A missing bound is treated as open in that
+  // direction: the service is in this period unless the record says it had
+  // finished or had not begun.
+  const auths = (authRows ?? []).filter(
+    (a) => (!a.start_date || a.start_date <= to) && (!a.end_date || a.end_date >= from),
+  );
   const authById = new Map(auths.map((a) => [a.id, a]));
   const authIds = auths.map((a) => a.id);
 
