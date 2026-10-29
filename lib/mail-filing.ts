@@ -298,7 +298,7 @@ export async function keepAttachmentOnClient(file: {
   category: string;
   restricted: boolean;
   note: string;
-}): Promise<{ error: string | null; ok: string | null }> {
+}): Promise<{ error: string | null; ok: string | null; id: string | null }> {
   const supabase = await createClient();
   const { createHash, randomUUID } = await import("node:crypto");
   const sha256 = createHash("sha256").update(file.data).digest("hex");
@@ -311,10 +311,14 @@ export async function keepAttachmentOnClient(file: {
     .from("client-files")
     .upload(path, file.data, { contentType: file.mime || "application/octet-stream" });
   if (put.error) {
-    return { error: `${file.filename} was not kept: ${put.error.message}`, ok: null };
+    return { error: `${file.filename} was not kept: ${put.error.message}`, ok: null, id: null };
   }
 
-  const { error } = await supabase.from("attachments").insert({
+  // The row's id comes back because a generated document has something
+  // pointing at it: a signed monthly report records which attachment it was
+  // signed as, and a report whose PDF it cannot name is a report nobody can
+  // check against what was sent.
+  const { data: row, error } = await supabase.from("attachments").insert({
     client_id: file.clientId,
     storage_path: path,
     filename: file.filename,
@@ -325,7 +329,7 @@ export async function keepAttachmentOnClient(file: {
     document_date: new Date().toISOString().slice(0, 10),
     sha256,
     note: file.note,
-  });
+  }).select("id").single();
 
   if (error) {
     // Unrecorded is invisible: nobody could find it and nobody could delete
@@ -337,8 +341,81 @@ export async function keepAttachmentOnClient(file: {
         ? "This client already has that exact file on their record. Nothing was added."
         : error.message,
       ok: null,
+      id: null,
     };
   }
 
-  return { error: null, ok: `${file.filename} is on the record.` };
+  return { error: null, ok: `${file.filename} is on the record.`, id: row.id };
+}
+
+/**
+ * Whether this message may be the sending of a signed monthly report.
+ *
+ * Asked before anything leaves the building, and asked here rather than on
+ * the screen because the screen is a form somebody can post whatever they
+ * like to. Three things have to be true: the report belongs to this client,
+ * the practice has signed it, and the document attached is the PDF it was
+ * signed as.
+ *
+ * The third is the one that matters. A report marked Sent whose counselor
+ * received some other document is worse than a report never sent, because
+ * the record then says the counselor was told something they were not. The
+ * brief's "counselors only ever receive a signed report" and 34 CFR 361.38
+ * are the same rule read from two directions.
+ */
+export async function reportReadyToSend(
+  clientId: string,
+  reportId: string,
+  documents: string[],
+): Promise<{ error: string | null; report: { id: string; month: string } | null }> {
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("client_monthly_reports")
+    .select("id, month, status, pdf_attachment_id")
+    .eq("id", reportId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (!row) return { error: "That report is not on this client's record.", report: null };
+  if (row.status === "Sent") {
+    return { error: "That report has already gone to the counselor.", report: null };
+  }
+  if (row.status !== "Signed") return { error: "Sign the report before sending it.", report: null };
+  if (!row.pdf_attachment_id || !documents.includes(row.pdf_attachment_id)) {
+    return { error: "Attach the signed report itself before sending it.", report: null };
+  }
+
+  return { error: null, report: { id: row.id, month: row.month } };
+}
+
+/**
+ * The report is sent, because it has been.
+ *
+ * Called after Microsoft accepted the message and never before. A row that
+ * said Sent first would be a report the practice believed the counselor had,
+ * which is the thing this whole feature exists to stop.
+ */
+export async function markReportSent(fields: {
+  reportId: string;
+  staffId: string;
+  to: string[];
+  cc: string[];
+  at: string | null;
+}): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const sentTo = fields.cc.length
+    ? `${fields.to.join(", ")} (copy to ${fields.cc.join(", ")})`
+    : fields.to.join(", ");
+
+  const { error } = await supabase
+    .from("client_monthly_reports")
+    .update({
+      status: "Sent",
+      sent_at: fields.at ?? new Date().toISOString(),
+      sent_by: fields.staffId,
+      sent_to: sentTo,
+    })
+    .eq("id", fields.reportId);
+
+  return { error: error ? `the report was not marked sent: ${error.message}` : null };
 }

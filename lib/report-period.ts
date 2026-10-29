@@ -10,6 +10,19 @@ import {
 } from "@/lib/report-weeks";
 import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  GENERAL,
+  type LineKind,
+  type PeriodContent,
+  type ReportLine,
+  type ReportSection,
+} from "./report-shape.ts";
+
+// The shape of a report moved to lib/report-shape.ts, which has no imports,
+// so the renderer can be run by a check. Re-exported from here because this
+// is where the rest of the codebase already asks for it.
+export { GENERAL };
+export type { LineKind, PeriodContent, ReportLine, ReportSection };
 
 /**
  * A stretch of the record, read as sections.
@@ -48,50 +61,6 @@ export const REPORT_ROLES = ["Admin", "Job Search", "Reports", "Billing"] as con
 
 const coversReportRoles = (roles: string[] | null): boolean =>
   REPORT_ROLES.every((r) => (roles ?? []).includes(r));
-
-/** What a line came from. Kept with the line so a screen can group or hide by it. */
-export type LineKind =
-  | "hours"
-  | "appointment"
-  | "note"
-  | "mail"
-  | "job"
-  | "day"
-  | "placement"
-  | "contact"
-  | "assessment";
-
-export type ReportLine = {
-  /** The date the record gives it, which is what the month slices on. */
-  on: string;
-  kind: LineKind;
-  text: string;
-  /**
-   * Billable hours, on an hours line and nowhere else.
-   *
-   * Carried as a number rather than left to be read back out of `text`,
-   * because the month adds these up and a month that re-parses its own prose
-   * is a month that will one day add up a sentence.
-   */
-  hours?: number;
-};
-
-export type ReportSection = {
-  /** The authorized service this section is about, or "General". */
-  service: string;
-  code: string;
-  lines: ReportLine[];
-};
-
-export type PeriodContent = {
-  from: string;
-  to: string;
-  sections: ReportSection[];
-  /** Notes whose words were left out because the note is not for everybody. */
-  withheld: number;
-  /** Billable service hours in the period. */
-  hours: number;
-};
 
 /**
  * The service a kind of activity belongs under.
@@ -136,7 +105,6 @@ const FAMILY_OF_NOTE: Record<string, ServiceFamily> = {
   "Coaching session": "coaching",
 };
 
-export const GENERAL = "General";
 
 // Re-exported so a caller needs one import for "a period of the record" and
 // not two. The arithmetic lives apart because check-reports.mjs runs it.

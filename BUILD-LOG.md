@@ -7098,3 +7098,151 @@ definer itself and so calls it with the owner's rights whoever set it off.
   ever instead of failing. A check that hangs before every build is worse than
   the bug it was looking for, so a step that does not move is now a named
   failure: *stepping a day at a time did not get past 2026-03-08.*
+
+## A referral arrives once a day (29 Oct 2026)
+
+Found while reading the first weekly drafts, which is the only reason it was
+found at all. One client had 223 lines in a single week, all of them the same
+sentence: *Referral received by email from Referral Page.* The practice's
+contact log held 623 rows and 547 of them were on that one record, arriving
+four an hour and still arriving.
+
+`zion-intake` runs every quarter of an hour and reads the newest forty
+messages in service@. Nothing is marked read and nothing is moved, so a
+message in that window is handed to the rules again on every run. That is the
+design rather than an oversight — a document that arrives twice is one
+document, a re-sent referral is a re-send — and it works because every write
+in the intake rules is idempotent.
+
+Every write but one. `intake_referral` guards the client, the attachment, the
+task and the notification, and then inserted the contact-log row
+unconditionally. The reason it went unnoticed for six days is worth keeping:
+every *visible* consequence of a referral was already guarded, so the task
+list, the bell, the email and the document all looked right. Only the contact
+log grew, and nobody reads six days of one client's contact log — until a
+report is drafted off it, at which point it is the whole report.
+
+0264 gives that insert the guard the rest of the function has. The fact the
+row records is that the referral arrived on that day, so the key is the client
+and the day: a referral genuinely sent again a week later is a second arrival
+and says so, and a second reading of the same arrival is not. The counselor
+name is deliberately not in the key — it is read off the form and can differ
+between two readings of the same page.
+
+The two assertions went into `verify_the_intake.sql` beside the re-send case
+they belong with, and with the fault still live they name it: *the referral
+was read twice on one day and logged it 2 times.* The second one is there
+because a guard on the client alone would have passed the first and silently
+lost every re-referral the practice ever receives.
+
+Two things this did not touch. The 547 rows already written are the owner's to
+decide about. And the reason that client exists at all is a separate fault:
+the referral was for a client already on file, and the parser read the name off a
+heading — the record is called *The assessment is due* and the counselor
+*Referral Page*.
+
+## A month is a document, and a document gets signed (29 Oct 2026)
+
+The weeks were the primitive; this is the month as the thing that leaves the
+building. Draft, Reviewed, Signed, Sent, a PDF on the client's record, and a
+counselor who cannot receive anything else.
+
+### One renderer, three places
+
+`lib/report-text.ts` turns a month's content into an array of lines, and the
+screen somebody signs on and the PDF they sign both draw that array. The
+forms have had this rule since 0100-something — `formToText` is the one
+renderer and the PDF only lays it out — and the reason is the same: a screen
+that laid the sections out in its own way would be a second renderer, and the
+day the two disagreed the practice would have signed something it had not
+read. `check-reports` asserts both files draw it and neither maps over the
+sections itself.
+
+It has no imports that can only run in a request, which is what lets the
+check run the real renderer over made-up content before every build. That
+cost one small move: the shape of a report — its types and the word General —
+is now `lib/report-shape.ts`, which imports nothing, and `report-period.ts`
+re-exports it so nothing else had to change.
+
+### What the summary is allowed to say
+
+Counted, never characterised. "Job Coaching: 12.5 hours over 7 visits" is in
+the record; "good progress" is not, and a draft that wrote the second would
+be putting words in the signer's mouth that they would then sign. Five lines
+is the brief's cap, and the cap now lives in one constant because the first
+version of the check could not tell whether it was there at all: the summary
+is made of five kinds of line, so no content can produce a sixth, and the
+fixture passed happily with the cap deleted. A check that asks a question
+merely near the rule passes the bug it was written for, again.
+
+The sentence that matters most is the dullest: *No service hours were logged
+this month.* That is what a counselor was never being told, and it is why
+this exists.
+
+### What a counselor gets and what they do not
+
+The weeks' own sentences go in, where the person who did the work confirmed
+them — that is the one part of the report nobody read off the record. An
+unconfirmed week's sentence does not: it has not been stood behind.
+
+The stretches of the month no weekly report covered are on the screen and not
+in the PDF. The days themselves are in both, read straight off the record;
+what the counselor is told is how much of the account a member of staff
+confirmed, which is what they need. Which Monday somebody here missed is our
+problem, and 34 CFR 361.38 is the reason to say the first and not the second.
+
+Notes narrowed below the four roles keep the treatment the weeks gave them:
+the line stays, dated and named by type, the words do not, and the report says
+how many were held back.
+
+### Signing, and the order it happens in
+
+The PDF is built from the content on the row rather than from the record as it
+is now, so what is signed is what was on the screen. It is filed as an
+ordinary attachment, so it is in the client's documents, in a records
+request, and wherever else a document is looked for. Then the row is stamped
+and points at that attachment.
+
+The stamp is last on purpose. Interrupted after the stamp, the record would
+say Signed and name no PDF — a report nobody can check against what the
+counselor received, which 0260 refuses to send. Interrupted before it, there
+is a PDF on the record against a row that still says Draft, which anybody can
+see. Of the two, the second leaves the record honest.
+
+The attestation is shared with the forms (`lib/pdf-page.ts`), and that was the
+point of extracting it. It is the sentence the practice is certifying, and two
+copies of it would be two things it says it is certifying; the day they
+drifted nobody could say which one the counselor had. Only the certification
+sentence differs, because a form certifies the information on the form and a
+report certifies the account of the services.
+
+### Sent means sent
+
+Send hands off to Compose about the client — the existing screen, with the
+report's own PDF already ticked and the report named on the form. Three
+things are true before anything leaves: the report belongs to this client,
+the practice has signed it, and the file attached is the PDF it was signed as.
+The third is the one that matters. A report marked Sent whose counselor
+received some other document is worse than a report never sent, because the
+record then says they were told something they were not.
+
+Which document that is comes from `pdf_attachment_id` on the row, never from
+the address bar. And the row is marked Sent after Microsoft accepted the
+message, never before: a row that said Sent first would be a report the
+practice believed the counselor had.
+
+The question and the marking live in `lib/mail-filing.ts` with the other
+things the mail lets the database answer, because `app/(app)/mail/actions.ts`
+says at the top that nothing is written to the database in it, and that
+sentence is worth more than the convenience of ignoring it.
+
+### What it took
+
+- `lib/pdf-page.ts`, `lib/report-shape.ts`, `lib/report-text.ts`,
+  `lib/report-pdf.ts`, `lib/staff-signature.ts`; the month screen and its
+  actions; the Compose coupling.
+- `check-reports` grew from 6 assertions to 13. Eight faults put back and the
+  eighth exposed the cap that could not be tested, which is now tested where
+  it lives.
+- 0264 is written and not applied: applying it was refused twice by this
+  session's own guard rails, so it is waiting on the owner.

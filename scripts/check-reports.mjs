@@ -23,6 +23,13 @@
  * apart. It is checked here because it is one line, it has no error case, and
  * a report with a held-back note's words in it looks exactly like a good one.
  *
+ * **What reaches a counselor.** The monthly report is signed and posted to
+ * the state, and the renderer that decides what is in it has no error case
+ * either: a held-back note whose words were copied in reads exactly like a
+ * good report, and so does one that silently dropped a section. So the real
+ * renderer is run over made-up content here, and what is asserted is what a
+ * counselor would be holding.
+ *
  * **Whether anything is drafted at all.** The drafts are made by a scheduled
  * job, so if that job is not scheduled the whole feature is silently absent -
  * every screen works and every list is empty. The schedule itself lives in the
@@ -43,6 +50,11 @@ import {
   weeklyDueOn,
   weeksAcross,
 } from "../lib/report-weeks.ts";
+import {
+  MOST_SUMMARY_LINES,
+  draftMonthlySummary,
+  monthlyReportLines,
+} from "../lib/report-text.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -223,6 +235,175 @@ if (scheduling.length !== 1) {
   } else {
     ok(`zion-reports is scheduled daily by ${name}, and the route decides the day`);
   }
+}
+
+// ── 6. what reaches a counselor ───────────────────────────────
+
+/**
+ * A month with one authorized service nothing happened under, one that things
+ * did happen under, two notes held back, and a stretch nobody kept a week
+ * for. Every property asserted below is a property of a real report, so the
+ * content is built to have all of them at once.
+ */
+const content = {
+  from: "2026-10-01",
+  to: "2026-10-31",
+  hours: 4.5,
+  withheld: 2,
+  sections: [
+    { service: "WSA Tier 2", code: "A-1", lines: [] },
+    {
+      service: "Job Coaching",
+      code: "B-2",
+      lines: [
+        { on: "2026-10-06", kind: "hours", text: "Job coaching", hours: 4.5 },
+        { on: "2026-10-08", kind: "note", text: "Progress — note held back, on the client record" },
+        { on: "2026-10-14", kind: "job", text: "Applied to ZQ Warehousing" },
+      ],
+    },
+  ],
+  weeks: [
+    { week_start: "2026-09-28", status: "Confirmed", note: "ZZ settled into the shift." },
+    { week_start: "2026-10-05", status: "Draft", note: "ZZ not written up yet." },
+  ],
+  gaps: [{ from: "2026-10-12", to: "2026-10-18" }],
+};
+const meta = {
+  clientName: "ZZ Reportperson",
+  clientNo: 4242,
+  agencyId: "V0000",
+  counselorName: "ZQ Dana Counselor",
+  ownerName: "ZQ Owner",
+  summary: "",
+};
+
+const report = monthlyReportLines("2026-10-01", content, meta);
+const whole = report.map((l) => `${l.on ?? ""} ${l.text}`).join("\n");
+
+// A service the client holds says so even with nothing under it. This is the
+// sentence the brief asks for, and the one that makes a month of no service
+// visible to the counselor instead of absent from the report.
+const tier = report.findIndex((l) => l.as === "label" && l.text.startsWith("WSA Tier 2"));
+if (tier < 0) {
+  fail("a service the client is authorized for is not a section of the report");
+} else if (report[tier + 1]?.text !== "No activity recorded.") {
+  fail(`an authorized service with nothing under it says "${report[tier + 1]?.text}"`);
+} else {
+  ok("a service with no activity says so rather than being left out");
+}
+
+// The held-back notes are counted and never quoted. The line the builder left
+// behind carries the type and the date and no words, and the count has to
+// reach the page or nobody knows anything was left out.
+if (!/2 notes on this client.s record are not included here/.test(whole)) {
+  fail("the report does not say that notes were held back");
+} else if (!/note held back/.test(whole)) {
+  fail("the held-back note lost its line as well as its words");
+} else {
+  ok("held-back notes are counted on the report and not quoted");
+}
+
+// The stretch nobody kept a week for is owned, as a count and not as dates: a
+// counselor needs to know what the account rests on, not which Monday
+// somebody here missed.
+if (!/1 stretch of the month taken from the record/.test(whole)) {
+  fail("the report does not say part of the month had no weekly account");
+}
+
+// A confirmed week's own sentence is the one thing in the report nobody read
+// off the record, so it has to be in it. An unconfirmed week's is not: it has
+// not been stood behind by the person who did the work.
+if (!whole.includes("ZZ settled into the shift.")) {
+  fail("a confirmed week's own words are not in the report");
+} else if (whole.includes("ZZ not written up yet.")) {
+  fail("an unconfirmed week's words are in the report the practice signs");
+} else {
+  ok("a confirmed week's words are in the report and an unconfirmed week's are not");
+}
+
+// The drafted summary is offered, not imposed, and five lines is the cap.
+const drafted = draftMonthlySummary(content);
+if (drafted.split("\n").length > MOST_SUMMARY_LINES) {
+  fail(`the drafted summary is ${drafted.split("\n").length} lines, and the cap is ${MOST_SUMMARY_LINES}`);
+}
+// The cap is asserted where it lives as well as where content reaches it.
+// The summary is made of five kinds of line, so no content can produce a
+// sixth and no fixture can tell whether the cap is still there - which is
+// how this check first passed with the cap taken out.
+if (MOST_SUMMARY_LINES !== 5) {
+  fail(`the summary cap is ${MOST_SUMMARY_LINES} lines, and the brief says five`);
+}
+if (!/lines\.slice\(0, MOST_SUMMARY_LINES\)/.test(src("lib/report-text.ts"))) {
+  fail("the drafted summary is no longer capped where the cap lives");
+}
+if (!/4\.5 hours/.test(drafted)) {
+  fail(`the drafted summary does not count the hours: "${drafted}"`);
+}
+const own = monthlyReportLines("2026-10-01", content, { ...meta, summary: "ZZ own words." });
+if (!own.some((l) => l.text === "ZZ own words.")) {
+  fail("a summary somebody wrote is not what the report carries");
+} else if (own.some((l) => l.text === drafted.split("\n")[0])) {
+  fail("the drafted summary is still in the report after somebody wrote their own");
+} else {
+  ok("the summary is drafted from counted facts and replaced by whoever signs");
+}
+
+// A month with nothing in it says so. The whole feature exists because
+// counselors were not being told, and a blank report would be the old silence
+// with a letterhead on it.
+const nothing = monthlyReportLines(
+  "2026-10-01",
+  { from: "2026-10-01", to: "2026-10-31", hours: 0, withheld: 0, sections: [], weeks: [], gaps: [] },
+  meta,
+);
+if (!nothing.some((l) => l.text === "No service hours were logged this month.")) {
+  fail("a month with no service hours does not say so");
+} else if (!nothing.some((l) => l.text === "No service was authorized for this month.")) {
+  fail("a month with no authorized service does not say so");
+} else {
+  ok("a month with nothing in it says so rather than going out blank");
+}
+
+// ── 7. one renderer, and one way to send it ──────────────────
+
+// The screen somebody signs on and the PDF they sign both draw the same
+// array. A screen laying the sections out itself is a second renderer, and
+// the day the two disagree the practice has signed something it did not read.
+let twoRenderers = 0;
+for (const [file, what] of [
+  ["app/(app)/clients/[id]/reports/[month]/page.tsx", "the month screen"],
+  ["lib/report-pdf.ts", "the report PDF"],
+]) {
+  const text = src(file);
+  if (!/monthlyReportLines/.test(text)) {
+    twoRenderers++;
+    fail(`${what} does not draw the one renderer`);
+  } else if (/\.sections\s*\??\.?\s*map\(/.test(text)) {
+    twoRenderers++;
+    fail(`${what} lays the sections out itself as well as drawing the renderer`);
+  }
+}
+if (!twoRenderers) ok("the screen and the PDF draw the same report");
+
+// Nothing is sent unsigned, and what goes is the PDF that was signed.
+const filing = src("lib/mail-filing.ts");
+if (!/status !== "Signed"/.test(filing)) {
+  fail("the send does not refuse a report that has not been signed");
+}
+if (!/documents\.includes\(row\.pdf_attachment_id\)/.test(filing)) {
+  fail("the send does not check that the attached document is the PDF that was signed");
+}
+
+// And it is marked sent after it has gone, not before.
+const mailAction = src("app/(app)/mail/actions.ts");
+const went = mailAction.indexOf("sendNewAndReport(");
+const marked = mailAction.indexOf("markReportSent(");
+if (went < 0 || marked < 0) {
+  fail("the send no longer marks the monthly report sent");
+} else if (marked < went) {
+  fail("the report is marked sent before the message has gone");
+} else {
+  ok("a report goes only signed, only as the PDF it was signed as, and is marked after it goes");
 }
 
 console.log("");

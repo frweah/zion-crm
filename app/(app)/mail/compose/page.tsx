@@ -43,7 +43,15 @@ async function templatesFor(
 export default async function ComposePage({
   searchParams,
 }: {
-  searchParams: Promise<{ to?: string; cc?: string; subject?: string; client?: string; counselor?: string }>;
+  searchParams: Promise<{
+    to?: string;
+    cc?: string;
+    subject?: string;
+    client?: string;
+    counselor?: string;
+    /** A signed monthly report this message is the sending of. */
+    report?: string;
+  }>;
 }) {
   const params = await searchParams;
   const access = await myMailAccess();
@@ -56,6 +64,27 @@ export default async function ComposePage({
       documentsForClient(params.client),
       templatesFor(supabase, params.client),
     ]);
+
+    /**
+     * Sending a signed monthly report.
+     *
+     * The screen is the ordinary one — the recipients, the templates and the
+     * documents are the same — with the report's own PDF already ticked and
+     * the report named on the form, so that sending it marks the report sent
+     * rather than leaving somebody to remember. Which document that is comes
+     * from the report row, never from the address bar: `pdf_attachment_id` is
+     * the file the practice signed, and attaching some other PDF and calling
+     * the report sent is exactly what must not be possible.
+     */
+    const { data: report } = params.report
+      ? await supabase
+          .from("client_monthly_reports")
+          .select("id, month, status, pdf_attachment_id")
+          .eq("id", params.report)
+          .eq("client_id", params.client)
+          .maybeSingle()
+      : { data: null };
+    const sendable = report?.status === "Signed" ? report : null;
 
     return (
       <>
@@ -100,6 +129,11 @@ export default async function ComposePage({
             - one reconnect - and this message can go.
           </div>
         )}
+        {params.report && !sendable && (
+          <div className="alert bad" style={{ marginBottom: 12 }}>
+            That report is not signed, and a counselor only ever receives a signed one.
+          </div>
+        )}
         <ClientComposeForm
           clientId={params.client}
           clientName={clientName}
@@ -109,6 +143,8 @@ export default async function ComposePage({
           from={access.ok ? access.email : (access.me?.email ?? "your own mailbox")}
           canSend={access.ok && access.canSend}
           defaultTo={recipients.filter((r) => r.kind === "counselor").map((r) => r.address.toLowerCase())}
+          reportId={sendable?.id ?? ""}
+          attach={sendable?.pdf_attachment_id ?? ""}
         />
       </>
     );

@@ -10,6 +10,7 @@ import { templateById, validateForm } from "@/lib/form-templates";
 import { parseCc, sendEmail, type Attachment } from "@/lib/email";
 import { signedFormPdf } from "@/lib/form-pdf";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signatureFor } from "@/lib/staff-signature";
 import { today } from "@/lib/constants";
 import type { Json } from "@/lib/database.types";
 
@@ -432,27 +433,3 @@ export async function sendForm(_prev: FormState, formData: FormData): Promise<Fo
   };
 }
 
-/**
- * The sender's signature image, if they have uploaded one.
- *
- * Read with the service role: the image lives in the staff tier, and reading
- * one's own signature to stamp it on one's own signature block is the only
- * thing this is for.
- */
-async function signatureFor(
-  staffId: string,
-  admin: ReturnType<typeof createAdminClient>,
-): Promise<{ bytes: Uint8Array; type: "png" | "jpg" } | null> {
-  const { data: row } = await admin
-    .from("staff_signatures")
-    .select("storage_path")
-    .eq("staff_id", staffId)
-    .maybeSingle();
-  if (!row) return null;
-  const { data: file } = await admin.storage.from("staff-files").download(row.storage_path);
-  if (!file) return null;
-  return {
-    bytes: new Uint8Array(await file.arrayBuffer()),
-    type: /\.jpe?g$/i.test(row.storage_path) ? "jpg" : "png",
-  };
-}

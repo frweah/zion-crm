@@ -13,7 +13,9 @@ import {
   fileOnClient,
   keepAttachmentOnClient,
   logSentOnClient,
+  markReportSent,
   recipientsForClient,
+  reportReadyToSend,
   setThreadRestricted,
   unfileFromClient,
 } from "@/lib/mail-filing";
@@ -213,6 +215,7 @@ export async function sendClientMessage(_prev: SendState, formData: FormData): P
   const subject = String(formData.get("subject") ?? "").trim();
   const text = String(formData.get("text") ?? "");
   const documents = formData.getAll("doc").map((v) => String(v)).filter(Boolean);
+  const reportId = String(formData.get("report") ?? "");
 
   if (typed.bad.length) return { error: `Not an address: ${typed.bad.join(", ")}.`, ok: null };
   if (picked.length === 0) return { error: "Who is it to?", ok: null };
@@ -233,6 +236,16 @@ export async function sendClientMessage(_prev: SendState, formData: FormData): P
 
   if (FORM_LINK.test(text)) {
     return { error: "A form goes as an attachment, not a link — attach it from the client's documents.", ok: null };
+  }
+
+  // Sending a signed monthly report, if that is what this is. The question
+  // is asked in lib/mail-filing.ts with the other things this file lets the
+  // database answer, and it is asked before anything leaves the building.
+  let report: { id: string; month: string } | null = null;
+  if (reportId) {
+    const ready = await reportReadyToSend(clientId, reportId, documents);
+    if (ready.error) return { error: ready.error, ok: null };
+    report = ready.report;
   }
 
   const files = await documentPaths(clientId, documents);
@@ -282,14 +295,35 @@ export async function sendClientMessage(_prev: SendState, formData: FormData): P
     cc: typed.list,
   });
 
+  let reportTrouble: string | null = null;
+  if (report) {
+    reportTrouble = (
+      await markReportSent({
+        reportId: report.id,
+        staffId: me.id,
+        to: picked,
+        cc: typed.list,
+        at: sent.sentAt,
+      })
+    ).error;
+    revalidatePath(`/clients/${clientId}/reports`);
+    revalidatePath(`/clients/${clientId}/reports/${report.month.slice(0, 7)}`);
+    revalidatePath("/my-day");
+  }
+
   revalidatePath(`/clients/${clientId}`);
-  if (filed.error || logged.error) {
+  if (filed.error || logged.error || reportTrouble) {
     return {
-      error: `It was sent, and ${filed.error ?? logged.error}`,
+      error: `It was sent, and ${filed.error ?? logged.error ?? reportTrouble}`,
       ok: null,
     };
   }
-  return { error: null, ok: `Sent to ${picked.join(", ")} and filed on ${clientName}.` };
+  return {
+    error: null,
+    ok: report
+      ? `Sent to ${picked.join(", ")}, filed on ${clientName}, and the report is marked sent.`
+      : `Sent to ${picked.join(", ")} and filed on ${clientName}.`,
+  };
 }
 
 /**

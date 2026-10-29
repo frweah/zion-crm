@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RecordHeader } from "../../../record-header";
 import { requireStaff } from "@/lib/session";
@@ -6,6 +7,7 @@ import { today } from "@/lib/constants";
 import { DataTable } from "../../../data-table";
 import { WeekCard, type WeekRow } from "./week-card";
 import { MakeWeek } from "./make-week";
+import { MakeMonth } from "./make-month";
 
 /**
  * One client's reports.
@@ -75,6 +77,16 @@ export default async function ClientReportsPage({
     ["Active", "On hold"].includes(client.status) &&
     !weeks.some((w) => w.week_start === lastWeek);
 
+  // The same question for the month. The scheduler assembles it on the 1st
+  // and does not go back, so a client taken on mid-month has no row for the
+  // month they were taken on in.
+  const first = new Date(`${now.slice(0, 7)}-01T00:00:00Z`);
+  first.setUTCMonth(first.getUTCMonth() - 1);
+  const lastMonth = first.toISOString().slice(0, 10);
+  const monthMissing =
+    ["Active", "On hold"].includes(client.status) &&
+    !months.some((m) => m.month === lastMonth);
+
   return (
     <>
       <RecordHeader
@@ -111,6 +123,7 @@ export default async function ClientReportsPage({
 
       <section className="page-section">
         <h2 className="h2">Months</h2>
+        {monthMissing && canEdit && <MakeMonth clientId={id} month={lastMonth} />}
         <div className="card" style={{ padding: 0 }}>
           <DataTable
             label="monthly reports"
@@ -134,10 +147,14 @@ export default async function ClientReportsPage({
                 sort: { month: m.month, status: m.status, weeks: sure, due: m.due_on, sent: m.sent_to },
                 text: `${m.month} ${m.status} ${m.sent_to}`,
                 cells: {
-                  month: new Date(`${m.month}T12:00:00Z`).toLocaleDateString("en-US", {
-                    month: "long",
-                    year: "numeric",
-                  }),
+                  month: (
+                    <Link href={`/clients/${id}/reports/${m.month.slice(0, 7)}`}>
+                      {new Date(`${m.month}T12:00:00Z`).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </Link>
+                  ),
                   status: (
                     <span
                       className={

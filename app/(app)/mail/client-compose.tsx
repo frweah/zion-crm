@@ -34,6 +34,8 @@ export function ClientComposeForm({
   from,
   canSend,
   defaultTo,
+  reportId,
+  attach,
 }: {
   clientId: string;
   clientName: string;
@@ -43,6 +45,10 @@ export function ClientComposeForm({
   from: string;
   canSend: boolean;
   defaultTo: string[];
+  /** A signed monthly report this message is the sending of, or empty. */
+  reportId: string;
+  /** The document to tick on opening: the PDF that report was signed as. */
+  attach: string;
 }) {
   const [state, action, pending] = useActionState(sendClientMessage, initial);
   const [subject, setSubject] = useState("");
@@ -63,6 +69,7 @@ export function ClientComposeForm({
       {state.error && <div className="alert bad">{state.error}</div>}
       {state.ok && <div className="alert ok">{state.ok}</div>}
       <input type="hidden" name="client_id" value={clientId} />
+      {reportId && <input type="hidden" name="report" value={reportId} />}
 
       <p className="lock" style={{ margin: "0 0 10px" }}>
         From <b>{from}</b>, filed on {clientName} when it goes
@@ -132,7 +139,7 @@ export function ClientComposeForm({
           <div className="scroll-list">
             {documents.map((d) => (
               <label key={d.id} className="row2" style={{ gap: 8, alignItems: "baseline" }}>
-                <input type="checkbox" name="doc" value={d.id} />
+                <input type="checkbox" name="doc" value={d.id} defaultChecked={d.id === attach} />
                 <span>
                   {d.filename}{" "}
                   <span className="lock">
