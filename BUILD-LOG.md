@@ -7442,3 +7442,69 @@ that cannot fail. It was neither: a `drop constraint` sent through a heredoc on
 stdin never ran, so the migration's own `if not exists` guard skipped the
 faulty constraint and left the real one in place. The lesson is the obvious
 one — a fault injection needs its own assertion that the fault arrived.
+
+## A record you can quietly tidy is a record nobody can trust (29 Oct 2026)
+Undoing the misread referral, approved by the owner. 548 duplicate contact-log
+rows deleted, one arrival kept; the record merged into the real one; the
+duplicate intake task closed and the overdue bell behind it resolved. The
+practice contact log goes from 626 rows to 78.
+
+Three things came out of doing it rather than planning it.
+
+**There was no correction log for a client record.** Authorizations have had
+one for months. 0267 gives clients the same table, same columns, same
+append-only rule, and the seven entries from this correction are its first
+rows. They sit on the kept record, not on the one that was merged away, so
+somebody opening her record can see what was done to it; `client_name` holds
+the name as it read at the time, which is what makes that readable.
+
+The grants on it are worth reading. Supabase grants everything on a new table
+in `public` to `authenticated` before any migration line runs, so the grant of
+select and insert narrows nothing - the revoke is the part that works. TRUNCATE
+is the reason it is a revoke and not a policy: a policy is per row and TRUNCATE
+has no rows, and the append-only trigger is a row trigger too. Both of the
+table's other defences miss it entirely.
+
+**merge_clients has never worked on a client with a filed document.** Two
+separate faults, one after the other, both found by running it:
+
+It walks the foreign keys to find what to move, which is why it has kept
+working as tables were added - but four of those tables are append-only logs
+whose triggers refuse every update, so it raised "The document log is a record"
+and rolled the whole merge back. The fix is not to make the logs writable. An
+append-only log records what happened, and what happened is that the document
+was added to the record that was later merged away; rewriting the row to name
+the kept client would make it say something untrue. So those rows stay, the
+merge says which ones it left, and merged_into is the link that keeps them
+reachable. Which tables those are is asked of the catalogue rather than listed,
+so a fifth log added later is handled by having its trigger.
+
+Then it collided on a unique key. One weekly report per client per week, and
+both records had one for the same week. Where they collide the kept record's
+row wins and the merged-away one goes, counted and reported rather than
+swallowed.
+
+verify_client_merge had three assertions and passed throughout. Every fixture
+in it was a client with no documents, which is not a client the practice has.
+It now files a document and gives both records a draft for the same week, and
+the two drafts carry different notes - with identical ones a merge that keeps
+the wrong row passes, because the count afterwards is one either way, which is
+what the first version of that assertion did.
+
+**A verify script can test the grant and think it tested the trigger.**
+verify_client_corrections asserted that a correction cannot be edited, and
+passed with the append-only trigger dropped: `authenticated` has no UPDATE on
+the table, so the update never reached the trigger. The trigger exists for the
+caller the grants do not stop - a SECURITY DEFINER function, a migration, a
+script with the service key - which is most of what writes here. That is now
+its own assertion, tried as a caller with the grant.
+
+Four faults against 0267 and three against 0268, all seven caught, all run
+inside transactions that roll back so production is never weakened even for the
+length of the test.
+
+client_corrections is out of the records-request bundle, with the reasoning in
+the skipped list. What it holds is the practice's account of its own mistake in
+the practice's own terms - these first entries name a function and a polling
+interval - and every correction is a correction to something the bundle already
+discloses as it now correctly reads.

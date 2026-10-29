@@ -47,6 +47,28 @@ begin
   values (v_new, 'V0000998', 'Job Development', 'Flat Fee', 560, 'Authorized');
   insert into public.access_log (client_id, staff_id, subject) values (v_old, v_worker, 'Client intake');
 
+  -- A filed document, and so a row in the append-only document log. Added on
+  -- 29 October after a real merge failed on exactly this: the log's trigger
+  -- refuses every update and the merge tried to repoint it, so the whole merge
+  -- rolled back with "The document log is a record". Every fixture above is
+  -- a client with no documents, which is not a client the practice has.
+  -- Filing the document is enough: attachments has a trigger that writes the
+  -- "Added" row into the document log, which is how the real one got there.
+  insert into public.attachments (client_id, storage_path, filename, mime_type, size_bytes, category)
+  values (v_old, 'zz/merge-fixture.pdf', 'ZZ old document.pdf', 'application/pdf', 1024, 'Other');
+
+  -- And a week both records have a draft for. client_weekly_reports is unique
+  -- on client and week, so a merge that moves the row blindly collides. Also
+  -- found by the same real merge, one error later.
+  -- The two carry different notes on purpose. Identical rows would let a merge
+  -- that keeps the wrong one pass, because the count afterwards is one either
+  -- way - which is exactly what the first version of this did.
+  insert into public.client_weekly_reports (client_id, week_start, status, due_on, note)
+  values (v_old, date_trunc('week', public.practice_today())::date, 'Draft', public.practice_today(),
+          'ZQ the draft on the record being merged away'),
+         (v_new, date_trunc('week', public.practice_today())::date, 'Draft', public.practice_today(),
+          'ZQ the draft on the record being kept');
+
   -- ── somebody who is not Admin ──────────────────────────────
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_worker_uid, 'role', 'authenticated')::text, true);
@@ -82,6 +104,40 @@ begin
   end if;
   if (select count(*) from public.access_log where client_id = v_old) <> 1 then
     failures := failures || 'FAILED: the access log was rewritten by a merge'::text;
+  end if;
+
+  -- ── a client with a filed document ─────────────────────────
+  -- The document itself moves, because that is where it has to be found. The
+  -- append-only log entry saying it was added does not, because it was added
+  -- to the record that was merged away and saying otherwise would make the log
+  -- say something untrue. merged_into is the link that keeps it reachable.
+  if not exists (select 1 from public.attachments
+                  where client_id = v_new and filename = 'ZZ old document.pdf') then
+    failures := failures || 'FAILED: the filed document did not move to the kept record'::text;
+  elsif exists (select 1 from public.attachments where client_id = v_old) then
+    failures := failures || 'FAILED: a document was left on the record merged away'::text;
+  elsif (select count(*) from public.client_document_events where client_id = v_old) <> 1 then
+    failures := failures || 'FAILED: the append-only document log was rewritten by a merge'::text;
+  else
+    raise notice 'ok  a filed document moves and the log of its filing stays where it happened';
+  end if;
+
+  -- ── a week both records had ────────────────────────────────
+  -- One row per client per week, so the two collide. The kept record's own
+  -- draft is the one that survives and the merge says how many it dropped.
+  if (select count(*) from public.client_weekly_reports where client_id = v_new) <> 1 then
+    failures := failures || format(
+      'FAILED: the kept record has %s weekly drafts for one week rather than one',
+      (select count(*) from public.client_weekly_reports where client_id = v_new))::text;
+  elsif (select note from public.client_weekly_reports where client_id = v_new)
+        <> 'ZQ the draft on the record being kept' then
+    failures := failures || format(
+      'FAILED: the surviving draft is the one from the record merged away: %L',
+      (select note from public.client_weekly_reports where client_id = v_new))::text;
+  elsif exists (select 1 from public.client_weekly_reports where client_id = v_old) then
+    failures := failures || 'FAILED: a weekly draft was left on the record merged away'::text;
+  else
+    raise notice 'ok  a week both records had a draft for leaves one draft, on the record that was kept';
   end if;
 
   -- ── what staff see afterwards ─────────────────────────────

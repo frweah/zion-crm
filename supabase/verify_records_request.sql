@@ -137,6 +137,30 @@ declare
      * section whenever somebody says they should be.
      */
     'client_document_events',
+    /**
+     * Corrections the practice made to its own filing, and why (0267).
+     *
+     * This one sat on the line for a while. Three sentences for and against.
+     *
+     * For: a correction is often the most useful thing on a record. The first
+     * entries in it say a referral spent four days filed under a name read off
+     * the wrong line of a form, which somebody might well want to know.
+     *
+     * Against, and the reason it is here: what the column holds is the
+     * practice's account of its own mistake, in the practice's own terms. The
+     * entries written on 29 October name a function, a migration number and a
+     * polling interval. "A person reads about their work, not about ours" is
+     * the house rule, and a bundle that hands a client a paragraph about
+     * intake_referral has broken it.
+     *
+     * And nothing about the client is lost by leaving it out: every correction
+     * is a correction *to* something already in the bundle, and what the bundle
+     * discloses is that thing as it now correctly reads.
+     *
+     * If the log ever starts carrying a correction a client could not see the
+     * effect of elsewhere, this is the line to delete.
+     */
+    'client_corrections',
     -- What the practice removed and why (0178). It can only hold somebody who
     -- no longer has a record, and a records request is one of the things that
     -- refuses the delete in the first place - so a request for a live client
