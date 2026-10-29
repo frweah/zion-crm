@@ -162,6 +162,38 @@ begin
     raise notice 'ok  a second referral attaches, says re-sent, creates nobody, and overwrites nothing';
   end if;
 
+  -- ── and logs the day once, however often it is read ────────
+  -- `zion-intake` reads the newest forty messages every quarter of an hour
+  -- and nothing marks a message done, so the rules run again on every poll
+  -- while the counselor's email is still in the inbox. Every write in
+  -- intake_referral is idempotent for that reason - except the contact-log
+  -- row, which was not, and collected four rows an hour for six days on one
+  -- client before anybody looked (0264). The re-send above is that second
+  -- read, so this counts what it left behind.
+  select count(*) into v_n from public.contact_log
+   where client_id = v_client and topic = 'Referral received';
+  if v_n <> 1 then
+    failures := failures || format(
+      'FAILED: the referral was read twice on one day and logged it %s times', v_n)::text;
+  else
+    raise notice 'ok  a referral read a second time on the same day logs the day once';
+  end if;
+
+  -- The guard is the day, not the client: a referral genuinely sent again a
+  -- week later is a second arrival and says so. Asserted because a guard on
+  -- the client alone would pass the test above and silently lose every
+  -- re-referral the practice ever receives.
+  perform public.intake_referral(v_doc2, 'zz intake testperson', 'ZQ Dana Counselor',
+                                 'Ogden', public.practice_today() + 7, '');
+  select count(*) into v_n from public.contact_log
+   where client_id = v_client and topic = 'Referral received';
+  if v_n <> 2 then
+    failures := failures || format(
+      'FAILED: a referral sent again a week later gave %s log row(s) rather than two', v_n)::text;
+  else
+    raise notice 'ok  a referral sent again on another day is logged as another arrival';
+  end if;
+
   -- ── an ambiguous name creates nothing ──────────────────────
   insert into public.clients (name, stage, status) values ('ZZ Twin Testperson', 'Intake', 'Active')
   returning id into v_twin_a;
