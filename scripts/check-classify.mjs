@@ -188,6 +188,218 @@ if (classifyDocument(usorAuth).kind !== "Authorization") {
   ok("USOR's own authorization is recognised by the title it prints");
 }
 
+// ── a form 94 travels in both directions ─────────────────────
+//
+// DWS-USOR 94 is the Work Strategy Assessment and it is the same sheet twice:
+// the counselor sends it with the client's details filled in and the
+// assessment blank, and the CRP sends it back with the assessment written on
+// it. Until 29 October every 94 was read as a referral, so a completed
+// assessment coming back was a new client arriving — and on 23 October one was.
+//
+// The fixtures below are the real documents' structure with the names
+// replaced. The referral half of a 94 arrives *filled in* — that is the
+// counselor describing the client — which is why the rule reads only the
+// assessment boxes and why both fixtures carry a referral half.
+const form94Referral = pad(`
+DWS-USOR 94 State of Utah
+Rev. 07/2026 Department of Workforce Services
+WORK STRATEGY ASSESSMENT
+Client Name: ZZ Testperson Quayle
+Describe the following as it applies to client:
+Current Work Skills (knowledge, skills, and abilities):
+ZQ has been working at a grocery store for two years.
+Work Skill Development Needs:
+Interview skills, presentation at work
+Family Issues/Supports:
+Supportive family nearby.
+Worksite Simulation Location:
+Observations:
+Natural Support Assessment (1 hour)
+Observations:
+Life Skills (1 hour)
+Observations:
+Transportation Assessment (30 min)
+Observations:
+Computer Skill Assessment (30 min)
+Observations:
+Interview Skill Assessment (1 hour)
+Observations:
+Other Observations:
+Recommendations
+Planned Job Search hours/week:
+Life Skills needed:
+Life Skills hours requested:
+Recommended target occupations:
+Recommended supports on the job:
+TEAM SECTION
+Community Rehabilitation Program Name:
+Assigned Employment Specialist/Job Coach:
+ACRE Certified? Yes No
+Joint VR/CRP Recommendations for Job Development Supports:
+Joint VR/CRP Recommendations for Ongoing Supports:
+Job Goal (must align with IPE goal):
+Industry Targeted Pay Range:
+Client Signature: Date:
+CRP Signature: Date:
+VR Counselor Signature: Date:
+`);
+
+const form94Completed = pad(`
+DWS-USOR 94 State of Utah
+WORK STRATEGY ASSESSMENT
+Client Name: ZZ Testperson Quayle
+Current Work Skills (knowledge, skills, and abilities):
+ZQ has been working at a grocery store for two years.
+Worksite Simulation Location:
+Observations:
+During the assessment ZQ demonstrated steady attention to the task.
+Natural Support Assessment (1 hour)
+Observations:
+ZQ lives with family who can help with transport on weekends.
+Life Skills (1 hour)
+Observations:
+ZQ would benefit from support with meal planning.
+Transportation Assessment (30 min)
+Observations:
+ZQ uses the bus independently on a known route.
+Computer Skill Assessment (30 min)
+Observations:
+ZQ can use email and a browser without help.
+Interview Skill Assessment (1 hour)
+Observations:
+In a mock interview ZQ answered directed questions clearly.
+Other Observations:
+Recommendations
+Planned Job Search hours/week: 20 hours
+Life Skills needed:
+Support with budgeting and meal planning.
+Life Skills hours requested: 40
+Recommended target occupations:
+Dishwasher, cart attendant, retail stocking
+Recommended supports on the job:
+A job coach on site for the first two weeks.
+TEAM SECTION
+Community Rehabilitation Program Name: Zion Vocational Rehabilitation
+Assigned Employment Specialist/Job Coach: ZQ Coach
+ACRE Certified? Yes No
+Client Signature: Date:
+CRP Signature: Date:
+VR Counselor Signature: Date:
+`);
+
+{
+  const blank = classifyDocument(form94Referral);
+  const done = classifyDocument(form94Completed);
+
+  if (blank.assessment !== "blank") {
+    fail(`a 94 with an empty assessment reads as "${blank.assessment}" (${blank.reason})`);
+  } else if (!blank.referral) {
+    fail("a 94 with an empty assessment is not treated as a referral, so no client can be created from one");
+  } else {
+    ok("a form 94 with nothing written in its assessment is a referral");
+  }
+
+  if (done.assessment !== "completed") {
+    fail(`a 94 with its assessment written in reads as "${done.assessment}" (${done.reason})`);
+  } else if (done.referral) {
+    fail("a completed assessment coming back is read as a referral, so it can create a client");
+  } else if (done.kind !== "USOR form") {
+    fail(`a completed assessment is "${done.kind}" rather than the USOR form it is`);
+  } else {
+    ok("a form 94 with its assessment written in is the assessment coming back, and creates nobody");
+  }
+
+  // The referral half is filled in on both, so a rule that read the whole form
+  // rather than the assessment boxes would call them both completed. Asserted
+  // because that is the mistake the first version of this made.
+  if (!/grocery store/.test(form94Referral)) {
+    fail("the referral fixture no longer has its referral half filled in, so it cannot test that");
+  } else if (blank.assessment === done.assessment) {
+    fail("the two fixtures classify the same, so neither case is being tested");
+  } else {
+    ok("the counselor's half of a 94 being filled in does not make it a completed assessment");
+  }
+}
+
+// ── a form 98 has no assessment half at all ──────────────────
+// DWS-USOR 98 is titled REFERRAL FOR CRP ASSESSMENT and carries only the
+// counselor's description. There is no completed 98, so it is always a
+// referral - decided by the structure rather than by the number, which is what
+// lets one rule answer for both forms.
+const form98 = pad(`
+DWS-USOR 98 State of Utah
+Rev. 09/2019 Department of Workforce Services
+REFERRAL FOR CRP ASSESSMENT
+Client is being referred for the following:
+X Discovery Assessment
+Client Name: ZZ Testperson Quayle
+Current Work Skills (knowledge, skills, and abilities):
+ZQ is a student and works two shifts a week.
+Family Issues/Supports:
+Supportive family nearby.
+Assigned Employment Specialist/Job Coach:
+ACRE Certified? Yes No
+`);
+{
+  const got = classifyDocument(form98);
+  if (got.assessment !== "none") {
+    fail(`a 98 reads as having a "${got.assessment}" assessment body (${got.reason})`);
+  } else if (!got.referral) {
+    fail("a form 98 is not treated as a referral, so nothing can be opened from one");
+  } else {
+    ok("a form 98 has no assessment half, so it is the referral form itself");
+  }
+}
+
+// ── and neither shape is guessed at ──────────────────────────
+// Two boxes written in is neither a blank referral nor a completed
+// assessment. The owner's rule: it is not read as either. Nothing is created
+// from it and it waits for a person.
+const form94Partial = pad(`
+DWS-USOR 94 State of Utah
+WORK STRATEGY ASSESSMENT
+Client Name: ZZ Testperson Quayle
+Current Work Skills (knowledge, skills, and abilities):
+ZQ has been working at a grocery store for two years.
+Worksite Simulation Location:
+Observations:
+Started the assessment and ran out of time.
+Natural Support Assessment (1 hour)
+Observations:
+Life Skills (1 hour)
+Observations:
+Transportation Assessment (30 min)
+Observations:
+Computer Skill Assessment (30 min)
+Observations:
+Interview Skill Assessment (1 hour)
+Observations:
+Other Observations:
+Recommendations
+Planned Job Search hours/week: 20 hours
+Life Skills needed:
+Life Skills hours requested:
+Recommended target occupations:
+Recommended supports on the job:
+TEAM SECTION
+Community Rehabilitation Program Name:
+Assigned Employment Specialist/Job Coach:
+ACRE Certified? Yes No
+Client Signature: Date:
+`);
+{
+  const got = classifyDocument(form94Partial);
+  if (got.assessment !== "unclear") {
+    fail(`a half-written 94 reads as "${got.assessment}" (${got.reason})`);
+  } else if (got.referral) {
+    fail("a half-written 94 is read as a referral, so it can create a client");
+  } else if (!/neither/.test(got.reason)) {
+    fail(`a half-written 94 does not say why it was not read either way: "${got.reason}"`);
+  } else {
+    ok("a 94 that is neither blank nor finished is not read as either, and creates nobody");
+  }
+}
+
 // ── a scan is named, not guessed at ──────────────────────────
 const scanned = classifyDocument("   \n  \n ");
 if (scanned.kind !== "Unreadable") {

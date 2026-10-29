@@ -36,6 +36,12 @@ export type Classification = {
    * creating a client never depends on a second classifier.
    */
   referral?: boolean;
+  /**
+   * For a USOR 94 or 98: whether its assessment half has been written on, and
+   * so whether this copy is a referral arriving or an assessment coming back.
+   * See `assessmentBody`.
+   */
+  assessment?: AssessmentBody;
 };
 
 /** DWS-USOR 93, USOR-95, "DWS USOR 148" — the practice writes it every way. */
@@ -51,12 +57,136 @@ const AUTHORIZATION_MARKS = [
 ];
 
 /**
- * The forms that start a case: USOR 94 (the referral) and USOR 98 (returned
- * by the counselor to open services). A WSA referral names neither and says
- * so in words instead.
+ * The forms that can start a case: USOR 94 and USOR 98. A WSA referral names
+ * neither and says so in words instead.
+ *
+ * Being one of these is necessary and not sufficient, which is the whole of
+ * `assessmentBody` below. DWS-USOR 94 is the Work Strategy Assessment and it
+ * is the same sheet of paper twice: the counselor sends it with the client's
+ * details filled in and the assessment blank, and the CRP sends it back with
+ * the assessment written on it. The practice's own filing says as much -
+ * "94 (WSA Referral - editable)" and "WSA form 94 ZZ Testperson complete" are in
+ * the same folder.
+ *
+ * So the form number says which form, and the state of its assessment body
+ * says which direction it is going. Treating every 94 as a referral means
+ * every completed assessment coming back is read as a new client arriving.
  */
 const REFERRAL_FORMS = ["94", "98"];
 const WSA_REFERRAL = /\bwsa\b.{0,40}\breferral\b|\breferral\b.{0,40}\bwsa\b/is;
+
+/**
+ * Whether the assessment half of a 94 has been written on.
+ *
+ * `none`      - the form has no assessment section at all. A USOR 98 is this:
+ *               it is titled REFERRAL FOR CRP ASSESSMENT and carries only the
+ *               counselor's description of the client.
+ * `blank`     - the boxes are there and every one of them is empty. A referral.
+ * `completed` - the boxes are there and written in. An assessment coming back.
+ * `unclear`   - one or two filled, which is neither shape. Nothing is guessed
+ *               from it: see `classifyDocument`.
+ *
+ * Measured against six real documents - one referral, three completed 94s and
+ * two 98s - and the separation is not close: 0 boxes filled on the referral,
+ * 7, 13 and 13 on the completed ones.
+ */
+export type AssessmentBody = "none" | "blank" | "completed" | "unclear";
+
+/**
+ * The boxes a CRP fills in and a counselor leaves empty.
+ *
+ * Only the assessment half. The referral half of a 94 - current work skills,
+ * family supports, communication needs - arrives filled in, because that is
+ * the counselor telling the practice about the client, so reading those boxes
+ * would call every referral a completed report.
+ */
+const ASSESSMENT_BOXES = [
+  /^other observations\s*:/,
+  /^observations\s*:/,
+  /^planned job search hours\/week\s*:/,
+  /^life skills needed\s*:/,
+  /^life skills hours requested\s*:/,
+  /^recommended target occupations\s*:/,
+  /^recommended supports on the job\s*:/,
+  /^joint vr\/crp recommendations/,
+  /^job goal\b/,
+  /^community rehabilitation program name\s*:/,
+  /^assigned employment specialist/,
+];
+
+/**
+ * The three signature lines.
+ *
+ * Counted and reported, never relied on. Of the three completed 94s measured,
+ * one had two signatures in the text and two had none - they are signed with
+ * an image, or on paper, and a PDF's text says nothing about either. A rule
+ * resting on signatures would have called two completed assessments blank.
+ */
+const SIGNATURE_LINES = [
+  /^client signature\s*:/,
+  /^crp signature\s*:/,
+  /^vr counselor signature\s*:/,
+];
+
+/**
+ * A line that is the form talking, not somebody answering it.
+ *
+ * The assessment sections head themselves with how long they take - "Natural
+ * Support Assessment (1 hour)", "Transportation Assessment (30 min)" - which
+ * is the one mark that separates a heading from a paragraph here. Prose is no
+ * use for it: the headings print their checkbox labels on the same line, and
+ * "Interpersonal skills How the client reacts to criticism" has as many
+ * ordinary words in it as a real answer would.
+ */
+const FORM_TALKING =
+  /\(\s*\d+(?:\.\d+)?\s*(?:hours?|hrs?|mins?|minutes?)\s*\)|^(?:recommendations|team section)\b|^acre certified\b|^print\s+reset\s+save/i;
+
+export function assessmentBody(text: string): {
+  state: AssessmentBody;
+  boxes: number;
+  filled: number;
+  signed: number;
+} {
+  const lines = text
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  let boxes = 0;
+  let filled = 0;
+  let signed = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const low = line.toLowerCase();
+    const isBox = ASSESSMENT_BOXES.some((r) => r.test(low));
+    const isSig = !isBox && SIGNATURE_LINES.some((r) => r.test(low));
+    if (!isBox && !isSig) continue;
+
+    // What is written in the box: after the colon on the label's own line, or
+    // on the line below where the form prints the label above the space.
+    const at = line.indexOf(":");
+    const rest = at < 0 ? "" : line.slice(at + 1).trim();
+    const here = Boolean(rest) && !rest.endsWith(":") && !FORM_TALKING.test(rest);
+
+    const next = lines[i + 1] ?? "";
+    const below = Boolean(next) && !next.endsWith(":") && !FORM_TALKING.test(next);
+
+    if (isBox) {
+      boxes++;
+      if (here || below) filled++;
+    } else if (here || below) {
+      signed++;
+    }
+  }
+
+  // One stray match is not an assessment section. A 98 has none of these boxes
+  // and one line that happens to read like the last of them.
+  const state: AssessmentBody =
+    boxes <= 1 ? "none" : filled === 0 ? "blank" : filled >= 3 ? "completed" : "unclear";
+
+  return { state, boxes, filled, signed };
+}
 
 const WARRANT_MARKS = [
   /\bwarrant\s*(?:#|no\.?|number)/i,
@@ -115,12 +245,32 @@ export function classifyDocument(text: string): Classification {
   // USOR's own authorizations name no USOR form, so this costs them nothing.
   if (seen.length === 1) {
     const number = seen[0].replace(/\D/g, "");
+    if (!REFERRAL_FORMS.includes(number)) {
+      return { kind: "USOR form", reason: `names ${seen[0]} and nothing else`, usor: seen[0], seen };
+    }
+
+    // A form that can start a case. Whether this copy of it is starting one
+    // depends on which way it is travelling, which its assessment body says.
+    const body = assessmentBody(text);
+    const how = `${seen[0]}, ${body.filled} of ${body.boxes} assessment boxes written in`;
+
     return {
       kind: "USOR form",
-      reason: `names ${seen[0]} and nothing else`,
       usor: seen[0],
       seen,
-      referral: REFERRAL_FORMS.includes(number),
+      assessment: body.state,
+      // Only a form with nothing written in its assessment is a referral. A
+      // completed one is the assessment coming back and must never create a
+      // client; an unclear one is not read either way, which is the point.
+      referral: body.state === "none" || body.state === "blank",
+      reason:
+        body.state === "none"
+          ? `${seen[0]} has no assessment section, so it is the referral form itself`
+          : body.state === "blank"
+            ? `${how} — a referral, sent for the assessment to be done`
+            : body.state === "completed"
+              ? `${how} — the completed assessment coming back, not a new referral`
+              : `${how} — neither a blank referral nor a completed assessment, so it is not read as either`,
     };
   }
 

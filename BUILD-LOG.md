@@ -7548,3 +7548,73 @@ check-reports goes from 19 assertions to 22, and one of the existing ones had to
 be rewritten: it read the category list out of 0266 by name and failed the
 moment 0269 added an eighth. It now asks which migration declares the
 constraint, rather than being told. Five faults injected, all five caught.
+
+## The same form travels in both directions (29 Oct 2026)
+DWS-USOR 94 is the Work Strategy Assessment and it is one sheet of paper used
+twice: the counselor sends it with the client's details filled in and the
+assessment blank, and the CRP sends it back with the assessment written on it.
+The practice's own filing has said so all along - "94 (WSA Referral -
+editable)" and "WSA form 94 ZZ Testperson complete" sit in the same folder. Every
+94 was read as a referral, so a completed assessment coming back was a new
+client arriving.
+
+So the form number says which form and the state of its assessment body says
+which direction it is going.
+
+What made this harder than it sounds: the *referral* half of a 94 arrives
+filled in. Current work skills, family supports, communication needs - that is
+the counselor describing the client, and on the 23 October document all of it
+was written and all seven Observations boxes were empty. A rule reading the
+whole form would call every referral a completed report. So it reads the
+assessment boxes only, and there is a fixture asserting that the counselor's
+half being filled in does not tip it.
+
+Headings are what the extracted text actually confuses with answers, not
+labels. The assessment sections head themselves with how long they take -
+"Natural Support Assessment (1 hour)", "Transportation Assessment (30 min)" -
+and that duration is the one reliable mark. Prose is no use: the headings print
+their checkbox labels on the same line, so "Interpersonal skills How the client
+reacts to criticism" has as many ordinary words in it as a real answer.
+
+Signatures are counted and reported, never relied on. Of three real completed
+94s, one had two signature lines in its text and two had none - they are signed
+with an image or on paper, and a PDF's text says nothing about either. A rule
+resting on signatures would have called two completed assessments blank.
+
+Form 98 is decided by the same rule without naming it: it is titled REFERRAL
+FOR CRP ASSESSMENT, has no assessment section at all, and so is always the
+referral form itself.
+
+Measured against six real documents: 0 of 17 boxes written in on the referral,
+7, 13 and 13 on the three completed ones, no assessment section on either 98.
+Not a close call.
+
+A form that is neither - one or two boxes - is read as neither, which was the
+owner's instruction. Not as kind Unreadable, though: that queue exists to feed
+documents to OCR, and a form that already has text would be read, produce the
+same text, and come round again for ever. It is left as the USOR form it is
+with `referral` false, which is the path that files it on the client if the
+client is clear, leaves it in the queue if not, and creates nobody either way.
+
+**And a thing found while looking for where to put the new cases: prebuild ran
+21 of the 32 check scripts.** check-classify and check-auth-parse were two of
+the eleven it skipped - the document classifier and the authorization reader,
+both changed earlier the same day by somebody who believed the suite was
+running. They passed, which is luck rather than diligence.
+
+Six of the eleven were ordinary logic checks that had simply never been wired
+in. They are in now: 28 of 32. The remaining five cannot run there and
+check-checks.mjs names each one with the reason and what it would take - two
+need two database connections, one reads the database, and two import a
+server-only module and are one split away from joining the others, the way
+lib/report-shape.ts was split out of lib/report-period.ts.
+
+check-checks is first in the chain and checks itself: a check in neither list
+fails, a reason left behind for a check that has been wired in fails, a reason
+for a check that no longer exists fails, and a typo in the chain fails. Five
+faults, five caught. CLAUDE.md has said a check outside prebuild is a check
+that rots since check-quick-add went stale; it turns out to apply to the
+checks themselves.
+
+Eleven faults across the two: six against the classifier rule, five against
+check-checks.
