@@ -67,7 +67,7 @@ begin
   -- And every category the screens offer is one the database takes, which is
   -- the other direction of the same question - a list the screens have and the
   -- database does not is a note somebody loses on save.
-  foreach f in array array['Job development', 'Job coaching', 'Job search',
+  foreach f in array array['Job development', 'Job placement', 'Job coaching', 'Job search',
                            'Assessment', 'Life skills', 'General progress', 'Personal']
   loop
     begin
@@ -78,7 +78,7 @@ begin
     end;
   end loop;
   if not exists (select 1 from unnest(failures) x where x like '%refused the category%') then
-    raise notice 'ok  all seven categories the screens offer are categories the database takes';
+    raise notice 'ok  all eight categories the screens offer are categories the database takes';
   end if;
 
   -- ── Personal is narrowed whatever was asked for ────────────
@@ -125,9 +125,28 @@ begin
     raise notice 'ok  a note changed to Personal is narrowed on the way';
   end if;
 
+  -- ── and it cannot be emptied afterwards ────────────────────
+  -- The insert trigger fills a missing category, so nothing arrives without
+  -- one; this is the other half, and the two are not interchangeable. With
+  -- NOT NULL dropped the trigger still fills an insert - so a check that only
+  -- inserted would pass - but an update to null goes straight through, and the
+  -- callers that do that kind of thing are migrations and scripts holding the
+  -- service key, which is most of what writes here.
+  begin
+    update public.notes set category = null
+     where client_id = v_client and text = 'ZQ a note nobody categorised';
+    failures := failures || 'FAILED: a note can be left with no category by anything that updates it'::text;
+  exception when not_null_violation then
+    raise notice 'ok  a category cannot be emptied once the note exists';
+  end;
+
   -- ── the map is one map ─────────────────────────────────────
-  if public.category_for_stage('Job Placement') is distinct from 'Job development' then
-    failures := failures || 'FAILED: Job Placement does not map to Job development'::text;
+  if public.category_for_stage('Job Placement') is distinct from 'Job placement' then
+    failures := failures || format(
+      'FAILED: Job Placement maps to %s rather than to Job placement',
+      public.category_for_stage('Job Placement'))::text;
+  elsif public.category_for_stage('Job Development') is distinct from 'Job development' then
+    failures := failures || 'FAILED: Job Development no longer maps to Job development'::text;
   elsif public.category_for_stage('something nobody has added yet') is distinct from 'General progress' then
     failures := failures || 'FAILED: a stage the map does not know lands somewhere other than General progress'::text;
   else

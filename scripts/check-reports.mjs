@@ -267,6 +267,22 @@ const content = {
         { on: "2026-10-14", kind: "job", text: "Applied to ZQ Warehousing" },
       ],
     },
+    // Placed in a month this report does not cover, which is the case the
+    // standing line exists for: everything else in a section is dated inside
+    // the period, so a counselor reading October about a September hire was
+    // being told nothing about the hire at all.
+    {
+      service: "Job Placement",
+      code: "C-3",
+      lines: [
+        {
+          on: "2026-10-31",
+          standing: true,
+          kind: "placement",
+          text: "Placed Sep 3, 2026 — ZQ Warehousing — Clerk. 30-day check Oct 3, 2026",
+        },
+      ],
+    },
   ],
   weeks: [
     { week_start: "2026-09-28", status: "Confirmed", note: "ZZ settled into the shift." },
@@ -412,6 +428,50 @@ if (went < 0 || marked < 0) {
   ok("a report goes only signed, only as the PDF it was signed as, and is marked after it goes");
 }
 
+// ── where a placement stands ─────────────────────────────────
+//
+// The hire is in a month this report does not cover, so every assertion here
+// is about the one line that is allowed to reach outside the period.
+{
+  const at = report.findIndex((l) => l.as === "label" && l.text.startsWith("Job Placement"));
+  const line = report[at + 1];
+
+  if (at < 0) {
+    fail("an authorized Job Placement is not a section of the report");
+  } else if (!line || !/Placed Sep 3, 2026/.test(line.text)) {
+    fail(`the placement section opens with "${line?.text}" rather than when the client was placed`);
+  } else if (line.as !== "text" || line.on) {
+    // Dated at the end of the period so the month can slice on it. Printing
+    // that date would tell a counselor the client was hired on 31 October.
+    fail(`the standing line is drawn as a dated entry (${line.as}, on=${line.on})`);
+  } else if (!/30-day check Oct 3, 2026/.test(line.text)) {
+    fail("the standing line does not carry the retention checks the record holds");
+  } else {
+    ok("a placement says when it started and which checks are recorded, whatever month the report covers");
+  }
+
+  // A section with a placement and nothing else this month has already said
+  // something, so it must not also claim there was no activity.
+  const after = report[at + 2];
+  if (/No activity recorded/.test(after?.text ?? "")) {
+    fail("a section with a placement in it also says no activity was recorded");
+  } else if (!/Nothing further recorded this month/.test(after?.text ?? "")) {
+    fail(`a placement section with no events this month says "${after?.text}"`);
+  } else {
+    ok("a placement with nothing done this month says so without contradicting itself");
+  }
+
+  // And the drafted summary names the placement rather than counting it.
+  const drafted = draftMonthlySummary(content);
+  if (!/Placed Sep 3, 2026/.test(drafted)) {
+    fail("the drafted summary does not mention the placement");
+  } else if ((drafted.match(/Placed Sep 3, 2026/g) ?? []).length !== 1) {
+    fail("the drafted summary names the hire date more than once");
+  } else {
+    ok("the drafted summary names the placement once");
+  }
+}
+
 // ── the category list is one list ────────────────────────────
 //
 // The screens offer `NOTE_CATEGORIES` and the database enforces the check
@@ -419,13 +479,18 @@ if (went < 0 || marked < 0) {
 // note somebody loses on save, so the two are read against each other rather
 // than kept in step by hand.
 {
-  const migration = readdirSync(new URL("../supabase/migrations", import.meta.url))
-    .filter((f) => /notes?_says_which_service|0266/.test(f))
-    .map((f) => src(`supabase/migrations/${f}`))
-    .join("\n");
+  // The latest migration that declares the constraint, not a named one. The
+  // first version of this read 0266 by name and failed the moment 0269 added
+  // an eighth category - which is the check telling the truth about the wrong
+  // question. Ask which migration declares the rule now.
+  const declaring = readdirSync(new URL("../supabase/migrations", import.meta.url))
+    .filter((f) => /\.sql$/.test(f))
+    .sort()
+    .filter((f) => /notes_category_check\s+check/.test(src(`supabase/migrations/${f}`)));
+  const migration = declaring.length ? src(`supabase/migrations/${declaring.at(-1)}`) : "";
 
   if (!migration) {
-    fail("the migration that declares the note categories is not there to read");
+    fail("no migration declares the note categories, so nothing says what the database allows");
   } else {
     const declared = [...migration.matchAll(/^\s*'([A-Z][a-z]+(?: [a-z]+)*)',?\s*$/gm)].map((m) => m[1]);
     const missing = NOTE_CATEGORIES.filter((c) => !declared.includes(c));
@@ -444,7 +509,7 @@ if (went < 0 || marked < 0) {
   // other, and a disagreement puts a note in a section nobody expected.
   const pairs = [
     ["Job Development", "Job development"],
-    ["Job Placement", "Job development"],
+    ["Job Placement", "Job placement"],
     ["Job Coaching", "Job coaching"],
     ["Job Search", "Job search"],
     ["Assessment", "Assessment"],
@@ -513,7 +578,7 @@ if (went < 0 || marked < 0) {
   } else if (accepted.length) {
     fail(`a declared category was refused off a form: ${accepted.join(", ")}`);
   } else {
-    ok("a category off a form is one of the seven or it is nothing");
+    ok(`a category off a form is one of the ${NOTE_CATEGORIES.length} or it is nothing`);
   }
 
   // And the only way one reaches the insert is through that function: the raw

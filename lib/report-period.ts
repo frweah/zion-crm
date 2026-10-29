@@ -122,6 +122,7 @@ const FAMILY_OF_NOTE: Record<string, ServiceFamily> = {
  */
 const FAMILY_OF_CATEGORY: Record<string, ServiceFamily> = {
   "Job development": "development",
+  "Job placement": "placement",
   "Job coaching": "coaching",
   "Job search": "development",
   Assessment: "assessment",
@@ -150,6 +151,21 @@ export { addDays, mondayOf, monthEndOf, monthStartOf, previousMonthOf, weeksAcro
 type Supabase = SupabaseClient<Database>;
 
 const dayOf = (stamp: string | null): string => (stamp ?? "").slice(0, 10);
+
+/**
+ * A date as a reader wants it, for the inside of a sentence.
+ *
+ * Only for the standing lines, where a date has to sit in the prose rather
+ * than in the renderer's date column. Noon UTC so a date-only string is not
+ * dragged back a day by the machine's offset, which is the same trap
+ * `lib/report-text.ts` sidesteps the same way.
+ */
+const day = (iso: string): string =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
 /**
  * The record between two dates, as sections.
@@ -402,6 +418,45 @@ export async function buildPeriodContent(
       if (inRange(on)) {
         put("coaching", { on: on!, kind: "placement", text: `${label} — ${where}` });
       }
+    }
+
+    // Where the placement stands, whatever month this report covers.
+    //
+    // Everything above is dated inside the period, which is right for
+    // activity and wrong for this: a counselor reading November about somebody
+    // hired in September was being told nothing about the hire, and retention
+    // is the one fact a placement report exists to carry. So each placement
+    // also contributes one line saying when it started and which checks have
+    // been recorded - undated, because it is where things stand rather than
+    // something that happened this month.
+    //
+    // Only dates the record actually holds. A check that has not happened is
+    // not given a due date here: the practice's own screens work out when one
+    // is due from the start date, and a report that printed a date nobody
+    // recorded would be a report making a commitment on somebody's behalf.
+    if (p.start_date) {
+      const reached = (
+        [
+          ["30-day check", p.check30],
+          ["60-day check", p.check60],
+          ["90-day check", p.check90],
+          ["stable since", p.stability_on],
+        ] as const
+      ).filter(([, on]) => Boolean(on));
+
+      put("placement", {
+        // Dated at the end of the period, because what it says is where things
+        // stand as at then. `standing` is what stops the renderer printing
+        // that date as though the hire happened on it.
+        on: to,
+        standing: true,
+        kind: "placement",
+        text:
+          `Placed ${day(p.start_date)} — ${where}` +
+          (reached.length
+            ? `. ${reached.map(([label, on]) => `${label} ${day(on!)}`).join(", ")}`
+            : ". No retention check recorded yet"),
+      });
     }
   }
 

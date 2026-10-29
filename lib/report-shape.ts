@@ -18,10 +18,17 @@ export const GENERAL = "General";
 /**
  * The service a note is about.
  *
- * Seven, in the order the brief gives them, which is also roughly the order a
- * case moves through. The list is the same list as the check constraint on
- * `notes.category` (0266) and `check-reports` asserts the two match - a
- * category a screen offers and the database refuses is a note somebody loses.
+ * Eight, in roughly the order a case moves through. The list is the same list
+ * as the check constraint on `notes.category` (0266, extended by 0269) and
+ * `check-reports` asserts the two match - a category a screen offers and the
+ * database refuses is a note somebody loses on save.
+ *
+ * Job placement is separate from Job development, which it was not at first.
+ * The argument for folding them together was that placement is what
+ * development is for; the argument against, which won, is that 36
+ * authorizations name Job Placement on its own and a counselor reading about a
+ * client who has been placed wants the placement, not a development section
+ * with a hire buried in it.
  *
  * Personal is last and is not a service. It means the note is on the record
  * because the practice needs it to do the work, and is nobody else's business:
@@ -31,6 +38,7 @@ export const GENERAL = "General";
  */
 export const NOTE_CATEGORIES = [
   "Job development",
+  "Job placement",
   "Job coaching",
   "Job search",
   "Assessment",
@@ -70,8 +78,9 @@ export function noteCategoryFromForm(value: unknown): NoteCategory | null {
 export function categoryForStage(stage: string | null | undefined): NoteCategory {
   switch (stage) {
     case "Job Development":
-    case "Job Placement":
       return "Job development";
+    case "Job Placement":
+      return "Job placement";
     case "Job Coaching":
       return "Job coaching";
     case "Job Search":
@@ -110,6 +119,22 @@ export type ReportLine = {
    * is a month that will one day add up a sentence.
    */
   hours?: number;
+  /**
+   * Where something stands, rather than something that happened.
+   *
+   * One line of standing fact for the section: a placement's hire date and
+   * which retention checks have been recorded. It carries `on` like every
+   * other line, because the month slices on the date and a line without one
+   * would fall out of a week - but what the date means is "as at", not "this
+   * is when it happened", so it is set to the end of the period and the
+   * renderer prints it without a date column and above the dated entries.
+   *
+   * Added because a counselor reading November about somebody hired in
+   * September was told nothing about the hire. Retention is the one fact a
+   * placement report exists to carry, and a report that only ever shows the
+   * current month cannot carry it.
+   */
+  standing?: boolean;
 };
 
 export type ReportSection = {

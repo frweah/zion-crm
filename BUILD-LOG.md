@@ -7508,3 +7508,43 @@ the skipped list. What it holds is the practice's account of its own mistake in
 the practice's own terms - these first entries name a function and a polling
 interval - and every correction is a correction to something the bundle already
 discloses as it now correctly reads.
+
+## Job placement is its own section (29 Oct 2026)
+0266 folded the Job Placement stage into Job development, on the argument that
+placement is what development is for and the practice bills it that way. The
+owner's answer: 36 authorizations name Job Placement on its own, and a
+counselor reading about a client who has been placed wants the placement, not a
+development section with a hire buried in it. Eight categories, not seven.
+
+The backfill ran with that change, reported first as the brief asks. 832 notes,
+by the stage the client was on the day each was written: Job coaching 248, Job
+placement 189, General progress 176, Job development 158, Assessment 48, Job
+search 13. Nothing left blank, and `category` is NOT NULL from here.
+
+NOT NULL is not the same guard as the insert trigger and the verify now says so
+separately. With it dropped, the trigger still fills an insert - so a check that
+only ever inserted would pass - and an update to null goes straight through.
+The callers that do that are migrations and scripts holding the service key,
+which is most of what writes to this database.
+
+**Where a placement stands, whatever month the report covers.** Everything else
+in a section is dated inside the period, which is right for activity and wrong
+for retention: a counselor reading November about somebody hired in September
+was told nothing about the hire. Each placement now contributes one standing
+line naming the hire date and every retention check the record holds.
+
+It carries a date like every other line, because the month slices on dates and
+a line without one falls out of a week - but the date is the end of the period
+and means "as at", so the renderer prints it without a date column and above
+the dated entries. A section with a placement and nothing else this month says
+"Nothing further recorded this month" rather than "No activity recorded", which
+would be the section contradicting the line above it.
+
+Only dates the record actually holds. A check that has not happened gets no due
+date here: the screens work that out from the start date, and a report printing
+a date nobody recorded would be making a commitment on somebody's behalf.
+
+check-reports goes from 19 assertions to 22, and one of the existing ones had to
+be rewritten: it read the category list out of 0266 by name and failed the
+moment 0269 added an eighth. It now asks which migration declares the
+constraint, rather than being told. Five faults injected, all five caught.

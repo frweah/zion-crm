@@ -117,9 +117,15 @@ export function draftMonthlySummary(content: MonthlyShape): string {
   if (kept.length > 0) lines.push(`${plural(kept.length, "appointment")} on the calendar.`);
 
   const jobs = of("job");
-  const placed = of("placement");
   if (jobs.length > 0) lines.push(`${plural(jobs.length, "job application")} moved this month.`);
-  if (placed.length > 0) lines.push(placed.map((l) => l.text).join("; ") + ".");
+
+  // The standing line where there is one, and the month's placement events
+  // only where there is not. Both would say the hire date twice: the standing
+  // line names it and a "Started —" entry in the same month is the same fact.
+  const placed = of("placement");
+  const standing = placed.filter((l) => l.standing);
+  const chosen = standing.length > 0 ? standing : placed;
+  if (chosen.length > 0) lines.push(chosen.map((l) => l.text.replace(/\.$/, "")).join("; ") + ".");
 
   const assessments = of("assessment");
   if (assessments.length > 0) {
@@ -180,10 +186,27 @@ export function monthlyReportLines(
 
   for (const section of content.sections) {
     say("label", section.code && section.code !== "—" ? `${section.service} (${section.code})` : section.service);
-    if (section.lines.length === 0) {
-      say("text", "No activity recorded.");
+
+    // Where things stand, before what happened. A placement's hire date and
+    // its retention checks are the frame the month's entries sit inside, and a
+    // counselor reading them in the other order has to hold the entries in
+    // their head until the frame arrives.
+    //
+    // No date column: the line is dated at the end of the period so the month
+    // can slice on it, and printing that date would say the hire happened on
+    // the last day of the month.
+    const standing = section.lines.filter((l) => l.standing);
+    const happened = section.lines.filter((l) => !l.standing);
+
+    for (const line of standing) say("text", line.text);
+
+    if (happened.length === 0) {
+      // A section with a placement in it and nothing done this month has said
+      // something already, so it does not also say "no activity".
+      if (standing.length === 0) say("text", "No activity recorded.");
+      else say("text", "Nothing further recorded this month.");
     } else {
-      for (const line of section.lines) {
+      for (const line of happened) {
         say(
           "entry",
           line.hours ? `${line.text} — ${hrs(line.hours)} hr` : line.text,
