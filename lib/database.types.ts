@@ -7208,6 +7208,10 @@ export type Database = {
         Args: { p_doc: string | null; p_name: string | null; p_counselor?: string | null; p_office?: string | null; p_date?: string | null; p_phone?: string | null };
         Returns: Json;
       };
+      intake_referral_unreadable: {
+        Args: { p_doc: string | null };
+        Returns: Json;
+      };
       intake_rules_ran_late: {
         Args: { p_message: string | null; p_sha256: string | null; p_decision: string | null; p_detail?: string | null; p_client?: string | null; p_reply?: boolean | null };
         Returns: boolean;

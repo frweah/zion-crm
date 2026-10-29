@@ -406,8 +406,16 @@ async function askTheRules(
     const read = parseReferralText(text);
     const name = read.fields.clientName?.value ?? "";
     // The one document that may create a client, so a name read off the wrong
-    // line would create one. Nothing is filed without a name.
-    if (!name) throw new Error("a referral with no client name read off it was not filed");
+    // line would create one - and on 23 October one did, called "The
+    // assessment is due". The reader now refuses rather than guesses, which
+    // means this branch is reached by real forms and not only by broken ones:
+    // the document stays in the queue and the intake owner is told, instead of
+    // the poll throwing where nobody could see it.
+    if (!name) {
+      const { data, error } = await admin.rpc("intake_referral_unreadable", { p_doc: docId });
+      if (error) throw new Error(error.message);
+      return data as unknown as Filed;
+    }
     const { data, error } = await admin.rpc("intake_referral", {
       p_doc: docId,
       p_name: name,

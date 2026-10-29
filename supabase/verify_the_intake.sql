@@ -194,6 +194,43 @@ begin
     raise notice 'ok  a referral sent again on another day is logged as another arrival';
   end if;
 
+  -- ── a referral with no readable name on it ─────────────────
+  --
+  -- The reader refuses rather than guesses (lib/referral-parse.ts), so this is
+  -- the branch a real DWS-USOR 94 with an unreadable name arrives in. Three
+  -- things have to be true: nobody is created, the intake owner is told, and
+  -- the counselor is not thanked for a document nobody has filed.
+  select count(*) into v_before from public.clients;
+  v_res := public.intake_referral_unreadable(v_doc5);
+  if v_res ->> 'action' <> 'referral needs a name' then
+    failures := failures || format(
+      'FAILED: a referral with no name gave "%s"', v_res ->> 'action')::text;
+  elsif (select count(*) from public.clients) <> v_before then
+    failures := failures || 'FAILED: a referral with no name created a client anyway'::text;
+  elsif v_res ->> 'client_id' is not null then
+    failures := failures || 'FAILED: a referral with no name picked a client'::text;
+  elsif jsonb_array_length(v_res -> 'notify') = 0 then
+    failures := failures || 'FAILED: nobody was told a referral could not be read'::text;
+  elsif (v_res ->> 'reply')::boolean then
+    failures := failures || 'FAILED: the counselor was thanked for a referral nobody could file'::text;
+  else
+    raise notice 'ok  a referral with no readable name creates nobody and says so to the intake owner';
+  end if;
+
+  -- And once, not every fifteen minutes. The same fault 0264 fixed on the
+  -- contact log is available to every notification in here, so the one that
+  -- fires on a document the poll keeps re-reading is asserted too.
+  select count(*) into v_before from public.notifications;
+  perform public.intake_referral_unreadable(v_doc5);
+  perform public.intake_referral_unreadable(v_doc5);
+  if (select count(*) from public.notifications) <> v_before then
+    failures := failures || format(
+      'FAILED: re-reading an unreadable referral raised %s more notification(s)',
+      (select count(*) from public.notifications) - v_before)::text;
+  else
+    raise notice 'ok  an unreadable referral read again tells nobody a second time';
+  end if;
+
   -- ── an ambiguous name creates nothing ──────────────────────
   insert into public.clients (name, stage, status) values ('ZZ Twin Testperson', 'Intake', 'Active')
   returning id into v_twin_a;

@@ -330,6 +330,7 @@ const RPC_FUNCTIONS = [
   "delete_client",
   // Intake from the counselor's email (Intake Automation Brief, 0181-0182).
   "intake_referral",
+  "intake_referral_unreadable",
   "intake_authorization",
   "intake_other",
   "intake_record_mail",

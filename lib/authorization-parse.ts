@@ -65,6 +65,25 @@ export type FieldRule<K extends string> = {
   labels: RegExp[];
   value: RegExp;
   clean?: (raw: string) => string | null;
+  /**
+   * Read this field only off a line that is unmistakably a box on a form: the
+   * label with a colon straight after it, or the label alone on its line with
+   * its value beneath.
+   *
+   * The ordinary rule is looser - a label at the start of its line counts -
+   * because USOR authorizations print "AUTHORIZATION NUMBER V1234567" with no
+   * colon and sixteen real ones were read that way. But looser is how a USOR
+   * 94 came to create a client called "The assessment is due": the form opens
+   * with "Provider, and the client. The assessment is due when the team
+   * meets", the word *client* is a label, the full stop after it read as a
+   * separator, and the sentence that followed read as a name. The form's real
+   * "Client Name:" box was three lines further down and never
+   * reached.
+   *
+   * So the fields where a wrong answer becomes a person - a name, a counselor,
+   * an office - ask the stricter question. Prose satisfies neither half of it.
+   */
+  fieldOnly?: boolean;
 };
 
 type Rule = FieldRule<FieldKey>;
@@ -231,6 +250,11 @@ export function applyFieldRule<K extends string>(rule: FieldRule<K>, lines: stri
       const labelled = at.index === 0 || opened || /^\s*[:.]/.test(rest);
       if (!labelled) continue;
 
+      // A box on a form, for the fields that may not be guessed at: a colon
+      // straight after the label, or the label alone on its line. See
+      // `fieldOnly` on FieldRule for what reading prose as a name cost.
+      if (rule.fieldOnly && !/^\s*:/.test(rest) && rest.trim() !== "") continue;
+
       // The rest of the line, past the label and any separator.
       const after = rest.replace(/^[\s:.—-]+/, "");
       const here = after.match(rule.value);
@@ -242,7 +266,15 @@ export function applyFieldRule<K extends string>(rule: FieldRule<K>, lines: stri
       // Then the line below, for forms that put the label above the box.
       const below = lines[i + 1];
       const labels = others.length ? others : (RULES as unknown as FieldRule<K>[]);
-      if (below && !labels.some((r) => r.labels.some((l) => l.test(below)))) {
+
+      // A line that ends in a colon is naming a box, not filling one. The
+      // existing guard below only skips lines matching a rule's own label, and
+      // a USOR 94 prints "Worksite Simulation Location:" with "Observations:"
+      // underneath - so the referring office went onto a client record as
+      // "Observations:". A form heading is not an answer to anything.
+      const heading = rule.fieldOnly && /:\s*$/.test(below ?? "");
+
+      if (below && !heading && !labels.some((r) => r.labels.some((l) => l.test(below)))) {
         const under = below.match(rule.value);
         if (under) {
           const value = rule.clean ? rule.clean(under[1]) : under[1].trim();

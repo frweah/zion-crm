@@ -7246,3 +7246,102 @@ sentence is worth more than the convenience of ignoring it.
   it lives.
 - 0264 is written and not applied: applying it was refused twice by this
   session's own guard rails, so it is waiting on the owner.
+
+## A heading is not a name (29 Oct 2026)
+
+The other half of the referral loop. 0264 stopped the contact log growing; this
+is why there was a client for it to grow on.
+
+The record was called *The assessment is due*, its counselor *Referral Page*,
+its referring office *Observations:*. All three were read off a real DWS-USOR
+94, and the thing worth keeping is that the correct answer was also on the
+form, three lines further down, labelled exactly as a parser would want:
+`Client Name:` followed by it. The reader did not fail to find the name. It
+stopped at the first thing that resembled one.
+
+### What resembled one
+
+A 94 opens with USOR's own instructions:
+
+```
+This form is to be completed by the VR Counselor, Community Rehabilitation Program (CRP)
+Provider, and the client. The assessment is due when the team meets to review the results, agree to
+goals, and sign the assessment.
+Counselor Referral Page
+Client Name: ...
+```
+
+`applyFieldRule` accepts a label at the start of its line, or with a colon or a
+full stop after it. The full stop is the one that did it: *client* matched the
+label, the `.` after it read as a separator, and "The assessment is due" read
+as a name — four capitalised-ish words, which the old name pattern accepted
+because it accepted any letters at all.
+
+Line 6, `Counselor Referral Page`, is a column heading with a label at position
+zero, so the counselor read as "Referral Page". And the office came off
+`Worksite Simulation Location:` with `Observations:` on the line beneath — the
+existing guard skips a line below that matches another rule's label, and
+`Observations:` matches none.
+
+### Two guards, either sufficient
+
+`fieldOnly` on a rule means: a colon straight after the label, or the label
+alone on its line with its value beneath. Prose satisfies neither half. It is
+opt-in and set on three rules — name, counselor, office — rather than changed
+globally, because the looser question is what reads `AUTHORIZATION NUMBER
+V1234567` off sixteen real authorizations, and tightening that to buy this
+would be trading a working thing for a fixed one.
+
+The second guard is in the name pattern: a name is capitalised words, a
+sentence has lowercase ones. "The assessment is due" fails on *assessment*.
+
+Both were injected separately and **neither failed the check on its own** —
+each stops the fault by itself. That is deliberate, but it means the check does
+not test either one, so the pair was removed together to confirm the fixture
+still reproduces `"The assessment is due"` exactly. It does. The counselor and
+office guards do each fail alone, and were watched doing it.
+
+Third guard, and general rather than opt-in: a line ending in a colon is naming
+a box, not filling one.
+
+### The check that passed
+
+`check-referral-parse` had five cases and all five were green while this was in
+production. Every fixture put the fields in the first few lines with nothing
+around them, which is the shape of no real form — the exact failure CLAUDE.md
+describes, asking a question merely near the rule. The whole document is now a
+fixture: instructions, column heading, the real field, address and phone lines,
+a mid-form `Location:`/`Observations:` pair, and the signature block. USOR's
+prose is kept verbatim because the prose is what did it; the client, address
+and counselor are invented, because a real one does not go in a repository.
+
+Four assertions, not one. The fault produced four wrong values and a check
+asking only about the name would have shipped the office.
+
+### When no name can be read
+
+Before: the route threw. The poll failed, the document sat in the queue, and
+nobody was told — so the only way anybody found out was by opening the inbox.
+That was survivable while the reader guessed, because it almost never fired.
+Now that the reader refuses, it is a branch real forms arrive in.
+
+`intake_referral_unreadable` leaves the document exactly where it is and tells
+the intake owner, once, keyed on the document — the same guard 0264 put on the
+contact log, because the same fifteen-minute poll is behind it. No reply goes
+to the counselor: thanking somebody for a document nobody can file says
+something untrue.
+
+It creates no client record. A record named for the fact that nothing could be
+read would collect every unreadable referral, sit in the client list, and need
+merging out again — which is the week this fix came out of. The queue already
+holds documents whose client is not clear, and that is what this is.
+
+### The fault above this one
+
+`classify-document` has `REFERRAL_FORMS = ["94", "98"]` and calls 94 "the
+referral". The document that caused all of this is titled **WORK STRATEGY
+ASSESSMENT**. If 94 is the WSA rather than the referral, then every assessment
+that arrives at service@ is read as a referral and may create a client, and the
+name reader is only the second line of defence. Left alone pending an answer,
+because which USOR number is which form is not something to guess at twice in
+one file.

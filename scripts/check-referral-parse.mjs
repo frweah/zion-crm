@@ -43,6 +43,45 @@ Office: Ogden
 Referral Date: 03/04/2026
 `;
 
+/**
+ * A real DWS-USOR 94, line for line, with the names replaced.
+ *
+ * This one is here because it got through. Everything above puts the fields in
+ * the first few lines with nothing around them, and a real 94 opens with three
+ * lines of USOR's own instructions, a column heading, and only then the boxes.
+ * Read on 23 October it created a client called "The assessment is due", whose
+ * counselor was "Referral Page" and whose referring office was
+ * "Observations:", and then a poll every fifteen minutes wrote 549 contact-log
+ * rows onto it. The name was on the form, correctly labelled, three lines
+ * below the sentence that was read instead.
+ *
+ * The prose is USOR's and is kept exactly - it is the prose that did it. The
+ * client, counselor and address are invented, because a real one does not go
+ * in a repository.
+ */
+const wholeForm94 = `
+DWS-USOR 94 State of Utah
+Rev. 07/2026 Department of Workforce Services
+WORK STRATEGY ASSESSMENT
+This form is to be completed by the VR Counselor, Community Rehabilitation Program (CRP)
+Provider, and the client. The assessment is due when the team meets to review the results, agree to
+goals, and sign the assessment.
+Counselor Referral Page
+Client Name: ZZ Testperson Quayle
+Address: 1 ZQ Example Street
+City: Ogden State: Utah ZIP: 84401
+CRP Referring to: Zion Vocational Rehabilitation
+Client Phone: NA Client Cell: (801) 555-0142
+Guardianship: Yes No If yes, Parent/Guardian name and phone:
+Describe the following as it applies to client:
+Interpersonal skills How the client reacts to criticism
+Worksite Simulation Location:
+Observations:
+Client Signature: Date:
+CRP Signature: Date:
+VR Counselor Signature: Date:
+`;
+
 // ── the fields come off the form ─────────────────────────────
 {
   const r = parseReferralText(usor94);
@@ -101,6 +140,47 @@ Referral Date: 03/04/2026
     fail(`a referral with no client name read ${JSON.stringify(r.fields.clientName?.value)} as the name`);
   } else {
     ok("a referral with no client name on it says so, rather than inventing one");
+  }
+}
+
+// ── the whole form, not the first few lines of it ────────────
+//
+// Four assertions rather than one, because the fault produced four wrong
+// answers and a check that only asked about the name would have let the office
+// through. Each is named so a failure says which half of the guard went.
+{
+  const r = parseReferralText(wholeForm94);
+  const name = r.fields.clientName?.value ?? "";
+  const counselor = r.fields.counselor?.value ?? "";
+  const office = r.fields.office?.value ?? "";
+
+  if (name !== "ZZ Testperson Quayle") {
+    fail(`the name on a whole USOR 94 read as ${JSON.stringify(name)} rather than the Client Name field`);
+  } else {
+    ok("the name comes off the Client Name box and not the instructions above it");
+  }
+
+  // "Provider, and the client. The assessment is due when the team meets" -
+  // the sentence that became a client.
+  if (/assessment|provider|complete/i.test(name)) {
+    fail(`the client name was read out of the form's instructions: ${JSON.stringify(name)}`);
+  } else {
+    ok("a sentence containing the word client is not a client name");
+  }
+
+  // "Counselor Referral Page" is a column heading. The form has no counselor
+  // box at all, and nothing is better than something invented.
+  if (/referral|page/i.test(counselor)) {
+    fail(`the counselor was read off a column heading: ${JSON.stringify(counselor)}`);
+  } else {
+    ok("a column heading is not a counselor");
+  }
+
+  // "Worksite Simulation Location:" with "Observations:" under it.
+  if (office.endsWith(":") || /observation/i.test(office)) {
+    fail(`the office was read off a form heading: ${JSON.stringify(office)}`);
+  } else {
+    ok("a line ending in a colon is naming a box, not filling one");
   }
 }
 
