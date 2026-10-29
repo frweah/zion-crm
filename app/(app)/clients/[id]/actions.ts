@@ -5,6 +5,7 @@ import { can } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isOnlyTemplate } from "@/lib/note-template";
+import { noteCategoryFromForm } from "@/lib/report-shape";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, today } from "@/lib/constants";
@@ -173,6 +174,13 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
 
   const type = String(formData.get("type") ?? "General");
 
+  // Which service the note is about, which is how a monthly report sorts it.
+  // Refused rather than guessed at here: the screen opens the picker on the
+  // client's stage, so a note arriving with nothing means the box was emptied
+  // on purpose and the right answer is to ask rather than to pick one.
+  const category = noteCategoryFromForm(formData.get("category"));
+  if (!category) return { error: "Say which service this note is about.", ok: null };
+
   const roles = new Set<string>(["Admin"]);
   for (const r of formData.getAll("visible_roles")) roles.add(String(r));
 
@@ -194,6 +202,7 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
     staff_name: me.name,
     text,
     type,
+    category,
     visible_roles: [...roles],
   });
 

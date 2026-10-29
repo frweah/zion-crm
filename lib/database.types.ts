@@ -3317,6 +3317,7 @@ export type Database = {
           attachment_id: string | null;
           dated_from: string;
           from_ocr: boolean;
+          category: string | null;
         };
         Insert: {
           id?: string;
@@ -3334,6 +3335,7 @@ export type Database = {
           attachment_id?: string | null;
           dated_from?: string;
           from_ocr?: boolean;
+          category?: string | null;
         };
         Update: {
           id?: string;
@@ -3351,6 +3353,7 @@ export type Database = {
           attachment_id?: string | null;
           dated_from?: string;
           from_ocr?: boolean;
+          category?: string | null;
         };
         Relationships: [];
       };

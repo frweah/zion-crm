@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { today } from "@/lib/constants";
+import { PERSONAL } from "@/lib/report-shape";
 
 /**
  * The first day of the month after `month` ("2026-09" -> "2026-10-01").
@@ -135,6 +136,11 @@ export async function autofillForm(
         .gte("at", `${month}-01`)
         .lt("at", nextMonth(month))
         .in("type", activityTypes)
+        // This fills a form that goes to USOR, so the Personal category is out
+        // of it. The type filter above is not enough: the types say what shape
+        // a contact was and the category says what it was about, so a personal
+        // note about a job interview satisfies both lists.
+        .neq("category", PERSONAL)
         .order("at");
 
       return {

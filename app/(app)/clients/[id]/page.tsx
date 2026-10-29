@@ -621,7 +621,7 @@ export default async function ClientPage({
     return (
       <>
         {header}
-        <NotesTab clientId={id} notes={notes} myName={me.name} templates={templates} />
+        <NotesTab clientId={id} notes={notes} myName={me.name} templates={templates} stage={client.stage} />
         {overlay}
       </>
     );

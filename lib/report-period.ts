@@ -105,6 +105,43 @@ const FAMILY_OF_NOTE: Record<string, ServiceFamily> = {
   "Coaching session": "coaching",
 };
 
+/**
+ * The family a note's category speaks to.
+ *
+ * The category is the better answer and is asked first: it says which service
+ * the note is about, where the type says what shape of contact it was. A
+ * meeting can be about coaching or about life skills and the type cannot tell
+ * them apart, which is why the column exists (0266).
+ *
+ * The type map above stays as the fallback for the notes written before the
+ * column did, and goes when they are backfilled.
+ *
+ * Personal is not in this map and must not be. It is not a service, it is the
+ * category that means "this is on the record because we need it and it is
+ * nobody else's business", and `isPersonal` below is what keeps it out.
+ */
+const FAMILY_OF_CATEGORY: Record<string, ServiceFamily> = {
+  "Job development": "development",
+  "Job coaching": "coaching",
+  "Job search": "development",
+  Assessment: "assessment",
+  "Life skills": "life",
+};
+
+/**
+ * A note nobody outside the practice sees.
+ *
+ * Checked by category rather than by roles, because the two guards answer
+ * different questions. The roles say who may read the note on the screen; this
+ * says the note is not part of the account of a service, which is a different
+ * claim and the one a report is making. A Personal note is not withheld from a
+ * report - it is not in one, and it is not counted in `withheld` either,
+ * because telling a counselor "two notes are not included here" about somebody's
+ * housing is still telling them something.
+ */
+export const isPersonal = (category: string | null | undefined): boolean =>
+  category === "Personal";
+
 
 // Re-exported so a caller needs one import for "a period of the record" and
 // not two. The arithmetic lives apart because check-reports.mjs runs it.
@@ -225,7 +262,7 @@ export async function buildPeriodContent(
       : Promise.resolve({ data: [] as never[] }),
     supabase
       .from("notes")
-      .select("at, type, text, staff_name, visible_roles")
+      .select("at, type, text, staff_name, visible_roles, category")
       .eq("client_id", clientId)
       .gte("at", from)
       .lte("at", to)
@@ -291,10 +328,17 @@ export async function buildPeriodContent(
   }
 
   for (const n of notesResult.data ?? []) {
+    // Before anything else, and before `withheld` is touched. A Personal note
+    // is not in the report and is not counted as missing from it either.
+    if (isPersonal(n.category)) continue;
+
     const type = n.type || "General";
     const open = coversReportRoles(n.visible_roles);
     if (!open) withheld++;
-    put(FAMILY_OF_NOTE[type] ?? null, {
+    // The category first, because it says which service the note is about. The
+    // type is the fallback for notes written before the column existed.
+    const family = (n.category ? FAMILY_OF_CATEGORY[n.category] : undefined) ?? FAMILY_OF_NOTE[type] ?? null;
+    put(family, {
       on: n.at,
       kind: "note",
       text: open

@@ -55,6 +55,12 @@ import {
   draftMonthlySummary,
   monthlyReportLines,
 } from "../lib/report-text.ts";
+import {
+  NOTE_CATEGORIES,
+  PERSONAL,
+  categoryForStage,
+  noteCategoryFromForm,
+} from "../lib/report-shape.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -404,6 +410,128 @@ if (went < 0 || marked < 0) {
   fail("the report is marked sent before the message has gone");
 } else {
   ok("a report goes only signed, only as the PDF it was signed as, and is marked after it goes");
+}
+
+// ── the category list is one list ────────────────────────────
+//
+// The screens offer `NOTE_CATEGORIES` and the database enforces the check
+// constraint in 0266. A category one of them knows and the other does not is a
+// note somebody loses on save, so the two are read against each other rather
+// than kept in step by hand.
+{
+  const migration = readdirSync(new URL("../supabase/migrations", import.meta.url))
+    .filter((f) => /notes?_says_which_service|0266/.test(f))
+    .map((f) => src(`supabase/migrations/${f}`))
+    .join("\n");
+
+  if (!migration) {
+    fail("the migration that declares the note categories is not there to read");
+  } else {
+    const declared = [...migration.matchAll(/^\s*'([A-Z][a-z]+(?: [a-z]+)*)',?\s*$/gm)].map((m) => m[1]);
+    const missing = NOTE_CATEGORIES.filter((c) => !declared.includes(c));
+    const extra = declared.filter((c) => !NOTE_CATEGORIES.includes(c));
+    if (missing.length) {
+      fail(`the screens offer categories the database refuses: ${missing.join(", ")}`);
+    } else if (extra.length) {
+      fail(`the database allows categories no screen offers: ${extra.join(", ")}`);
+    } else {
+      ok(`the ${NOTE_CATEGORIES.length} note categories are the same list on both sides`);
+    }
+  }
+
+  // The map has to agree with category_for_stage in the same migration, for
+  // the same reason: the screen guesses with one and the backfill with the
+  // other, and a disagreement puts a note in a section nobody expected.
+  const pairs = [
+    ["Job Development", "Job development"],
+    ["Job Placement", "Job development"],
+    ["Job Coaching", "Job coaching"],
+    ["Job Search", "Job search"],
+    ["Assessment", "Assessment"],
+    ["Life Skills", "Life skills"],
+    ["Intake", "General progress"],
+  ];
+  const wrong = pairs.filter(([stage, want]) => categoryForStage(stage) !== want);
+  if (wrong.length) {
+    fail(`the stage map disagrees with the database for: ${wrong.map(([s]) => s).join(", ")}`);
+  } else if (categoryForStage("something nobody has added yet") !== "General progress") {
+    fail("a stage the map does not know falls somewhere other than General progress");
+  } else {
+    ok("a stage implies the same category in the screens as in the database");
+  }
+}
+
+// ── Personal never reaches a counselor ───────────────────────
+//
+// Two guards, asserted separately, because this is the one category whose
+// whole purpose is not being in a report. The first is the filter; the second
+// is that it is not counted as withheld either - "two notes are not included
+// here" about somebody's housing is still telling a counselor something.
+{
+  const period = src("lib/report-period.ts");
+  if (!/isPersonal\(n\.category\)\)\s*continue/.test(period)) {
+    fail("the monthly report does not drop a Personal note before anything else");
+  } else if (period.indexOf("isPersonal(n.category)") > period.indexOf("if (!open) withheld++")) {
+    fail("a Personal note is counted as withheld before it is dropped");
+  } else {
+    ok("a Personal note is out of the monthly report and is not counted as held back");
+  }
+
+  if (!/category !== "Personal"/.test(src("lib/report.ts"))) {
+    fail("the on-demand report does not drop Personal notes");
+  } else if (!/neq\("category", PERSONAL\)/.test(src("lib/form-autofill.ts"))) {
+    fail("USOR 96 is filled from notes without dropping Personal");
+  } else {
+    ok("the on-demand report and USOR 96 drop Personal as well");
+  }
+
+  // And the category list itself has not quietly lost it.
+  if (!NOTE_CATEGORIES.includes(PERSONAL)) {
+    fail("Personal is no longer one of the categories, so nothing can be marked as it");
+  }
+}
+
+// ── a note is asked what it is about ─────────────────────────
+//
+// The rule is run rather than read. The first version of this matched
+// `NOTE_CATEGORIES.includes(...)` in the action's source and passed with
+// `false &&` written in front of it, which is the fault CLAUDE.md warns about
+// and which this check was written to catch in the first place.
+{
+  const refused = [
+    ["nothing at all", ""],
+    ["whitespace", "   "],
+    ["a category nobody declared", "Housing"],
+    ["the wrong case", "job coaching"],
+    ["something that is not a string", null],
+  ].filter(([, value]) => noteCategoryFromForm(value) !== null);
+
+  const accepted = NOTE_CATEGORIES.filter((c) => noteCategoryFromForm(c) !== c);
+
+  if (refused.length) {
+    fail(`a note category was accepted off a form when it should not be: ${refused.map(([w]) => w).join(", ")}`);
+  } else if (accepted.length) {
+    fail(`a declared category was refused off a form: ${accepted.join(", ")}`);
+  } else {
+    ok("a category off a form is one of the seven or it is nothing");
+  }
+
+  // And the only way one reaches the insert is through that function: the raw
+  // form value is not read anywhere in the action, so there is no second path
+  // for a guard to be taken off the front of.
+  const noteAction = src("app/(app)/clients/[id]/actions.ts");
+  if (/formData\.get\("category"\)\s*\)?\s*(?:\?\?|\|\||as |\))/.test(noteAction.replace(/noteCategoryFromForm\(formData\.get\("category"\)\)/g, "")) ||
+      /String\(formData\.get\("category"\)/.test(noteAction)) {
+    fail("the note action reads the category off the form without putting it through the rule");
+  } else if (!/noteCategoryFromForm\(formData\.get\("category"\)\)/.test(noteAction)) {
+    fail("the note action does not put the category through the rule at all");
+  } else if (!/if \(!category\) return \{ error:/.test(noteAction)) {
+    fail("the note action does not stop when the category comes back as nothing");
+  } else if (!/name="category"/.test(src("app/(app)/clients/[id]/notes-tab.tsx"))) {
+    fail("the note form does not ask which service it is about");
+  } else {
+    ok("a note is refused unless it says which service it is about");
+  }
 }
 
 console.log("");

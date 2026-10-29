@@ -102,6 +102,9 @@ export async function sendReport(
       staff_id: me.id,
       staff_name: me.name,
       type: "Counselor contact",
+      // What was sent, not what was done, so it belongs in the general section
+      // rather than under whichever service the client is mid-way through.
+      category: "General progress",
       text: `${preset.label} sent to ${counselor?.name ?? to}:\n\n${narrative}`,
       visible_roles: ["Admin", "Job Search", "Reports", "Billing"],
     });

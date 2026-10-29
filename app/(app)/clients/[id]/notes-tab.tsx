@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { addNote, type DetailState } from "./actions";
 import { NOTE_TYPES, fmtStamp } from "@/lib/constants";
+import { NOTE_CATEGORIES, categoryForStage, type NoteCategory } from "@/lib/report-shape";
 import { ROLE_NAMES, ROLE_LABEL, type Role } from "@/lib/roles";
 import { onTypeChange } from "@/lib/note-template";
 import { OpenFile } from "./authorization-files";
@@ -30,16 +31,22 @@ export function NotesTab({
   notes,
   myName,
   templates,
+  stage,
 }: {
   clientId: string;
   notes: NoteRow[];
   myName: string;
   /** The skeleton each activity type starts with. A type with none is blank. */
   templates: Record<string, string>;
+  /** The stage the client is on, which is the category's opening guess. */
+  stage: string | null;
 }) {
   const [state, action, pending] = useActionState(addNote, initial);
 
   const [type, setType] = useState("General");
+  // Guessed from the stage and changeable. The guess is the point: a picker
+  // that opens blank is a column full of whatever is first in the list.
+  const [category, setCategory] = useState<NoteCategory>(() => categoryForStage(stage));
   const [text, setText] = useState("");
   // The skeleton last written into the box, so "has this been touched?" is a
   // comparison rather than a guess. Null the moment they type.
@@ -108,8 +115,26 @@ export function NotesTab({
                 ))}
               </select>
             </label>
+            <label className="field" style={{ maxWidth: 240 }}>
+              About
+              <select
+                name="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value as NoteCategory)}
+              >
+                {NOTE_CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
             <span className="lock">Stamped with the time and your name — {myName}</span>
           </div>
+
+          {category === "Personal" && (
+            <div className="alert" style={{ marginBottom: 8 }}>
+              Personal stays inside the practice — Admin and Case Manager, and no report
+            </div>
+          )}
 
           {offer && (
             <div className="alert" style={{ marginBottom: 8 }}>

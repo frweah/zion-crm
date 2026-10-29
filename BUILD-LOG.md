@@ -7345,3 +7345,100 @@ that arrives at service@ is read as a referral and may create a client, and the
 name reader is only the second line of defence. Left alone pending an answer,
 because which USOR number is which form is not something to guess at twice in
 one file.
+
+## A note says which service it is about (29 Oct 2026)
+
+Brief section A. A note carried a *type* — Meeting, Interview, Coaching
+session — which says what shape the contact was and not what it was about. A
+meeting can be about job coaching or about life skills, so the type cannot sort
+a report into one section per service, which is what Rei asked for and what
+361.38 wants anyway.
+
+So a note now carries a category as well as a type, and the two are orthogonal
+on purpose. Seven categories: Job development, Job coaching, Job search,
+Assessment, Life skills, General progress, Personal.
+
+### Personal is the reason the column exists
+
+A note about somebody's housing, health or family is on the record because the
+practice needs it to do the work, and is none of a counselor's business. It
+cannot be sorted out of a report if nothing says which notes it is.
+
+Three places drop it — the monthly report, the on-demand report, and the USOR
+96 autofill — and the database narrows its roles to Admin and Case Manager
+whatever the screen asked for, on insert *and* on an update of the category,
+because the usual way a note becomes personal is somebody realising it
+afterwards.
+
+Two guards again, and the second one matters: the category filter keeps the
+note out of the report, and the roles keep its words out even if the filter
+were ever removed. The type filter on USOR 96 is not one of the two — a
+personal note about a job interview satisfies the type list and the role list
+both, which is the gap the category closes.
+
+One thing it deliberately does **not** do: a Personal note is not counted in
+`withheld`. "Two notes are not included here" about somebody's housing is still
+telling a counselor something. The check asserts the drop happens before the
+counter is touched, and watched it fail with the two lines swapped.
+
+A records request still contains them. That is the client's own record and
+their own life; the rule is about what reaches a counselor.
+
+### Required going forward, backfilled when asked
+
+Eight hundred and thirty-two notes predate the column and the brief asks for
+the backfill to be reported before it runs, so NOT NULL could not land in the
+same migration as the column. Required-from-now-on is enforced on insert
+instead, so the rule is live from the moment 0266 applies rather than from
+whenever the backfill is approved.
+
+The screens refuse a note with no category — the picker opens on the client's
+stage, so nothing arriving means the box was emptied on purpose and the right
+answer is to ask rather than to pick. The machine-written notes — filed mail, a
+matched job lead — are filled from the client's stage by a trigger instead,
+because stopping those writes would lose the note, and a category somebody can
+correct beats a note nobody has.
+
+### One map, three callers
+
+`category_for_stage` in the database and `categoryForStage` in
+`lib/report-shape.ts` are the same map, and `check-reports` reads one against
+the other. Three things need it: the screens guess with it, the backfill will
+read the stage the client was on the day each note was written, and the checks
+assert they agree.
+
+Job Placement maps to Job development rather than getting a category of its
+own. Placement is what development is for, the practice bills it that way, and
+a seventh section nobody authorized would say "No activity recorded" on every
+report. Anything the stage list grows later falls to General progress: a guess
+landing in the general section is one somebody can correct, and a guess landing
+in a billed service is one that reaches a counselor.
+
+### The check that passed with the guard switched off
+
+`check-reports` grew from 13 assertions to 19, and one of the new ones had to
+be written twice. The first version matched
+`NOTE_CATEGORIES.includes(category as NoteCategory)` in the action's source and
+passed happily with `false &&` written in front of it — a question asked merely
+near the rule, which is the fault CLAUDE.md names twice and which this file has
+now produced twice in two days.
+
+The rule moved into `noteCategoryFromForm`, which the check *runs*: empty
+string, whitespace, a category nobody declared, the wrong case, and a non-string
+all have to come back as nothing, and all seven declared ones have to come back
+as themselves. The wiring is still a source read, but a narrow one — the raw
+form value must not be read anywhere in the action, so there is no second path
+for a guard to be taken off the front of. Four faults against it, all four
+caught, including the original `false &&`.
+
+`verify_note_categories.sql` is the database half: eight assertions, four
+faults injected into 0266 and all four watched failing — the trigger not
+filling from the stage, Personal not narrowed, Job Placement mapped elsewhere,
+and a category dropped from the check constraint.
+
+That last fault took three attempts to inject. Twice it silently did not reach
+the database at all and the verify passed, which looks exactly like a check
+that cannot fail. It was neither: a `drop constraint` sent through a heredoc on
+stdin never ran, so the migration's own `if not exists` guard skipped the
+faulty constraint and left the real one in place. The lesson is the obvious
+one — a fault injection needs its own assertion that the fault arrived.

@@ -53,7 +53,7 @@ export async function buildReportText(
       : Promise.resolve({ data: null }),
     supabase
       .from("notes")
-      .select("text, type, ts, at, staff_name")
+      .select("text, type, ts, at, staff_name, category")
       .eq("client_id", clientId)
       .gte("at", start)
       .lte("at", end)
@@ -118,7 +118,13 @@ export async function buildReportText(
       : Promise.resolve({ data: [] }),
   ]);
 
-  const notes = notesResult.data ?? [];
+  // Personal is dropped here rather than in each of the three places below,
+  // because this builder hands the same array to the summary, the body and the
+  // count it returns, and a filter applied to two of the three is the kind of
+  // near-miss that puts somebody's housing in front of their counselor. 0266
+  // has the reasoning; lib/report-period does the same thing for the monthly
+  // report.
+  const notes = (notesResult.data ?? []).filter((n) => n.category !== "Personal");
   const entries = entriesResult.data ?? [];
   const stages = stagesResult.data ?? [];
   const tasksDone = tasksResult.data ?? [];
