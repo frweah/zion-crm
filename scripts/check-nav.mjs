@@ -18,6 +18,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { NAV_GROUPS, navFor, navPath, hubBack, reachableFor, canReach, ROLE_NAMES, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
 import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
+import { SIDEBAR_SCREENS } from "../lib/roles.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -62,7 +63,13 @@ const hubs = new Set(NAV_GROUPS.map((g) => g.hub).filter(Boolean));
 // avatar menu rather than from the sidebar. canReach lets everybody at them;
 // the assertion that it does is below.
 const PERSONAL = new Set(["/security/two-factor"]);
-const orphans = [...stat].filter((r) => !covered(r) && r !== "/" && !hubs.has(r) && !PERSONAL.has(r));
+// And the screens in the sidebar itself rather than in a hub (lib/roles.ts).
+// Being in no hub is a claim about where a screen is reached from, so it is
+// checked below rather than believed here.
+const SIDEBAR = new Set(SIDEBAR_SCREENS);
+const orphans = [...stat].filter(
+  (r) => !covered(r) && r !== "/" && !hubs.has(r) && !PERSONAL.has(r) && !SIDEBAR.has(r),
+);
 if (orphans.length) {
   fail(`no navigation reaches: ${orphans.join(", ")}`);
 } else {
@@ -88,7 +95,7 @@ const EXPECTED = {
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
     "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
-    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
+    "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   // Billing → Forms and Report & bill were theirs and are gone (Billing
@@ -97,19 +104,19 @@ const EXPECTED = {
   // have is a screen of blank forms and a second way to bill.
   "Job Search": [
     "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
-    "/end-of-day", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
+    "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
     "/calendar", "/clients", "/dashboard", "/directory", "/end-of-day", "/hours",
-    "/leads", "/mail", "/messages", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
+    "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
     "/admin/documents",
     "/billing", "/calendar", "/clients", "/counselors",
     "/dashboard", "/directory",
-    "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
+    "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
   ],
 };
 
@@ -275,10 +282,46 @@ if (inTwo.length) {
   ok(`all ${groupsOfPath.size} screens belong to exactly one group`);
 }
 
+// A screen on the sidebar list is either rendered in the sidebar or it
+// redirects to one that is. Without this, adding a path to SIDEBAR_SCREENS
+// would be a way to make an unreachable screen stop failing this check.
+// The sidebar is the layout plus the components it renders, so the link may
+// be in either. Looking only at the layout and then waving the component
+// through by name would check nothing: it would pass for any path at all.
+const layout = await readFile(new URL("../app/(app)/layout.tsx", import.meta.url), "utf8");
+let sidebarSource = layout;
+for (const imported of layout.matchAll(/from "\.\/([a-z0-9-]+)"/g)) {
+  try {
+    sidebarSource += await readFile(
+      new URL(`../app/(app)/${imported[1]}.tsx`, import.meta.url),
+      "utf8",
+    );
+  } catch {
+    // Not every import is a file beside the layout.
+  }
+}
+
+for (const path of SIDEBAR_SCREENS) {
+  const page = new URL(`..${"/app/(app)"}${path}/page.tsx`, import.meta.url);
+  let body = "";
+  try {
+    body = await readFile(page, "utf8");
+  } catch {
+    fail(`${path} is on the sidebar list and has no page`);
+    continue;
+  }
+  const inSidebar = sidebarSource.includes(`href="${path}"`);
+  const redirects = body.includes("redirect(");
+  if (!inSidebar && !redirects) {
+    fail(`${path} is on the sidebar list, is in no hub, and nothing in the sidebar opens it`);
+  }
+}
+if (!problems.length) ok(`all ${SIDEBAR_SCREENS.length} sidebar screens are opened from the sidebar or redirect to one`);
+
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {
   "/tasks": "My work", "/clients": "Clients", "/leads": "My work", "/counselors": "My work",
-  "/mail": "Communication", "/messages": "Communication", "/messages/texts": "Communication",
+  "/mail": "Communication", "/messages/texts": "Communication",
   "/calendar": "Communication", "/hours": "My work", "/paperwork": "My work", "/sops": "My work",
   "/end-of-day": "My work", "/end-of-day/team": "HR", "/admin/people": "HR",
   "/insights/money": "Admin", "/insights/reports": "Admin", "/admin/documents": "Admin", "/admin/system": "Admin",

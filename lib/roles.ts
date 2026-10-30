@@ -258,7 +258,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Mail", href: "/mail", roles: EVERYONE, note: "Your own Outlook, read here." },
       { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE, note: "Clients, both ways." },
-      { label: "Chat", href: "/messages", roles: EVERYONE, note: "Colleagues, and threads about a client." },
       { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE, note: "Whoever is on zionvocrehab.com now." },
       { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
       // What the practice tells everybody, and who it can reach
@@ -492,8 +491,29 @@ export const ORG = {
  */
 const ALWAYS_REACHABLE = ["/security/two-factor"];
 
+/**
+ * Screens in the sidebar itself rather than inside one of the hubs.
+ *
+ * Team is here because a colleague asking something is not an errand to go
+ * and find: it was three clicks down Communication and had eight messages in
+ * it in five weeks. The owner moved it to the sidebar on 30 October 2026.
+ *
+ * Being in no hub is not the same as being unreachable, which is why this list
+ * exists rather than the path simply being left out - `canReach` gates typed
+ * URLs against the navigation, and a screen in no group is refused. And
+ * `check-nav` reads this list and asserts each path is actually rendered in
+ * the sidebar, so "it is not in a hub" cannot become the place unreachable
+ * screens go to be forgotten.
+ *
+ * `/messages` is the old address, redirecting to `/team`. The layout's gate
+ * runs before the page does, so a path that redirects still has to be
+ * reachable or the redirect never happens.
+ */
+export const SIDEBAR_SCREENS = ["/team", "/messages"];
+
 export function canReach(who: Role | Access, pathname: string): boolean {
   if (ALWAYS_REACHABLE.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  if (SIDEBAR_SCREENS.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
 
   const groups = navFor(who);
 

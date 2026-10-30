@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { waitingConversations } from "./inbox-count-actions";
 import { mailWaiting } from "./inbox-mail";
+import type { ChatSettings } from "@/lib/chat-prefs";
 
 /**
  * The messaging foundation's live half (Messaging brief), running in every
@@ -18,8 +19,22 @@ import { mailWaiting } from "./inbox-mail";
  *   Unread. The count of unread staff messages, for the sidebar's badge,
  *   refreshed whenever a message arrives.
  *
- *   A toast when a message arrives from somebody else: who, and a link - not
- *   the text, which may be about a client and the screen may be seen.
+ *   A pop-up when a message arrives from somebody else: who sent it, which
+ *   thread, and a way in. Not the words - a message may be about a client and
+ *   the screen may be in a room with somebody who should not read it. A person
+ *   who wants the words turns on "Show the message in the pop-up" on the Team
+ *   page, which is off until they do (owner, 30 Oct 2026).
+ *
+ *   And three settings of their own, all off unless they say otherwise: the
+ *   preview above, a sound, and do not disturb. Do not disturb stops the
+ *   pop-up and the desktop notification and leaves the unread count, because
+ *   it is about not being interrupted rather than not being told.
+ *
+ * The desktop notification only goes when this window is not the one in front
+ * - there is no sense notifying somebody about a screen they are looking at -
+ * and only if they have already allowed it. Permission is asked on the Team
+ * page, by a button they press, because a browser that asks on sign-in gets
+ * told no once and for all.
  *
  * Live delivery is Supabase Realtime, which sends each new message only to
  * those the database lets read it (0104).
@@ -76,11 +91,42 @@ function backoff(base: number, failures: number): number {
   return Math.round(grown * (1 + (Math.random() * 2 - 1) * JITTER));
 }
 
-type Toast = { id: string; who: string; conversationId: string };
+type Toast = { id: string; who: string; thread: string; line: string; conversationId: string };
 
-export function LiveMessaging({ myId }: { myId: string }) {
+/**
+ * A short tone, built rather than fetched.
+ *
+ * An audio file would be one more thing to serve, cache and get wrong at
+ * 3 MB; two hundred milliseconds of sine wave is the whole requirement. It is
+ * created on the arrival and thrown away, because a context held open for the
+ * life of the tab is a tab the browser will not let sleep.
+ */
+function blip(): void {
+  try {
+    const Ctor = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) return;
+    const ctx = new Ctor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880;
+    gain.gain.value = 0.04;
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.18);
+    osc.onended = () => void ctx.close();
+  } catch {
+    // A browser that will not make a sound without a gesture is not an error
+    // worth saying anything about; the pop-up has already appeared.
+  }
+}
+
+export function LiveMessaging({ myId, settings }: { myId: string; settings: ChatSettings }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const lastInput = useRef(Date.now());
+  // Read inside the Realtime handler, which is set up once. Without the ref a
+  // change of setting would not reach the handler until the page reloaded.
+  const chat = useRef(settings);
+  chat.current = settings;
 
   useEffect(() => {
     const supabase = createClient();
@@ -188,16 +234,65 @@ export function LiveMessaging({ myId }: { myId: string }) {
     const channel = supabase
       .channel("messages-live")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
-        const row = payload.new as { id: string; conversation_id: string; sender_staff_id: string | null; sender_label: string; sender_kind: string };
+        const row = payload.new as { id: string; conversation_id: string; sender_staff_id: string | null; sender_label: string; sender_kind: string; body?: string };
         if (row.sender_staff_id === myId) return;
         void refreshUnread();
         if (row.sender_kind !== "staff") void refreshOutside();
         window.dispatchEvent(new CustomEvent("zion:message", { detail: row }));
-        if (window.location.pathname === "/messages" && window.location.search.includes(row.conversation_id)) return;
+        // The thread is already open on this screen, so there is nothing to
+        // tell anybody. Both ends of the chat count: the full page and the
+        // pane that slides over whatever else they were doing.
+        const open = new URLSearchParams(window.location.search).get("c");
+        if (open === row.conversation_id) return;
+        // Do not disturb stops the pop-up and the notification. The count has
+        // already been refreshed above, which is the part it does not stop.
+        if (chat.current.dnd) return;
+
         const who = row.sender_kind === "staff" ? row.sender_label || "A colleague" : row.sender_kind === "client" ? "A client" : "A visitor";
-        // The same message can arrive twice (a reconnect, a retry); one toast.
-        setToasts((t) => (t.some((x) => x.id === row.id) ? t : [...t.slice(-2), { id: row.id, who, conversationId: row.conversation_id }]));
-        window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== row.id)), 8000);
+        // The first line, and only if they asked for it. Cut here rather than
+        // in the markup so nothing downstream can render the whole message.
+        const line = chat.current.preview
+          ? (row.body ?? "").split("\n")[0].slice(0, 120)
+          : "";
+
+        void (async () => {
+          const { data } = await supabase
+            .from("conversations")
+            .select("title")
+            .eq("id", row.conversation_id)
+            .maybeSingle();
+          const thread = data?.title?.trim() || "a direct message";
+
+          // The same message can arrive twice (a reconnect, a retry); one
+          // pop-up.
+          setToasts((t) =>
+            t.some((x) => x.id === row.id)
+              ? t
+              : [...t.slice(-2), { id: row.id, who, thread, line, conversationId: row.conversation_id }],
+          );
+          window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== row.id)), 8000);
+
+          if (chat.current.sound) blip();
+
+          // Only when this window is not the one in front, and only if they
+          // have already allowed it. Asking here would be asking at the worst
+          // possible moment.
+          if (
+            document.visibilityState === "hidden" &&
+            typeof Notification !== "undefined" &&
+            Notification.permission === "granted"
+          ) {
+            try {
+              new Notification(`${who} — ${thread}`, {
+                body: line || "New message in Team",
+                tag: row.conversation_id,
+              });
+            } catch {
+              // Some browsers refuse this outside a service worker. The
+              // pop-up is already up either way.
+            }
+          }
+        })();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "read_receipts" }, () => {
         void refreshUnread();
@@ -226,9 +321,25 @@ export function LiveMessaging({ myId }: { myId: string }) {
       {toasts.map((t) => (
         <div key={t.id} className="toast" role="status">
           <span>
-            New message from <b>{t.who}</b>
+            <b>{t.who}</b> in {t.thread}
+            {t.line && (
+              <>
+                <br />
+                {t.line}
+              </>
+            )}
           </span>
-          <Link href={`/messages?c=${t.conversationId}`} className="btn ghost" style={{ padding: "2px 10px" }}>
+          <Link
+            href={`/team?c=${t.conversationId}`}
+            className="btn ghost"
+            style={{ padding: "2px 10px" }}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              window.dispatchEvent(new CustomEvent("zion:open-team", { detail: t.conversationId }));
+              setToasts((all) => all.filter((x) => x.id !== t.id));
+            }}
+          >
             Open
           </Link>
           <button

@@ -7752,3 +7752,153 @@ the fault fell through and reported the wrong thing.
 21 assertions in verify_job_lead_status.sql, 6 in check-job-status.mjs, 1 added
 to verify_records_request.sql. Eighteen faults injected, eighteen caught, three
 of them only after the check or the fault itself was corrected.
+
+## Chat becomes Team (30 Oct 2026)
+
+The owner asked for a staff chat with four new tables. Most of it was already
+built, under a different name, by 0104 and 0106 - `conversations` with
+`kind = 'internal'`, `conversation_participants`, `messages`, `read_receipts`,
+with Supabase Realtime already published on three of them, groups, threads
+about a client, mentions, five minutes to correct a message, read receipts, and
+search. It was in the navigation as Communication → Chat.
+
+Reported before anything was built, and the owner's answer was to extend it
+rather than build a second one. Which is the right answer and worth saying why:
+four new tables would have given the practice two inboxes, two unread counts,
+and messages about one client split across two systems.
+
+**What was actually in there, which is the reason extending is cheap:** four
+internal conversations, all direct, two people each, no titles, none about a
+client, none archived - and eight messages in five weeks. One had been edited;
+none removed; no attachments anywhere. 229 of the 245 messages in the table are
+texts and 8 are website chat. Nobody had ever started a group, which is a fair
+description of what happens when starting one is a decision somebody has to
+make before they can say anything to the practice.
+
+### Everybody is in one group
+
+So one group exists without anybody starting it. `conversations.system_key`
+finds it again - a title would not do, because titles are typed by people and
+this one has to be the same row tomorrow after somebody has renamed it.
+
+Membership is a trigger on `staff` rather than a step in the screen that hires
+somebody, so it holds for the screen, for an import, and for a correction run
+months from now. Deactivating sets `left_at` rather than deleting the row: what
+somebody said stays where they said it, which is 0106's rule for leaving a
+group and the only version of this that leaves a readable conversation behind.
+Rehiring clears it rather than adding a second row.
+
+Two triggers refuse what every other conversation allows: it is not left, and
+it is not archived. Leaving the group everybody is in is a thing somebody would
+do once and then never be told anything by the practice again; archiving it
+would do that to all of them at once. The message says what to do instead -
+turn off the pop-up.
+
+### The three rules kept rather than replaced
+
+The brief reversed three decisions already made and written down. The owner
+kept all three, and each is now asserted rather than remembered:
+
+The pop-up shows who sent it and which thread, and **not the words** - a
+message may be about a client and the screen may be in a room with somebody who
+should not read it. A person who wants the first line turns on "Show the message
+in the pop-up", which is off until they do.
+
+Files attach **by reference**, never a second copy, so a file keeps its own tier
+and retention. Dragging or pasting one uploads it and then attaches it by
+reference like anything else - which needed somewhere for it to go, because
+`attachments.client_id` is `not null` and its storage policy joins through it.
+`chat_files` is the one table this needed, and it is not one of the four:
+there is no second conversation, no second message, no second membership. A
+dropped file is internal until somebody files it on a client deliberately.
+
+`remove_message` stays: the author taking their own words back blanks the body
+and leaves the marker.
+
+### A message can be taken off the screen, and that is not deleting it
+
+Admin hiding a message is a different act from an author taking their own words
+back, which is why both exist. Hiding keeps the words and shows them to Admin
+alone, because a thing taken down is still something that was said and Admin is
+who has to answer for it.
+
+The log is a table and not a column. A column would say the message is hidden;
+it would not say that it was hidden on Tuesday, shown again on Wednesday
+because the complaint was wrong, and hidden again on Friday. A moderation
+decision that can be reversed needs the history of the decision, which is why
+`client_corrections` is a table too.
+
+**Four places read messages and all four had to be changed.** The read policy,
+`search_messages`, `my_unread` and `client_chat_mentions` each decide for
+themselves, because three of them run as their owner and a policy does not
+reach inside a SECURITY DEFINER function. Three agreeing and one not is a
+message somebody took down coming back in a search, and `check-team-chat.mjs`
+asserts all four.
+
+### Where it lives
+
+Team is in the sidebar directly below the main tabs, with its own unread count
+- `my_unread`, not the Inbox badge beside it. The Inbox badge is what is
+waiting from outside the practice; a colleague's question is a different
+question, and they were one number.
+
+Clicking it opens a pane from the right over whatever page is open, and the
+page keeps its scroll, its half-filled form, its unsaved authorization.
+Answering a colleague should not cost somebody the thing they were doing, which
+is the whole reason it is a pane and not a route - a navigation would unmount
+it. It is still a link to /team, so a middle click and a browser without
+JavaScript both get the full page.
+
+The screen moved from `/messages` to `/team` by becoming a component: the page
+is rendered by /team rather than copied into it, because two files drawing one
+screen is two files to change and the forgotten one is the one somebody is
+looking at. `/messages` redirects, carrying its query string, because `?c=` is
+which thread somebody was sent to.
+
+### Three checks had to learn something
+
+Moving a screen out of a hub broke three checks, each for a good reason, and
+each fix makes the check say more rather than less:
+
+`canReach` gates typed URLs against the navigation, so a screen in no hub is
+refused - which would have locked everybody out of Team and out of the
+`/messages` redirect, since the gate runs before the page does.
+`SIDEBAR_SCREENS` names them, and **check-nav asserts each one is really opened
+from the sidebar**, so being in no hub cannot become the place unreachable
+screens go to be forgotten. That assertion reads the layout and the components
+the layout renders: an earlier version read the layout and then waved the
+component through by name, which would have passed for any path at all.
+
+check-screens wanted a title and a way back on the redirect. A page whose whole
+job is to send somebody somewhere else is not a screen - nobody reads it. The
+first test for "is a redirect" was "has no angle bracket", which failed on
+`Promise<Record<…>>`: a type is not a screen. What makes it a redirect is that
+it renders nothing.
+
+check-theme caught three house-style violations in the pane's CSS: two colours
+written out instead of `--scrim`, a duration of its own instead of `--motion`,
+and `opacity: 0` on something with text in it. All three were mine and all
+three were right - the pane now slides and nothing fades.
+
+### Two of the new check's assertions asked a question near the rule
+
+"the pop-up has a preview setting" passed on the import line alone. It now
+asserts the narrow thing: every read of the arriving message's body is guarded
+by the setting, in the same expression.
+
+"a file is attached by reference" asked whether the three kinds appear, which
+passed with a fourth appended. It now asks what the list *is*.
+
+### Not applied
+
+The four migrations are written and dry-run green against production inside a
+rolled-back transaction - 26 assertions in `verify_team_chat.sql` and 14
+behavioural ones besides - but **they are not applied**: the auto-mode
+classifier refused both `run-sql.mjs` and the migration tool as a production
+deploy. Everything that does not need them is live.
+
+26 assertions in verify_team_chat.sql, 8 in check-team-chat.mjs, 30 checks in
+prebuild. Twenty-seven faults injected, twenty-seven caught - three of them
+only after the check or the fault itself was corrected, and one "miss" that
+turned out to be Git Bash rewriting `/team` into a Windows path before the
+fault could be applied.

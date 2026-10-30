@@ -21,7 +21,7 @@
  *   than a list says so with data-layout="why".
  */
 import { readdir, readFile } from "node:fs/promises";
-import { NAV_GROUPS, navPath } from "../lib/roles.ts";
+import { NAV_GROUPS, navPath, SIDEBAR_SCREENS } from "../lib/roles.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -82,7 +82,17 @@ const drawsHeader = (f) => {
   return false;
 };
 const pages = all.filter((f) => f.path.endsWith("/page.tsx"));
-const headless = pages.filter((f) => !drawsHeader(f));
+// A page whose whole job is to send somebody somewhere else is not a screen.
+// Nobody reads it, so a title on it and a way out of it would both be
+// decoration. There are 33 of these in the project already; /messages is the
+// first at a path this check reaches.
+// "No angle bracket" was the first test and it was wrong: `Promise<Record<…>>`
+// is a type, not a screen. What makes it a redirect is that it renders nothing.
+const isRedirect = (f) =>
+  /from "next\/navigation"/.test(f.src) &&
+  /\bredirect\(/.test(f.src) &&
+  !/return\s*[(<]/.test(f.src);
+const headless = pages.filter((f) => !drawsHeader(f) && !isRedirect(f));
 if (headless.length) fail(`screens with no PageHead or RecordHeader: ${headless.map((f) => f.path).join(", ")}`);
 else ok(`all ${pages.length} screens draw the shared screen or record header`);
 
@@ -185,6 +195,16 @@ if (drawsArrow.length) {
 const screens = pages.map((f) => ({ ...f, route: route(f.path) }));
 const allRoutes = new Set(screens.map((s) => s.route));
 const SENT_TO = new Set(["/security/two-factor"]);
+
+/**
+ * Screens opened from the sidebar itself rather than from inside a hub.
+ *
+ * They need no way back for the same reason a hub's landing does not: there is
+ * nothing above them. Team is the one. check-nav asserts separately that the
+ * sidebar really opens each of these, so this is not a way to excuse a screen
+ * nothing reaches.
+ */
+const FROM_THE_SIDEBAR = new Set(SIDEBAR_SCREENS);
 const noWayBack = [];
 const wrongWayBack = [];
 const twoWaysBack = [];
@@ -219,6 +239,7 @@ for (const screen of screens) {
    * no arrow (0217).
    */
   if (SENT_TO.has(screen.route)) continue;
+  if (FROM_THE_SIDEBAR.has(screen.route)) continue;
 
   if (onATabStrip.has(screen.route)) {
     // The layout draws this one. Its own arrow would be a second one.

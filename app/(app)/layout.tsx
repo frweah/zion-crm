@@ -15,6 +15,9 @@ import type { Theme } from "./theme-actions";
 import { BottomBar } from "./bottom-bar";
 import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
+import { TeamLink } from "./team-link";
+import { TeamPane } from "./team-pane";
+import { chatSettings } from "@/lib/chat-prefs";
 import { ClientSearch } from "./client-search";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: policyDue }, { data: twoFactorRows }, { data: claims }] =
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: chatPrefs }, { data: policyDue }, { data: twoFactorRows }, { data: claims }] =
     await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
@@ -35,6 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // Which theme they chose, for the menu to show as pressed. The painting
     // of it happened in the root layout, from the cookie.
     supabase.from("staff_prefs").select("value").eq("key", "theme").maybeSingle(),
+    // The three Team chat settings, read here because the pop-up runs on every
+    // page and so has to know on every page (0272-0275).
+    supabase.from("staff_prefs").select("key").like("key", "chat:%"),
     // A policy version in force they have not signed (0103).
     supabase.rpc("policy_signature_due"),
     // Whether the practice requires a second factor, and whether they have
@@ -133,6 +139,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <NavLinks groups={nav} narrow={narrow} />
         </Suspense>
 
+        {/* Team, directly below the main tabs, with its own unread count
+            (owner, 30 Oct 2026). Not inside a hub: a colleague asking
+            something is not an errand to go and find, and it was three clicks
+            down Communication. */}
+        <Suspense fallback={null}>
+          <TeamLink />
+        </Suspense>
+
         {/* Microsoft 365 Copilot Chat: the one AI tool client information may
             go into (data-handling policy, rule 2). It opens in a new tab,
             outside the CRM; nothing from here is sent to it. */}
@@ -215,7 +229,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Suspense fallback={null}>
         <BottomBar groups={nav} />
       </Suspense>
-      <LiveMessaging myId={staff.id} />
+      <LiveMessaging myId={staff.id} settings={chatSettings(chatPrefs ?? [])} />
+      {/* Over whatever page is open, so answering a colleague does not cost
+          somebody the form they were filling in. */}
+      <TeamPane myId={staff.id} />
     </div>
   );
 }

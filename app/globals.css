@@ -3297,3 +3297,81 @@ button.attach-chip:hover {
   width: 56px;
   height: 56px;
 }
+
+/* ── Team chat, over whatever page is open (0272-0275) ───────
+   A pane rather than a screen, because answering a colleague should not cost
+   somebody the form they were half way through. The page behind keeps its
+   scroll and its state; this sits on top of it and goes away again.
+
+   On a phone it is the whole width: a 420px pane on a 375px screen is a pane
+   with the page peeping out beside it, which reads as a mistake. */
+.pane-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--scrim);
+}
+.team-pane {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 71;
+  width: min(420px, 100vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  overflow: hidden;
+  background: var(--card);
+  border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px var(--scrim);
+}
+.team-pane {
+  animation: pane-in var(--motion);
+}
+/* It slides, and nothing fades: a pane arriving by sliding is the movement
+   the owner asked for, and faded text is never readable on the way in. */
+@keyframes pane-in {
+  from {
+    transform: translateX(24px);
+  }
+}
+.pane-list,
+.pane-lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pane-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.pane-row:hover {
+  border-color: var(--line-strong);
+}
+.pane-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.pane-line.mine {
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+}
