@@ -918,6 +918,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_corrections: {
+        Row: {
+          id: string;
+          at: string;
+          client_id: string | null;
+          client_name: string;
+          field: string;
+          was_value: string | null;
+          new_value: string | null;
+          reason: string;
+          staff_id: string | null;
+          staff_name: string;
+        };
+        Insert: {
+          id?: string;
+          at?: string;
+          client_id?: string | null;
+          client_name: string;
+          field: string;
+          was_value?: string | null;
+          new_value?: string | null;
+          reason: string;
+          staff_id?: string | null;
+          staff_name: string;
+        };
+        Update: {
+          id?: string;
+          at?: string;
+          client_id?: string | null;
+          client_name?: string;
+          field?: string;
+          was_value?: string | null;
+          new_value?: string | null;
+          reason?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+        };
+        Relationships: [];
+      };
       client_deletions: {
         Row: {
           id: string;
@@ -2490,6 +2529,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      job_status_history: {
+        Row: {
+          id: string;
+          match_id: string;
+          status: string;
+          at: string;
+          reported_by: string | null;
+          reported_by_name: string;
+          note: string;
+          automatic: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          status: string;
+          at?: string;
+          reported_by?: string | null;
+          reported_by_name?: string;
+          note?: string;
+          automatic?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          status?: string;
+          at?: string;
+          reported_by?: string | null;
+          reported_by_name?: string;
+          note?: string;
+          automatic?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       journal_lines: {
         Row: {
           id: string;
@@ -3317,7 +3392,7 @@ export type Database = {
           attachment_id: string | null;
           dated_from: string;
           from_ocr: boolean;
-          category: string | null;
+          category: string;
         };
         Insert: {
           id?: string;
@@ -3335,7 +3410,7 @@ export type Database = {
           attachment_id?: string | null;
           dated_from?: string;
           from_ocr?: boolean;
-          category?: string | null;
+          category: string;
         };
         Update: {
           id?: string;
@@ -3353,7 +3428,7 @@ export type Database = {
           attachment_id?: string | null;
           dated_from?: string;
           from_ocr?: boolean;
-          category?: string | null;
+          category?: string;
         };
         Relationships: [];
       };
@@ -6348,6 +6423,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_application_status: {
+        Row: {
+          id: string | null;
+          match_id: string | null;
+          client_id: string | null;
+          status: string | null;
+          at: string | null;
+          note: string | null;
+          automatic: boolean | null;
+          reported_by: string | null;
+          reported_by_name: string | null;
+          created_at: string | null;
+          latest: boolean | null;
+          title: string | null;
+          employer_name: string | null;
+        };
+        Relationships: [];
+      };
       client_authorizations: {
         Row: {
           id: string | null;
@@ -7326,6 +7419,10 @@ export type Database = {
       mail_templates_for: {
         Args: { p_client?: string | null; p_authorization?: string | null };
         Returns: { key: string | null; label: string | null; subject: string | null; body: string | null }[];
+      };
+      mark_applications_with_no_reply: {
+        Args: { p_days: number | null };
+        Returns: number;
       };
       mark_conversation_spam: {
         Args: { p_conversation: string | null; p_spam?: boolean | null };

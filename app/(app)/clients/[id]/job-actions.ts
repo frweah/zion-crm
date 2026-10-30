@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { CAN_EDIT_CLIENTS, JOB_STATUSES, today, JOB_DONE, INTERVIEW_KINDS, INTERVIEW_CONFIRMED, INTERVIEW_RESULTS } from "@/lib/constants";
+import { CAN_EDIT_CLIENTS, JOB_STATUSES, APPLICATION_STATUSES, today, JOB_DONE, INTERVIEW_KINDS, INTERVIEW_CONFIRMED, INTERVIEW_RESULTS } from "@/lib/constants";
 import { ownAccess } from "@/lib/sync-callers";
 import { pushPendingEvents } from "@/lib/calendar-push";
 
@@ -225,6 +225,57 @@ export async function updateClientJob(_prev: JobState, formData: FormData): Prom
         ? "Saved. Create the placement when you are ready — it is a separate step on purpose."
         : "Saved, and noted on the record.",
   };
+}
+
+/**
+ * Records where an application got to (0270).
+ *
+ * One of the nine, the day it happened, and who found out. It is added rather
+ * than overwritten, so an application can say when it was applied for as well
+ * as what came of it — which is the whole point and is not something a column
+ * can do.
+ *
+ * Who may do it is the database's question, not this one: the policy asks
+ * `can_record_application_status`, which is whoever may record a job search
+ * update plus the staff member the client is assigned to. So the error a
+ * person sees comes back from the rule that refused them.
+ */
+export async function recordApplicationStatus(
+  _prev: JobState,
+  formData: FormData,
+): Promise<JobState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const matchId = String(formData.get("match_id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  const at = String(formData.get("at") ?? "");
+
+  if (!matchId) return { error: "No application given.", ok: null };
+  if (!APPLICATION_STATUSES.includes(status as never)) {
+    return { error: "Choose where the application got to.", ok: null };
+  }
+  if (at && !isDate(at)) return { error: "That date is not a date.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("job_status_history").insert({
+    match_id: matchId,
+    status,
+    at: at || today(),
+    note: String(formData.get("note") ?? "").trim(),
+    reported_by: me.id,
+    reported_by_name: me.name,
+  });
+
+  if (error) return { error: error.message, ok: null };
+
+  await pushForMe(supabase, me.id);
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/leads");
+  revalidatePath("/tasks");
+  return { error: null, ok: "Recorded." };
 }
 
 /** Removes a job that should not have been added. The note it wrote stays. */

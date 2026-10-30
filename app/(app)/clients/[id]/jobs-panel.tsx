@@ -6,10 +6,11 @@ import {
   addClientJob,
   updateClientJob,
   removeClientJob,
+  recordApplicationStatus,
   type JobState,
 } from "./job-actions";
 import { createPlacementFromMatch } from "../../leads/actions";
-import { JOB_STATUSES, JOB_DONE, INTERVIEW_KINDS, INTERVIEW_CONFIRMED, INTERVIEW_RESULTS, jobStatusTone } from "@/lib/constants";
+import { JOB_STATUSES, JOB_DONE, APPLICATION_STATUSES, INTERVIEW_KINDS, INTERVIEW_CONFIRMED, INTERVIEW_RESULTS, applicationStatusTone } from "@/lib/constants";
 import { DataTable } from "../../data-table";
 
 const initial: JobState = { error: null, ok: null };
@@ -45,6 +46,21 @@ export type JobRow = {
   apply_url: string;
   hours_week: string;
   industry: string;
+};
+
+/**
+ * Where an application got to, one entry at a time (0270).
+ *
+ * Latest first, which is the order the screen reads them in.
+ */
+export type StatusRow = {
+  id: string;
+  match_id: string;
+  status: string;
+  at: string;
+  note: string;
+  automatic: boolean;
+  reported_by_name: string;
 };
 
 /** "14:30:00" as "2:30 pm". */
@@ -94,16 +110,109 @@ function CreatePlacement({ matchId }: { matchId: string }) {
 }
 
 /**
+ * Where an application got to, and everywhere it has been.
+ *
+ * The status is added rather than changed, so this is the only control on the
+ * screen that moves an application along — the editor below still carries the
+ * dates and the interview's own details, and its Status field is the one word
+ * the leads board reads.
+ */
+function WhereItGotTo({
+  job,
+  clientId,
+  statuses,
+  canRecordStatus,
+}: {
+  job: JobRow;
+  clientId: string;
+  statuses: StatusRow[];
+  canRecordStatus: boolean;
+}) {
+  const [state, action, pending] = useActionState(recordApplicationStatus, initial);
+  const [shown, setShown] = useState(false);
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <Message state={state} />
+
+      {canRecordStatus && (
+        <form action={action} className="row2" style={{ gap: 6, alignItems: "flex-end" }}>
+          <input type="hidden" name="match_id" value={job.match_id} />
+          <input type="hidden" name="client_id" value={clientId} />
+          <label className="field" htmlFor={`got-${job.match_id}`}>
+            Where it got to
+            <select id={`got-${job.match_id}`} name="status" defaultValue="" required>
+              <option value="" disabled>
+                Choose…
+              </option>
+              {APPLICATION_STATUSES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field" htmlFor={`got-on-${job.match_id}`}>
+            When
+            <input id={`got-on-${job.match_id}`} type="date" name="at" />
+          </label>
+          <label className="field" style={{ flex: 2 }} htmlFor={`got-note-${job.match_id}`}>
+            What was said
+            <input id={`got-note-${job.match_id}`} name="note" />
+          </label>
+          <button className="btn" type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Record it"}
+          </button>
+        </form>
+      )}
+
+      {statuses.length > 0 && (
+        <>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => setShown(!shown)}
+            style={{ marginTop: 6 }}
+          >
+            {shown ? "Hide history" : `History (${statuses.length})`}
+          </button>
+          {shown && (
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: "var(--text-sm)" }}>
+              {statuses.map((h) => (
+                <li key={h.id}>
+                  <b>{h.status}</b> {h.at}
+                  {h.reported_by_name && ` · ${h.reported_by_name}`}
+                  {h.note && ` — ${h.note}`}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * One job, and its editor when opened.
  *
  * An item in a list rather than a table row: the editor opens underneath the
  * job with a form of its own, which a table cell cannot hold sensibly.
  */
-function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
+function JobItem({
+  job,
+  clientId,
+  statuses,
+  canRecordStatus,
+}: {
+  job: JobRow;
+  clientId: string;
+  statuses: StatusRow[];
+  canRecordStatus: boolean;
+}) {
   const [state, action, pending] = useActionState(updateClientJob, initial);
   const [remState, remAction, removing] = useActionState(removeClientJob, initial);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(job.status);
+  const latest = statuses[0] ?? null;
 
   return (
     <div>
@@ -161,9 +270,19 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
       </div>
 
       <div style={{ whiteSpace: "nowrap" }}>
-        <span className={"chip " + jobStatusTone(job.status)}>{job.status}</span>
+        {/* Where the application got to, which is the latest of the nine, and
+            not the one word lead_matches carries for the board. A job nobody
+            has applied for yet has neither. */}
+        <span className={"chip " + applicationStatusTone(latest?.status ?? job.status)}>
+          {latest?.status ?? job.status}
+        </span>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)", marginTop: 4 }}>
-          {job.applied_on && <div>applied {job.applied_on}</div>}
+          {latest && (
+            <div>
+              {latest.at}
+              {latest.reported_by_name && ` · ${latest.reported_by_name}`}
+            </div>
+          )}
           {job.interview_on && <div>interview {job.interview_on}{job.interview_time && ` ${clock(job.interview_time)}`}</div>}
           {job.follow_up_on && <div>follow up {job.follow_up_on}</div>}
         </div>
@@ -188,6 +307,13 @@ function JobItem({ job, clientId }: { job: JobRow; clientId: string }) {
         {remState.error && (
           <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{remState.error}</div>
         )}
+
+        <WhereItGotTo
+          job={job}
+          clientId={clientId}
+          statuses={statuses}
+          canRecordStatus={canRecordStatus}
+        />
 
         {open && (
           <form action={action} style={{ marginTop: 10 }}>
@@ -439,12 +565,16 @@ export function JobsPanel({
   clientId,
   jobs,
   employers,
+  statuses,
   canEdit,
+  canRecordStatus,
 }: {
   clientId: string;
   jobs: JobRow[];
   employers: { id: string; name: string }[];
+  statuses: StatusRow[];
   canEdit: boolean;
+  canRecordStatus: boolean;
 }) {
   const done = (s: string) => (JOB_DONE as readonly string[]).includes(s);
   const open = jobs.filter((j) => !done(j.status));
@@ -452,13 +582,23 @@ export function JobsPanel({
   // The spreadsheet counted applications week by week; so does this.
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
   const thisWeek = jobs.filter((j) => j.applied_on && j.applied_on >= weekAgo).length;
+  const history = new Map<string, StatusRow[]>();
+  for (const h of statuses) {
+    const list = history.get(h.match_id);
+    if (list) list.push(h);
+    else history.set(h.match_id, [h]);
+  }
+  // Applications nobody has heard about, which is the one count the nine
+  // statuses add that the eight could not answer.
+  const quiet = statuses.filter((h) => h.status === "No response" && history.get(h.match_id)?.[0] === h).length;
 
   return (
     <section style={{ marginTop: 14 }}>
       <h2 className="h2">Jobs we have tried</h2>
       <p className="sub" style={{ marginTop: 4 }}>
         {open.length} still going
-        {closed.length > 0 && `, ${closed.length} finished`}. {thisWeek} applied for in the last 7 days.
+        {closed.length > 0 && `, ${closed.length} finished`}. {thisWeek} applied for in the last 7 days
+        {quiet > 0 && `, ${quiet} with no reply`}.
       </p>
 
       {jobs.length === 0 ? (
@@ -483,10 +623,27 @@ export function JobsPanel({
                 applied: job.applied_on,
                 next: job.interview_on ?? job.follow_up_on,
               },
-              text: [job.employer_name, job.title, job.location, job.status, job.outcome].filter(Boolean).join(" "),
+              text: [
+                job.employer_name,
+                job.title,
+                job.location,
+                history.get(job.match_id)?.[0]?.status ?? job.status,
+                job.outcome,
+              ].filter(Boolean).join(" "),
               cells: {
-                job: <JobItem job={job} clientId={clientId} />,
-                status: <span className="chip">{job.status}</span>,
+                job: (
+                  <JobItem
+                    job={job}
+                    clientId={clientId}
+                    statuses={history.get(job.match_id) ?? []}
+                    canRecordStatus={canRecordStatus}
+                  />
+                ),
+                status: (
+                  <span className="chip">
+                    {history.get(job.match_id)?.[0]?.status ?? job.status}
+                  </span>
+                ),
                 applied: <span style={{ whiteSpace: "nowrap" }}>{job.applied_on ?? "—"}</span>,
                 next: (
                   <span style={{ whiteSpace: "nowrap" }}>

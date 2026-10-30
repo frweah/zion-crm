@@ -6,6 +6,7 @@ import { ensureFreshToken } from "@/lib/graph";
 import { sendEmail, emailConfigured } from "@/lib/email";
 import { sendReferralNudge } from "@/lib/intake-mail";
 import { INTAKE_MAILBOX } from "@/lib/intake-source";
+import { NO_REPLY_DAYS } from "@/lib/constants";
 
 /**
  * Chasing what has not arrived.
@@ -246,10 +247,30 @@ async function handle(request: NextRequest) {
     });
   }
 
+  // ── An application nobody has heard about ─────────────────
+  // The owner's rule (30 Oct 2026): 'No response' after 14 days, overridable.
+  // Here rather than in its own route because it is the same kind of rule as
+  // the two above - a day passing is the whole event - and it belongs with
+  // them for the same reason they belong together.
+  //
+  // It emails nobody and notifies nobody, which is deliberate: a notification
+  // about something not happening, on every application that has gone quiet,
+  // is how a notification list stops being read. The status shows on the
+  // client's Job Search tab, which is where somebody is already looking.
+  let noReply: number | null = null;
+  if (!dry) {
+    const { data, error } = await admin.rpc("mark_applications_with_no_reply", {
+      p_days: NO_REPLY_DAYS,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    noReply = (data ?? 0) as number;
+  }
+
   return NextResponse.json({
     dry,
     rule6: { waiting: waiting.length, would_send: waiting.filter((w) => w.send).length, nudged },
     rule7: { ending: ending.length, chased },
+    applications: { days: NO_REPLY_DAYS, marked_no_response: noReply },
     emailed,
   });
 }

@@ -29,6 +29,7 @@ declare
   v_role     text;
   v_client   uuid;
   v_auth     uuid;
+  v_employer uuid; v_lead uuid; v_match uuid;
   v_before   bigint;
   v_bundle   jsonb;
   v_count    int;
@@ -214,6 +215,19 @@ begin
   insert into public.placements (client_id, employer, title, start_date)
   values (v_client, 'ZZ Grocery', 'Clerk', public.practice_today());
 
+  -- An application and where it got to (0270, 0271). The statuses are reached
+  -- through the application rather than through the client, so the sweep at
+  -- the bottom of this script cannot see them and this fixture is what holds
+  -- them in the bundle.
+  insert into public.employers (name, created_by) values ('ZZ Request Employer', v_admin)
+  returning id into v_employer;
+  insert into public.job_leads (employer_id, title, created_by)
+  values (v_employer, 'ZZ Request Position', v_admin) returning id into v_lead;
+  insert into public.lead_matches (lead_id, client_id, status, created_by)
+  values (v_lead, v_client, 'Saved', v_admin) returning id into v_match;
+  insert into public.job_status_history (match_id, status, at, note, reported_by, reported_by_name)
+  values (v_match, 'Applied', public.practice_today() - 30, 'ZQ sent the form', v_admin, 'ZZ Admin');
+
   insert into public.sms_messages (client_id, direction, phone, body, kind, status)
   values (v_client, 'Incoming', '+13850000000', 'Reminder about tomorrow', 'Reminder', 'Sent');
 
@@ -228,6 +242,17 @@ begin
                      json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
 
   v_bundle := public.records_request_bundle(v_client, 'Asked for by the client');
+
+  -- `is distinct from` rather than `not (... = ...)`, which is null and so
+  -- falsy when the section is missing altogether - the fault this was written
+  -- for fell through to the branch below and reported the wrong thing.
+  if v_bundle->'jobs_applied_for'->0->'statuses'->0->>'status' is distinct from 'Applied' then
+    failures := failures || 'FAILED: the bundle discloses an application and not where it got to'::text;
+  elsif v_bundle->'jobs_applied_for'->0->'statuses'->0->>'reported_by' is null then
+    failures := failures || 'FAILED: the disclosed statuses do not say who reported them'::text;
+  else
+    raise notice 'ok  an application is disclosed with every status it has been through';
+  end if;
 
   if (select count(*) from public.access_log) <> v_before + 1 then
     failures := failures || 'FAILED: gathering a whole record wrote nothing to the access log'::text;

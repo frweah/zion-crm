@@ -7618,3 +7618,137 @@ checks themselves.
 
 Eleven faults across the two: six against the classifier rule, five against
 check-checks.
+
+## An application says where it got to (30 Oct 2026)
+
+`lead_matches.status` has held one word per job application since 0013, and the
+word has been overwritten every time something happened. An application that
+reads "Not selected" today cannot say when it was applied for, whether the
+employer ever answered, or who found out. Three date columns were bolted on
+over the years - applied_on, interview_on, decided_on - and between them they
+cover three of the nine things that happen.
+
+So the status becomes a row rather than a column. `job_status_history` holds
+one entry per status, each with the day it happened and the person who reported
+it, and is added to and never changed. That is the only shape that can answer
+"when did we hear"; an overwritten column cannot, however many columns it is
+given.
+
+The nine, which are the owner's list: Applied, Employer responded, Interview
+scheduled, Interviewed, Offer, Hired, Declined by employer, Client withdrew, No
+response.
+
+**The eight words stay, and this is the part worth understanding.** Seven
+database functions, four views and most of the leads board read
+`lead_matches.status`, so it is maintained as the latest entry rather than
+abolished, and `lead_status_for_application` is the one place the nine words
+and the eight meet. Two of the nine map quietly on purpose:
+
+'No response' leaves the application reading 'Applied'. Nothing happened, so
+nothing on any other screen has changed - and the note trigger fires on that
+column, so mapping it to anything else would write a sentence into 202 clients'
+contact records saying that nothing happened.
+
+'Employer responded' and the two interview statuses collapse, because what the
+eight words are asked for is whether an application is over and roughly how far
+along, and both pairs answer the same.
+
+Whether to collapse the two vocabularies into one is the owner's decision and
+is not taken here: it is 281 rows, 30 call sites and a rename of 'Not
+selected' and 'Withdrawn', which is report-first work.
+
+### What the 281 applications already on file have been through
+
+Derived, never invented. A row that records applied_on was applied for on that
+day; a row that says 'Not selected' was declined. Both are written as the
+entries they are, and the fourteen rows at 'Interview' split on
+interview_result, which 0117 added for exactly that question - the six saying
+'Done' become 'Interviewed' and the other eight 'Interview scheduled'.
+
+None of the 58 applications past Applied has a decided_on, because the import
+that created them carried no decision date, so those entries are dated the day
+the practice's own record last said so and their note says the date is not a
+known one. Nothing invents a date it does not have.
+
+274 applications have history; the 7 at 'Saved' have none, because a job
+somebody saved to try is not an application and gets its first status when it
+becomes one.
+
+**The seed changed nothing, and the migration proves it rather than claiming
+it.** The last thing in the file asserts that every application still holds
+exactly the word it held before the file ran, which is true if and only if the
+mapping is faithful to what was on file. It failed on the first run, on 52 of
+the 281:
+
+`created_at` defaulted to `now()`, which is fixed for a whole transaction. An
+application carried over as "applied, then declined" got two entries with the
+identical timestamp, and with the dates equal too - no decided_on, so both fell
+back to the same day - there was nothing left to say which came last. Half of
+them read as still Applied. `clock_timestamp()` fixes it, and an append-only
+log wants real insertion order anyway.
+
+### Nothing heard for a fortnight
+
+'No response' after 14 days, overridable, in `/api/cron/chase` with the two
+rules that are also about days passing. Overriding it is recording the next
+status, which is what the table is for: the sweep reads the latest entry, so
+once anything later exists it never speaks again about that application.
+
+It notifies nobody and emails nobody. A notification about something not
+happening, on every application that has gone quiet, is how a notification list
+stops being read. On the day this ships it marks 202 applications, and the
+place that says so is the client's Job Search tab, where somebody is already
+looking.
+
+### Two bugs the verification script found before anybody else could
+
+**Removing a job stopped working.** The client's Job Search tab has offered
+"Remove this job" since 0013. With the history cascading off the application
+and an append-only trigger refusing every delete, that button became a sentence
+about a record. The authorization correction log has had the exception for
+years - a row being carried off by the cascade behind a deleted parent is not
+being edited by anybody - and `application_is_gone` is the same question asked
+about an application. The script asserts both halves: a removed job takes its
+history with it, and an entry whose application is still there cannot be
+deleted by anybody, including something privileged.
+
+**A back-dated entry could move an application backwards.** Somebody recording
+on Thursday that the employer rang on Monday, after Tuesday's interview is
+already on file. The trigger recomputes the latest from the history rather than
+taking the entry just written, and the fixture for it is in the script.
+
+### And one from building the check
+
+`check-job-status.mjs` asks the places the two vocabularies are written down
+rather than trusting them: the nine in `lib/constants` against the nine in the
+migration's check constraint, every one of the nine against a word the mapping
+gives it, and every word the mapping gives against the eight `lead_matches`
+accepts - which is the half that breaks silently, since a mapping to "Rejected"
+would satisfy everything else and fail on the first person to record one.
+
+Two of its first assertions asked a question merely near the rule, which is the
+failure CLAUDE.md says to suspect first:
+
+"the route reads NO_REPLY_DAYS" passed with `p_days: 14` hard-coded, because
+the import line still mentioned the name. It now reads the call.
+
+"the trigger says 'never changed or removed'" - the phrase `merge_clients`
+looks for in the catalogue - passed with the exception message rewritten,
+because the section above the trigger is headed with those words in a comment.
+It now reads the function body.
+
+### Part of the record
+
+A records request asks for everything on file about a person, and the bundle
+disclosed the application row and would have disclosed none of its statuses.
+`verify_records_request.sql` could not have caught it: it walks the tables
+carrying a `client_id` and `job_status_history` carries none, reaching the
+client through the application the way `service_entries` reaches it through its
+authorization. Both are disclosed inside their parent's section, which is what
+0271 does, and the assertion holding it there needed `is distinct from` rather
+than `not (... = ...)` - with the section missing the comparison is null, so
+the fault fell through and reported the wrong thing.
+
+21 assertions in verify_job_lead_status.sql, 6 in check-job-status.mjs, 1 added
+to verify_records_request.sql. Eighteen faults injected, eighteen caught, three
+of them only after the check or the fault itself was corrected.

@@ -339,6 +339,8 @@ const RPC_FUNCTIONS = [
   "referrals_without_authorization",
   "record_referral_nudge",
   "authorizations_ending_soon",
+  // Nothing heard about an application for a fortnight (0270).
+  "mark_applications_with_no_reply",
   "placement_clock_started",
   "referral_received_on",
   "notify_person",

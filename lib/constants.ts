@@ -355,6 +355,42 @@ export const INTERVIEW_RESULTS = ["Done", "Rescheduled", "Cancelled", "Backed ou
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
+/**
+ * Where an application got to, one entry at a time (0270).
+ *
+ * The nine the owner listed on 30 October. These are statuses of an
+ * application rather than of a job: `JOB_STATUSES` above is the one word
+ * `lead_matches.status` carries as the latest of these, which the leads board
+ * and seven database functions read, and `lead_status_for_application` in the
+ * database is the one place the two vocabularies meet.
+ *
+ * "Saved" is in that list and not in this one. A job somebody saved to try is
+ * not an application, and gets its first status when it becomes one.
+ */
+export const APPLICATION_STATUSES = [
+  "Applied",
+  "Employer responded",
+  "Interview scheduled",
+  "Interviewed",
+  "Offer",
+  "Hired",
+  "Declined by employer",
+  "Client withdrew",
+  "No response",
+] as const;
+
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+/** Recorded by a rule rather than typed by anybody, so a screen can say so. */
+export const NO_REPLY_DAYS = 14;
+
+/** Where an application has got to, for a chip: good, over, or still going. */
+export function applicationStatusTone(status: string): "ok" | "warn" | "" {
+  if (status === "Hired") return "ok";
+  if (status === "Declined by employer" || status === "Client withdrew") return "";
+  return "warn";
+}
+
 /** Where an opening is, on the Jobs screen. Server and client both read it. */
 export const LEAD_STATUSES = ["Open", "Submitted", "Interviewing", "Filled", "Closed"] as const;
 

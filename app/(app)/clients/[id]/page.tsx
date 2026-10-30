@@ -23,7 +23,7 @@ import { PlacementsTab, type PlacementRow, type HqiRow } from "./placements-tab"
 import { ReportTab } from "./report-tab";
 import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
-import { JobsPanel, type JobRow } from "./jobs-panel";
+import { JobsPanel, type JobRow, type StatusRow } from "./jobs-panel";
 import {
   DirectoryHistory,
   DIRECTORY_CHANGE_COLUMNS,
@@ -230,6 +230,12 @@ export default async function ClientPage({
     }))
     .filter((b) => b.templates.length > 0);
   const canEdit = CAN_EDIT_CLIENTS.includes(me.role);
+  // Where an application got to is the one thing on this screen the staff
+  // member a client is assigned to may record whatever their role, which is
+  // the owner's rule and what can_record_application_status enforces (0270).
+  // Asked here so the screen and the database agree about who may: offering a
+  // form the policies refuse is how 0250 happened.
+  const canRecordStatus = canEdit || client.assigned_staff_id === me.id;
   // The client's own fields - who they are, who bills for them - are Billing's
   // to edit as well, on any client, whoever it is assigned to (0121). Casework
   // (texting, intake, the stage) stays with the roles that do it.
@@ -629,7 +635,7 @@ export default async function ClientPage({
 
   // ── Jobs ───────────────────────────────────────────────────
   if (tab === "jobs") {
-    const [{ data: jobs }, { data: employers }, { data: placements }] = await Promise.all([
+    const [{ data: jobs }, { data: employers }, { data: statuses }, { data: placements }] = await Promise.all([
       supabase
         .from("client_job_history")
         .select("*")
@@ -637,6 +643,15 @@ export default async function ClientPage({
         .order("status_rank")
         .order("updated_at", { ascending: false }),
       supabase.from("employers").select("id, name").order("name"),
+      // Where each application got to, latest first (0270). One read for the
+      // whole tab rather than one per job.
+      supabase
+        .from("client_application_status")
+        .select("id, match_id, status, at, note, automatic, reported_by_name")
+        .eq("client_id", id)
+        .order("at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(600),
       supabase
         .from("placements")
         .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid, shifts_worked, fifth_shift_on, stability_on, stability_basis, employer_benefits, stem_occupation, rural_client")
@@ -663,7 +678,9 @@ export default async function ClientPage({
           clientId={id}
           jobs={(jobs ?? []) as JobRow[]}
           employers={(employers ?? []) as { id: string; name: string }[]}
+          statuses={(statuses ?? []) as StatusRow[]}
           canEdit={canEdit}
+          canRecordStatus={canRecordStatus}
         />
         <h2 className="h2" style={{ margin: "22px 0 8px" }}>Placements</h2>
         <PlacementsTab

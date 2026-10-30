@@ -300,11 +300,18 @@ export async function buildPeriodContent(
       .gte("sent_at", `${from}T00:00:00Z`)
       .lte("sent_at", `${to}T23:59:59Z`)
       .order("sent_at"),
+    // Where each application got to, in the period (0270). Read from the
+    // history rather than from applied_on / interview_on / decided_on, which
+    // between them covered three of the nine things that happen - so an
+    // employer answering, or answering nothing at all, was in no report.
     supabase
-      .from("client_job_history")
-      .select("employer_name, title, status, applied_on, interview_on, decided_on, outcome")
+      .from("client_application_status")
+      .select("employer_name, title, status, at, note")
       .eq("client_id", clientId)
-      .limit(200),
+      .gte("at", from)
+      .lte("at", to)
+      .order("at")
+      .limit(400),
     supabase
       .from("placements")
       .select("employer, title, start_date, check30, check60, check90, stability_on")
@@ -386,20 +393,16 @@ export async function buildPeriodContent(
   }
 
   for (const j of jobsResult.data ?? []) {
+    // A view's columns all read as nullable, and `at` is not null on the table
+    // underneath. Skipped rather than dated today, which would put an entry in
+    // a month it did not happen in.
+    if (!inRange(j.at)) continue;
     const where = `${j.employer_name}${j.title ? ` — ${j.title}` : ""}`;
-    if (inRange(j.applied_on)) {
-      put("development", { on: j.applied_on!, kind: "job", text: `Applied — ${where}` });
-    }
-    if (inRange(j.interview_on)) {
-      put("development", { on: j.interview_on!, kind: "job", text: `Interview — ${where}` });
-    }
-    if (inRange(j.decided_on)) {
-      put("development", {
-        on: j.decided_on!,
-        kind: "job",
-        text: `${j.status || "Decided"} — ${where}${j.outcome ? ` — ${j.outcome}` : ""}`,
-      });
-    }
+    put("development", {
+      on: j.at!,
+      kind: "job",
+      text: `${j.status} — ${where}${j.note ? ` — ${j.note}` : ""}`,
+    });
   }
 
   for (const p of placementsResult.data ?? []) {
