@@ -8,6 +8,7 @@ import { DataTable } from "../../../data-table";
 import { WeekCard, type WeekRow } from "./week-card";
 import { MakeWeek } from "./make-week";
 import { MakeMonth } from "./make-month";
+import { MakeReport } from "./make-report";
 
 /**
  * One client's reports.
@@ -46,10 +47,10 @@ export default async function ClientReportsPage({
       .order("week_start", { ascending: false })
       .limit(10),
     supabase
-      .from("client_monthly_reports")
-      .select("id, month, status, due_on, signed_at, sent_at, sent_to, content")
+      .from("client_reports")
+      .select("id, template, month:period, status, due_on, signed_at, sent_at, sent_to, content")
       .eq("client_id", id)
-      .order("month", { ascending: false })
+      .order("period", { ascending: false })
       .limit(12),
   ]);
 
@@ -85,7 +86,7 @@ export default async function ClientReportsPage({
   const lastMonth = first.toISOString().slice(0, 10);
   const monthMissing =
     ["Active", "On hold"].includes(client.status) &&
-    !months.some((m) => m.month === lastMonth);
+    !months.some((m) => m.month === lastMonth && m.template === "Monthly client report");
 
   return (
     <>
@@ -122,13 +123,18 @@ export default async function ClientReportsPage({
       </section>
 
       <section className="page-section">
-        <h2 className="h2">Months</h2>
+        <h2 className="h2">Reports</h2>
         {monthMissing && canEdit && <MakeMonth clientId={id} month={lastMonth} />}
+        {/* Any of the five, for any period that has happened (0276). The
+            prompt above is the monthly report nobody has made yet; this is
+            the rest of them. */}
+        {canEdit && <MakeReport clientId={id} month={lastMonth} week={lastWeek} />}
         <div className="card" style={{ padding: 0 }}>
           <DataTable
-            label="monthly reports"
+            label="reports"
             columns={[
-              { key: "month", label: "Month", width: 120 },
+              { key: "month", label: "Period", width: 120 },
+              { key: "report", label: "Report" },
               { key: "status", label: "Status", width: 110 },
               { key: "weeks", label: "Weeks" },
               { key: "due", label: "Due", width: 110 },
@@ -144,11 +150,14 @@ export default async function ClientReportsPage({
               const gaps = (content.gaps ?? []).length;
               return {
                 key: m.id,
-                sort: { month: m.month, status: m.status, weeks: sure, due: m.due_on, sent: m.sent_to },
-                text: `${m.month} ${m.status} ${m.sent_to}`,
+                sort: { month: m.month, report: m.template, status: m.status, weeks: sure, due: m.due_on, sent: m.sent_to },
+                text: `${m.month} ${m.template} ${m.status} ${m.sent_to}`,
                 cells: {
+                  report: <span>{m.template}</span>,
                   month: (
-                    <Link href={`/clients/${id}/reports/${m.month.slice(0, 7)}`}>
+                    <Link
+                      href={`/clients/${id}/reports/${m.month.slice(0, 7)}?template=${encodeURIComponent(m.template)}`}
+                    >
                       {new Date(`${m.month}T12:00:00Z`).toLocaleDateString("en-US", {
                         month: "long",
                         year: "numeric",

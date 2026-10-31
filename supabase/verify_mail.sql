@@ -55,7 +55,7 @@ begin
        -- for one to be copied from - `mail_log` has no body column, which is
        -- what the clause above this list asserts.
        ('client_weekly_reports', 'content'),
-       ('client_monthly_reports', 'content'));
+       ('client_reports', 'content'));
   if v_extra is not null then
     failures := failures || format('FAILED: somewhere a message body could be kept: %s', v_extra)::text;
   else

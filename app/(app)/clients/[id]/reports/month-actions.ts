@@ -5,7 +5,8 @@ import { getCurrentStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { keepAttachmentOnClient } from "@/lib/mail-filing";
-import { buildMonthContent, draftMonth, type MonthlyContent } from "@/lib/report-drafts";
+import { buildMonthContent, draftMonth, draftReport, type MonthlyContent } from "@/lib/report-drafts";
+import { reportPeriodUnit, reportTemplateFromForm } from "@/lib/report-shape";
 import { monthlyReportPdf } from "@/lib/report-pdf";
 import { type MonthlyMeta } from "@/lib/report-text";
 import { signatureFor } from "@/lib/staff-signature";
@@ -53,10 +54,10 @@ export async function saveMonthSummary(
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .update({ note: String(formData.get("note") ?? "").trim() })
     .eq("id", id)
-    .select("month")
+    .select("month:period")
     .maybeSingle();
   if (error) return { error: error.message, ok: null };
   if (!data) return { error: "That month is not yours to change.", ok: null };
@@ -72,7 +73,7 @@ export async function reviewMonth(_prev: MonthState, formData: FormData): Promis
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .update({
       note: String(formData.get("note") ?? "").trim(),
       status: "Reviewed",
@@ -80,7 +81,7 @@ export async function reviewMonth(_prev: MonthState, formData: FormData): Promis
       reviewed_by: me.id,
     })
     .eq("id", id)
-    .select("month")
+    .select("month:period")
     .maybeSingle();
   if (error) return { error: error.message, ok: null };
   if (!data) return { error: "That month is not yours to change.", ok: null };
@@ -96,8 +97,8 @@ export async function redraftMonth(_prev: MonthState, formData: FormData): Promi
 
   const supabase = await createClient();
   const { data: month } = await supabase
-    .from("client_monthly_reports")
-    .select("id, month, status")
+    .from("client_reports")
+    .select("id, month:period, status")
     .eq("id", id)
     .maybeSingle();
   if (!month) return { error: "That month is not yours to change.", ok: null };
@@ -111,7 +112,7 @@ export async function redraftMonth(_prev: MonthState, formData: FormData): Promi
   const admin = createAdminClient();
   const content = await buildMonthContent(admin, clientId, month.month);
   const { error } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .update({ content: content as never, generated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { error: error.message, ok: null };
@@ -145,8 +146,8 @@ export async function signMonth(_prev: MonthState, formData: FormData): Promise<
 
   const supabase = await createClient();
   const { data: month } = await supabase
-    .from("client_monthly_reports")
-    .select("id, month, status, content, note, pdf_attachment_id")
+    .from("client_reports")
+    .select("id, month:period, status, content, note, pdf_attachment_id")
     .eq("id", id)
     .maybeSingle();
   if (!month) return { error: "That month is not yours to sign.", ok: null };
@@ -214,7 +215,7 @@ export async function signMonth(_prev: MonthState, formData: FormData): Promise<
   }
 
   const { error } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .update({
       status: "Signed",
       signed_at: at.toISOString(),
@@ -253,7 +254,7 @@ export async function reopenMonth(_prev: MonthState, formData: FormData): Promis
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .update({
       status: "Draft",
       signed_at: null,
@@ -264,7 +265,7 @@ export async function reopenMonth(_prev: MonthState, formData: FormData): Promis
       reopened_by: me.id,
     })
     .eq("id", id)
-    .select("month")
+    .select("month:period")
     .maybeSingle();
   if (error) return { error: error.message, ok: null };
   if (!data) return { error: "That month is not yours to reopen.", ok: null };
@@ -307,4 +308,59 @@ export async function makeMonth(_prev: MonthState, formData: FormData): Promise<
 
   paths(clientId, month);
   return { error: null, ok: "Assembled" };
+}
+
+/**
+ * Assembling one of the five for a period (0276).
+ *
+ * `makeMonth` above stays, and is the monthly report's own button: it is what
+ * the "last month has no report" prompt presses, and it says the things that
+ * only make sense about a month. This is the general one.
+ *
+ * The period is checked here against the template rather than left to the
+ * database, so somebody who picks a Wednesday for a weekly report is told
+ * which day it should be instead of reading a constraint name.
+ */
+export async function makeReport(_prev: MonthState, formData: FormData): Promise<MonthState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const clientId = String(formData.get("client_id") ?? "");
+  const template = reportTemplateFromForm(formData.get("template"));
+  const period = String(formData.get("period") ?? "");
+
+  if (!clientId) return { error: "No client given.", ok: null };
+  if (!template) return { error: "Choose which report.", ok: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) return { error: "That date is not a date.", ok: null };
+  if (period > today()) return { error: "That period has not happened yet.", ok: null };
+
+  const unit = reportPeriodUnit(template);
+  if (unit === "month" && !period.endsWith("-01")) {
+    return { error: "A month starts on the first.", ok: null };
+  }
+  if (unit === "week" && new Date(`${period}T12:00:00Z`).getUTCDay() !== 1) {
+    return { error: "A week begins on a Monday.", ok: null };
+  }
+
+  const admin = createAdminClient();
+  let done;
+  try {
+    done = await draftReport(admin, template, period, clientId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "It could not be assembled.", ok: null };
+  }
+
+  if (done.did === "left alone") {
+    return {
+      error:
+        "There is already one for that period and it is past the draft, or the client is not Active or On hold.",
+      ok: null,
+    };
+  }
+  if (done.did === "frozen") {
+    return { error: "That report is signed. Reopen it to assemble it again.", ok: null };
+  }
+
+  paths(clientId, period);
+  return { error: null, ok: done.did === "made" ? "Assembled" : "Assembled again" };
 }

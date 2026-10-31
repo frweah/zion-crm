@@ -35,8 +35,14 @@ async function billingEmailFor(
 async function templatesFor(
   supabase: Awaited<ReturnType<typeof createClient>>,
   clientId: string,
+  period: string | null,
 ): Promise<FilledTemplate[]> {
-  const { data } = await supabase.rpc("mail_templates_for", { p_client: clientId });
+  // The period, when this is the sending of a report, so the cover note says
+  // which month it covers rather than two em dashes (0276, 0277).
+  const { data } = await supabase.rpc("mail_templates_for", {
+    p_client: clientId,
+    p_period: period,
+  });
   return (data as unknown as FilledTemplate[] | null) ?? [];
 }
 
@@ -59,14 +65,10 @@ export default async function ComposePage({
 
   // ── About a client ──────────────────────────────────────────
   if (params.client) {
-    const [{ recipients, clientName }, documents, templates] = await Promise.all([
-      recipientsForClient(params.client),
-      documentsForClient(params.client),
-      templatesFor(supabase, params.client),
-    ]);
-
     /**
-     * Sending a signed monthly report.
+     * Sending a signed report.
+     *
+     * Read first, because the cover note needs its period.
      *
      * The screen is the ordinary one — the recipients, the templates and the
      * documents are the same — with the report's own PDF already ticked and
@@ -78,13 +80,19 @@ export default async function ComposePage({
      */
     const { data: report } = params.report
       ? await supabase
-          .from("client_monthly_reports")
-          .select("id, month, status, pdf_attachment_id")
+          .from("client_reports")
+          .select("id, template, month:period, status, pdf_attachment_id")
           .eq("id", params.report)
           .eq("client_id", params.client)
           .maybeSingle()
       : { data: null };
     const sendable = report?.status === "Signed" ? report : null;
+
+    const [{ recipients, clientName }, documents, templates] = await Promise.all([
+      recipientsForClient(params.client),
+      documentsForClient(params.client),
+      templatesFor(supabase, params.client, report?.month ?? null),
+    ]);
 
     return (
       <>

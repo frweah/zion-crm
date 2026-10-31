@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
 import { ownAccess } from "@/lib/sync-callers";
 import { ensureFreshToken } from "@/lib/graph";
-import { ONLINE_MEETING_SCOPE } from "@/lib/microsoft";
+import { ONLINE_MEETING_SCOPE, hasScope } from "@/lib/microsoft";
 
 export type MeetingState = { error: string | null; ok: string | null; join?: string };
 
@@ -42,7 +42,11 @@ export async function startTeamsMeeting(
   }
   // The scope is on the connection or it is not. Asking Graph and reading the
   // refusal would mean showing somebody a consent error.
-  if (!(bundle.scopes ?? "").split(/\s+/).includes(ONLINE_MEETING_SCOPE)) {
+  //
+  // hasScope rather than a plain includes: Microsoft hands a granted scope
+  // back as a bare name or as the full graph URL, and the URL form would have
+  // made this say "not connected yet" about a connection that has it.
+  if (!hasScope(bundle.scopes ?? "", ONLINE_MEETING_SCOPE)) {
     return {
       error: "Not connected yet — Teams meetings need one more Microsoft permission.",
       ok: null,

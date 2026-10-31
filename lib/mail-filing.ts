@@ -370,8 +370,8 @@ export async function reportReadyToSend(
 ): Promise<{ error: string | null; report: { id: string; month: string } | null }> {
   const supabase = await createClient();
   const { data: row } = await supabase
-    .from("client_monthly_reports")
-    .select("id, month, status, pdf_attachment_id")
+    .from("client_reports")
+    .select("id, month:period, status, pdf_attachment_id")
     .eq("id", reportId)
     .eq("client_id", clientId)
     .maybeSingle();
@@ -408,7 +408,7 @@ export async function markReportSent(fields: {
     : fields.to.join(", ");
 
   const { error } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .update({
       status: "Sent",
       sent_at: fields.at ?? new Date().toISOString(),

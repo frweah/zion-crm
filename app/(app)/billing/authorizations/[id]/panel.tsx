@@ -59,6 +59,12 @@ export function SubmitPacket({
           ? "Nothing is attached yet."
           : `${attached} file${attached === 1 ? "" : "s"} will go with it.`}
       </p>
+      {/* The progress report is a different document for a different
+          purpose, so it is offered and not assumed (owner, 30 Oct 2026). */}
+      <label className="row2" style={{ gap: 6, alignItems: "center" }}>
+        <input type="checkbox" name="with_report" value="1" />
+        <span>Send the latest signed monthly report with it</span>
+      </label>
       <button className="btn gold" disabled={!ready || pending || !office || attached === 0}>
         {pending ? "Sending…" : "Send the packet and mark it submitted"}
       </button>

@@ -83,7 +83,10 @@ declare
     -- The reports about this person: the month the practice signs and sends to
     -- the counselor, and the weeks it is assembled from (0260, 0263).
     'client_weekly_reports=weekly_reports',
-    'client_monthly_reports=monthly_reports'
+    -- The five templates share one table since 0276, and the section says
+    -- which of them each report is - a bundle that called a Job Coaching
+    -- Update a monthly report would misdescribe what it hands over.
+    'client_reports=reports'
   ];
 
   -- Tables carrying a client_id that are deliberately not in a bundle, each

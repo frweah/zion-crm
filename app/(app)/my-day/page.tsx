@@ -70,11 +70,11 @@ export default async function MyDayPage() {
       .order("week_start")
       .limit(60),
     supabase
-      .from("client_monthly_reports")
-      .select("id, client_id, month, status, due_on")
+      .from("client_reports")
+      .select("id, client_id, month:period, status, due_on")
       .eq("owner_id", me.id)
       .neq("status", "Sent")
-      .order("month")
+      .order("period")
       .limit(60),
   ]);
 

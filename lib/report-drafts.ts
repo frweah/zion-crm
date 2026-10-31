@@ -6,8 +6,14 @@ import {
   REPORT_ROLES,
   buildPeriodContent,
   type PeriodContent,
+  FAMILY_OF,
   type ReportSection,
 } from "@/lib/report-period";
+import {
+  reportPeriodUnit,
+  sectionIsIn,
+  type ReportTemplate,
+} from "@/lib/report-shape";
 import {
   addDays,
   lastWeekOf,
@@ -265,9 +271,10 @@ export async function draftMonth(
   );
 
   const { data: existing } = await admin
-    .from("client_monthly_reports")
+    .from("client_reports")
     .select("id, client_id, status")
-    .eq("month", monthStartOf(month));
+    .eq("template", "Monthly client report")
+    .eq("period", monthStartOf(month));
   const already = new Map((existing ?? []).map((r) => [r.client_id, r]));
 
   const out: DraftOutcome[] = [];
@@ -282,7 +289,7 @@ export async function draftMonth(
 
     if (row) {
       const { error } = await admin
-        .from("client_monthly_reports")
+        .from("client_reports")
         .update({
           content: content as never,
           owner_id: client.assigned_staff_id,
@@ -297,9 +304,10 @@ export async function draftMonth(
       continue;
     }
 
-    const { error } = await admin.from("client_monthly_reports").insert({
+    const { error } = await admin.from("client_reports").insert({
       client_id: client.id,
-      month: monthStartOf(month),
+      template: "Monthly client report",
+      period: monthStartOf(month),
       owner_id: client.assigned_staff_id,
       status: "Draft",
       content: content as never,
@@ -311,4 +319,105 @@ export async function draftMonth(
   }
 
   return out;
+}
+
+/**
+ * Drafting one of the five (0276).
+ *
+ * The four that are not the monthly report are the monthly report with some
+ * sections left out - the same content, built the same way, filtered. Not a
+ * renderer each: a Job Coaching Update that could say something the monthly
+ * report would not have said would be a second account of the same month, and
+ * the counselor would have two documents to reconcile.
+ *
+ * `draftMonth` above is left alone. It is the nightly run over the whole
+ * caseload and it makes monthly reports; this is one report for one client,
+ * which is what a person pressing a button wants.
+ */
+export async function draftReport(
+  admin: Supabase,
+  template: ReportTemplate,
+  period: string,
+  clientId: string,
+): Promise<{ did: "made" | "redrafted" | "left alone" | "frozen"; id?: string }> {
+  const caseload = (await caseloadForReports(admin)).filter((c) => c.id === clientId);
+  const client = caseload[0];
+  if (!client) return { did: "left alone" };
+
+  const { data: row } = await admin
+    .from("client_reports")
+    .select("id, status")
+    .eq("client_id", clientId)
+    .eq("template", template)
+    .eq("period", period)
+    .maybeSingle();
+
+  if (row && row.status !== "Draft") return { did: "left alone", id: row.id };
+
+  const unit = reportPeriodUnit(template);
+  // A week is the seven days from its Monday; a month is the month. The dates
+  // are the content's own, so the renderer and the PDF both read them from
+  // the content rather than working them out again.
+  const from = period;
+  const to =
+    unit === "week"
+      ? new Date(Date.UTC(
+          Number(period.slice(0, 4)),
+          Number(period.slice(5, 7)) - 1,
+          Number(period.slice(8, 10)) + 6,
+        )).toISOString().slice(0, 10)
+      : lastDayOf(period);
+
+  const whole =
+    unit === "month"
+      ? await buildMonthContent(admin, clientId, period)
+      : ((await buildPeriodContent(admin, clientId, from, to)) as unknown as MonthlyContent);
+
+  // Only the sections this template carries. The withheld count and the hours
+  // are the period's, not the section's, so they stay as they are: a report
+  // that said "no notes were withheld" because the withheld one was in a
+  // section this template leaves out would be saying something untrue.
+  const content: MonthlyContent = {
+    ...whole,
+    sections: whole.sections.filter((s) =>
+      sectionIsIn(template, s.service === GENERAL ? null : (FAMILY_OF[s.service] ?? null)),
+    ),
+  };
+
+  if (row) {
+    const { error } = await admin
+      .from("client_reports")
+      .update({
+        content: content as never,
+        owner_id: client.assigned_staff_id,
+        generated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+    return { did: error ? "frozen" : "redrafted", id: row.id };
+  }
+
+  const { data: made, error } = await admin
+    .from("client_reports")
+    .insert({
+      client_id: clientId,
+      template,
+      period,
+      owner_id: client.assigned_staff_id,
+      status: "Draft",
+      content: content as never,
+      visible_roles: [...REPORT_ROLES],
+      due_on: unit === "week" ? weeklyDueOn(period) : monthlyDueOn(period),
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return { did: "made", id: made.id };
+}
+
+/** The last day of the month a date starts. */
+function lastDayOf(monthStart: string): string {
+  const d = new Date(`${monthStart}T00:00:00Z`);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))
+    .toISOString()
+    .slice(0, 10);
 }

@@ -153,3 +153,88 @@ export type PeriodContent = {
   /** Billable service hours in the period. */
   hours: number;
 };
+
+/**
+ * The five reports the practice sends (owner, 30 Oct 2026).
+ *
+ * One table holds all five - `client_reports`, which was
+ * `client_monthly_reports` until 0276 and already had the whole lifecycle in
+ * it: Draft, Reviewed, Signed, Sent, with the constraints that say a Sent one
+ * has a PDF and an address and a signature. Five tables would have been five
+ * copies of that.
+ *
+ * What differs between them is two things and no more:
+ *
+ *   `every` - how long a period is, which is what `period` means on the row
+ *   and what the unique key is per. A weekly report has a Monday; the other
+ *   four have the first of a month.
+ *
+ *   `families` - which service sections it carries. Not a different renderer
+ *   each: the same sections the monthly report has always built, filtered. A
+ *   Job Coaching Update is the coaching part of the month, which is why it
+ *   cannot say anything the monthly report would not have said.
+ *
+ * `null` families means all of them, which is what makes the monthly report
+ * the monthly report.
+ */
+export const REPORT_TEMPLATES = [
+  {
+    key: "Monthly client report",
+    every: "month",
+    families: null,
+    note: "Everything in the month, by service.",
+  },
+  {
+    key: "Weekly job search update",
+    every: "week",
+    families: ["development", "placement"],
+    note: "The week's applications and what came of them.",
+  },
+  {
+    key: "Job search report",
+    every: "month",
+    families: ["development", "placement"],
+    note: "The month's job search, on its own.",
+  },
+  {
+    key: "Job Development Update",
+    every: "month",
+    families: ["development"],
+    note: "Employers approached, and what they said.",
+  },
+  {
+    key: "Job Coaching Update",
+    every: "month",
+    families: ["coaching"],
+    note: "Coaching hours and how the placement is holding.",
+  },
+] as const;
+
+export type ReportTemplate = (typeof REPORT_TEMPLATES)[number]["key"];
+
+/** The template a report is, or nothing. Written as a function so a check can run the rule. */
+export function reportTemplateFromForm(value: unknown): ReportTemplate | null {
+  const key = typeof value === "string" ? value.trim() : "";
+  const found = REPORT_TEMPLATES.find((t) => t.key === key);
+  return found ? found.key : null;
+}
+
+/** How long one of this template's periods is. */
+export function reportPeriodUnit(template: string): "month" | "week" {
+  return REPORT_TEMPLATES.find((t) => t.key === template)?.every ?? "month";
+}
+
+/**
+ * Whether a section belongs in this template.
+ *
+ * A template that names no families carries every section, which is the
+ * monthly report. One that names some carries those and the General section,
+ * because a line the practice could not match to an authorized service is
+ * still something that happened in the period being reported on.
+ */
+export function sectionIsIn(template: string, family: string | null): boolean {
+  const found = REPORT_TEMPLATES.find((t) => t.key === template);
+  if (!found || found.families === null) return true;
+  if (family === null) return true;
+  return (found.families as readonly string[]).includes(family);
+}

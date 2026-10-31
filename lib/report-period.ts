@@ -79,7 +79,7 @@ const coversReportRoles = (roles: string[] | null): boolean =>
  */
 export type ServiceFamily = "assessment" | "development" | "placement" | "coaching" | "life";
 
-const FAMILY_OF: Record<string, ServiceFamily> = {
+export const FAMILY_OF: Record<string, ServiceFamily> = {
   "WSA Tier 1": "assessment",
   "WSA Tier 2": "assessment",
   "HQ Indicator": "assessment",

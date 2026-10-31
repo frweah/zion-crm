@@ -69,3 +69,4 @@ agent/ocr-failed.json
 !.claude/settings.json
 .probe/
 .probe-*.txt
+scripts/.tmp-*

@@ -52,6 +52,10 @@ export const MICROSOFT_SCOPES = [
   "User.Read",
   "Calendars.ReadWrite",
   "Mail.Read",
+  // Starting a Teams meeting from a thread or a client's record (0272-0275).
+  // Admin-consented on 30 Oct 2026, so every connection made from then on has
+  // it; the Outlook card prompts anybody whose connection predates it.
+  "OnlineMeetings.ReadWrite",
 ];
 
 /**
@@ -77,11 +81,11 @@ export const MAIL_SEND_SCOPE = "Mail.Send";
 /**
  * Starting a Teams meeting from a thread or a client's record (0272-0275).
  *
- * Asked for separately, like Mail.Send and for the same reason: it is granted
- * in Azure by the owner first, and then each person consents once on their own
- * connection. Until the owner has added it, the button says so rather than
- * failing - a button that produces a Microsoft error page is worse than a
- * button that admits it is not connected yet.
+ * In MICROSOFT_SCOPES above, because the owner granted it in Azure on 30
+ * October 2026 - so a connection made since then has it and one made before
+ * does not. The Outlook card asks those people to reconnect, in one line, and
+ * the button says "Not connected yet" until they do rather than calling Graph
+ * and handing somebody a Microsoft consent error page.
  *
  * The meeting itself stays in Teams. What the CRM keeps is the join link, in
  * the thread, and a line on the client's record saying a meeting was started -

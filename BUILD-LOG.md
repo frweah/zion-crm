@@ -8000,3 +8000,125 @@ the message body would be a second copy by another name.
 scripts and 30 prebuild checks green. Seven more faults injected, seven
 caught - one after the fault itself was corrected, because removing an import
 is a compile error rather than something a check has to notice.
+
+## A report is one of five (30 Oct 2026)
+
+`client_monthly_reports` (0263) already held the whole lifecycle the brief asks
+for - Draft, Reviewed, Signed, Sent, with the constraints that insist a Sent
+report has a PDF, an address and a signature, the trigger that refuses a step
+out of order, and the rule that a counselor only ever receives a signed one.
+It had nought rows in it.
+
+So `client_reports` is that table with one column added and a better name.
+Five tables would have been five copies of a lifecycle that took a migration
+and a verification script to get right once.
+
+Renamed rather than kept as "monthly": a table called
+`client_monthly_reports` holding weekly job search updates is a name that
+costs somebody an afternoon in a year. Nought rows, so nothing moved - what
+changed is eight files, three functions and four verification scripts.
+
+`client_weekly_reports` is left alone. It is not one of the five: it is the
+week-by-week draft a month is assembled from, and nothing is ever sent from it.
+
+### What differs between the five, and what does not
+
+Two things and no more. How long a period is - a Monday for the weekly update,
+the first of a month for the other four, which the period constraint now says
+as a CASE rather than the flat "day = 1" that would have refused a weekly
+report every week but the first of the year. And which service sections it
+carries.
+
+Not a renderer each. **A Job Coaching Update is the coaching part of the
+month**, filtered from the same content the monthly report has always built -
+because a narrower report that could say something the monthly one would not
+have said is a second account of the same month, and the counselor would have
+two documents to reconcile. `check-client-reports` asserts that: every family
+a narrow template names has to be a family the monthly report carries.
+
+And every template keeps the General section. A line the practice could not
+match to an authorized service still happened in the period, and a report that
+dropped it would be a report with a hole.
+
+### Three functions I nearly broke by retyping them
+
+The lesson about dumping a function before replacing it earned itself again,
+three times in one file:
+
+**`monthly_report_moves_forward`.** The first draft of 0276 rewrote the rule
+from reading it and lost three things: that reopening a signed report requires
+a reason and stamps who and when, that a report is signed from the draft or
+the review and nowhere else, and the separate wording for a sent report edited
+without its status changing. The migration now **renames** the function, which
+keeps the body exactly and is the only version of this that cannot lose a rule.
+
+**`weekly_report_is_frozen`.** My rewrite asked "is the month this week is in
+signed", and that is not what it says. A week can straddle two months, and the
+overlap test is why a week in the last days of October is frozen by October's
+report rather than only by November's. Retyping it would have unfrozen every
+week that crosses a month boundary. It now adds one thing - `template` - so a
+signed Job Coaching Update is not a reason to stop somebody writing up the
+week's job search.
+
+**`records_request_bundle`.** The section was called `monthly_reports` and
+every row in it was one. It is `reports` now and says which of the five each is,
+because the one thing a records request must not do is misdescribe what it
+hands over.
+
+### The cover note, and the two functions that fill it
+
+The progress report cover note said which authorization it was about and not
+which month, which reads as the wrong document when an authorization runs to
+December. `{month}` is a field now, and `mail_template_for` takes the period.
+
+Both of those were dropped and recreated rather than given a defaulted
+parameter, which in Postgres makes a second function and leaves the old calls
+ambiguous between them. `verify_client_reports` asserts each exists once, and
+an injected second one is caught by the planner refusing an ambiguous call.
+
+**And the Compose screen calls `mail_templates_for`, not `mail_template_for`.**
+That one passes through, and had no period to pass - so every cover note on
+that screen would have read "covering ——". Found by reading what calls what
+rather than by sending one, which is the only way it could have been found: the
+sentence is grammatical either way and the gap is two em dashes. 0277 is that
+one line.
+
+### The list a new placeholder trips
+
+`{month}` had to join the field allow-list in the admin templates action,
+which refuses an unknown placeholder by name so that nothing reaches a
+counselor as `{client_number}` in curly brackets. A new field that is not on
+that list is a template that cannot be saved.
+
+### An assertion that claimed the trigger and could not prove it
+
+The script asserted "a counselor only ever receives a signed report" by trying
+to send an unsigned one. It passes - but it passes on the **constraint**, not
+the trigger: `client_reports_signed` insists a Sent row has a signed_at, so
+the attempt never reaches the trigger. Removing the trigger's own "sign it
+before sending it" branch changed nothing and the script still passed.
+
+Two assertions now, and the notice says what each proves: one that the rule
+holds with every column a Sent row needs filled in, and one that the trigger
+exists at all - because constraints see one row and not the row it was, so
+"a step out of order" is not something they can express. Renaming a table is
+exactly the kind of change that leaves a trigger behind on nothing.
+
+### And three lists, again
+
+A renamed table fell off all three: the mail-bodies allow-list in
+`verify_mail`, the bundle's covered sections in `verify_records_request`, and -
+the one I caused - `verify_portal_rls`'s list of elevated functions a signed-in
+person can call with no check of who is calling. That last was my own grant:
+`weekly_report_is_frozen` is asked by SECURITY DEFINER triggers and by nothing
+on any screen, so it is granted to nobody now.
+
+A fourth list, less obviously: `lib/microsoft.ts` is `server-only` and the
+Outlook card is a client component, so importing `hasScope` into it broke the
+build. The server answers the question and passes the answer down, which is
+also where the knowledge of what a Graph scope is belongs.
+
+14 assertions in verify_client_reports.sql, 7 in check-client-reports.mjs, 126
+verify scripts and 31 prebuild checks. Fifteen faults injected, fifteen caught
+- one of them only after the check stopped walking the five families it knew
+and started asking what the templates actually name.

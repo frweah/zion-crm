@@ -12,6 +12,7 @@ import { practiceWallToDate, dateToPracticeWall } from "@/lib/practice-time";
 import { DashboardTask } from "./dashboard-task";
 import { HomeTiles } from "./home-tiles";
 import { MicrosoftCard } from "./microsoft-card";
+import { hasScope, ONLINE_MEETING_SCOPE } from "@/lib/microsoft";
 import { WorkTimer } from "../hours/work-timer";
 import { NEEDS, countNeeds } from "@/lib/needs";
 import { PageHead } from "../page-head";
@@ -353,6 +354,7 @@ export default async function DashboardPage({
   const msState = msStateResult.data;
   const microsoft = (
     <MicrosoftCard
+      teamsReady={hasScope(connection?.scopes ?? "", ONLINE_MEETING_SCOPE)}
       connection={connection}
       notice={msParams.microsoft ?? null}
       detail={msParams.detail ?? null}

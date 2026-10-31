@@ -138,6 +138,52 @@ export async function submitAuthorization(
     const { data: blob } = await admin.storage.from("client-files").download(f.storage_path);
     if (blob) attachments.push({ filename: f.filename, bytes: new Uint8Array(await blob.arrayBuffer()) });
   }
+
+  /**
+   * The latest signed monthly report, if the person asked for it (owner,
+   * 30 Oct 2026: "Billing Submit may attach the latest signed monthly
+   * report").
+   *
+   * May, not must: a packet is the authorization and the signed forms, and a
+   * progress report is a different document for a different purpose. So it is
+   * a tick on the Submit panel and off unless somebody ticks it.
+   *
+   * Signed or Sent, never a draft, which is the same rule the counselor's own
+   * copy follows: a report that has not been signed is not a report yet. The
+   * PDF is the one the practice signed - read from the report row, never
+   * chosen by whoever is submitting.
+   */
+  if (String(formData.get("with_report") ?? "") === "1" && rec.client_id) {
+    const { data: report } = await supabase
+      .from("client_reports")
+      .select("month:period, pdf_attachment_id")
+      .eq("client_id", rec.client_id)
+      .eq("template", "Monthly client report")
+      .in("status", ["Signed", "Sent"])
+      .not("pdf_attachment_id", "is", null)
+      .order("period", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!report?.pdf_attachment_id) {
+      return {
+        error: `${rec.client_name} has no signed monthly report to send. Sign one first, or submit without it.`,
+        ok: null,
+      };
+    }
+    const { data: pdf } = await admin
+      .from("attachments")
+      .select("filename, storage_path")
+      .eq("id", report.pdf_attachment_id)
+      .maybeSingle();
+    const { data: blob } = pdf
+      ? await admin.storage.from("client-files").download(pdf.storage_path)
+      : { data: null };
+    if (!blob || !pdf) {
+      return { error: "The signed report's PDF is not where the record says it is.", ok: null };
+    }
+    attachments.push({ filename: pdf.filename, bytes: new Uint8Array(await blob.arrayBuffer()) });
+  }
   if (attachments.length === 0) {
     return {
       error: "There is nothing attached to send. Attach the signed authorization and the signed forms first.",

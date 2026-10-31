@@ -116,6 +116,7 @@ export function MicrosoftCard({
   detail,
   lastRun,
   lastResult,
+  teamsReady,
 }: {
   connection: {
     microsoft_email: string;
@@ -133,6 +134,8 @@ export function MicrosoftCard({
     events_pulled: number;
     last_error: string;
   } | null;
+  /** Whether this connection was granted the Teams meeting permission (0276). */
+  teamsReady: boolean;
 }) {
   const [state, action, pending] = useActionState(disconnectMicrosoft, initial);
 
@@ -205,6 +208,16 @@ export function MicrosoftCard({
                   <a href="/api/auth/microsoft/start?send=1">Turn sending on</a> - one reconnect.
                 </>
               )}
+            </p>
+          )}
+          {/* A connection made before 30 Oct 2026 was granted without the
+              Teams meeting permission, so the button on a thread and on a
+              client's record says it is not connected. One line, and only to
+              the people it is true of. */}
+          {!connection.last_error && !teamsReady && (
+            <p className="lock" style={{ marginTop: 0 }}>
+              Teams meetings are off.{" "}
+              <a href="/api/auth/microsoft/start">Reconnect to enable Teams meetings</a>.
             </p>
           )}
           <LastRun lastRun={lastRun} lastResult={lastResult} />

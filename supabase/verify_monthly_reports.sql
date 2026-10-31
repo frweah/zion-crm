@@ -110,7 +110,7 @@ begin
   -- The PDF exists before any of this is tried, which matters more than it
   -- looks. The first version of this section attempted Sent from Draft with
   -- no PDF, and passed with the status trigger dropped: the row was refused
-  -- by `client_monthly_reports_sent_pdf` and the test could not tell the
+  -- by `client_reports_sent_pdf` and the test could not tell the
   -- difference between "it would not skip the signature" and "it had no PDF".
   -- Everything else about the attempt below is right, so the only rule it
   -- breaks is the order.
@@ -119,17 +119,17 @@ begin
   values (v_client, 'zz/report.pdf', 'ZZ October report.pdf', 'application/pdf', 1024, 'Monthly report', v_owner)
   returning id into v_pdf;
 
-  insert into public.client_monthly_reports (client_id, month, owner_id, due_on)
+  insert into public.client_reports (client_id, period, owner_id, due_on)
   values (v_client, v_oct, v_owner, public.monthly_report_due_on(v_oct))
   returning id into v_month;
 
-  if (select due_on from public.client_monthly_reports where id = v_month) <> date '2026-11-05' then
+  if (select due_on from public.client_reports where id = v_month) <> date '2026-11-05' then
     failures := failures || 'FAILED: October is not due on 5 November'::text;
   end if;
 
   -- Sent straight from a draft: the one the brief names.
   begin
-    update public.client_monthly_reports
+    update public.client_reports
        set status = 'Sent', sent_at = now(), sent_to = 'zq-counselor@example.test',
            signed_at = now(), signed_by = v_owner, pdf_attachment_id = v_pdf
      where id = v_month;
@@ -139,27 +139,27 @@ begin
     -- trigger is reported as a database message instead of as the sentence
     -- above - which is the difference between a check that names the fault
     -- and one that merely stops.
-    update public.client_monthly_reports
+    update public.client_reports
        set status = 'Draft', sent_at = null, sent_to = '',
            signed_at = null, signed_by = null, pdf_attachment_id = null
      where id = v_month;
   exception when check_violation then null;
   end;
 
-  update public.client_monthly_reports set status = 'Reviewed', reviewed_at = now(), reviewed_by = v_owner
+  update public.client_reports set status = 'Reviewed', reviewed_at = now(), reviewed_by = v_owner
    where id = v_month;
-  update public.client_monthly_reports set status = 'Signed', signed_at = now(), signed_by = v_owner
+  update public.client_reports set status = 'Signed', signed_at = now(), signed_by = v_owner
    where id = v_month;
 
   -- Signed with nothing to send it to, and signed with no PDF.
   begin
-    update public.client_monthly_reports set status = 'Sent', sent_at = now() where id = v_month;
+    update public.client_reports set status = 'Sent', sent_at = now() where id = v_month;
     failures := failures || 'FAILED: a report was sent to nobody'::text;
   exception when check_violation then null;
   end;
 
   begin
-    update public.client_monthly_reports
+    update public.client_reports
        set status = 'Sent', sent_at = now(), sent_to = 'zq-counselor@example.test'
      where id = v_month;
     failures := failures || 'FAILED: a report was sent with no PDF attached'::text;
@@ -197,17 +197,17 @@ begin
   -- ── 4. reopening says why ─────────────────────────────────
   v_mark := coalesce(array_length(failures, 1), 0);
   begin
-    update public.client_monthly_reports set status = 'Draft', signed_at = null, signed_by = null
+    update public.client_reports set status = 'Draft', signed_at = null, signed_by = null
      where id = v_month;
     failures := failures || 'FAILED: a signed report was reopened without a reason'::text;
   exception when check_violation then null;
   end;
 
-  update public.client_monthly_reports
+  update public.client_reports
      set status = 'Draft', signed_at = null, signed_by = null,
          reopen_reason = 'ZZ the hours for the 14th were logged against the wrong authorization'
    where id = v_month;
-  if (select reopened_at from public.client_monthly_reports where id = v_month) is null then
+  if (select reopened_at from public.client_reports where id = v_month) is null then
     failures := failures || 'FAILED: reopening a report was not recorded'::text;
   end if;
 
@@ -224,21 +224,21 @@ begin
 
   -- ── 5. a sent report is finished ──────────────────────────
   v_mark := coalesce(array_length(failures, 1), 0);
-  update public.client_monthly_reports
+  update public.client_reports
      set status = 'Signed', signed_at = now(), signed_by = v_owner, pdf_attachment_id = v_pdf
    where id = v_month;
-  update public.client_monthly_reports
+  update public.client_reports
      set status = 'Sent', sent_at = now(), sent_by = v_owner, sent_to = 'zq-counselor@example.test'
    where id = v_month;
 
   begin
-    update public.client_monthly_reports set note = 'ZZ changed after sending' where id = v_month;
+    update public.client_reports set note = 'ZZ changed after sending' where id = v_month;
     failures := failures || 'FAILED: a report was changed after it had been sent'::text;
   exception when check_violation then null;
   end;
 
   begin
-    update public.client_monthly_reports set status = 'Draft', signed_at = null, signed_by = null,
+    update public.client_reports set status = 'Draft', signed_at = null, signed_by = null,
            reopen_reason = 'ZZ with a reason, which should not be enough'
      where id = v_month;
     failures := failures || 'FAILED: a sent report was reopened'::text;
@@ -315,15 +315,15 @@ begin
   v_mark := coalesce(array_length(failures, 1), 0);
   for v_n in 1..1 loop
     if has_table_privilege('anon', 'public.client_weekly_reports', 'select')
-       or has_table_privilege('anon', 'public.client_monthly_reports', 'select') then
+       or has_table_privilege('anon', 'public.client_reports', 'select') then
       failures := failures || 'FAILED: anon can read the reports'::text;
     end if;
     if has_table_privilege('authenticated', 'public.client_weekly_reports', 'insert')
-       or has_table_privilege('authenticated', 'public.client_monthly_reports', 'insert') then
+       or has_table_privilege('authenticated', 'public.client_reports', 'insert') then
       failures := failures || 'FAILED: authenticated holds INSERT on a report table'::text;
     end if;
     if has_table_privilege('authenticated', 'public.client_weekly_reports', 'truncate')
-       or has_table_privilege('authenticated', 'public.client_monthly_reports', 'truncate') then
+       or has_table_privilege('authenticated', 'public.client_reports', 'truncate') then
       failures := failures || 'FAILED: authenticated holds TRUNCATE on a report table'::text;
     end if;
   end loop;

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { RecordHeader } from "../../../../record-header";
 import { requireStaff } from "@/lib/session";
+import { reportTemplateFromForm } from "@/lib/report-shape";
 import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
 import type { MonthlyContent } from "@/lib/report-drafts";
@@ -25,10 +26,17 @@ import { MonthReport } from "./month-report";
  */
 export default async function ClientMonthPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; month: string }>;
+  searchParams: Promise<{ template?: string }>;
 }) {
   const { id, month: asked } = await params;
+  // Which of the five (0276). The monthly report when nothing says, because
+  // that is what every address written before today meant and what the
+  // screen made.
+  const { template: askedTemplate } = await searchParams;
+  const template = reportTemplateFromForm(askedTemplate) ?? "Monthly client report";
   const me = await requireStaff();
   const supabase = await createClient();
 
@@ -44,12 +52,13 @@ export default async function ClientMonthPage({
   if (!client) notFound();
 
   const { data: report } = await supabase
-    .from("client_monthly_reports")
+    .from("client_reports")
     .select(
-      "id, month, status, due_on, note, content, owner_id, signed_at, signed_by, sent_at, sent_to, reopen_reason, pdf_attachment_id",
+      "id, template, month:period, status, due_on, note, content, owner_id, signed_at, signed_by, sent_at, sent_to, reopen_reason, pdf_attachment_id",
     )
     .eq("client_id", id)
-    .eq("month", month)
+    .eq("template", template)
+    .eq("period", month)
     .maybeSingle();
   if (!report) notFound();
 

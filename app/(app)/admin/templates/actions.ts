@@ -21,6 +21,10 @@ const FIELDS = [
   "{service}",
   "{issued}",
   "{ends}",
+  // The period a report covers (0276). The cover note said which
+  // authorization it was about and not which month, which reads as the wrong
+  // document when an authorization runs to December.
+  "{month}",
   "{me}",
   "{signature}",
 ];

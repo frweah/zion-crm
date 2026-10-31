@@ -78,7 +78,7 @@ async function handle(request: NextRequest) {
         ? admin.from("client_weekly_reports").select("client_id, status").eq("week_start", week)
         : Promise.resolve({ data: [] as { client_id: string; status: string }[] }),
       month
-        ? admin.from("client_monthly_reports").select("client_id, status").eq("month", month)
+        ? admin.from("client_reports").select("client_id, status").eq("template", "Monthly client report").eq("period", month)
         : Promise.resolve({ data: [] as { client_id: string; status: string }[] }),
     ]);
     return NextResponse.json({
