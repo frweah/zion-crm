@@ -32,6 +32,7 @@ import {
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { formsLabel, periodLabel, type ItemRow } from "@/lib/billing-items";
 import { WhatsNext, StatusLine, type NextAction } from "./whats-next";
+import { ChatMentions, type Mention } from "./chat-mentions";
 import { COACHING_CODES, CAN_LOG_HOURS, isCoachingService } from "@/lib/constants";
 import type { BillOption, VisitAuth } from "./record-actions";
 import { TextingPanel, type ConsentRow, type TextRow } from "./texting-panel";
@@ -448,6 +449,15 @@ export default async function ClientPage({
           .limit(300)
       : { data: [] };
 
+    // Where a staff thread named this person (0274). A link, never the words:
+    // the thread belongs to the people in it until one of them files it.
+    const { data: mentions } = await supabase
+      .from("client_chat_mentions")
+      .select("message_id, conversation_id, created_at, sender_label, thread")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
     const next = String(window ?? new Date().toISOString());
     return (
       <>
@@ -468,6 +478,11 @@ export default async function ClientPage({
         />
         <p className="lock" style={{ marginTop: 12 }}>
           Texts go out between 8am and 9pm, to the agreed number.</p>
+        <ChatMentions
+          clientId={id}
+          clientName={detail.name}
+          mentions={(mentions ?? []) as Mention[]}
+        />
         {(canEdit || canSeeRestricted) && (
           <PortalPanel
             clientId={id}

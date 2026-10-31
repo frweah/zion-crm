@@ -192,6 +192,53 @@ if (!newest(/function public\.remove_message\(/)) {
   }
 }
 
+// ── the screens that call all of this ────────────────────────
+// Three things the SQL cannot hold on its own, because they are decisions the
+// screen makes before it calls anything.
+const app = new URL("../app/(app)/", import.meta.url);
+const read = async (path) => {
+  try {
+    return await readFile(new URL(path, app), "utf8");
+  } catch {
+    return "";
+  }
+};
+
+// A # chip is sent as a reference. A screen that put the client's name in the
+// body and nothing in p_clients would look identical to somebody typing and
+// leave the client's record knowing nothing.
+const chatActions = await read("messages/actions.ts");
+if (!/p_clients:/.test(chatActions)) {
+  fail("sending a message passes no clients, so a # chip reaches nobody's record");
+} else if (!/formData\.getAll\("client"\)/.test(chatActions)) {
+  fail("the clients sent with a message do not come from the composer's chips");
+} else {
+  ok("a # chip is sent as a reference, from the composer that made it");
+}
+
+// Filing is a copy. A screen that removed the message after filing it would
+// pass every database assertion, because the database is not asked to stop it.
+const fileActions = await read("team/file-actions.ts");
+if (!/file_message_to_client/.test(fileActions) || !/file_chat_file_to_client/.test(fileActions)) {
+  fail("File to client is not wired to the functions that check its rules");
+} else if (/remove_message|delete\(\)/.test(fileActions)) {
+  fail("filing a message to a client also removes it; filing is a copy");
+} else {
+  ok("File to client copies onto the record and takes nothing out of the thread");
+}
+
+// A dropped file is attached by reference, like everything else. A screen
+// sending the storage path in the message body would be a second copy by
+// another name.
+const pane = await read("team-pane.tsx");
+if (!/record_chat_file|recordDroppedFile/.test(pane)) {
+  fail("the pane takes no dropped file, so dragging one in does nothing");
+} else if (!/kind: "chat_file"/.test(pane)) {
+  fail("a dropped file is not attached by reference");
+} else {
+  ok("a dropped file is uploaded first and then attached by reference");
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

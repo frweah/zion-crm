@@ -341,6 +341,12 @@ const RPC_FUNCTIONS = [
   "authorizations_ending_soon",
   // Nothing heard about an application for a fortnight (0270).
   "mark_applications_with_no_reply",
+  // Team chat (0272-0275): filing a message or a dropped file on a client,
+  // recording a file, and taking a message off the screen.
+  "file_message_to_client",
+  "file_chat_file_to_client",
+  "record_chat_file",
+  "hide_message",
   "placement_clock_started",
   "referral_received_on",
   "notify_person",

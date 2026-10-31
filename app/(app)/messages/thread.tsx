@@ -15,6 +15,8 @@ import {
   type ChatState,
   type ChatAttachment,
 } from "./actions";
+import { FileToClient } from "../team/file-to-client";
+import { findClients, type Found } from "../search-actions";
 
 const initial: ChatState = { error: null, ok: null };
 
@@ -138,6 +140,9 @@ export function MessageActions({ messageId, body, createdAt }: { messageId: stri
 
   return (
     <div className="chat-actions">
+      {/* A message onto a client's record, with the category chosen. The
+          message stays here (0274). */}
+      <FileToClient messageId={messageId} />
       {stillEditable && (
         <button type="button" className="linkish" onClick={() => setEditing(true)}>
           Correct
@@ -232,6 +237,13 @@ export function Composer({
 
   const [body, setBody] = useState("");
   const [picking, setPicking] = useState<string | null>(null);
+  // Typing # and a name puts a client chip in the message (0274). The client
+  // is searched through the same search_clients the Ctrl+K box uses, so a
+  // thread is not holding the whole caseload in a list, and what this finds is
+  // what the rest of the CRM finds.
+  const [naming, setNaming] = useState<string | null>(null);
+  const [clientHits, setClientHits] = useState<Found[]>([]);
+  const [named, setNamed] = useState<Found[]>([]);
   // Where the caret goes once the name has been put in. It waits for the
   // textarea to actually hold the new text - set it any sooner and it lands in
   // the middle of what was there before.
@@ -264,7 +276,34 @@ export function Composer({
     const at = before.lastIndexOf("@");
     // Still inside the name being typed: no space has ended it yet.
     setPicking(at >= 0 && !/\s/.test(before.slice(at + 1)) ? before.slice(at + 1) : null);
+    // A client's name has spaces in it, so # runs to the end of what has been
+    // typed rather than to the first space. Two words is enough to search on
+    // and short of a sentence.
+    const hash = before.lastIndexOf("#");
+    const tail = hash >= 0 ? before.slice(hash + 1) : "";
+    setNaming(hash >= 0 && tail.split(/\s+/).length <= 3 ? tail : null);
   }
+
+  // A chip stays only while its name is still in the message, so deleting the
+  // words deletes the chip. The reference is what the client's record reads.
+  const standing = named.filter((c) => body.includes(`#${c.name}`));
+
+  useEffect(() => {
+    if (naming === null) {
+      setClientHits([]);
+      return;
+    }
+    let stale = false;
+    const timer = window.setTimeout(() => {
+      void findClients(naming).then((rows) => {
+        if (!stale) setClientHits(rows.slice(0, 6));
+      });
+    }, 150);
+    return () => {
+      stale = true;
+      window.clearTimeout(timer);
+    };
+  }, [naming]);
 
   useLayoutEffect(() => {
     if (caretAfter === null) return;
@@ -275,6 +314,18 @@ export function Composer({
     }
     setCaretAfter(null);
   }, [caretAfter, body]);
+
+  function insertClient(client: Found) {
+    const el = box.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? body.length;
+    const before = body.slice(0, caret);
+    const hash = before.lastIndexOf("#");
+    setBody(`${body.slice(0, hash)}#${client.name} ${body.slice(caret)}`);
+    setNaming(null);
+    setNamed((all) => (all.some((c) => c.id === client.id) ? all : [...all, client]));
+    setCaretAfter(hash + client.name.length + 2);
+  }
 
   function insertMention(name: string) {
     const el = box.current;
@@ -332,6 +383,9 @@ export function Composer({
       <input type="hidden" name="attachments" value={JSON.stringify(attached)} />
       {mentioned.map((p) => (
         <input key={p.id} type="hidden" name="mention" value={p.id} />
+      ))}
+      {standing.map((c) => (
+        <input key={c.id} type="hidden" name="client" value={c.id} />
       ))}
 
       {attached.length > 0 && (
@@ -419,17 +473,23 @@ export function Composer({
             rows={2}
             maxLength={8000}
             value={body}
-            placeholder="Write a message — @ to reach somebody in it"
+            placeholder="Write a message — @ for a colleague, # for a client"
             onChange={(e) => onBody(e.target.value, e.target.selectionStart ?? 0)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setPicking(null);
-              if (e.key === "Enter" && !e.shiftKey && suggestions.length === 0) {
+              if (e.key === "Escape") {
+                setPicking(null);
+                setNaming(null);
+              }
+              if (e.key === "Enter" && !e.shiftKey && suggestions.length === 0 && clientHits.length === 0) {
                 e.preventDefault();
                 form.current?.requestSubmit();
               }
               if (e.key === "Enter" && suggestions.length > 0) {
                 e.preventDefault();
                 insertMention(suggestions[0].name);
+              } else if (e.key === "Enter" && clientHits.length > 0) {
+                e.preventDefault();
+                insertClient(clientHits[0]);
               }
             }}
           />
@@ -439,6 +499,17 @@ export function Composer({
                 <li key={p.id}>
                   <button type="button" onClick={() => insertMention(p.name)}>
                     {p.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {suggestions.length === 0 && clientHits.length > 0 && (
+            <ul className="mention-menu" aria-label="Which client">
+              {clientHits.map((c) => (
+                <li key={c.id}>
+                  <button type="button" onClick={() => insertClient(c)}>
+                    {c.name}
                   </button>
                 </li>
               ))}

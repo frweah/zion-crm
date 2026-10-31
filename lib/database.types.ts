@@ -879,6 +879,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      chat_files: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          storage_path: string;
+          filename: string;
+          mime_type: string;
+          size_bytes: number;
+          uploaded_by: string | null;
+          uploaded_by_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          storage_path: string;
+          filename: string;
+          mime_type: string;
+          size_bytes: number;
+          uploaded_by?: string | null;
+          uploaded_by_name?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          storage_path?: string;
+          filename?: string;
+          mime_type?: string;
+          size_bytes?: number;
+          uploaded_by?: string | null;
+          uploaded_by_name?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       checklist_tasks: {
         Row: {
           id: string;
@@ -1680,6 +1716,7 @@ export type Database = {
           spam: boolean;
           portal_account_id: string | null;
           portal_read_seq: number;
+          system_key: string | null;
         };
         Insert: {
           id?: string;
@@ -1698,6 +1735,7 @@ export type Database = {
           spam?: boolean;
           portal_account_id?: string | null;
           portal_read_seq?: number;
+          system_key?: string | null;
         };
         Update: {
           id?: string;
@@ -1716,6 +1754,7 @@ export type Database = {
           spam?: boolean;
           portal_account_id?: string | null;
           portal_read_seq?: number;
+          system_key?: string | null;
         };
         Relationships: [];
       };
@@ -3075,6 +3114,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      message_moderation: {
+        Row: {
+          id: string;
+          message_id: string;
+          action: string;
+          reason: string;
+          at: string;
+          staff_id: string | null;
+          staff_name: string;
+        };
+        Insert: {
+          id?: string;
+          message_id: string;
+          action: string;
+          reason: string;
+          at?: string;
+          staff_id?: string | null;
+          staff_name: string;
+        };
+        Update: {
+          id?: string;
+          message_id?: string;
+          action?: string;
+          reason?: string;
+          at?: string;
+          staff_id?: string | null;
+          staff_name?: string;
+        };
+        Relationships: [];
+      };
       messages: {
         Row: {
           id: string;
@@ -3092,6 +3161,9 @@ export type Database = {
           removed_at: string | null;
           source_sms_id: string | null;
           mentions: string[];
+          client_mentions: string[];
+          hidden_at: string | null;
+          hidden_by: string | null;
         };
         Insert: {
           id?: string;
@@ -3109,6 +3181,9 @@ export type Database = {
           removed_at?: string | null;
           source_sms_id?: string | null;
           mentions?: string[];
+          client_mentions?: string[];
+          hidden_at?: string | null;
+          hidden_by?: string | null;
         };
         Update: {
           id?: string;
@@ -3126,6 +3201,9 @@ export type Database = {
           removed_at?: string | null;
           source_sms_id?: string | null;
           mentions?: string[];
+          client_mentions?: string[];
+          hidden_at?: string | null;
+          hidden_by?: string | null;
         };
         Relationships: [];
       };
@@ -6484,6 +6562,17 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_chat_mentions: {
+        Row: {
+          message_id: string | null;
+          conversation_id: string | null;
+          client_id: string | null;
+          created_at: string | null;
+          sender_label: string | null;
+          thread: string | null;
+        };
+        Relationships: [];
+      };
       client_documents: {
         Row: {
           id: string | null;
@@ -7204,6 +7293,10 @@ export type Database = {
         Args: { p_conversation_id: string | null; p_reason?: string | null };
         Returns: undefined;
       };
+      file_chat_file_to_client: {
+        Args: { p_file: string | null; p_client: string | null; p_path: string | null; p_category: string | null };
+        Returns: string;
+      };
       file_document_as_note: {
         Args: { p_doc: string | null; p_type: string | null; p_at: string | null; p_dated_from: string | null; p_text: string | null; p_category?: string | null; p_restricted?: boolean | null; p_outcome?: string | null; p_ocr?: boolean | null };
         Returns: { note_id: string | null; attachment_id: string | null; created: boolean | null }[];
@@ -7215,6 +7308,10 @@ export type Database = {
       file_mail_to_client: {
         Args: { p_client: string | null; p_messages?: Json | null; p_thread?: string | null; p_how?: string | null };
         Returns: { filed: number | null; moved: number | null }[];
+      };
+      file_message_to_client: {
+        Args: { p_message: string | null; p_client: string | null; p_category: string | null };
+        Returns: string;
       };
       fmt_hours: {
         Args: { n: number | null };
@@ -7259,6 +7356,10 @@ export type Database = {
       have_my_signature: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      hide_message: {
+        Args: { p_message: string | null; p_hidden: boolean | null; p_reason: string | null };
+        Returns: undefined;
       };
       hqi_for_placement: {
         Args: { p_placement: string | null };
@@ -7721,7 +7822,7 @@ export type Database = {
         Returns: string;
       };
       post_message: {
-        Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null };
+        Args: { p_conversation: string | null; p_body: string | null; p_attachments?: Json | null; p_mentions?: string[] | null; p_clients?: string[] | null };
         Returns: string;
       };
       post_portal_reply: {
@@ -7775,6 +7876,10 @@ export type Database = {
       record_1099_delivery: {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
         Returns: undefined;
+      };
+      record_chat_file: {
+        Args: { p_conversation: string | null; p_path: string | null; p_filename: string | null; p_mime: string | null; p_size: number | null };
+        Returns: string;
       };
       record_disposition: {
         Args: { p_client: string | null; p_action: string | null; p_reason: string | null };

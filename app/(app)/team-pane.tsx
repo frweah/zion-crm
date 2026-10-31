@@ -5,6 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { sendChatMessage, markRead, type ChatState } from "./messages/actions";
 import { useActionState } from "react";
+import { recordDroppedFile } from "./team/drop-file";
+import { FileToClient } from "./team/file-to-client";
+import { TeamsMeetingButton } from "./team/meeting-button";
 
 /**
  * Team chat, over whatever page is open (owner, 30 Oct 2026).
@@ -68,6 +71,11 @@ export function TeamPane({ myId }: { myId: string }) {
   const [state, send, sending] = useActionState(sendChatMessage, initial);
   const bottom = useRef<HTMLDivElement | null>(null);
   const form = useRef<HTMLFormElement | null>(null);
+  // Files dropped or pasted into this thread but not sent yet. They go with
+  // the next message, by reference, which is 0106's rule kept.
+  const [carrying, setCarrying] = useState<{ id: string; name: string }[]>([]);
+  const [dropping, setDropping] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
 
   // ── the list ───────────────────────────────────────────────
   const loadThreads = useCallback(async () => {
@@ -145,6 +153,50 @@ export function TeamPane({ myId }: { myId: string }) {
     void loadThreads();
   }, [loadThreads]);
 
+  // The browser puts the bytes in storage and then says what it put there:
+  // a 50 MB file cannot go through a server action, which is the lesson of
+  // every upload on this system.
+  const take = useCallback(
+    async (files: File[], conversationId: string) => {
+      setDropError(null);
+      setDropping(true);
+      try {
+        const supabase = createClient();
+        for (const file of files.slice(0, 5)) {
+          const safe = file.name.replace(/[^\w.-]+/g, "-");
+          const path = `threads/${conversationId}/${Date.now()}-${safe}`;
+          const { error } = await supabase.storage
+            .from("chat-files")
+            .upload(path, file, { contentType: file.type || undefined, upsert: false });
+          if (error) {
+            setDropError(error.message);
+            continue;
+          }
+          const recorded = await recordDroppedFile(
+            path,
+            conversationId,
+            file.name,
+            file.type,
+            file.size,
+          );
+          if (recorded.error) {
+            // The row was refused, so the bytes should not sit in the bucket
+            // pretending to be a file somebody sent.
+            await supabase.storage.from("chat-files").remove([path]);
+            setDropError(recorded.error);
+            continue;
+          }
+          if (recorded.id) {
+            setCarrying((all) => [...all, { id: recorded.id!, name: recorded.name ?? file.name }]);
+          }
+        }
+      } finally {
+        setDropping(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!open) return;
     void loadThreads();
@@ -199,6 +251,7 @@ export function TeamPane({ myId }: { myId: string }) {
   useEffect(() => {
     if (state.ok === "sent") {
       form.current?.reset();
+      setCarrying([]);
       if (current) void loadLines(current);
     }
   }, [state, current, loadLines]);
@@ -262,6 +315,7 @@ export function TeamPane({ myId }: { myId: string }) {
                     {l.edited_at && " · edited"}
                   </span>
                   <span>{l.removed_at ? <i>Taken back</i> : l.body}</span>
+                  {!l.removed_at && l.body && <FileToClient messageId={l.id} />}
                 </div>
               ))}
               <div ref={bottom} />
@@ -269,16 +323,59 @@ export function TeamPane({ myId }: { myId: string }) {
 
             {state.error && <div className="alert bad">{state.error}</div>}
 
-            <form action={send} ref={form}>
+            {dropError && <div className="alert bad">{dropError}</div>}
+
+            <form
+              action={send}
+              ref={form}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const files = Array.from(e.dataTransfer?.files ?? []);
+                if (files.length > 0) void take(files, thread.id);
+              }}
+              onPaste={(e) => {
+                const files = Array.from(e.clipboardData?.files ?? []);
+                if (files.length > 0) {
+                  e.preventDefault();
+                  void take(files, thread.id);
+                }
+              }}
+            >
               <input type="hidden" name="conversation_id" value={thread.id} />
-              <input type="hidden" name="attachments" value="[]" />
+              {/* By reference, the way a client's document is attached: the
+                  message carries the id of a file already in this thread. */}
+              <input
+                type="hidden"
+                name="attachments"
+                value={JSON.stringify(carrying.map((f) => ({ kind: "chat_file", id: f.id })))}
+              />
+              {carrying.length > 0 && (
+                <ul className="attach-row" aria-label="Going with this message">
+                  {carrying.map((f) => (
+                    <li key={f.id}>
+                      <span className="attach-chip">{f.name}</span>
+                      <FileToClient fileId={f.id} label="File to client" />
+                    </li>
+                  ))}
+                </ul>
+              )}
               <label className="field" htmlFor="pane-body">
                 Say it
-                <textarea id="pane-body" name="body" rows={2} required />
+                <textarea
+                  id="pane-body"
+                  name="body"
+                  rows={2}
+                  placeholder="Drag a file in, or paste one"
+                  required={carrying.length === 0}
+                />
               </label>
-              <button className="btn" type="submit" disabled={sending}>
-                {sending ? "Sending…" : "Say it"}
-              </button>
+              <div className="row2" style={{ gap: 6, alignItems: "center" }}>
+                <button className="btn" type="submit" disabled={sending || dropping}>
+                  {dropping ? "Adding the file…" : sending ? "Sending…" : "Say it"}
+                </button>
+                <TeamsMeetingButton conversationId={thread.id} subject={thread.title} />
+              </div>
             </form>
           </>
         )}

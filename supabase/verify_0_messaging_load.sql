@@ -49,6 +49,7 @@ declare
   v_ms numeric;
   v_best numeric;
   v_n integer;
+  v_kept integer;
   i integer;
   failures text[] := '{}';
 begin
@@ -57,6 +58,13 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   values (v_me_uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'zz-load-me@example.test', '{}', '{}', now(), now()),
          (v_other_uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'zz-load-other@example.test', '{}', '{}', now(), now());
+
+  -- The 50 this seeds, plus the groups the practice keeps and puts everybody
+  -- in: ZZ Load Me was joined to Everyone by a trigger the moment they were
+  -- hired (0272). Counted rather than written as 51, so the next kept group
+  -- does not break this again - and the query being timed below is still the
+  -- real one, over everything the person is actually in.
+  select count(*) into v_kept from public.conversations where system_key is not null;
 
   for i in 1..50 loop
     insert into public.conversations (kind, title, created_by) values ('internal', 'ZZ load ' || i, v_me) returning id into v_conv;
@@ -101,8 +109,8 @@ begin
      where p.staff_id = v_me and p.left_at is null;
     v_ms := extract(epoch from clock_timestamp() - v_t) * 1000;
     v_best := least(coalesce(v_best, v_ms), v_ms);
-    if v_n <> 50 then
-      failures := failures || format('FAILED: the conversation list gave %s, not 50', v_n)::text;
+    if v_n <> 50 + v_kept then
+      failures := failures || format('FAILED: the conversation list gave %s, not %s', v_n, 50 + v_kept)::text;
     end if;
   end loop;
   if v_best > 250 then

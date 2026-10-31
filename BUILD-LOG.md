@@ -7902,3 +7902,101 @@ prebuild. Twenty-seven faults injected, twenty-seven caught - three of them
 only after the check or the fault itself was corrected, and one "miss" that
 turned out to be Git Bash rewriting `/team` into a Windows path before the
 fault could be applied.
+
+## The rest of Team chat (30 Oct 2026)
+
+0272-0275 applied, and the half that needed them built: File to client, the #
+client chip, "mentioned in Team chat" on the record, dropping a file into a
+thread, and the Teams meeting button.
+
+### Two scripts in the suite broke, and both were right to
+
+**The load test counted 51 conversations where it expected 50.** The Everyone
+group is a real conversation the fixture's staff member is in, because the
+trigger put them there the moment they were hired. The assertion now expects
+50 plus however many groups the practice keeps, counted rather than written as
+51 - so the next kept group does not break it again, and the query being timed
+is still the real one over everything the person is actually in.
+
+**verify_staff_chat named `post_message(uuid, text, jsonb, uuid[])` by hand**,
+in a grant assertion, and 0274 gave the function a fifth parameter. So the
+script failed where it should have passed - which is the lucky direction.
+Written the other way round it would have been worse: an assertion about a
+function that is not there passes, quietly, for ever. It now asks the
+catalogue for every overload of each function it cares about, and asserts
+separately that `post_message` exists at exactly one signature.
+
+### File to client
+
+A message onto a client's record, with one of the eight categories chosen. A
+copy, not a move: the thread is what happened and the note is what the
+practice decided was worth keeping about a person. The note says whose words
+they were, because whoever reads it in six months is not whoever filed it.
+
+"Contact-log entry with category" needed reading. `contact_log` is the
+counselor contact log and has no category; the thing on a client's record that
+carries one of the eight and feeds the monthly report is `notes`. So it writes
+a note, and the report picks it up without anything else being changed.
+
+The client is searched through `search_clients` - the same matching the Ctrl+K
+box uses - rather than listed, so what this finds and what the rest of the CRM
+finds are the same thing, and a thread is not holding the whole caseload in a
+select.
+
+The category has no default. 0266 would fill one in from the client's stage,
+which is a guess, and 'Personal' narrows the note to Admin and Case Manager -
+not a decision anybody should make by leaving a field alone.
+
+A dropped file goes the same way, except that storage cannot be copied from
+SQL: the bytes are copied with the service key and then
+`file_chat_file_to_client` checks the rules and writes the attachment row. If
+the row is refused the copy is removed again, because a file sitting in the
+client's bucket with no attachment row is a document on somebody's record that
+the record does not know about.
+
+### The # chip
+
+Built on the @ machinery that was already in the composer rather than beside
+it: one caret rule, one menu, one keyboard behaviour. The difference is that a
+client's name has spaces in it, so # runs to the end of what has been typed
+rather than to the first space.
+
+A chip stays only while its name is still in the message, so deleting the words
+deletes the chip. What goes to the database is the id.
+
+And the client's record shows a **link and never the words**: who was talking,
+which thread, when. Somebody naming a client in a thread is not writing a note
+about them - the conversation belongs to the people in it until one of them
+decides it belongs on the record and files it.
+
+### The Teams meeting button
+
+Through the person's own Graph connection, so the meeting is theirs. The CRM
+keeps the join link, in the thread and on the client's record, and nothing
+else: no recording, no transcript, no attendance.
+
+`OnlineMeetings.ReadWrite` is asked for separately, like Mail.Send and for the
+same reason - the owner grants it in Azure first and each person consents once
+on their own connection. Until then the button says "Not connected yet", which
+is read off the connection's scopes rather than discovered by calling Graph
+and showing somebody a Microsoft consent error page.
+
+### Three things only a static check can hold
+
+Each is a decision the screen makes before it calls anything, so the database
+cannot be asked to enforce it:
+
+A # chip is sent as a reference. A screen that put the client's name in the
+body and nothing in `p_clients` would look identical to somebody typing, and
+the client's record would know nothing.
+
+Filing is a copy. A screen that removed the message after filing it would pass
+every database assertion, because the database is not asked to stop it.
+
+A dropped file is attached by reference. A screen sending the storage path in
+the message body would be a second copy by another name.
+
+28 assertions in verify_team_chat.sql, 11 in check-team-chat.mjs, 125 verify
+scripts and 30 prebuild checks green. Seven more faults injected, seven
+caught - one after the fault itself was corrected, because removing an import
+is a compile error rather than something a check has to notice.

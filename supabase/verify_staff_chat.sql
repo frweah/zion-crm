@@ -46,6 +46,7 @@ declare
   v_dm     uuid;
   v_msg    uuid;
   v_n      integer;
+  v_fn     text;
   v_files  integer;
   v_txt    text;
   failures text[] := '{}';
@@ -281,11 +282,36 @@ begin
 
   -- ── nobody signed in ───────────────────────────────────────
   perform set_config('request.jwt.claims', '', true);
-  if has_function_privilege('anon', 'public.post_message(uuid, text, jsonb, uuid[])', 'execute')
-     or has_function_privilege('anon', 'public.search_messages(text, integer)', 'execute')
-     or has_function_privilege('anon', 'public.start_group_conversation(text, uuid[], uuid)', 'execute')
-     or has_function_privilege('anon', 'public.can_staff_see_restricted(uuid, uuid)', 'execute') then
-    failures := failures || 'FAILED: somebody not signed in can work the staff chat'::text;
+  -- The signatures are asked for rather than written down. This named
+  -- post_message(uuid, text, jsonb, uuid[]) by hand, and 0274 gave it a fifth
+  -- parameter for the clients a message names - so the assertion stopped
+  -- naming a function that exists and the script failed where it should have
+  -- passed. Written the other way round it would have been worse: an
+  -- assertion about a function that is not there passes, quietly, for ever.
+  --
+  -- Every overload, too. A second one left behind by an added parameter is
+  -- exactly the thing that arrives with a new function's grants.
+  for v_fn in
+    select p.oid::regprocedure::text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname in ('post_message', 'search_messages', 'start_group_conversation',
+                         'can_staff_see_restricted', 'hide_message', 'record_chat_file',
+                         'file_message_to_client')
+  loop
+    if has_function_privilege('anon', v_fn, 'execute') then
+      failures := failures || format('FAILED: somebody not signed in can call %s', v_fn)::text;
+    end if;
+  end loop;
+
+  -- And post_message is one function, not two. A defaulted parameter makes a
+  -- second one in Postgres, and four-argument calls then go to whichever the
+  -- planner prefers.
+  if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'post_message') <> 1 then
+    failures := failures || 'FAILED: post_message exists at more than one signature'::text;
+  else
+    raise notice 'ok  nobody signed out can work the staff chat, and post_message is one function';
   end if;
 
   if array_length(failures, 1) > 0 then

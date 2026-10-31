@@ -61,7 +61,7 @@ export async function addParticipant(_prev: ChatState, formData: FormData): Prom
     p_staff: String(formData.get("staff_id") ?? ""),
   });
   if (error) return { error: error.message, ok: null };
-  revalidatePath("/messages");
+  revalidatePath("/team");
   return { error: null, ok: "They are in." };
 }
 
@@ -80,7 +80,7 @@ export async function archiveConversation(formData: FormData): Promise<void> {
   const on = formData.get("archived") !== "no";
   const { error } = await supabase.rpc("archive_conversation", { p_conversation: id, p_archived: on });
   if (error) redirect(`/messages?error=${encodeURIComponent(error.message)}`);
-  revalidatePath("/messages");
+  revalidatePath("/team");
   redirect(on ? "/messages?archived=1" : `/messages?c=${id}`);
 }
 
@@ -100,9 +100,12 @@ export async function sendChatMessage(_prev: ChatState, formData: FormData): Pro
     p_body: String(formData.get("body") ?? ""),
     p_attachments: attachments as never,
     p_mentions: formData.getAll("mention").map(String),
+    // Clients named with a # chip (0274). References, so the client's record
+    // can link to the thread without carrying what was said.
+    p_clients: formData.getAll("client").map(String),
   });
   if (error) return { error: error.message, ok: null };
-  revalidatePath("/messages");
+  revalidatePath("/team");
   return { error: null, ok: "sent" };
 }
 
@@ -113,7 +116,7 @@ export async function editMessage(_prev: ChatState, formData: FormData): Promise
     p_body: String(formData.get("body") ?? ""),
   });
   if (error) return { error: error.message, ok: null };
-  revalidatePath("/messages");
+  revalidatePath("/team");
   return { error: null, ok: "saved" };
 }
 
@@ -123,7 +126,7 @@ export async function removeMessage(_prev: ChatState, formData: FormData): Promi
     p_message: String(formData.get("message_id") ?? ""),
   });
   if (error) return { error: error.message, ok: null };
-  revalidatePath("/messages");
+  revalidatePath("/team");
   return { error: null, ok: "removed" };
 }
 
@@ -162,5 +165,5 @@ export async function setDigest(formData: FormData): Promise<void> {
   } else {
     await supabase.from("staff_prefs").delete().eq("staff_id", me.id).eq("key", "messages:email_digest");
   }
-  revalidatePath("/messages");
+  revalidatePath("/team");
 }

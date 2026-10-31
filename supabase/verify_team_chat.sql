@@ -26,7 +26,7 @@ declare
   v_out   uuid; v_out_uid   uuid := gen_random_uuid();
   v_client uuid; v_conv uuid; v_everyone uuid;
   v_msg uuid; v_note uuid; v_file uuid; v_body text;
-  v_n integer; v_limit integer;
+  v_n integer; v_limit integer; v_att uuid;
   failures text[] := '{}';
 begin
   insert into public.staff (name, email, role, active)
@@ -316,6 +316,36 @@ begin
   exception when no_data_found then
     raise notice 'ok  a file is attached by reference, and only one from this thread';
   end;
+
+  -- ── a dropped file, filed on a client ─────────────────────
+  -- The bytes are copied by the screen, because storage cannot be copied from
+  -- SQL. This is the half that checks the rules and writes the row, and it is
+  -- called by a screen now rather than only by a test.
+  v_att := public.file_chat_file_to_client(
+    v_file, v_client, 'clients/' || v_client || '/zz-team.pdf', 'Other');
+  if (select client_id from public.attachments where id = v_att) <> v_client then
+    failures := failures || 'FAILED: filing a dropped file did not put it on the client'::text;
+  elsif (select filename from public.attachments where id = v_att) <> 'zz-team.pdf' then
+    failures := failures || 'FAILED: the filed document is not the file that was sent'::text;
+  elsif (select note from public.attachments where id = v_att) not like '%Team chat%' then
+    failures := failures || 'FAILED: the record does not say where the document came from'::text;
+  elsif not exists (select 1 from public.chat_files where id = v_file) then
+    failures := failures || 'FAILED: filing a dropped file took it out of the thread'::text;
+  else
+    raise notice 'ok  a dropped file is filed on a client, says where it came from, and stays in the thread';
+  end if;
+
+  -- And not by somebody outside the thread, who should not have been able to
+  -- read it in the first place.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_out_uid, 'role', 'authenticated')::text, true);
+  begin
+    perform public.file_chat_file_to_client(
+      v_file, v_client, 'clients/' || v_client || '/zz-theirs.pdf', 'Other');
+    failures := failures || 'FAILED: somebody outside the thread filed its file on a client'::text;
+  exception when insufficient_privilege then
+    raise notice 'ok  and only by somebody in the thread';
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin_uid, 'role', 'authenticated')::text, true);
 
   -- ── and the rate limit ────────────────────────────────────
   select per_minute into v_limit from public.chat_rate_limit();
