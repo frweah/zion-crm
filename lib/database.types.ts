@@ -4251,6 +4251,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      practice_health: {
+        Row: {
+          kind: string;
+          at: string;
+          ok: boolean;
+          detail: string;
+          recorded_by: string;
+        };
+        Insert: {
+          kind: string;
+          at?: string;
+          ok: boolean;
+          detail?: string;
+          recorded_by?: string;
+        };
+        Update: {
+          kind?: string;
+          at?: string;
+          ok?: boolean;
+          detail?: string;
+          recorded_by?: string;
+        };
+        Relationships: [];
+      };
       problem_reports: {
         Row: {
           id: string;
@@ -7521,7 +7545,7 @@ export type Database = {
         Returns: { subject: string | null; body: string | null }[];
       };
       mail_templates_for: {
-        Args: { p_client?: string | null; p_authorization?: string | null };
+        Args: { p_client?: string | null; p_authorization?: string | null; p_period?: string | null };
         Returns: { key: string | null; label: string | null; subject: string | null; body: string | null }[];
       };
       mark_applications_with_no_reply: {
@@ -7839,6 +7863,10 @@ export type Database = {
       post_web_reply: {
         Args: { p_conversation: string | null; p_body: string | null };
         Returns: number;
+      };
+      practice_health_summary: {
+        Args: Record<string, never>;
+        Returns: { verify_at: string | null; verify_ok: boolean | null; verify_detail: string | null; backup_at: string | null; backup_ok: boolean | null; backup_detail: string | null; graph_total: number | null; graph_expiring: number | null; graph_soonest: string | null; graph_failing: number | null; stale_count: number | null; billing_over_90: number | null; billing_over_90_amount: number | null; billing_oldest: string | null; reports_due: number | null; reports_sent: number | null; reports_overdue: number | null; reports_oldest_unsent: string | null }[];
       };
       practice_now: {
         Args: Record<string, never>;

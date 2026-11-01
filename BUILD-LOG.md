@@ -8122,3 +8122,127 @@ also where the knowledge of what a Graph scope is belongs.
 verify scripts and 31 prebuild checks. Fifteen faults injected, fifteen caught
 - one of them only after the check stopped walking the five families it knew
 and started asking what the templates actually name.
+
+## The practice says how it is (1 Nov 2026)
+
+One email, Monday morning, from service@ to every active Admin, with the seven
+things the owner asked for: the verification suite's result, the last backup
+fingerprint and its age, the Graph subscriptions and when they expire, the
+stale filter's count, billing older than ninety days, and the reports due,
+sent, overdue and oldest unsent.
+
+Five of the seven can be answered from the record at the moment the email is
+written. **Two could not, and that is why there is a table.**
+
+The verification suite needs database credentials and so is run by hand from a
+laptop - CLAUDE.md says so and it is right, it cannot run on Vercel. Nothing
+recorded that it had ever been run. An email with that line missing would have
+been an email missing the most important line; one that said "passing" without
+knowing would be worse. The backup fingerprint was the same: the script has
+existed since the restore drill and nothing has ever recorded that it ran.
+
+So the two things a person does by hand now leave a mark in
+`practice_health`, and the email reports the mark and its age rather than the
+thing. **"The suite passed on Thursday" is a claim this system can make; "the
+suite passes" is not**, and the email never makes it.
+
+`scripts/verify-all.mjs` is the one command for the suite. It counts rather
+than pipes, because `| tail` on a run of the suite shows the last few lines and
+hides a failure forty files earlier, which has happened here. And it records a
+failure as a failure but records *nothing* when it cannot reach the database,
+because "the suite failed" and "nobody could run the suite" are different
+things - the second shows up as the record ageing, which is exactly what it is.
+
+### What it found on its first real run
+
+**`verify_submission_gate.sql` failed, and was right to.** It logs ten hours
+dated five days back and then looks for the child authorization whose period is
+the current month. Five days before the first of November is October, so the
+hours landed on October's child and the script looked for November's.
+
+The assertion that caught it is the one that exists for this: *"the hours did
+not land on this month, so the check below proves nothing."* A check that
+proves nothing should say so, and it did. It had presumably been failing on the
+first five days of every month since it was written, and nobody had run the
+suite on one of those days.
+
+The fixture now asks for the month the hours were *worked* in, so it is right
+on every day of the month, and the message names the month it expected.
+
+### 07:00 Mountain, all year, once
+
+pg_cron thinks in UTC. Utah is UTC-6 from March to November and UTC-7 the rest
+of the year, so a job fixed at one UTC hour is 07:00 Mountain for half the year
+and 06:00 for the other half.
+
+The job fires at **13:00 and 14:00 UTC on a Monday** and the route sends only
+when the hour in Utah is 7 - which is exactly one of the two firings, whichever
+half of the year it is. Two http calls a week is cheaper than a quarterly
+conversation about why the email arrived at six.
+
+It goes to every active Admin. Admin is the role that answers for the practice,
+so somebody leaving is one row in the staff table rather than a setting
+nobody remembers to change.
+
+### What the email says, and what it refuses to say
+
+`lib/health-report.ts` has no imports, for the reason `lib/report-shape.ts`
+has none: the words are run by a check before every build rather than read.
+
+The subject names one thing when one thing is wrong and counts them when
+several are, because a subject that only ever said "1 thing to look at" would
+make a failing verify suite look the same as a fingerprint nobody has taken
+for a month.
+
+A full Stale view is reported and is **not** an alarm. It is a list to close
+when somebody has an afternoon, and an email that shouted about it every week
+would be an email nobody reads. What raises the subject is narrow: a failing
+suite, a suite over a week old, a failed or missing restore check, no mailbox
+connected, a subscription about to lapse, money over ninety days old, an
+overdue report.
+
+And nothing in it is a person. Counts, dates and a fingerprint - it can be read
+on a phone and forwarded without disclosing anybody, and the check asserts the
+body never says "client", "counselor" or "staff".
+
+### check-scheduler, which was asked for by name and did not exist
+
+The same rule as `check-checks`, about a different roster: every route under
+`app/api/cron/` is either scheduled - by a migration or by an `enable_*.sql` -
+or named in the script with the reason it is not. `file-the-queue` is the one
+exception and says why: it is a one-off the owner runs when the document queue
+has built up, and putting it on a timer would be a decision nobody asked for.
+
+It also asserts that every scheduled URL reaches a route that exists, because
+**a typo in a cron URL is a job that posts into nothing, every quarter hour,
+for ever, and the database shows it succeeding** - a 404 is a response.
+
+The live half is `verify_scheduler.sql`, which asks the database rather than
+the repository. Its first run found what it exists to find: `zion-monday-health`
+was written, committed and not scheduled. An `enable_*.sql` that nobody runs is
+the quietest failure in this system, and now the suite says so.
+
+It also asserts no job holds `YOUR-APP-URL` or `YOUR-CRON-SECRET`, which is the
+other way an enable script goes wrong, and that nothing is scheduled that is in
+no file - a job somebody added by hand runs for years without appearing
+anywhere.
+
+`scripts/enable-schedule.mjs` fills the two placeholders in from the
+environment, in memory, between reading the file and sending the statement. It
+prints the job names and cron lines and never the command, because the command
+contains the secret.
+
+### Two assertions of my own that could not tell anything apart
+
+"four days ago is read as four days" passed whether the arithmetic rounded down
+or up, because four days is four either way. It uses a gap that is not a whole
+number of days now.
+
+"a never-taken fingerprint reaches the subject" passed because the fixture had
+the verify suite unrun too, so the subject was never going to say all clear.
+The fixture now leaves only the fingerprint unknown.
+
+14 assertions in verify_scheduler.sql, 4 in check-scheduler.mjs, 9 in
+check-health-report.mjs, 127 verify scripts and 33 prebuild checks. Sixteen
+faults injected, sixteen caught - two of them only after the assertion was made
+able to tell the difference.

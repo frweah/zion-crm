@@ -21,7 +21,9 @@
  * hash; the fingerprint can be mailed, committed or pasted into a ticket
  * without disclosing anything.
  */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { hostname, userInfo } from "node:os";
 import pg from "pg";
 
 const compareTo = process.argv.includes("--compare")
@@ -109,8 +111,6 @@ for (const { table } of tables) {
   totalRows += Number(rows[0].rows);
 }
 
-await client.end();
-
 const taken = {
   host: config.host,
   at: new Date().toISOString(),
@@ -120,7 +120,44 @@ const taken = {
   fingerprint,
 };
 
+/**
+ * A mark that it ran, for the Monday email (0278).
+ *
+ * The fingerprint itself is a file somebody keeps; what the practice needs to
+ * know on a Monday is when one was last taken and whether the comparison
+ * passed. One short digest over the whole fingerprint goes in the detail, so
+ * two runs can be told apart at a glance without reading the JSON.
+ *
+ * Best effort: this script's job is to produce a fingerprint under whatever
+ * pressure the day it is needed brings, and failing to write a note about
+ * itself is not a reason to fail that.
+ */
+async function recordIt(ok, detail) {
+  try {
+    await client.query(
+      `insert into public.practice_health (kind, at, ok, detail, recorded_by)
+       values ('backup', now(), $1, $2, $3)
+       on conflict (kind) do update
+         set at = excluded.at, ok = excluded.ok,
+             detail = excluded.detail, recorded_by = excluded.recorded_by`,
+      [ok, detail.slice(0, 500), `${userInfo().username}@${hostname()}`.slice(0, 120)],
+    );
+  } catch (err) {
+    console.error(`  --  the run was not recorded: ${err.message}`);
+  }
+}
+
+/** One digest over the whole fingerprint, so two runs are distinguishable. */
+function shortDigest(of) {
+  return createHash("sha256").update(JSON.stringify(of)).digest("hex").slice(0, 12);
+}
+
 if (!compareTo) {
+  await recordIt(
+    true,
+    `fingerprint ${shortDigest(fingerprint)} — ${taken.tables} tables, ${taken.rows} rows on ${taken.host}`,
+  );
+  await client.end();
   console.log(JSON.stringify(taken, null, 2));
   process.exit(0);
 }
@@ -154,11 +191,23 @@ if (extra.length) console.error(`  FAILED  ${extra.length} tables are there that
 for (const d of differs) console.error(`  FAILED  ${d}`);
 
 if (missing.length || extra.length || differs.length) {
+  await recordIt(
+    false,
+    `the restore is not the database that was backed up: ${[...missing, ...extra, ...differs].slice(0, 3).join("; ")}`,
+  );
   console.error("");
   console.error("  The restore is not the database that was backed up. Do not cut over.");
   console.error("");
+  await client.end();
   process.exit(1);
 }
+
+await recordIt(
+  true,
+  `restore verified against ${before.at} — ${same.length} tables match, fingerprint ${shortDigest(fingerprint)}`,
+);
+
+await client.end();
 
 console.log("");
 console.log("--- RESTORE VERIFIED ---");

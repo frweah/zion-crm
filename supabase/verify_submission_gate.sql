@@ -248,15 +248,25 @@ begin
   values (v_client, 'V0000902', 'Job Coaching', 10, 'Hourly', 45, 'Authorized',
           public.practice_today() - 60, public.practice_today() + 30)
   returning id into v_hourly;
-  -- Hours logged against the authorization land on the month they were worked
-  -- (0171), so logging ten here opens this month and puts them on it.
+  -- Hours logged against the authorization land on the month they were
+  -- *worked* (0171), which is not always this month: five days before the
+  -- first of November is October.
+  --
+  -- This looked for the child whose period is the current month and failed on
+  -- 1 November 2026, which is the first time the suite had been run on one of
+  -- the first five days of a month. The assertion was right and the fixture
+  -- was wrong - it is here because a check that proves nothing should say so,
+  -- and it did.
   insert into public.service_entries (auth_id, date, hours)
   values (v_hourly, public.practice_today() - 5, 10);
   select id into v_child from public.authorizations
-   where parent_id = v_hourly and period = date_trunc('month', public.practice_today())::date;
+   where parent_id = v_hourly
+     and period = date_trunc('month', (public.practice_today() - 5)::timestamp)::date;
   if v_child is null or (select coalesce(sum(e.hours), 0) from public.service_entries e
                           where e.auth_id = v_child) <> 10 then
-    failures := failures || 'FAILED: the hours did not land on this month, so the check below proves nothing'::text;
+    failures := failures || format(
+      'FAILED: the ten hours did not land on %s, so the check below proves nothing',
+      to_char(public.practice_today() - 5, 'FMMonth YYYY'))::text;
   end if;
 
   -- Over the authorized hours cannot be reached by logging - the cap refuses
