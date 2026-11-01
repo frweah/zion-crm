@@ -8246,3 +8246,41 @@ The fixture now leaves only the fingerprint unknown.
 check-health-report.mjs, 127 verify scripts and 33 prebuild checks. Sixteen
 faults injected, sixteen caught - two of them only after the assertion was made
 able to tell the difference.
+
+## A subscription is not late at three days (1 Nov 2026)
+
+The first dry run of the Monday email reported all four Graph subscriptions as
+about to lapse, and put it in the subject line. Nothing was wrong with any of
+them.
+
+0278 called a subscription expiring when it had less than three days left, and
+the reasoning written into the comment was that the renewer runs every quarter
+hour, so three days is three hundred chances to renew. That is true and it is
+the wrong thing to reason about. **Microsoft's maximum lifetime for a mail
+subscription is 70 hours**, so a subscription renewed one minute ago has less
+than three days left and the threshold sat above the longest a healthy one can
+live. It would have raised the same alarm every Monday for ever.
+
+Measured: four subscriptions, lifetime 70.0 hours each, all renewed that
+morning, 55 hours left apiece.
+
+Six hours now. Twenty-four passes of the renewer, and still most of a working
+day's warning before anything lapses. The lesson is the one about defaults
+being the dull case, in a different guise - a threshold has to be chosen
+against what the thing being measured normally does, and this one was chosen
+against how often something else runs.
+
+`verify_scheduler.sql` asserts it, against the subscriptions actually on file
+rather than against the number 70, so a change at Microsoft's end shows up as a
+threshold that has stopped making sense rather than as a weekly false alarm
+nobody can explain.
+
+**And the assertion did not work the first time.** It computed the six hours
+itself, from the table, so faulting the function back to three days changed
+nothing - it was measuring its own copy of the rule. It reads
+`practice_health_summary`'s own answer now, and the fault is caught.
+
+One other thing the dry run showed, which is the system working rather than a
+fault: 19 monthly reports for October, drafted at 12:50 UTC that morning by
+`zion-reports` because it was the first in Utah, due 5 November. The first
+production write to the table 0276 renamed.

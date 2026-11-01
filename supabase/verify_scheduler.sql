@@ -34,6 +34,8 @@ declare
   ];
   v_name text;
   v_n integer;
+  v_stuck integer;
+  v_life numeric;
   failures text[] := '{}';
 begin
   -- ── every job the practice expects is there, and active ───
@@ -89,6 +91,39 @@ begin
   exception when others then
     failures := failures || format('FAILED: the health summary errors (%s): %s', sqlstate, sqlerrm);
   end;
+
+  -- ── a threshold below what the thing it measures does ─────
+  -- 0278 called a Graph subscription "expiring" with less than three days
+  -- left. Microsoft's maximum lifetime for one is 70 hours, so that threshold
+  -- sat above the longest a healthy subscription can live and reported all
+  -- four as about to lapse - in the subject line of the first dry run.
+  --
+  -- Asserted against the subscriptions actually on file rather than against
+  -- the number 70, so a change at Microsoft's end shows up here as a
+  -- threshold that has stopped making sense rather than as a weekly false
+  -- alarm nobody can explain.
+  select max(extract(epoch from (expires_at - coalesce(renewed_at, created_at))) / 3600)
+    into v_life from public.microsoft_subscriptions;
+  select count(*) into v_n from public.microsoft_subscriptions;
+
+  if v_n = 0 then
+    raise notice 'note  no subscriptions on file, so the expiry threshold cannot be checked against one';
+  elsif v_life is null then
+    raise notice 'note  no subscription says how long it was given';
+  else
+    -- The function's own answer, not the same question asked again here.
+    -- Written the second way first, and faulting the function to three days
+    -- changed nothing: the assertion was measuring its own copy of the rule.
+    select h.graph_expiring into v_stuck from public.practice_health_summary() h;
+    if v_stuck = v_n and v_n > 1 then
+      failures := failures || format(
+        'FAILED: every one of the %s subscriptions counts as stuck, which means the threshold is above the %s-hour life they are given',
+        v_n, round(v_life, 1));
+    else
+      raise notice 'ok  the expiry threshold is below the % hours a subscription is given, so a healthy one does not trip it',
+        round(v_life, 1);
+    end if;
+  end if;
 
   -- ── the two things only a person can record ───────────────
   -- Not a failure: an empty record is a true answer on a new database, and
