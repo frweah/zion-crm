@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { authorizationNumberLabel } from "@/lib/billing";
-import { money, today } from "@/lib/constants";
+import { money, today , PRACTICE_TZ } from "@/lib/constants";
 import { type DataRow } from "../data-table";
 import { WorklistTable } from "./worklist-table";
 
@@ -40,7 +40,7 @@ export type WorklistRow = {
 
 const monthOf = (period: string | null, long = false) =>
   period
-    ? new Date(`${period}T00:00:00`).toLocaleDateString("en-US", {
+    ? new Date(`${period}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
         month: long ? "long" : "short",
         year: long ? undefined : "numeric",
       })

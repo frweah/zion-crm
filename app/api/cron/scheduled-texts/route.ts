@@ -28,6 +28,22 @@ async function handle(request: NextRequest) {
   if (request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const result = await sendScheduledTexts(createAdminClient());
-  return NextResponse.json({ ran_at: new Date().toISOString(), ...result });
+  const admin = createAdminClient();
+  const result = await sendScheduledTexts(admin);
+  // And the other half of keeping the record honest: an outgoing text that
+  // has heard nothing back for five minutes is marked Not delivered and
+  // whoever wrote it is told (0280). Here rather than in a job of its own
+  // because this already runs every quarter hour and is already about texts
+  // that have not gone yet.
+  //
+  // The quarter hour is why a screen does not wait for this: a list shows
+  // "Not delivered" as soon as the five minutes are up, and the sweep is what
+  // writes it down and says so.
+  const { data: lapsed } = await admin.rpc("mark_texts_not_delivered");
+
+  return NextResponse.json({
+    ran_at: new Date().toISOString(),
+    ...result,
+    marked_not_delivered: lapsed ?? 0,
+  });
 }

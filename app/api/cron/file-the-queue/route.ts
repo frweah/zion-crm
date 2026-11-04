@@ -29,6 +29,10 @@ import { fileByName } from "@/lib/file-by-name";
  *   curl -H "Authorization: Bearer $CRON_SECRET" "https://APP/api/cron/file-the-queue?dry=1"
  */
 export const dynamic = "force-dynamic";
+
+/** The whole-practice "check these clients" item, named so it cannot block
+ *  the per-client chases that share its kind. See the call below. */
+const DOCUMENTS_FOLDER_ITEM = "440d5484-291a-7334-2abd-19502e379060";
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
@@ -121,7 +125,13 @@ async function handle(request: NextRequest) {
         p_task_title: `Check ${clients.length} client(s) whose filed documents name an authorization not on file`,
         p_due: null,
         p_level: "warn",
-        p_source: null,
+        // This one really is a single item for the whole practice rather than
+        // one per client, so it has no row to point at - but it shares the
+        // `authorization_missing` kind with the per-client chase, and an item
+        // naming nothing blocks every other item of its kind (0282). So it
+        // names itself: md5("documents-folder-backfill") as a uuid, stable
+        // across runs and distinct from any real id.
+        p_source: DOCUMENTS_FOLDER_ITEM,
       });
       raised = told ? told.message : "one task for intake";
     }

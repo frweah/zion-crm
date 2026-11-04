@@ -10,7 +10,7 @@ import { reportPeriodUnit, reportTemplateFromForm } from "@/lib/report-shape";
 import { monthlyReportPdf } from "@/lib/report-pdf";
 import { type MonthlyMeta } from "@/lib/report-text";
 import { signatureFor } from "@/lib/staff-signature";
-import { today } from "@/lib/constants";
+import { today , PRACTICE_TZ } from "@/lib/constants";
 
 export type MonthState = { error: string | null; ok: string | null };
 
@@ -197,7 +197,7 @@ export async function signMonth(_prev: MonthState, formData: FormData): Promise<
     };
   }
 
-  const stamp = new Date(`${month.month}T12:00:00Z`).toLocaleDateString("en-US", {
+  const stamp = new Date(`${month.month}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     month: "long",
     year: "numeric",
   });

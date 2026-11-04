@@ -2,6 +2,7 @@ import Link from "next/link";
 import { clientTabFor } from "@/lib/client-tabs";
 import { ExcludeThread } from "./calendar-tab";
 import { startClientThread } from "../../messages/actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 export type ActivityRow = {
   at: string;
@@ -68,7 +69,7 @@ function hrefFor(clientId: string, row: ActivityRow): string {
 }
 
 const dayOf = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", {
+  new Date(iso).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     weekday: "short",
     month: "short",
     day: "numeric",

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { disconnectMicrosoft, type MicrosoftState } from "./microsoft-actions";
 import { syncNow, type SyncState } from "./sync-actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: MicrosoftState = { error: null, ok: null };
 const syncInitial: SyncState = { error: null, ok: null };
@@ -79,7 +80,7 @@ function LastRun({
 
   const mail = Number(lastResult?.mail_logged ?? 0);
   const events = Number(lastResult?.events_pulled ?? 0);
-  const when = new Date(lastRun).toLocaleString();
+  const when = new Date(lastRun).toLocaleString("en-US", { timeZone: PRACTICE_TZ });
 
   if (lastResult?.last_error) {
     return (

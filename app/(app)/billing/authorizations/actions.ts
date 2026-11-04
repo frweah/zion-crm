@@ -8,7 +8,7 @@ import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, type Attachment } from "@/lib/email";
-import { today } from "@/lib/constants";
+import { today , PRACTICE_TZ } from "@/lib/constants";
 import { createForm } from "../../clients/[id]/forms/actions";
 
 /**
@@ -192,7 +192,7 @@ export async function submitAuthorization(
   }
 
   const period = rec.period
-    ? new Date(`${rec.period}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    ? new Date(`${rec.period}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long", year: "numeric" })
     : [rec.service_start, rec.service_end].filter(Boolean).join(" to ");
   const amount = Number(rec.amount ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
@@ -628,7 +628,7 @@ export async function correctPaymentDate(
   if (error) return refusal(error.message);
 
   done(id);
-  const moved = new Date(`${String(data ?? date)}T00:00:00`).toLocaleDateString("en-US", {
+  const moved = new Date(`${String(data ?? date)}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     month: "long",
     year: "numeric",
   });

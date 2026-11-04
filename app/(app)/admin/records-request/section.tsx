@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today } from "@/lib/constants";
+import { today , PRACTICE_TZ } from "@/lib/constants";
 import { DataTable } from "../../data-table";
 import { RequestForm } from "./request-form";
 
@@ -105,7 +105,7 @@ export default async function RecordsRequestPage() {
               asked: r.requested_on,
               whose: r.client_name,
               who: r.requested_by,
-              gathered: new Date(r.produced_at!).toLocaleDateString(),
+              gathered: new Date(r.produced_at!).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ }),
               by: r.produced_by_name,
               open: (
                 <Link className="btn" href={`/admin/documents/records-request/${r.id}`}>

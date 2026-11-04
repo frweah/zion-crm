@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { money } from "@/lib/constants";
+import { money , PRACTICE_TZ } from "@/lib/constants";
 import { DataTable, type DataRow } from "../../../data-table";
 import { takeBaseline, type BaselineState } from "../baseline-actions";
 
@@ -46,7 +46,7 @@ const asRate = (kept: number, known: number) =>
   known === 0 ? "not known yet" : `${kept} of ${known}`;
 
 const day = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
+  new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     year: "numeric",
     month: "short",
     day: "numeric",

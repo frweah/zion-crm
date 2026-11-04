@@ -281,3 +281,73 @@ export async function sendScheduledTexts(
   }
   return result;
 }
+
+/**
+ * Sending a text whose row already exists.
+ *
+ * `sendClientSms` writes the row and then sends it. A retry has the row
+ * already — the same row, because two rows would be two texts on the client's
+ * record for one thing somebody said once (0280) — so this is the second half
+ * of that function and nothing else.
+ *
+ * The gate runs again on the way out, as it does for a scheduled text: a
+ * client who withdrew consent since the first attempt is not texted on the
+ * retry.
+ */
+export async function resendRecorded(
+  supabase: SupabaseClient<Database>,
+  id: string,
+  params: {
+    phone: string;
+    body: string;
+    clientName: string;
+    clientId: string;
+    ghlId: string | null;
+  },
+): Promise<SendResult> {
+  const fail = async (error: string): Promise<SendResult> => {
+    await supabase
+      .from("sms_messages")
+      .update({ status: "Failed", error: error.slice(0, 300), claimed_at: null })
+      .eq("id", id);
+    return { ok: false, error, recorded: true };
+  };
+
+  // The gate, again. Consent can have gone since the first attempt.
+  const { data: consent } = await supabase
+    .from("client_sms_consent")
+    .select("can_text")
+    .eq("client_id", params.clientId)
+    .maybeSingle();
+  if (!consent?.can_text) {
+    return fail("Consent for that number has gone since, so it was not sent again.");
+  }
+
+  let contactId = params.ghlId ?? null;
+  if (!contactId) {
+    const found = await findContactByPhone(params.phone);
+    if (!found.ok) return fail(found.error);
+    contactId = found.data;
+  }
+  if (!contactId) {
+    const made = await upsertContact({ phone: params.phone, name: params.clientName });
+    if (!made.ok) return fail(made.error);
+    contactId = made.data;
+    await supabase.from("clients").update({ ghl_id: contactId }).eq("id", params.clientId);
+  }
+
+  const sent = await ghlSend({ contactId, message: params.body });
+  if (!sent.ok) return fail(sent.error);
+
+  await supabase
+    .from("sms_messages")
+    .update({
+      status: "Sent",
+      sent_at: new Date().toISOString(),
+      provider_message_id: sent.data || null,
+      error: "",
+    })
+    .eq("id", id);
+
+  return { ok: true, id };
+}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today } from "@/lib/constants";
+import { today , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { WorkTimer } from "../hours/work-timer";
 
@@ -40,7 +40,7 @@ export default async function TimeClockPage() {
         <div className="tile tile-lead">
           <span className="tile-label">{timer ? "Clocked in" : "Not clocked in"}</span>
           <span className="tile-value">
-            {timer ? new Date(timer.started_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}
+            {timer ? new Date(timer.started_at).toLocaleTimeString("en-US", { timeZone: PRACTICE_TZ, hour: "numeric", minute: "2-digit" }) : "—"}
           </span>
           <span className="tile-note">{timer ? "since" : "the clock is not running"}</span>
         </div>

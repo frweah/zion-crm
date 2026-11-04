@@ -5,7 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { startBilling, type VisitState } from "./clients/[id]/visit-actions";
 import { signaturePreview } from "./paperwork/signature-actions";
-import { today, serviceCode } from "@/lib/constants";
+import { today, serviceCode , PRACTICE_TZ } from "@/lib/constants";
 import { stageForService, dueDateFor } from "@/lib/crp-pathway";
 
 const initial: VisitState = { error: null, ok: null };
@@ -218,7 +218,7 @@ export function BillFlow({
                           <>
                             {" — "}
                             <span className={late ? "chip bad" : "chip"}>
-                              {new Date(`${due}T00:00:00`).toLocaleDateString("en-US", {
+                              {new Date(`${due}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
                                 month: "short",
                                 day: "numeric",
                               })}

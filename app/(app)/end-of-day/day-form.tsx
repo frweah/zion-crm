@@ -13,6 +13,7 @@ import {
   type DayState,
 } from "./actions";
 import { STATUSES } from "./day";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: DayState = { error: null, ok: null };
 
@@ -227,7 +228,7 @@ export function DayForm({
           <div>
             <span className="sub">Date Prepared</span>
             <div>
-              {new Date(`${day}T00:00:00`).toLocaleDateString("en-US", {
+              {new Date(`${day}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
                 month: "long",
                 day: "numeric",
                 year: "numeric",
@@ -439,7 +440,7 @@ export function DayForm({
           <ul>
             {events.map((e, i) => (
               <li key={i} className="sub">
-                {e.action} {new Date(e.at).toLocaleString()}
+                {e.action} {new Date(e.at).toLocaleString("en-US", { timeZone: PRACTICE_TZ })}
                 {e.reason ? ` — ${e.reason}` : ""}
               </li>
             ))}

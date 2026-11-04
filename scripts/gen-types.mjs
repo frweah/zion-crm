@@ -339,6 +339,11 @@ const RPC_FUNCTIONS = [
   "referrals_without_authorization",
   "record_referral_nudge",
   "authorizations_ending_soon",
+  // Texts that heard nothing back (0280).
+  "mark_texts_not_delivered",
+  "retry_text",
+  "record_incoming_sms",
+  "text_lapse_minutes",
   // The Monday health run (0278).
   "practice_health_summary",
   // Nothing heard about an application for a fortnight (0270).

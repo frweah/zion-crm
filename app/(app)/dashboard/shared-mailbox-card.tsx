@@ -7,6 +7,7 @@ import {
   type SharedState,
 } from "./shared-mailbox-actions";
 import { DataTable } from "../data-table";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: SharedState = { error: null, ok: null };
 
@@ -71,7 +72,7 @@ export function SharedMailboxCard({ mailboxes }: { mailboxes: SharedMailboxRow[]
               </>
             ),
             swept: m.last_run_at ? (
-              new Date(m.last_run_at).toLocaleString()
+              new Date(m.last_run_at).toLocaleString("en-US", { timeZone: PRACTICE_TZ })
             ) : (
               <span className="lock">Not swept yet.</span>
             ),

@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { DataTable, type DataRow } from "../../data-table";
 import { closeProblem, type ProblemState } from "../../report-problem-actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: ProblemState = { error: null, ok: null };
 
@@ -49,7 +50,7 @@ export function ProblemList({ rows }: { rows: ProblemRow[] }) {
     text: `${r.who} ${r.screen} ${r.what} ${r.note}`,
     sort: { when: r.created_at, who: r.who, state: r.resolved_at ?? "" },
     cells: {
-      when: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      when: new Date(r.created_at).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "short", day: "numeric" }),
       who: r.who,
       screen: r.screen || "—",
       what: (

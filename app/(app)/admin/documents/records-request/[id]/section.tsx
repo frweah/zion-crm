@@ -1,4 +1,5 @@
-/**
+
+import { PRACTICE_TZ } from "@/lib/constants";/**
  * One section of a gathered record.
  *
  * Rendered from whatever shape the database returned rather than from a fixed
@@ -31,7 +32,7 @@ function show(value: unknown): string {
   }
   const s = String(value);
   // ISO timestamps read badly in a document somebody is handing over.
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s).toLocaleString();
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s).toLocaleString("en-US", { timeZone: PRACTICE_TZ });
   return s;
 }
 

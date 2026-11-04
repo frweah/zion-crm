@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { authorizationNumberLabel } from "@/lib/billing";
-import { money, today } from "@/lib/constants";
+import { money, today , PRACTICE_TZ } from "@/lib/constants";
 import { DataTable } from "../data-table";
 import { CloseIt, CorrectPaidDate, EditEverything, RecordPayment } from "./authorizations/[id]/panel";
 
@@ -62,7 +62,7 @@ type Group = (typeof GROUPS)[number];
 
 const day = (d: string | null | undefined) =>
   d
-    ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", {
+    ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -71,7 +71,7 @@ const day = (d: string | null | undefined) =>
 
 const monthOf = (period: string | null) =>
   period
-    ? new Date(`${period}T00:00:00`).toLocaleDateString("en-US", { month: "long" })
+    ? new Date(`${period}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long" })
     : null;
 
 /** What a row is worth: what arrived, where something did, else what it comes to. */

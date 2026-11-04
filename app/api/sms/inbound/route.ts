@@ -27,6 +27,44 @@ export const dynamic = "force-dynamic";
  * the next one settles this from evidence — until then this casts a slightly
  * wider net, and null is an honest answer.
  */
+/**
+ * A picture sent with the text (1b).
+ *
+ * By shape, not by key name. All 238 inbound texts on file kept their payload
+ * and **not one has a media key of any kind** - so there is nothing to learn
+ * GoHighLevel's name for it from, and a list of five names guessed off other
+ * providers would be five guesses in a position of authority.
+ *
+ * What a media URL looks like is knowable without that: a string that is a
+ * URL, under a key that reads like media, at any depth. The first real
+ * picture message is either read correctly or arrives with its payload kept -
+ * which is where every other field in this webhook already stands.
+ */
+const MEDIA_KEY = /attach|media|image|photo|picture|file/i;
+const URLISH = /^https?:\/\/\S+$/i;
+
+function findMedia(value: unknown, depth = 0, underMediaKey = false): string | null {
+  if (depth > 5 || value === null || value === undefined) return null;
+
+  if (typeof value === "string") {
+    return underMediaKey && URLISH.test(value.trim()) ? value.trim() : null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findMedia(item, depth + 1, underMediaKey);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value !== "object") return null;
+
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    const found = findMedia(nested, depth + 1, underMediaKey || MEDIA_KEY.test(key));
+    if (found) return found;
+  }
+  return null;
+}
+
 function findMessageId(value: unknown, depth = 0): string | null {
   if (depth > 4 || !value || typeof value !== "object") return null;
   const obj = value as Record<string, unknown>;
@@ -110,6 +148,11 @@ export async function POST(request: NextRequest) {
     p_phone: phone,
     p_body: text,
     p_provider_id: findMessageId(body) ?? (pick(body, ["id"]) || null),
+    // The picture, where there is one (1b). Referenced: the media stays on the
+    // provider's side with the provider's retention, and a copy here would be
+    // a second place a client's photograph lives.
+    p_media: findMedia(body),
+    p_media_type: pick(body, ["mediaType", "media_type", "contentType", "content_type"]) || null,
     // Kept verbatim. What a provider sends is theirs to change, and the row it
     // arrived on is the only place the change will be visible afterwards.
     p_payload: body as never,

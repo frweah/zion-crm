@@ -1,5 +1,5 @@
 import "server-only";
-import { SERVICE_CODE } from "@/lib/constants";
+import { SERVICE_CODE , PRACTICE_TZ } from "@/lib/constants";
 import {
   addDays,
   mondayOf,
@@ -161,7 +161,7 @@ const dayOf = (stamp: string | null): string => (stamp ?? "").slice(0, 10);
  * `lib/report-text.ts` sidesteps the same way.
  */
 const day = (iso: string): string =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     day: "numeric",
     month: "short",
     year: "numeric",

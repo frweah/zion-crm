@@ -2,6 +2,7 @@ import "server-only";
 import { Pen, fold, printable, type Finished, type Signature } from "@/lib/pdf-page";
 import type { MonthlyContent } from "@/lib/report-drafts";
 import { monthlyReportLines, type MonthlyMeta } from "@/lib/report-text";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
  * The monthly report as the counselor receives it.
@@ -20,7 +21,7 @@ export type SignedReport = Finished;
 const DATE_COLUMN = 62;
 
 const day = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, day: "numeric", month: "short" });
 
 export async function monthlyReportPdf({
   month,

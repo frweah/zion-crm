@@ -10,6 +10,7 @@ import {
   type ContractorState,
 } from "./actions";
 import { DataTable } from "../../data-table";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: ContractorState = { error: null, ok: null };
 const initialFile: ContractorState & { filename?: string; contentBase64?: string } = {
@@ -264,7 +265,7 @@ export function RunPanel({
         <p className="sub" style={{ marginTop: 0 }}>
           {recipients.length} recipient{recipients.length === 1 ? "" : "s"} over{" "}
           {usd(Number(run.threshold))}, totalling {usd(total)}. Built{" "}
-          {new Date(run.generated_at).toLocaleString()}.
+          {new Date(run.generated_at).toLocaleString("en-US", { timeZone: PRACTICE_TZ })}.
           {undelivered > 0 && ` ${undelivered} still to send.`}
         </p>
         <FilingCsvButtons runId={run.id} />

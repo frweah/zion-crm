@@ -15,6 +15,7 @@ import {
 import { IdleWarning } from "./idle-warning";
 import { ResumeBuilder } from "./resume-builder";
 import type { ResumeData } from "@/lib/portal/resume";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
  * Every portal screen, drawn from what it is given. The pages fetch; these
@@ -445,7 +446,7 @@ export type PortalRequest = {
 };
 
 function dueText(due: string): string {
-  return new Date(`${due}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  return new Date(`${due}T12:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, weekday: "long", month: "long", day: "numeric" });
 }
 
 export function DocumentsView({ me, requests }: { me: PortalMe; requests: PortalRequest[] }) {

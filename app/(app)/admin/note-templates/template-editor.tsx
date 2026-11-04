@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { saveNoteTemplate, type TemplateState } from "./actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: TemplateState = { error: null, ok: null };
 
@@ -49,7 +50,7 @@ export function TemplateEditor({
             {pending ? "Saving…" : "Save"}
           </button>
           <span className="lock">
-            {updatedAt ? `Last changed ${new Date(updatedAt).toLocaleDateString()}` : "Never changed"}
+            {updatedAt ? `Last changed ${new Date(updatedAt).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ })}` : "Never changed"}
             {" · "}
             Clear the box to switch it off — the wording is kept.
           </span>

@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { makeMonth, type MonthState } from "./month-actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: MonthState = { error: null, ok: null };
 
 const title = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long", year: "numeric" });
 
 /** The month the scheduler missed, because the client arrived after the 1st. */
 export function MakeMonth({ clientId, month }: { clientId: string; month: string }) {

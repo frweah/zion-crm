@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
-import { money, fmtStamp, today } from "@/lib/constants";
+import { money, fmtStamp, today , PRACTICE_TZ } from "@/lib/constants";
 import { STATUS_MEANING, type AuthorizationStatus } from "@/lib/billing";
 import { RecordHeader } from "../../../record-header";
 import { AuthorizationFiles } from "../../../clients/[id]/authorization-files";
@@ -137,7 +137,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
     (f) => f.category === "Authorization" || f.category === "Signed USOR form",
   );
   const monthName = rec.period
-    ? new Date(`${rec.period}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    ? new Date(`${rec.period}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long", year: "numeric" })
     : null;
   const settled = rec.status === "Paid" || rec.status === "Closed";
 

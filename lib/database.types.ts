@@ -3167,6 +3167,8 @@ export type Database = {
           client_mentions: string[];
           hidden_at: string | null;
           hidden_by: string | null;
+          media_url: string | null;
+          media_type: string | null;
         };
         Insert: {
           id?: string;
@@ -3187,6 +3189,8 @@ export type Database = {
           client_mentions?: string[];
           hidden_at?: string | null;
           hidden_by?: string | null;
+          media_url?: string | null;
+          media_type?: string | null;
         };
         Update: {
           id?: string;
@@ -3207,6 +3211,8 @@ export type Database = {
           client_mentions?: string[];
           hidden_at?: string | null;
           hidden_by?: string | null;
+          media_url?: string | null;
+          media_type?: string | null;
         };
         Relationships: [];
       };
@@ -4708,6 +4714,8 @@ export type Database = {
           provider_payload: Json | null;
           send_after: string | null;
           claimed_at: string | null;
+          media_url: string | null;
+          media_type: string | null;
         };
         Insert: {
           id?: string;
@@ -4727,6 +4735,8 @@ export type Database = {
           provider_payload?: Json | null;
           send_after?: string | null;
           claimed_at?: string | null;
+          media_url?: string | null;
+          media_type?: string | null;
         };
         Update: {
           id?: string;
@@ -4746,6 +4756,8 @@ export type Database = {
           provider_payload?: Json | null;
           send_after?: string | null;
           claimed_at?: string | null;
+          media_url?: string | null;
+          media_type?: string | null;
         };
         Relationships: [];
       };
@@ -7560,6 +7572,10 @@ export type Database = {
         Args: { p_conversation: string | null; p_seq: number | null };
         Returns: undefined;
       };
+      mark_texts_not_delivered: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
       match_bank_transaction: {
         Args: { p_transaction: string | null; p_journal: string | null };
         Returns: undefined;
@@ -7582,7 +7598,7 @@ export type Database = {
       };
       message_inbox: {
         Args: { p_show?: string | null };
-        Returns: { conversation_id: string | null; kind: string | null; client_id: string | null; client_name: string | null; who: string | null; assigned_staff_id: string | null; assigned_name: string | null; last_message_at: string | null; last_body: string | null; unread: number | null; unmatched: boolean | null; spam: boolean | null; can_text: boolean | null }[];
+        Returns: { conversation_id: string | null; kind: string | null; client_id: string | null; client_name: string | null; who: string | null; assigned_staff_id: string | null; assigned_name: string | null; last_message_at: string | null; last_body: string | null; unread: number | null; unmatched: boolean | null; spam: boolean | null; can_text: boolean | null; last_sender_kind: string | null; last_sender: string | null; last_status: string | null; last_media_url: string | null; last_media_type: string | null }[];
       };
       messages_digest_due: {
         Args: Record<string, never>;
@@ -7921,7 +7937,7 @@ export type Database = {
         Returns: undefined;
       };
       record_incoming_sms: {
-        Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null };
+        Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null; p_media?: string | null; p_media_type?: string | null };
         Returns: { client_id: string | null; action: string | null }[];
       };
       record_my_mailbox_address: {
@@ -7979,6 +7995,10 @@ export type Database = {
       replace_placeholder_authorization: {
         Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
+      retry_text: {
+        Args: { p_id: string | null };
+        Returns: string;
       };
       reverse_journal: {
         Args: { p_journal: string | null; p_reason: string | null };
@@ -8127,6 +8147,10 @@ export type Database = {
       take_money_baseline: {
         Args: { p_as_of: string | null; p_label?: string | null };
         Returns: string;
+      };
+      text_lapse_minutes: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       timer_elapsed_hours: {
         Args: { p_started: string | null };

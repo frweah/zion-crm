@@ -3,7 +3,7 @@ import { can, ROLE_LABEL } from "@/lib/roles";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { refreshAlertsIfStale, getAlerts } from "@/lib/alerts";
-import { today, CAN_LOG_HOURS, money } from "@/lib/constants";
+import { today, CAN_LOG_HOURS, money , PRACTICE_TZ } from "@/lib/constants";
 import { myMailAccess } from "@/lib/mail-access";
 import { isLive } from "@/lib/billing";
 import { listCalendar, type CalendarItem } from "@/lib/calendar-view";
@@ -20,6 +20,7 @@ import { mailWaiting } from "../inbox-mail";
 import { markConversationRead, snoozeAlert } from "./day-actions";
 import { loadCaseload } from "@/lib/caseload";
 import { CaseloadSummary } from "../caseload-summary";
+import { lastLine } from "@/lib/text-rows";
 
 /**
  * The dashboard: the person's day, top to bottom (owner, 21 Sept 2026).
@@ -215,7 +216,22 @@ export default async function DashboardPage({
         kind: web ? ("Website" as const) : ("Text" as const),
         who: r.client_name || r.who || (web ? "A visitor" : "Unknown number"),
         unknown: unknownNumber ? { conversationId: r.conversation_id } : undefined,
-        what: (r.last_body ?? "").slice(0, 120),
+        // Which way the last message went, and who said it (1a). The unread
+        // count is of messages from them, and the last word in the thread can
+        // still be the practice's - so "unanswered" does not say which this
+        // is, and a picture with no words in it showed as an empty line.
+        what: (() => {
+          const { direction, who, words } = lastLine(
+            {
+              sender_kind: r.last_sender_kind,
+              sender: r.last_sender,
+              body: r.last_body,
+              media_url: r.last_media_url,
+            },
+            r.client_name || r.who || (web ? "a visitor" : "an unknown number"),
+          );
+          return `${direction === "In" ? "In" : `Out, ${who}`} · ${words}`.slice(0, 160);
+        })(),
         since: r.last_message_at ?? new Date().toISOString(),
         // A text is answered on the client's record, where consent and the
         // sending hours are checked; a website chat where it arrives.
@@ -372,7 +388,7 @@ export default async function DashboardPage({
       {/* The date, because "Today" on a screen somebody left open yesterday
           is not a heading, it is a claim (owner, 30 Sept 2026). */}
       <PageHead
-        title={`Today · ${new Date(`${day}T12:00:00`).toLocaleDateString("en-US", {
+        title={`Today · ${new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
           weekday: "long",
           month: "long",
           day: "numeric",

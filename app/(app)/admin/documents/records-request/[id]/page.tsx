@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
 import { RecordHeader } from "../../../../record-header";
 import { Section } from "./section";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
  * One client's record, gathered.
@@ -90,7 +91,7 @@ export default async function RecordsBundlePage({
       <RecordHeader
         back={BACK}
         title={`${request.client_name} — complete record`}
-        identity={[ORG.name, `gathered ${new Date().toLocaleDateString()} by ${me.name}`]}
+        identity={[ORG.name, `gathered ${new Date().toLocaleDateString("en-US", { timeZone: PRACTICE_TZ })} by ${me.name}`]}
         standing={`Requested by ${request.requested_by} on ${request.requested_on}`}
       />
 

@@ -1,4 +1,5 @@
 import { GENERAL, type PeriodContent, type ReportLine } from "./report-shape.ts";
+import { PRACTICE_TZ } from "./constants.ts";
 
 /**
  * The monthly report as words.
@@ -49,13 +50,13 @@ export type MonthlyMeta = {
 };
 
 const MONTH = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long", year: "numeric" });
 
 const DAY = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, day: "numeric", month: "short" });
 
 const LONG = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     day: "numeric",
     month: "long",
     year: "numeric",

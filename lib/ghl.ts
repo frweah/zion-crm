@@ -38,6 +38,14 @@ function headers(version: string): Record<string, string> {
   };
 }
 
+/**
+ * How long to wait for GoHighLevel before giving up on a call.
+ *
+ * Named once, here, because the timeout and the sentence a person reads when
+ * it fires have to agree about the number.
+ */
+const GHL_TIMEOUT_MS = 20_000;
+
 async function call<T>(
   path: string,
   version: string,
@@ -56,6 +64,18 @@ async function call<T>(
       ...init,
       headers: { ...headers(version), ...(init?.headers ?? {}) },
       cache: "no-store",
+      // **The fifteen stuck texts.** Every error from GoHighLevel comes back
+      // from here as a value, so a refusal is recorded as Failed with the
+      // reason. A hang is not an error: without a timeout this call waited,
+      // the serverless function was killed at its own limit, and the update
+      // that would have marked the row Failed never ran. Fifteen outgoing
+      // texts sat at "Queued" with no error between 29 October and 3
+      // November, eleven of them on the day GoHighLevel stopped answering.
+      //
+      // Twenty seconds: four times the slowest healthy call measured, and
+      // comfortably inside the function's own limit, so the catch below runs
+      // and the row says what happened.
+      signal: AbortSignal.timeout(GHL_TIMEOUT_MS),
     });
 
     const text = await res.text();
@@ -79,6 +99,15 @@ async function call<T>(
 
     return { ok: true, data: body as T };
   } catch (err) {
+    // A timeout reads as "TimeoutError: The operation was aborted due to
+    // timeout", which tells a person nothing about what to do. The practice's
+    // own sentence instead, naming the thing that did not answer.
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      return {
+        ok: false,
+        error: `GoHighLevel did not answer within ${GHL_TIMEOUT_MS / 1000} seconds.`,
+      };
+    }
     return {
       ok: false,
       error: err instanceof Error ? err.message : "The request could not be made.",

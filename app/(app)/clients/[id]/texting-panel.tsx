@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { setSmsConsent } from "./actions";
+import { retryText, assignTextThread } from "./text-actions";
+import { senderOf, statusOf } from "@/lib/text-rows";
 import { fmtStamp } from "@/lib/constants";
 import { DataTable } from "../../data-table";
 
@@ -23,9 +25,35 @@ export type TextRow = {
   error: string;
   sent_at: string | null;
   created_at: string;
+  /** The picture, where there is one. Referenced, never copied (0280). */
+  media_url: string | null;
+  /** Set once the provider has taken it, which is what stops a retry. */
+  provider_message_id: string | null;
+  created_by: string | null;
 };
 
 const initial = { error: null as string | null, ok: null as string | null };
+
+/**
+ * Retry, on a text that was given up on.
+ *
+ * It re-sends the same row. The database refuses it if the provider ever took
+ * the message, so the worst this button can do is tell somebody it will not
+ * do it (0280).
+ */
+function RetryText({ id, clientId }: { id: string; clientId: string }) {
+  const [state, action, pending] = useActionState(retryText, initial);
+  return (
+    <form action={action} style={{ display: "inline" }}>
+      <input type="hidden" name="text_id" value={id} />
+      <input type="hidden" name="client_id" value={clientId} />
+      <button type="submit" className="linkish" disabled={pending} style={{ marginLeft: 6 }}>
+        {pending ? "Sending…" : "Retry"}
+      </button>
+      {state.error && <span className="lock"> {state.error}</span>}
+    </form>
+  );
+}
 
 /**
  * Texting, on the client's record.
@@ -39,13 +67,21 @@ export function TextingPanel({
   clientName,
   consent,
   texts,
+  senders,
   canEdit,
+  thread,
+  staff,
 }: {
   clientId: string;
   clientName: string;
   consent: ConsentRow | null;
   texts: TextRow[];
+  /** Who each sender is, by id, so a row can say who sent it (1a). */
+  senders: Record<string, string>;
   canEdit: boolean;
+  /** The texting thread, once there is one to assign (1e). */
+  thread: { id: string; assigned_staff_id: string | null } | null;
+  staff: { id: string; name: string }[];
 }) {
   const [state, action, pending] = useActionState(setSmsConsent, initial);
   const [asking, setAsking] = useState(false);
@@ -64,6 +100,15 @@ export function TextingPanel({
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h3 style={{ margin: 0 }}>Texting</h3>
+          {thread && (
+            <AssignThread
+              conversationId={thread.id}
+              clientId={clientId}
+              assignedTo={thread.assigned_staff_id}
+              staff={staff}
+              canEdit={canEdit}
+            />
+          )}
           <p className="sub" style={{ margin: "4px 0 0" }}>
             {canText ? (
               <>
@@ -172,20 +217,43 @@ export function TextingPanel({
               cells: {
                 when: (
                   <span style={{ whiteSpace: "nowrap" }}>
+                    {/* Direction and who, on every row (1a). "In" and "Out"
+                        rather than the old "from them" / "to them", because
+                        the same two words have to read the same on the
+                        client's record and in the Inbox. */}
                     <span className={"chip " + (t.direction === "Incoming" ? "ok" : "")}>
-                      {t.direction === "Incoming" ? "from them" : "to them"}
+                      {t.direction === "Incoming" ? "In" : "Out"}
                     </span>
+                    <div className="lock">{senderOf(t, clientName, senders)}</div>
                     <div className="lock">{fmtStamp(t.sent_at ?? t.created_at)}</div>
                   </span>
                 ),
                 body: (
                   <>
                     {t.body}
-                    {t.status === "Failed" && (
-                      <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>
-                        not delivered — {t.error}
+                    {/* The picture, where there is one (1b). The provider's
+                        URL, so it keeps their retention and there is not a
+                        second copy of a client's photograph here. */}
+                    {t.media_url && (
+                      <div style={{ marginTop: 4 }}>
+                        <a href={t.media_url} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={t.media_url}
+                            alt="Picture sent with this text"
+                            style={{ maxWidth: 180, maxHeight: 180, borderRadius: "var(--radius)" }}
+                          />
+                        </a>
                       </div>
                     )}
+                    {(statusOf(t) === "Failed" || statusOf(t) === "Not delivered") && (
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--bad)" }}>
+                        {statusOf(t) === "Failed" ? "refused" : "not delivered"} —{" "}
+                        {t.error || "no status received from GHL"}
+                        {canEdit && !t.provider_message_id && <RetryText id={t.id} clientId={clientId} />}
+                      </div>
+                    )}
+                    {statusOf(t) === "Queued" && <div className="lock">sending…</div>}
                     {t.kind === "Reminder" && <div className="lock">appointment reminder</div>}
                   </>
                 ),
@@ -196,5 +264,65 @@ export function TextingPanel({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Who is answering this thread (1e).
+ *
+ * Shown whether or not the person looking may change it: knowing who is
+ * answering is the point, and a name with no control beside it is still the
+ * answer. The Inbox filters on the same field, so "Mine" there and this line
+ * cannot disagree.
+ */
+function AssignThread({
+  conversationId,
+  clientId,
+  assignedTo,
+  staff,
+  canEdit,
+}: {
+  conversationId: string;
+  clientId: string;
+  assignedTo: string | null;
+  staff: { id: string; name: string }[];
+  canEdit: boolean;
+}) {
+  const [state, action, pending] = useActionState(assignTextThread, initial);
+  const who = assignedTo ? (staff.find((s) => s.id === assignedTo)?.name ?? "somebody who has left") : "nobody";
+
+  if (!canEdit) {
+    return (
+      <p className="lock" style={{ margin: "4px 0 0" }}>
+        Answered by {who}
+      </p>
+    );
+  }
+
+  return (
+    <form action={action} className="row2" style={{ gap: 6, alignItems: "center", margin: "6px 0 0" }}>
+      <input type="hidden" name="conversation_id" value={conversationId} />
+      <input type="hidden" name="client_id" value={clientId} />
+      <label className="lock" htmlFor={`answered-by-${conversationId}`}>
+        Answered by
+      </label>
+      <select
+        id={`answered-by-${conversationId}`}
+        name="staff_id"
+        defaultValue={assignedTo ?? ""}
+        style={{ maxWidth: 170 }}
+      >
+        <option value="">Nobody</option>
+        {staff.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+      <button className="btn ghost" type="submit" disabled={pending} style={{ padding: "2px 10px" }}>
+        {pending ? "…" : "Change"}
+      </button>
+      {state.error && <span className="lock">{state.error}</span>}
+    </form>
   );
 }

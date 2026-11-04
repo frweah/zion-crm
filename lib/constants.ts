@@ -88,12 +88,31 @@ export const CAN_EDIT_CLIENTS = ["Admin", "Job Search", "Reports", "Job Coach", 
 /** Who may edit authorizations, the service log and invoices. canEditBilling. */
 export const CAN_EDIT_BILLING = ["Admin", "Billing"];
 
-/** Formats a timestamp the way the prototype's fmtStamp does. */
+/**
+ * A time, in the practice's own hours.
+ *
+ * `PRACTICE_TZ`, named, and not the viewer's zone or the server's. This read
+ * `toLocaleString(undefined, …)`, which has no zone in it at all - so on a
+ * server component, which is where almost every list in this system is
+ * rendered, it used the server's zone. On Vercel that is UTC, and **every
+ * timestamp on every list was six or seven hours ahead of the practice**: a
+ * text sent at four in the afternoon read as eleven at night, and an
+ * afternoon appointment read as the next day's.
+ *
+ * The same bug was fixed once before, for `today()` (dates stamped after
+ * supper landed on tomorrow). It was fixed for the date and not for the time.
+ *
+ * The zone is implied rather than printed: everybody reading this screen is in
+ * Utah, and "4:12 pm MST" on every row of every table is noise. Where a zone
+ * has to be unambiguous - an email leaving the practice - it is said in words
+ * by whatever writes the email.
+ */
 export function fmtStamp(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString("en-US", {
+    timeZone: PRACTICE_TZ,
     month: "short",
     day: "numeric",
     year: "numeric",

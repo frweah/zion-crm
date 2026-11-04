@@ -9,6 +9,7 @@
  * follows Pending (owner, 29 Sept 2026). "Closed" is not the end of the road
  * either - Paid is - which is why it sits apart from the run of statuses.
  */
+import { PRACTICE_TZ } from "@/lib/constants";
 export const ITEM_STATUSES = [
   "Referral received",
   "Authorization received",
@@ -96,7 +97,7 @@ export type ItemRow = {
 export function periodLabel(period: string | null): string {
   if (!period) return "one-off";
   const [y, m] = period.split("-");
-  return `${new Date(Number(y), Number(m) - 1, 1).toLocaleString("en-US", { month: "long" })} ${y}`;
+  return `${new Date(Number(y), Number(m) - 1, 1).toLocaleString("en-US", { timeZone: PRACTICE_TZ, month: "long" })} ${y}`;
 }
 
 /** USOR 95 and 93. Empty when the service has no form of its own. */

@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
  * The team's days, by person.
@@ -50,7 +51,7 @@ export default async function EndOfDayTeamPage({
     cells: {
       day: (
         <Link href={`/end-of-day?day=${d.day}&who=${d.staff_id}`}>
-          {new Date(`${d.day}T00:00:00`).toLocaleDateString("en-US", {
+          {new Date(`${d.day}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
             month: "short",
             day: "numeric",
           })}

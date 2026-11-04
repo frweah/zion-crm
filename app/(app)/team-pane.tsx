@@ -8,6 +8,7 @@ import { useActionState } from "react";
 import { recordDroppedFile } from "./team/drop-file";
 import { FileToClient } from "./team/file-to-client";
 import { TeamsMeetingButton } from "./team/meeting-button";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
  * Team chat, over whatever page is open (owner, 30 Oct 2026).
@@ -59,8 +60,8 @@ function when(iso: string | null): string {
     d.getMonth() === today.getMonth() &&
     d.getDate() === today.getDate();
   return sameDay
-    ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    ? d.toLocaleTimeString("en-US", { timeZone: PRACTICE_TZ, hour: "numeric", minute: "2-digit" })
+    : d.toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, day: "numeric", month: "short" });
 }
 
 export function TeamPane({ myId }: { myId: string }) {

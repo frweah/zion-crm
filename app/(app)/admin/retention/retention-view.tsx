@@ -10,6 +10,7 @@ import {
   type RetentionState,
 } from "./actions";
 import { DataTable } from "../../data-table";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: RetentionState = { error: null, ok: null };
 
@@ -55,8 +56,8 @@ export type Disposition = {
   disposed_at: string;
 };
 
-const date = (s: string | null) => (s ? new Date(s + "T12:00:00").toLocaleDateString() : "—");
-const stamp = (s: string) => new Date(s).toLocaleDateString();
+const date = (s: string | null) => (s ? new Date(s + "T12:00:00").toLocaleDateString("en-US", { timeZone: PRACTICE_TZ }) : "—");
+const stamp = (s: string) => new Date(s).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ });
 
 /**
  * One period, and whether anybody has checked it.

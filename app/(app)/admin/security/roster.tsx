@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { DataTable, type DataRow } from "../../data-table";
 import { clearSecondFactor, setTwoFactorRequired, type SecurityState } from "./actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: SecurityState = { error: null, ok: null };
 
@@ -31,7 +32,7 @@ export function TwoFactorRoster({ rows, required }: { rows: RosterRow[]; require
         <span className="sub">
           Set up
           {r.enrolledAt
-            ? ` ${new Date(r.enrolledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+            ? ` ${new Date(r.enrolledAt).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "short", day: "numeric" })}`
             : ""}
         </span>
       ) : (

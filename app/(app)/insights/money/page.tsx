@@ -3,7 +3,7 @@ import { can } from "@/lib/roles";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, today, daysBetween } from "@/lib/constants";
+import { money, today, daysBetween , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 import { Kpi as Stat, lastTwelveMonths } from "../kpi";
@@ -175,7 +175,7 @@ export default async function RevenuePage({
       };
     });
   const monthName = (m: string) =>
-    new Date(`${m}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    new Date(`${m}-01T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long", year: "numeric" });
   const received12 = byMonth.reduce((s, b) => s + b.received, 0);
   const earning = byMonth.filter((b) => b.received > 0);
   const monthlyAverage = earning.length ? received12 / earning.length : 0;

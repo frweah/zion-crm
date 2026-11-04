@@ -4,7 +4,7 @@ import { authorizationNumberLabel } from "@/lib/billing";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, CAN_LOG_HOURS } from "@/lib/constants";
+import { money, CAN_LOG_HOURS , PRACTICE_TZ } from "@/lib/constants";
 import {
   AddAuthorizationForm,
   ServiceEntryForm,
@@ -199,7 +199,7 @@ export default async function BillingPage({
             date: e.date,
             auth: a ? (
               <Link href={`/billing/authorizations/${a.id}`} style={{ color: "var(--teal)" }}>
-                {a.number || (a.period ? new Date(`${a.period}T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—")}
+                {a.number || (a.period ? new Date(`${a.period}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "short", year: "numeric" }) : "—")}
               </Link>
             ) : (
               "—"
@@ -251,7 +251,7 @@ export default async function BillingPage({
         <nav className="segmented no-print" aria-label="The month of hours shown">
           <Link href={`/billing?tab=hours&month=${shiftMonth(monthStart, -1)}`}>Earlier</Link>
           <span aria-current="page">
-            {new Date(`${monthStart}T00:00:00`).toLocaleDateString("en-US", {
+            {new Date(`${monthStart}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
               month: "long",
               year: "numeric",
             })}

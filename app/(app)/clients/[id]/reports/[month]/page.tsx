@@ -4,7 +4,7 @@ import { RecordHeader } from "../../../../record-header";
 import { requireStaff } from "@/lib/session";
 import { reportTemplateFromForm } from "@/lib/report-shape";
 import { createClient } from "@/lib/supabase/server";
-import { today } from "@/lib/constants";
+import { today , PRACTICE_TZ } from "@/lib/constants";
 import type { MonthlyContent } from "@/lib/report-drafts";
 import { draftMonthlySummary, monthlyReportLines } from "@/lib/report-text";
 import { MonthReport } from "./month-report";
@@ -84,7 +84,7 @@ export default async function ClientMonthPage({
     summary: report.note || drafted,
   });
 
-  const title = new Date(`${month}T12:00:00Z`).toLocaleDateString("en-US", {
+  const title = new Date(`${month}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
     month: "long",
     year: "numeric",
   });

@@ -951,6 +951,7 @@ export default async function ClientPage({
     consentResult,
     textsResult,
     intakeResult,
+    textThreadResult,
   ] = await Promise.all([
     // Restricted details come through the function that writes the access
     // log. It returns an "allowed" flag rather than a null, so the panel can
@@ -967,13 +968,26 @@ export default async function ClientPage({
       .maybeSingle(),
     supabase
       .from("sms_messages")
-      .select("id, direction, body, kind, status, error, sent_at, created_at")
+      .select(
+        "id, direction, body, kind, status, error, sent_at, created_at, media_url, provider_message_id, created_by",
+      )
       .eq("client_id", id)
       .order("created_at", { ascending: false })
       .limit(8),
     openIntake
       ? supabase.rpc("read_client_intake", { p_client_id: id, p_purpose: "opened the intake record" })
       : Promise.resolve({ data: null }),
+    // Who is looking after the texting (1e). The thread defaults to whoever
+    // the client is assigned to (0280) and can be pointed at somebody else per
+    // thread, so the thread is where it has to be visible - the Inbox shows it
+    // and filters on it, and somebody reading the record should not have to go
+    // there to find out who is answering.
+    supabase
+      .from("conversations")
+      .select("id, assigned_staff_id")
+      .eq("client_id", id)
+      .eq("kind", "sms")
+      .maybeSingle(),
   ]);
 
   const restricted = (privateResult.data ?? [])[0] ?? null;
@@ -1092,11 +1106,14 @@ export default async function ClientPage({
           </div>
 
           <TextingPanel
+            senders={Object.fromEntries(staffName)}
             clientId={id}
             clientName={detail.name}
             consent={(consentResult.data ?? null) as ConsentRow | null}
             texts={(textsResult.data ?? []) as TextRow[]}
             canEdit={canEdit}
+            thread={textThreadResult.data ?? null}
+            staff={staff.map((s) => ({ id: s.id, name: s.name }))}
           />
         </div>
       </div>

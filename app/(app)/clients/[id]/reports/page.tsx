@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { RecordHeader } from "../../../record-header";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today } from "@/lib/constants";
+import { today , PRACTICE_TZ } from "@/lib/constants";
 import { DataTable } from "../../../data-table";
 import { WeekCard, type WeekRow } from "./week-card";
 import { MakeWeek } from "./make-week";
@@ -158,7 +158,7 @@ export default async function ClientReportsPage({
                     <Link
                       href={`/clients/${id}/reports/${m.month.slice(0, 7)}?template=${encodeURIComponent(m.template)}`}
                     >
-                      {new Date(`${m.month}T12:00:00Z`).toLocaleDateString("en-US", {
+                      {new Date(`${m.month}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
                         month: "long",
                         year: "numeric",
                       })}

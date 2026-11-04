@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { SERVICE_TYPES, FUNDING_SOURCES } from "@/lib/constants";
+import { SERVICE_TYPES, FUNDING_SOURCES , PRACTICE_TZ } from "@/lib/constants";
 import {
   generateForm,
   markDue,
@@ -554,7 +554,7 @@ export function CorrectPaidDate({
 }) {
   const [state, action, pending] = useActionState(correctPaymentDate, EMPTY);
   const month = paidOn
-    ? new Date(`${paidOn}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    ? new Date(`${paidOn}T00:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, month: "long", year: "numeric" })
     : null;
   return (
     <form action={action} className="card">

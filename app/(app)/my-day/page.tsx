@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today, fmtStamp } from "@/lib/constants";
+import { today, fmtStamp , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../page-head";
 
 /**
@@ -163,7 +163,7 @@ export default async function MyDayPage() {
   return (
     <>
       <PageHead
-        title={`My day · ${new Date(`${day}T12:00:00`).toLocaleDateString("en-US", {
+        title={`My day · ${new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ,
           weekday: "long",
           month: "long",
           day: "numeric",

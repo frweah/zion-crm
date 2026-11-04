@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { fmtStamp, CAN_EDIT_CLIENTS } from "@/lib/constants";
+import { lastLine } from "@/lib/text-rows";
 import { PageHead } from "../../page-head";
 import { DataTable } from "../../data-table";
 import { AssignForm, UnmatchedActions, NotSpam } from "./inbox-forms";
@@ -206,7 +207,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                   </div>
                 </>
               ),
-              last: <span className="lock">{(r.last_body ?? "").slice(0, 120)}</span>,
+              last: <LastSaid row={r} them={r.client_name ?? r.who ?? ""} />,
               when: <span style={{ whiteSpace: "nowrap" }}>{r.last_message_at ? fmtStamp(r.last_message_at) : ""}</span>,
               assigned: canWork ? (
                 <AssignForm conversationId={r.conversation_id!} assignedTo={r.assigned_staff_id} staff={staffList} />
@@ -245,7 +246,9 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
               last: r.last_body ?? "",
               when: r.last_message_at ?? "",
             },
-            text: `${r.client_name ?? ""} ${r.who ?? ""} ${r.last_body ?? ""} ${r.assigned_name ?? ""} ${r.kind === "web" ? "website chat" : r.kind === "portal" ? "portal" : "text"}`,
+            text: `${r.client_name ?? ""} ${r.who ?? ""} ${r.last_body ?? ""} ${r.last_sender ?? ""} ${
+              r.last_sender_kind === "client" || r.last_sender_kind === "visitor" ? "in incoming" : "out outgoing"
+            } ${r.assigned_name ?? ""} ${r.kind === "web" ? "website chat" : r.kind === "portal" ? "portal" : "text"}`,
           }))}
           empty={
             show === "unmatched"
@@ -267,5 +270,61 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         Texts go out between 8am and 9pm, to clients who agreed.
       </p>
     </>
+  );
+}
+
+/**
+ * What was last said, and who said it (1a, 1b, 1c).
+ *
+ * A row used to carry the words alone, so "can you send that again" read the
+ * same whether the client had asked for it or the practice had offered. The
+ * direction and the name come from `lastLine`, which the client's Messages tab
+ * uses as well.
+ */
+function LastSaid({
+  row,
+  them,
+}: {
+  row: {
+    last_sender_kind: string | null;
+    last_sender: string | null;
+    last_body: string | null;
+    last_status: string | null;
+    last_media_url: string | null;
+    last_media_type: string | null;
+  };
+  them: string;
+}) {
+  const { direction, who, words } = lastLine(
+    {
+      sender_kind: row.last_sender_kind,
+      sender: row.last_sender,
+      body: row.last_body,
+      media_url: row.last_media_url,
+    },
+    them,
+  );
+  const picture = row.last_media_url && (row.last_media_type ?? "").startsWith("image/");
+
+  return (
+    <div className="row2" style={{ gap: 8, alignItems: "flex-start" }}>
+      {picture && (
+        // The provider's copy, not ours (0281). A thumbnail that does not load
+        // leaves the words, which is why the words say "a picture".
+        <a href={row.last_media_url!} target="_blank" rel="noopener noreferrer">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={row.last_media_url!}
+            alt="Picture sent with the text"
+            style={{ width: 38, height: 38, objectFit: "cover", borderRadius: 4, display: "block" }}
+          />
+        </a>
+      )}
+      <div>
+        <span className="chip">{direction}</span> <span className="lock">{who}</span>
+        <div className="lock">{words}</div>
+        {row.last_status === "failed" && <span className="chip bad">Not delivered</span>}
+      </div>
+    </div>
   );
 }

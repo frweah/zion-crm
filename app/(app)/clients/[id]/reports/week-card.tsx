@@ -8,6 +8,7 @@ import {
   saveWeekNote,
   type ReportState,
 } from "./actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
  * One week, as the person who did the work reads it.
@@ -33,7 +34,7 @@ export type WeekRow = {
 };
 
 const stamp = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, day: "numeric", month: "short" });
 
 export function WeekCard({
   clientId,

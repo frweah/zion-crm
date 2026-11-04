@@ -11,11 +11,12 @@ import {
   signMonth,
   type MonthState,
 } from "../month-actions";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: MonthState = { error: null, ok: null };
 
 const day = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: PRACTICE_TZ, day: "numeric", month: "short" });
 
 const moment = (iso: string) =>
   new Date(iso).toLocaleString("en-US", {

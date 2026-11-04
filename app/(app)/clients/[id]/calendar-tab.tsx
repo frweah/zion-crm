@@ -10,6 +10,7 @@ import {
 } from "./calendar-actions";
 import { excludeThread, type MailState } from "./mail-actions";
 import { TaskToggle, type TaskRow } from "./tasks-tab";
+import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: EventState = { error: null, ok: null };
 const mailInitial: MailState = { error: null, ok: null };
@@ -30,7 +31,7 @@ export type EventRow = {
 };
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString("en-US", {
+  new Date(iso).toLocaleString("en-US", { timeZone: PRACTICE_TZ,
     dateStyle: "medium",
     timeStyle: "short",
   });

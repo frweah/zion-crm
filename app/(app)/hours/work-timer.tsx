@@ -7,7 +7,7 @@ import {
   saveTimerSession,
   type HoursState,
 } from "./actions";
-import { formatPayRate } from "@/lib/constants";
+import { formatPayRate , PRACTICE_TZ } from "@/lib/constants";
 
 const initial: HoursState = { error: null, ok: null };
 
@@ -50,8 +50,8 @@ export function HoursSummary({
     <div className="card" style={{ marginBottom: 14 }}>
       <h3 style={{ margin: 0 }}>Your time</h3>
       <p className="sub" style={{ margin: "4px 0 0" }}>
-        <b>{Number(todayHours).toLocaleString()}</b> today ·{" "}
-        <b>{Number(periodHours).toLocaleString()}</b> this period ({periodStart} to {periodEnd})
+        <b>{Number(todayHours).toLocaleString("en-US")}</b> today ·{" "}
+        <b>{Number(periodHours).toLocaleString("en-US")}</b> this period ({periodStart} to {periodEnd})
       </p>
       {rate !== undefined && (
         <p className="lock" style={{ margin: "4px 0 0" }}>
@@ -122,7 +122,7 @@ export function WorkTimer({
             <div style={{ fontSize: "var(--text-xl)", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
               {now ? clock(running.started_at, now) : "—"}
             </div>
-            <div className="lock">since {new Date(running.started_at).toLocaleTimeString()}</div>
+            <div className="lock">since {new Date(running.started_at).toLocaleTimeString("en-US", { timeZone: PRACTICE_TZ })}</div>
           </div>
         )}
       </div>

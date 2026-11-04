@@ -157,7 +157,11 @@ async function handle(request: NextRequest) {
       p_task_title: `Chase the authorization for ${w.client_name}`,
       p_due: null,
       p_level: w.days_waiting >= 14 ? "bad" : "warn",
-      p_source: null,
+      // The client this is about. Without it, notify_person's "have I raised
+      // this already" lookup matched every open item of the kind that named
+      // nothing, so the first client chased took the only row the kind was
+      // allowed and nobody else was ever chased again (0282).
+      p_source: w.client_id,
     });
 
     let sent = false;
@@ -229,7 +233,9 @@ async function handle(request: NextRequest) {
         p_task_title: `Request a renewal for ${e.client_name} — ${e.service_type}`,
         p_due: null,
         p_level: "warn",
-        p_source: null,
+        // The authorization that is ending. One renewal to ask for per
+        // authorization, not one for the practice (0282).
+        p_source: e.auth_id,
       });
       for (const who of (told ?? []) as { email: string | null; message: string }[]) {
         if (!who.email || !emailConfigured() || dry) continue;
