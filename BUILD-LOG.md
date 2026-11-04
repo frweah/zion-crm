@@ -2533,7 +2533,7 @@ once the agent has read it, and not a third time once the rules have run.
 
 **Noted for the owner, unrelated to the gap:** two of the four utah.gov
 messages with no PDF were counselors replying about invoices (Vicki Khun - Job
-Placement Invoice, Carl Wilkins - Job Development Invoice). service@ is being
+Placement Invoice, Devon Driscoll - Job Development Invoice). service@ is being
 used for billing correspondence as well as referrals. Harmless, since the
 intake only acts on PDFs, but worth knowing.
 
@@ -5227,8 +5227,8 @@ them to Inactive would have made them *easier* to reopen, which is not what
 closing out a caseload means. Said here because it is a reading of the
 instruction, not a literal execution of it.
 
-The four authorizations: `V1011562` Kristie Collins, `V101697` and `V1016978`
-both Jaxon Ewell, `V9997978` Gary Horrocks. Two of them are the same two rows
+The four authorizations: `V1011562` Kai Kessler, `V101697` and `V1016978`
+both Harper Hollis, `V9997978` Ellis Ellery. Two of them are the same two rows
 the Stale filter had just started showing.
 
 ### Still holding an open authorization
@@ -5238,18 +5238,18 @@ Closed, which is the list the owner asked for:
 
 | Client | Stage | Open authorization |
 | --- | --- | --- |
-| Beindu Kamara | Job Development | V1041928 (Due) |
-| Bradley Johnson | Job Coaching | V999364 (Due) |
-| Isaiha Peay | Placement | V1041336 (Due) |
-| Tara Mercer | Closed | coaching 1058 (Due) |
+| Blair Barlow | Job Development | V1041928 (Due) |
+| Casey Chandler | Job Coaching | V999364 (Due) |
+| Gale Garrow | Placement | V1041336 (Due) |
+| Morgan Marrow | Closed | coaching 1058 (Due) |
 
 Their billing is untouched, as instructed. Reactivating any of them is one
 action on the All clients view.
 
 ### The duplicate
 
-`Jaxon G. Ewell` was an import artefact: created 2026-09-29, no client number,
-one authorization, sitting Active while the real record - `Jaxon Ewell`,
+`Indigo P. Ives` was an import artefact: created 2026-09-29, no client number,
+one authorization, sitting Active while the real record - `Harper Hollis`,
 client 1064, referred 2025-11-24 - sat Closed with the same authorization
 dates one digit apart. Merged into 1064, which now holds **2 authorizations
 and 2 documents**, plus the stage history, tasks and notifications that came
@@ -5442,7 +5442,7 @@ type error waiting for somebody to write one. Both levels fixed.
 
 ### Two clients back on the board
 
-Beindu Kamara to Job Development and Isaiha Peay to Job Placement, both with
+Blair Barlow to Job Development and Gale Garrow to Job Placement, both with
 "Still in service — reactivated 22 Oct" on the record and in their contact
 log, attributed to the Admin who asked for it.
 
@@ -5614,7 +5614,7 @@ for. Two things in it are worth knowing anyway: it uses a stage called
 actually lost turned up a smaller and more recoverable answer than the first
 count suggested.
 
-**Only two clients lost a date, not three.** The third - Jaxon Ewell, client
+**Only two clients lost a date, not three.** The third - Harper Hollis, client
 1064 - has a second history row dated 2026-09-29, but it was *written* at
 23:10 that evening, which is when the duplicate record was merged into him.
 It is the merged record's arrival row, not a closure. 1064's own history is
@@ -5624,8 +5624,8 @@ The two that did lose one:
 
 | Client | Likely closure date | Why |
 | --- | --- | --- |
-| **Penny Brown** (no client number) | **10 Sept 2026** | second history row, written 2026-09-10 03:05 |
-| **Trinity Kair** (client 1060) | **10 Sept 2026** | second history row, written 2026-09-10 03:04 |
+| **Lane Lindquist** (no client number) | **10 Sept 2026** | second history row, written 2026-09-10 03:05 |
+| **Noor Novak** (client 1060) | **10 Sept 2026** | second history row, written 2026-09-10 03:04 |
 
 The remap changed only the stage word, so **the dates on those rows survived**.
 Both were written minutes apart during the September import, which is what a
@@ -5641,9 +5641,9 @@ Bittaker* → **Stephen Bitteker**, *Sallay Mansary* → **Sallay Mansaray**,
 *Amalynn* → **Amalynn Husband (Braden's mom)**.
 
 Two names drew a second candidate, and both second candidates are different
-people who were left alone: **Trinity Kair** (client 1060, closed - and one of
-the two above) is not Trinity Trujillo, and **Jessica Shull** is not Jessica
-Dominguez. *Hayden Bitteker* is likewise not Stephen Bitteker and is still
+people who were left alone: **Noor Novak** (client 1060, closed - and one of
+the two above) is not Trinity Trujillo, and **Jules Jarrow** is not Jessica
+Dominguez. *Frankie Fenwick* is likewise not Stephen Bitteker and is still
 there.
 
 None of the sixteen had an authorization, a ledger posting or a legal hold, so
@@ -6396,7 +6396,7 @@ authorization that actually needed it.
 `authorizations.has_usor_number` is a generated column now (0251): the
 question is about the row, so it is answered on the row, once. The two screens
 that block a form from being sent on an unnumbered authorization were asking
-the same stale question, so a form on one of Vicki Kuhn's two unnumbered
+the same stale question, so a form on one of Oakley Ottoway's two unnumbered
 authorizations would have gone to the billing office with no number USOR could
 match. They ask the column now too.
 

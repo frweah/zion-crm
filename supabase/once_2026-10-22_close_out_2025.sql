@@ -30,10 +30,15 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
-  -- ── 3. the two Jaxon Ewell records become one ─────────────
+  -- ── 3. the two Harper Hollis records become one ─────────────
   select id into v_keep from public.clients where client_no = 1064;
   select id into v_drop from public.clients
-   where name = 'Jaxon G. Ewell' and client_no is null and merged_into is null;
+   -- By id, not by name (4 November 2026): no client's name belongs in
+   -- this repository, and the id identifies the same row. This script
+   -- has already run - the merge is done - so it finds nothing either
+   -- way, which is what it found the second time it was run anyway.
+   where id = 'f385f7b1-3582-4b47-9ac4-7a84ab7ef28b'
+     and client_no is null and merged_into is null;
   if v_keep is null or v_drop is null then
     raise notice 'merge: nothing to do (keep=%, drop=%)', v_keep, v_drop;
   else
