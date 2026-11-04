@@ -183,3 +183,29 @@ export async function sendSms(params: {
   if (!result.ok) return result;
   return { ok: true, data: result.data?.messageId ?? "" };
 }
+
+/**
+ * What the provider now says about a message it took.
+ *
+ * The other way round from the webhook (0287): the practice asks, rather than
+ * waiting to be told. Both exist because a webhook needs GoHighLevel to have a
+ * trigger for outbound message status, which is theirs to offer and not ours
+ * to assume - and asking is entirely within the practice's own hands.
+ */
+export async function messageStatus(
+  providerMessageId: string,
+): Promise<GhlResult<{ status: string; error: string | null }>> {
+  const result = await call<{
+    message?: { status?: string; error?: string | null } | null;
+    status?: string;
+    error?: string | null;
+  }>(`/conversations/messages/${encodeURIComponent(providerMessageId)}`, CONVERSATIONS_VERSION);
+
+  if (!result.ok) return result;
+  const body = result.data?.message ?? result.data ?? null;
+  const status = body?.status;
+  if (!status) {
+    return { ok: false, error: "GoHighLevel answered about that message without saying its status." };
+  }
+  return { ok: true, data: { status, error: body?.error ?? null } };
+}

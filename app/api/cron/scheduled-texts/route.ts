@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendScheduledTexts } from "@/lib/sms";
+import { sendScheduledTexts, catchUpOnTextStatuses } from "@/lib/sms";
 
 /**
  * Texts written for the next window (Messaging brief, A).
@@ -41,9 +41,20 @@ async function handle(request: NextRequest) {
   // writes it down and says so.
   const { data: lapsed } = await admin.rpc("mark_texts_not_delivered");
 
+  // And what became of the ones the provider did take. GoHighLevel accepting a
+  // message is not the client's phone having it, and nothing used to come back
+  // afterwards - so a text the carrier dropped an hour later went on reading
+  // as sent (0287). Asked here rather than waited for: the webhook needs
+  // GoHighLevel to offer a trigger for outbound message status, which is
+  // theirs to offer, while the receipt is already ours.
+  const caught = await catchUpOnTextStatuses(admin);
+
   return NextResponse.json({
     ran_at: new Date().toISOString(),
     ...result,
     marked_not_delivered: lapsed ?? 0,
+    statuses_asked: caught.asked,
+    statuses_changed: caught.changed,
+    status_errors: caught.errors.slice(0, 5),
   });
 }

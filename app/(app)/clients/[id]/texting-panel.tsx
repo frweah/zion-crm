@@ -254,6 +254,9 @@ export function TextingPanel({
                       </div>
                     )}
                     {statusOf(t) === "Queued" && <div className="lock">sending…</div>}
+                    {/* The provider says the phone has it, which is a
+                        stronger thing than the provider accepting it (0286). */}
+                    {statusOf(t) === "Delivered" && <div className="lock">delivered</div>}
                     {t.kind === "Reminder" && <div className="lock">appointment reminder</div>}
                   </>
                 ),

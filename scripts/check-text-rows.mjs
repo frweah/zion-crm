@@ -104,6 +104,8 @@ if (statusOf(minutesAgo(1), now) !== "Queued") {
   fail("a text waiting for its window reads as not delivered");
 } else if (statusOf({ ...minutesAgo(90), direction: "Incoming", status: "Received" }, now) !== "Received") {
   fail("a text that came in is judged against the five minutes");
+} else if (statusOf({ ...minutesAgo(90), status: "Delivered" }, now) !== "Delivered") {
+  fail("a text the provider delivered is read as not delivered");
 } else {
   ok("a screen reaches 'Not delivered' at five minutes, and leaves a waiting one alone");
 }
@@ -114,6 +116,8 @@ if (canRetry({ ...minutesAgo(90), provider_message_id: "ghl-1" }, now)) {
   fail("a text nobody heard about is not offered a retry");
 } else if (canRetry({ ...minutesAgo(1), provider_message_id: null }, now)) {
   fail("a text still going is offered a retry");
+} else if (canRetry({ ...minutesAgo(90), status: "Delivered", provider_message_id: null }, now)) {
+  fail("a text the provider delivered is offered a retry, which would text them twice");
 } else {
   ok("retry is offered on a text nobody heard about, and on nothing else");
 }

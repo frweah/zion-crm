@@ -7964,6 +7964,10 @@ export type Database = {
         Args: { p_id: string | null; p_provider_id?: string | null };
         Returns: string;
       };
+      record_text_status: {
+        Args: { p_provider_id: string | null; p_status: string | null; p_error?: string | null; p_payload?: Json | null };
+        Returns: { matched: boolean | null; status: string | null }[];
+      };
       records_request_bundle: {
         Args: { p_client: string | null; p_purpose?: string | null };
         Returns: Json;

@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { findContactByPhone, upsertContact, sendSms as ghlSend } from "@/lib/ghl";
+import { findContactByPhone, upsertContact, sendSms as ghlSend, messageStatus } from "@/lib/ghl";
 
 /**
  * Sending a text, in the order that keeps the record honest.
@@ -354,4 +354,60 @@ export async function resendRecorded(
   }
 
   return { ok: true, id };
+}
+
+/**
+ * Asking the provider what became of the texts it took.
+ *
+ * The practice only ever learned that GoHighLevel accepted a message.
+ * Accepting is not delivering, so a text the carrier dropped an hour later
+ * went on reading as sent, and 'Delivered' was unknowable (0287).
+ *
+ * Asked rather than waited for. The webhook exists too, but it needs
+ * GoHighLevel to offer a trigger for outbound message status, which is theirs
+ * to offer; this needs nothing but the receipt the practice already holds.
+ *
+ * A day's worth, and only the ones still unsettled: a delivered text is
+ * finished and a failed one is somebody's to act on.
+ */
+export async function catchUpOnTextStatuses(
+  supabase: SupabaseClient<Database>,
+  limit = 40,
+): Promise<{ asked: number; changed: number; errors: string[] }> {
+  const result = { asked: 0, changed: 0, errors: [] as string[] };
+
+  const { data: waiting, error } = await supabase
+    .from("sms_messages")
+    .select("id, provider_message_id, status")
+    .eq("direction", "Outgoing")
+    .in("status", ["Sent", "Sending", "Queued"])
+    .not("provider_message_id", "is", null)
+    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    result.errors.push(error.message);
+    return result;
+  }
+
+  for (const row of waiting ?? []) {
+    if (!row.provider_message_id) continue;
+    result.asked += 1;
+    const said = await messageStatus(row.provider_message_id);
+    if (!said.ok) {
+      result.errors.push(said.error);
+      continue;
+    }
+    const { data } = await supabase.rpc("record_text_status", {
+      p_provider_id: row.provider_message_id,
+      p_status: said.data.status,
+      p_error: said.data.error,
+      p_payload: null,
+    });
+    const answer = Array.isArray(data) ? data[0] : data;
+    if (answer?.matched && answer.status !== row.status) result.changed += 1;
+  }
+
+  return result;
 }
