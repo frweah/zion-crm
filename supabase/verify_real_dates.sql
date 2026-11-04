@@ -120,6 +120,10 @@ begin
   -- that pre-dates the rule: with it on, the rule refuses the plant, which is
   -- itself the first half of what is being asserted.
   -- Moving a stale date needs a reason written on the row (0160).
+  -- The deferred check on paid_amount (0292) leaves pending trigger events,
+  -- and Postgres will not ALTER a table that has them. Firing them now is
+  -- what a commit would do, and this script is about to change the table.
+  set constraints all immediate;
   alter table public.authorizations disable trigger authorizations_dates_are_real;
   update public.authorizations
      set stale_date = date '2062-01-01', stale_reason = 'ZZ planting a legacy date'

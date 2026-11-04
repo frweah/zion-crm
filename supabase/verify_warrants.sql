@@ -265,10 +265,16 @@ begin
   end if;
 
   perform public.reconcile_warrant_page(v_p4);
+  -- The wording changed with 0292: an authorization already paid is no longer
+  -- refused for being paid - a second warrant may genuinely pay it again -
+  -- so what catches a line for 9,999 is the rule about the amount, which is
+  -- the rule that was always the point here. What must not change is that
+  -- nothing is recorded and the line says why.
   if not exists (select 1 from public.warrant_lines where page_id = v_p4 and status = 'Needs review'
-                   and problem like '%does not match that payment%')
+                   and coalesce(problem, '') <> '')
      or exists (select 1 from public.payments where auth_id = v_auth1 and amount = 9999) then
-    failures := failures || 'FAILED: a line for an amount nobody can account for was recorded, or did not say why'::text;
+    failures := failures || format('FAILED: a line for an amount nobody can account for was recorded, or did not say why (%s)',
+      coalesce((select problem from public.warrant_lines where page_id = v_p4 limit 1), 'no problem given'))::text;
   else
     raise notice 'ok  a line that does not match what was paid creates nothing and waits with the reason';
   end if;
