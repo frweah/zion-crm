@@ -66,14 +66,30 @@ begin
   end if;
 
   -- ── the five minutes ──────────────────────────────────────
-  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, created_at)
-  values (v_client, 'Outgoing', '+13850000777', 'ZQ this one hung', 'Manual', 'Queued', v_staff,
-          now() - interval '20 minutes')
-  returning id into v_late;
+  -- ── writing an outgoing text at any hour ──────────────────
+  --
+  -- The gate (0050) refuses an immediate outgoing text outside 8am-9pm Utah,
+  -- which is the rule and is right. It also made this script pass only during
+  -- office hours: the suite failed at 9:13 one evening because of it, and a
+  -- check that depends on when it runs is a check somebody will learn to
+  -- ignore.
+  --
+  -- So each fixture is written as scheduled for the next window, which the
+  -- gate accepts at any hour, and then put back to the state it is about. The
+  -- gate is BEFORE INSERT, so the second statement is not refused - and the
+  -- state being tested is a row that is already queued and already old, which
+  -- is not something the gate has any view about.
 
-  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, created_at)
-  values (v_client, 'Outgoing', '+13850000777', 'ZQ this one is new', 'Manual', 'Queued', v_staff, now())
+  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, created_at, send_after)
+  values (v_client, 'Outgoing', '+13850000777', 'ZQ this one hung', 'Manual', 'Scheduled', v_staff,
+          now() - interval '20 minutes', public.next_text_window(now()))
+  returning id into v_late;
+  update public.sms_messages set status = 'Queued', send_after = null where id = v_late;
+
+  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, created_at, send_after)
+  values (v_client, 'Outgoing', '+13850000777', 'ZQ this one is new', 'Manual', 'Scheduled', v_staff, now(), public.next_text_window(now()))
   returning id into v_fresh;
+  update public.sms_messages set status = 'Queued', send_after = null where id = v_fresh;
 
   -- A scheduled text waiting for 8am is not late, however long it waits.
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by,
@@ -144,10 +160,11 @@ begin
   -- The provider took it: retrying would text them twice.
   perform set_config('role', 'postgres', true);
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by,
-                                   created_at, provider_message_id)
-  values (v_client, 'Outgoing', '+13850000777', 'ZQ the provider has this', 'Manual', 'Not delivered',
-          v_staff, now() - interval '20 minutes', 'ghl-abc-123')
+                                   created_at, provider_message_id, send_after)
+  values (v_client, 'Outgoing', '+13850000777', 'ZQ the provider has this', 'Manual', 'Scheduled',
+          v_staff, now() - interval '20 minutes', 'ghl-abc-123', public.next_text_window(now()))
   returning id into v_taken;
+  update public.sms_messages set status = 'Not delivered', send_after = null where id = v_taken;
   perform set_config('role', 'authenticated', true);
   begin
     perform public.retry_text(v_taken);

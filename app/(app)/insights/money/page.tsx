@@ -52,6 +52,10 @@ type Econ = {
   authorized: number | null;
   earned: number | null;
   invoiced: number | null;
+  /** What was billed, from the payment where the hours log cannot account for it (0290). */
+  billed: number | null;
+  billed_from_payment: boolean | null;
+  is_open: boolean | null;
   received: number | null;
   outstanding: number | null;
   last_invoice_on: string | null;
@@ -105,7 +109,13 @@ export default async function RevenuePage({
   const blocked = new Set((paperworkResult.data ?? []).map((p) => p.auth_id).filter(Boolean));
 
   const n = (v: number | null | undefined) => Number(v ?? 0);
-  const open = econ.filter((e) => e.status === "Open");
+  // `is_open` rather than a status test. This read `e.status === "Open"`, and
+  // the column has never held that word - so the filter matched nothing and
+  // every figure built on it read zero while Billing listed fourteen. The
+  // definition now lives in the view both screens read, and it is not only the
+  // status: a parent authorization and a closed client are out of it too
+  // (0290).
+  const open = econ.filter((e) => e.is_open);
 
   const committed = open.reduce((s, e) => s + n(e.committed), 0);
   const unbilled = open.reduce((s, e) => s + n(e.unbilled), 0);

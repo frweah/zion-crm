@@ -12,9 +12,19 @@ import { BillingOfficeFilter, withBo } from "../../../billing-office-filter";
 /**
  * Paid & outstanding.
  *
- * Per client, and for the practice: what USOR authorized, what was invoiced,
- * what was paid, and what is still owed. "Paid" is payments on record - the
- * workbook's, those reconciled from warrants, and invoices marked paid by hand -
+ * Per client, and for the practice: what USOR authorized, what was billed,
+ * what was paid, and what is still owed.
+ *
+ * "Billed" rather than "Invoiced" since 0290, and the difference matters. The
+ * figure is the logged hours times the rate where there are hours, and the
+ * payment itself where there are none - 38 hourly authorizations were paid
+ * without a single service entry against them, so the computed figure was zero
+ * against real money, and Paid read higher than Invoiced across the whole
+ * practice. Those rows say "from payment (imported)" rather than passing a
+ * payment off as logged work.
+ *
+ * "Paid" is payments on record - the workbook's, those reconciled from
+ * warrants, and invoices marked paid by hand -
  * not a guess from invoice statuses.
  *
  *   Outstanding       invoiced and not yet paid
@@ -30,6 +40,9 @@ type Position = {
   status: string | null;
   authorized: number | null;
   invoiced: number | null;
+  /** What was billed: the hours where they are logged, the payment where they are not (0290). */
+  billed: number | null;
+  billed_from_payment: boolean | null;
   paid: number | null;
   outstanding: number | null;
   not_yet_invoiced: number | null;
@@ -37,16 +50,24 @@ type Position = {
   payments: number | null;
 };
 
-type Totals = { authorized: number; invoiced: number; paid: number; outstanding: number; notYet: number };
+type Totals = {
+  authorized: number;
+  billed: number;
+  paid: number;
+  outstanding: number;
+  notYet: number;
+  fromPayment: number;
+};
 
 const add = (t: Totals, p: Position): Totals => ({
   authorized: t.authorized + Number(p.authorized ?? 0),
-  invoiced: t.invoiced + Number(p.invoiced ?? 0),
+  billed: t.billed + Number(p.billed ?? 0),
+  fromPayment: t.fromPayment + (p.billed_from_payment ? 1 : 0),
   paid: t.paid + Number(p.paid ?? 0),
   outstanding: t.outstanding + Number(p.outstanding ?? 0),
   notYet: t.notYet + Number(p.not_yet_invoiced ?? 0),
 });
-const ZERO: Totals = { authorized: 0, invoiced: 0, paid: 0, outstanding: 0, notYet: 0 };
+const ZERO: Totals = { authorized: 0, billed: 0, paid: 0, outstanding: 0, notYet: 0, fromPayment: 0 };
 
 /** What the section reads, as a loader Admin → Money can start early. */
 export async function loadPosition() {
@@ -119,8 +140,9 @@ export default async function PositionPage({
               <li key={r.auth_id} className="lock" style={{ padding: "2px 0" }}>
                 <Link href={`/clients/${id}?tab=billing`}>{authorizationNumberLabel({ number: r.auth_number })}</Link> ·{" "}
                 {r.service_type} · {r.status} — {money(Number(r.authorized ?? 0))} authorized ·{" "}
-                {money(Number(r.invoiced ?? 0))} invoiced · {money(Number(r.paid ?? 0))} paid ·{" "}
-                {money(Number(r.outstanding ?? 0))} outstanding
+                {money(Number(r.billed ?? 0))} billed
+                {r.billed_from_payment && <span className="chip">from payment (imported)</span>} ·{" "}
+                {money(Number(r.paid ?? 0))} paid · {money(Number(r.outstanding ?? 0))} outstanding
               </li>
             ))}
           </ul>
@@ -128,7 +150,14 @@ export default async function PositionPage({
       ),
       billingOffice: officeName(id) || <span className="lock">None</span>,
       authorized: money(c.totals.authorized),
-      invoiced: money(c.totals.invoiced),
+      billed: (
+        <>
+          {money(c.totals.billed)}
+          {c.totals.fromPayment > 0 && (
+            <div className="lock">{c.totals.fromPayment} from payment (imported)</div>
+          )}
+        </>
+      ),
       paid: money(c.totals.paid),
       outstanding: (
         <span style={c.totals.outstanding > 0 ? { color: "var(--bad)" } : undefined}>
@@ -142,7 +171,7 @@ export default async function PositionPage({
       client: c.name,
       billingOffice: officeName(id),
       authorized: c.totals.authorized,
-      invoiced: c.totals.invoiced,
+      billed: c.totals.billed,
       paid: c.totals.paid,
       outstanding: c.totals.outstanding,
       notYet: c.totals.notYet,
@@ -155,13 +184,13 @@ export default async function PositionPage({
     <>
       <h2 className="h2">Paid &amp; outstanding</h2>
       <p className="sub">
-        What USOR authorized, was invoiced for, and has paid.<Link href="/billing/warrants">_Warrants folder</Link>,
+        What USOR authorized, was billed, and has paid.<Link href="/billing/warrants">_Warrants folder</Link>,
         and invoices marked paid by hand.
       </p>
 
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", marginBottom: 18 }}>
         {tile(overall.authorized, "authorized")}
-        {tile(overall.invoiced, "invoiced")}
+        {tile(overall.billed, "billed")}
         {tile(overall.paid, "paid")}
         {tile(overall.outstanding, "invoiced, not yet paid", "bad")}
         {tile(overall.notYet, "authorized, not yet invoiced")}
@@ -192,7 +221,7 @@ export default async function PositionPage({
             { key: "client", label: "Client" },
             { key: "billingOffice", label: "Billing office" },
             { key: "authorized", label: "Authorized", align: "right" },
-            { key: "invoiced", label: "Invoiced", align: "right" },
+            { key: "billed", label: "Billed", align: "right" },
             { key: "paid", label: "Paid", align: "right" },
             { key: "outstanding", label: "Outstanding", align: "right" },
             { key: "notYet", label: "Not yet invoiced", align: "right" },
@@ -203,10 +232,15 @@ export default async function PositionPage({
         />
       </div>
 
+      {/* What Billed means, once, under the table that shows it (0290). */}
+      <p className="lock" style={{ margin: "8px 0 0" }}>
+        Billed is the hours logged, or the payment where none were.
+      </p>
+
       {/* The practice's totals, which were the table's footer. They count every client, whichever are showing. */}
       {rows.length > 0 && (
         <p className="lock" style={{ margin: "8px 0 0" }}>
-          <b>{scope}:</b> {money(overall.authorized)} authorized · {money(overall.invoiced)} invoiced ·{" "}
+          <b>{scope}:</b> {money(overall.authorized)} authorized · {money(overall.billed)} billed ·{" "}
           {money(overall.paid)} paid · {money(overall.outstanding)} outstanding · {money(overall.notYet)} not yet
           invoiced.
         </p>

@@ -192,11 +192,30 @@ export function dateComplaint(value: string, what = "That date"): string | null 
   return null;
 }
 
-/** Currency, matching the prototype's money(). */
+/**
+ * Currency. Dollars, in American grouping, wherever this runs.
+ *
+ * The locale was `undefined` here, which is the same fault fmtStamp had with
+ * the time zone: it means "whatever the machine thinks", and the machine is a
+ * serverless function whose locale is nobody's decision. The dollar sign was
+ * never in doubt - it is written in - but $120,095.00 and $120.095,00 are the
+ * same number told two ways, and a counselor reading the second one on an
+ * invoice is reading a different figure.
+ *
+ * en-US named, like every other formatter in the practice, and
+ * `check-currency` holds the line.
+ */
 export function money(n: number | null | undefined): string {
+  const v = Number(n ?? 0);
+  // The sign goes before the sign, not after it. Prepending "$" to a signed
+  // number gives "$-1,234.50", which the budget variance and the bank
+  // reconciliation have both been showing for as long as they have existed -
+  // the two screens where a negative figure is the whole point.
+  const sign = v < 0 ? "-" : "";
   return (
+    sign +
     "$" +
-    Number(n ?? 0).toLocaleString(undefined, {
+    Math.abs(v).toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })

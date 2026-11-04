@@ -6461,6 +6461,9 @@ export type Database = {
           last_invoice_on: string | null;
           unbilled: number | null;
           committed: number | null;
+          billed: number | null;
+          billed_from_payment: boolean | null;
+          is_open: boolean | null;
         };
         Relationships: [];
       };
@@ -6554,6 +6557,9 @@ export type Database = {
           not_yet_invoiced: number | null;
           last_paid_on: string | null;
           payments: number | null;
+          billed: number | null;
+          billed_from_payment: boolean | null;
+          is_open: boolean | null;
         };
         Relationships: [];
       };
@@ -8029,6 +8035,10 @@ export type Database = {
       remove_message: {
         Args: { p_message: string | null };
         Returns: undefined;
+      };
+      remove_payment: {
+        Args: { p_payment: string | null; p_reason: string | null };
+        Returns: string;
       };
       reopen_ledger_month: {
         Args: { p_month: string | null; p_reason: string | null };

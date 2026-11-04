@@ -38,14 +38,30 @@ begin
   insert into public.sms_consent_events (client_id, state, phone, method, note)
   values (v_client, 'Granted', '+13850000782', 'Intake form', 'ZQ agreed at intake');
 
+  -- ── writing an outgoing text at any hour ──────────────────
+  --
+  -- The gate (0050) refuses an immediate outgoing text outside 8am-9pm Utah,
+  -- which is the rule and is right. It also made this script pass only during
+  -- office hours: the suite failed at 9:13 one evening because of it, and a
+  -- check that depends on when it runs is a check somebody will learn to
+  -- ignore.
+  --
+  -- So each fixture is written as scheduled for the next window, which the
+  -- gate accepts at any hour, and then put back to the state it is about. The
+  -- gate is BEFORE INSERT, so the second statement is not refused - and the
+  -- state being tested is a row that is already queued and already old, which
+  -- is not something the gate has any view about.
+
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by,
-                                   provider_message_id)
-  values (v_client, 'Outgoing', '+13850000782', 'ZQ one', 'Manual', 'Sent', v_staff, 'zq-receipt-a')
+                                   provider_message_id, send_after)
+  values (v_client, 'Outgoing', '+13850000782', 'ZQ one', 'Manual', 'Scheduled', v_staff, 'zq-receipt-a', public.next_text_window(now()))
   returning id into v_a;
+  update public.sms_messages set status = 'Sent', send_after = null where id = v_a;
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by,
-                                   provider_message_id)
-  values (v_client, 'Outgoing', '+13850000782', 'ZQ two', 'Manual', 'Sent', v_staff, 'zq-receipt-b')
+                                   provider_message_id, send_after)
+  values (v_client, 'Outgoing', '+13850000782', 'ZQ two', 'Manual', 'Scheduled', v_staff, 'zq-receipt-b', public.next_text_window(now()))
   returning id into v_b;
+  update public.sms_messages set status = 'Sent', send_after = null where id = v_b;
   insert into public.sms_messages (client_id, direction, phone, body, kind, status,
                                    provider_message_id)
   values (v_client, 'Incoming', '+13850000782', 'ZQ hello', 'Reply', 'Received', 'zq-receipt-in')

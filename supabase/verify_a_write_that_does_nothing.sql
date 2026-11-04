@@ -42,21 +42,38 @@ begin
   insert into public.sms_consent_events (client_id, state, phone, method, note)
   values (v_client, 'Granted', '+13850000781', 'Intake form', 'ZQ agreed at intake');
 
-  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by)
-  values (v_client, 'Outgoing', '+13850000781', 'ZQ this one went', 'Manual', 'Queued', v_staff)
+  -- ── writing an outgoing text at any hour ──────────────────
+  --
+  -- The gate (0050) refuses an immediate outgoing text outside 8am-9pm Utah,
+  -- which is the rule and is right. It also made this script pass only during
+  -- office hours: the suite failed at 9:13 one evening because of it, and a
+  -- check that depends on when it runs is a check somebody will learn to
+  -- ignore.
+  --
+  -- So each fixture is written as scheduled for the next window, which the
+  -- gate accepts at any hour, and then put back to the state it is about. The
+  -- gate is BEFORE INSERT, so the second statement is not refused - and the
+  -- state being tested is a row that is already queued and already old, which
+  -- is not something the gate has any view about.
+
+  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, send_after)
+  values (v_client, 'Outgoing', '+13850000781', 'ZQ this one went', 'Manual', 'Scheduled', v_staff, public.next_text_window(now()))
   returning id into v_sent;
-  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by)
-  values (v_client, 'Outgoing', '+13850000781', 'ZQ this one did not', 'Manual', 'Queued', v_staff)
+  update public.sms_messages set status = 'Queued', send_after = null where id = v_sent;
+  insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, send_after)
+  values (v_client, 'Outgoing', '+13850000781', 'ZQ this one did not', 'Manual', 'Scheduled', v_staff, public.next_text_window(now()))
   returning id into v_failed;
+  update public.sms_messages set status = 'Queued', send_after = null where id = v_failed;
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by, send_after)
   values (v_client, 'Outgoing', '+13850000781', 'ZQ in the morning', 'Manual', 'Scheduled', v_staff,
           public.next_text_window(now() + interval '1 hour'))
   returning id into v_later;
   insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by,
-                                   provider_message_id)
-  values (v_client, 'Outgoing', '+13850000781', 'ZQ the provider has this', 'Manual', 'Queued', v_staff,
-          'ghl-zq-1')
+                                   provider_message_id, send_after)
+  values (v_client, 'Outgoing', '+13850000781', 'ZQ the provider has this', 'Manual', 'Scheduled', v_staff,
+          'ghl-zq-1', public.next_text_window(now()))
   returning id into v_took;
+  update public.sms_messages set status = 'Queued', send_after = null where id = v_took;
   insert into public.sms_messages (client_id, direction, phone, body, kind, status)
   values (v_client, 'Incoming', '+13850000781', 'ZQ hello', 'Reply', 'Received')
   returning id into v_in;
