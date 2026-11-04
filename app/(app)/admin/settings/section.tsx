@@ -110,7 +110,7 @@ export default async function SettingsPage() {
             <tr>
               <td>Rate schedule</td>
               <td>
-                <Link href="/insights/money#rates">Rate schedule</Link>, on Admin → Money — keyed by funding
+                <Link href="/insights/money#rates">Rate schedule</Link>, on Admin → Money insights — keyed by funding
                 source, so a second funder needs no code change.
               </td>
             </tr>

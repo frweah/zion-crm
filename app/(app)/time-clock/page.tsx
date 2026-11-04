@@ -69,7 +69,7 @@ export default async function TimeClockPage() {
       />
 
       <p className="lock">
-        Everything you have logged, and your statements, are on <Link href="/hours">Hours</Link>. A session logged by
+        Everything you have logged, and your statements, are on <Link href="/hours">Contractor statements</Link>. A session logged by
         mistake is corrected there, with the reason kept beside it.
       </p>
     </>

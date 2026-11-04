@@ -76,7 +76,7 @@ export default async function EndOfDayPage({
   return (
     <>
       <PageHead
-        title="End of day"
+        title="My end of day"
         context={
           mine
             ? "Your day, in the practice's own form"

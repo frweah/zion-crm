@@ -228,20 +228,20 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks", note: "Everybody's, not only your own." },
       // Where somebody with a caseload starts the day: their own clients and
       // what is due against each (Workflow brief, 20 Sept 2026).
-      { label: "My clients today", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"], note: "Your caseload, and what is due on each." },
+      { label: "My clients — what is next", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"], note: "Your caseload, and what is due on each." },
       { label: "Jobs", href: "/leads", roles: EVERYONE, note: "Openings, applications and the employers behind them." },
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
       { label: "Counselors", href: "/counselors", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
-      { label: "Hours", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
+      { label: "Contractor statements", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
       // A tab of the Hours screen, so it stays with Hours. A screen whose
       // tabs are split across two sidebar groups is a screen nobody can find
       // the other half of.
-      { label: "Statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
+      { label: "Contractor statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
 
       // ── and the person's own ──
       { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
-      { label: "End of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
+      { label: "My end of day", href: "/end-of-day", roles: EVERYONE, note: "Today's tasks, and what got in the way." },
       { label: "Paperwork", href: "/paperwork", roles: EVERYONE, note: "Your tax form, policies and signature." },
       { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
       { label: "Knowledge base", href: "/sops", roles: EVERYONE, note: "How the practice does things, by shelf." },
@@ -283,7 +283,7 @@ export const NAV_GROUPS: NavGroup[] = [
         area: "billing",
         note: "Everything waiting to be billed, chased or paid.",
       },
-      { label: "Hours", href: "/billing?tab=hours", roles: BILLS, area: "billing" },
+      { label: "Service log", href: "/billing?tab=hours", roles: BILLS, area: "billing" },
       // The books (ERP brief, E1). Not under /insights: that is Admin's
       // alone and the people who read the books are the two already in this
       // group all day. The area is Billing's, which is also how a CPA is let
@@ -318,7 +318,7 @@ export const NAV_GROUPS: NavGroup[] = [
        * manager is sent each of their people's summaries, so a screen they
        * could not open would make the notification pointless.
        */
-      { label: "End of day — team", href: "/end-of-day/team", roles: ADMIN, managers: true, note: "Everybody's days, by person." },
+      { label: "Team end-of-day roll-up", href: "/end-of-day/team", roles: ADMIN, managers: true, note: "Everybody's days, by person." },
       { label: "People", href: "/admin/people", roles: ADMIN },
       { label: "Contractors", href: "/admin/people?tab=contractors", roles: ADMIN },
     ],
@@ -332,7 +332,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // The inbox half of it is a billing edit grant's too, because the
       // database has said so since 0103 (owner, 23 Oct 2026).
-      { label: "Documents", href: "/admin/documents", roles: BILLS, area: "billing", level: "edit" },
+      { label: "Document inbox & retention", href: "/admin/documents", roles: BILLS, area: "billing", level: "edit" },
       // Each feature's settings on its own page (Design language, §3); what
       // stays on System is the record the system keeps about itself.
       { label: "Settings", href: "/admin/settings-hub", roles: ADMIN, note: "One page per feature." },
@@ -340,7 +340,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // standing recipient beside them (owner, 23 Oct 2026).
       { label: "Templates", href: "/admin/templates", roles: ADMIN, note: "Authorization requests, report covers, renewal chases." },
       { label: "System", href: "/admin/system", roles: ADMIN, note: "The access log, and what the system records about itself." },
-      { label: "Money", href: "/insights/money", roles: ADMIN, area: "insights" },
+      { label: "Money insights", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },
       // No area: Capacity shows everybody's hours, so it stays Admin's even

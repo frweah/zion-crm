@@ -31,7 +31,7 @@ export default async function DocumentsPage() {
   return (
     <>
       <PageHead
-        title="Documents"
+        title="Document inbox &amp; retention"
         context="What has arrived and is waiting, how long records are kept, and requests for a person's file"
         actions={
           <Link className="btn ghost" href="/billing#new-authorization" style={{ textDecoration: "none" }}>

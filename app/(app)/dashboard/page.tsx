@@ -708,7 +708,7 @@ export default async function DashboardPage({
           )}
           {clientsDue.length > 10 && (
             <p className="lock" style={{ margin: "8px 0 0" }}>
-              <Link href="/my-clients">All of them on My work → My clients today</Link>
+              <Link href="/my-clients">All of them on My work → My clients — what is next</Link>
             </p>
           )}
         </section>

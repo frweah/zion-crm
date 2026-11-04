@@ -89,6 +89,36 @@ for (const g of NAV_GROUPS) for (const i of g.items) screens.add(i.label.toLower
 /** "Group → Screen", as the copy writes a place to go. */
 const CROSS = /([A-Z][A-Za-z&'’-]*(?: [A-Za-z&'’-]+){0,3})\s*(?:→|->|›)\s*([A-Z][A-Za-z&'’-]*(?: [A-Za-z&'’-]+){0,3})/g;
 
+/**
+ * Whether the text at this point begins with the name of a screen.
+ *
+ * Asked of the navigation rather than of the regex. The pattern above reads up
+ * to four plain words after the arrow, which was fine until a screen was named
+ * "My clients — what is next": the em dash is not a word character, so the
+ * pattern stopped at "My clients", a screen that does not exist, and the check
+ * reported a stale reference that was not stale.
+ *
+ * Longest first, so "My clients — what is next" is preferred over any shorter
+ * name it happens to start with.
+ */
+function namesAScreen(text, from) {
+  // The longest screen name the text begins with, and then proof that the
+  // name ended there.
+  //
+  // Neither half works alone. A prefix test on its own passes "Clients today"
+  // because "Clients" is a screen - a check that cannot fail. Cutting the text
+  // at a dash instead breaks the one screen whose name contains one
+  // ("My clients — what is next"). So: match as much as possible, then insist
+  // that what follows is the end of the name rather than more of it - a tag, a
+  // quote, punctuation, a further arrow, or nothing. A space and another word
+  // means the copy named something no screen is called.
+  const rest = text.slice(from).toLowerCase();
+  const ENDED = /^\s*($|[<"“”.,;:)·|—–]|→|›|->)/;
+  return [...screens]
+    .sort((a, b) => b.length - a.length)
+    .some((name) => rest.startsWith(name) && ENDED.test(rest.slice(name.length)));
+}
+
 let voiceHits = 0;
 let crossSeen = 0;
 let labelsSeen = 0;
@@ -123,7 +153,7 @@ for (const url of await sourceFiles(APP, [".tsx", ".ts"])) {
         fail(
           `${path}:${line} names "${group} → ${screen}", and there is no ${group.split(" ").pop()} group in the sidebar.`,
         );
-      } else if (!screens.has(screen.toLowerCase())) {
+      } else if (!namesAScreen(text, m.index + m[0].length - screen.length)) {
         fail(`${path}:${line} names "${group} → ${screen}", and there is no ${screen} screen.`);
       }
     }
@@ -194,6 +224,25 @@ const EXPLAINERS = [
 const VERBS = /\b(is|are|was|were|be|been|being|has|have|had|do|does|did|can|cannot|will|would|should|must|may|might|add|adds|remove|removes|make|makes|made|take|takes|send|sends|sent|show|shows|open|opens|opened|close|closes|closed|go|goes|get|gets|put|puts|keep|keeps|say|says|read|reads|write|writes|sign|signs|signed|pay|pays|paid|move|moved|moves|need|needs|want|wants|use|uses|used|see|sees|look|looks|find|finds|work|works|run|runs|cover|covers|change|changes|start|starts|stop|stops|ask|asks|asked|tell|tells|give|gives|hold|holds|carry|carries|know|knows|come|comes|came|went|leave|leaves|left|log|logs|produces|reaches|counted)\b/i;
 
 const HEADING_WORDS = 4;
+
+/**
+ * Screen names the owner chose, in those words.
+ *
+ * The noun rule is theirs and it is right: a heading with a verb in it is a
+ * sentence wearing a heading's clothes. But a name the owner has written out
+ * and asked for by name is not a heading somebody drifted into, and silently
+ * rewriting it would be answering a different question from the one asked.
+ *
+ * So the exception is a list rather than a looser rule, and each line says
+ * when and why - which is what stops it becoming the place awkward headings
+ * go to avoid the check.
+ */
+const NAMED_BY_THE_OWNER = new Set([
+  // The navigation audit, 4 November 2026: "My clients today" became this,
+  // spelled out, to say that the screen answers "what is next" rather than
+  // listing a day.
+  "My clients — what is next",
+]);
 const HELPER_WORDS = 12;
 
 let headingHits = 0;
@@ -212,6 +261,7 @@ for (const url of await sourceFiles(APP, [".tsx"])) {
   for (const m of headings) {
     const text = m[1].replace(/\s+/g, " ").trim();
     if (!/[A-Za-z]{2}/.test(text)) continue;
+    if (NAMED_BY_THE_OWNER.has(text)) continue;
     const words = text.split(/\s+/).length;
     if (words > HEADING_WORDS && VERBS.test(text)) {
       headingHits++;

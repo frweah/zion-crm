@@ -276,7 +276,7 @@ export function TeamPane({ myId }: { myId: string }) {
               </button>
             )}
             <Link className="btn ghost" href={current ? `/team?c=${current}` : "/team"}>
-              Full page
+              Open Team full page
             </Link>
             <button className="btn ghost" type="button" onClick={() => setOpen(false)}>
               Close

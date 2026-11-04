@@ -344,7 +344,7 @@ export default async function RevenuePage({
   return (
     <>
       <PageHead
-        title="Money"
+        title="Money insights"
         context="What USOR has authorized, what we have earned against it, and what has been paid — live from the record"
       />
 

@@ -134,7 +134,7 @@ export default async function BillingPage({
       title="Billing"
       context={
         tab === "hours"
-          ? "Hours logged against coaching authorizations"
+          ? "The service log: hours against coaching authorizations"
           : "Every authorization waiting to be billed, chased or paid"
       }
       actions={
@@ -238,6 +238,7 @@ export default async function BillingPage({
     return (
       <>
         {header}
+        <h2 className="h2">Service log</h2>
         <div className="alert">
           Log hours on the date the service actually happened. Coaching hours land on that
           month&apos;s record on their own, and the month works out what it comes to — nothing here

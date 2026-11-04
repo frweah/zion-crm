@@ -64,7 +64,7 @@ export default async function MyClientsPage() {
   return (
     <>
       <PageHead
-        title="My clients today"
+        title="My clients — what is next"
         context={
           mine
             ? `${list.length} active on your caseload · ${needing.length} with something due`

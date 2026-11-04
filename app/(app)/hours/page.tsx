@@ -287,7 +287,7 @@ export default async function HoursPage({
   return (
     <>
       <PageHead
-        title="Hours"
+        title="Contractor statements"
         context={
           isContractor
             ? "Your work sessions and statements. No clock and no schedule — this is a record of work performed, and the basis of your invoice."

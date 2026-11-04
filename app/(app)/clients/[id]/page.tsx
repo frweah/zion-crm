@@ -787,7 +787,7 @@ export default async function ClientPage({
         <p className="lock">
           Each authorization carries its own forms, files, submission checklist and payment —{" "}
           open one to work on it. What the practice is owed in total is on{" "}
-          <Link href="/insights/money#paid-and-outstanding">Admin → Money</Link>.
+          <Link href="/insights/money#paid-and-outstanding">Admin → Money insights</Link>.
         </p>
         {overlay}
       </>

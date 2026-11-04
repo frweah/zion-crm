@@ -65,7 +65,7 @@ export default async function EndOfDayTeamPage({
   return (
     <>
       <PageHead
-        title="End of day — team"
+        title="Team end-of-day roll-up"
         context={
           me.role === "Admin"
             ? `Everybody's days, the last ${SINCE_DAYS} days`
