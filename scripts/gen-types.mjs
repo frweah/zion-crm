@@ -343,6 +343,7 @@ const RPC_FUNCTIONS = [
   "mark_texts_not_delivered",
   "retry_text",
   "record_text_sent",
+  "set_credential_requirement",
   "record_text_status",
   "record_text_failed",
   "cancel_scheduled_text",

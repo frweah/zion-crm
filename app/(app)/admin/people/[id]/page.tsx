@@ -16,6 +16,7 @@ import {
   CeForm,
   type CredentialType,
   type StatusRow,
+  type CredentialDecision,
 } from "../../staff/credentials";
 import { StaffDocuments, type DocCategory, type DocRow } from "../../staff/documents";
 
@@ -66,6 +67,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
     credentialResult,
     typesResult,
     employmentResult,
+    requirementsResult,
     documentResult,
     docCategoryResult,
     offboardingResult,
@@ -87,7 +89,16 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .select("key, label, detail, kind, expires, months_valid, applies_to, hours_target")
         .eq("active", true)
         .order("sort_order"),
-      supabase.from("staff_employment").select("staff_id, transports_clients, employment_type, started_on").eq("staff_id", id),
+      supabase
+        .from("staff_employment")
+        .select("staff_id, transports_clients, delivers_services, employment_type, started_on")
+        .eq("staff_id", id),
+      // What an Admin has said about this person in particular, which
+      // beats the audience either way (0288).
+      supabase
+        .from("staff_credential_requirements")
+        .select("type_key, required, reason, decided_at")
+        .eq("staff_id", id),
       supabase
         .from("staff_documents")
         .select("*")
@@ -131,6 +142,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
 
   const checklist = (checklistResult.data ?? []) as ChecklistRow[];
   const transports = Boolean((employmentResult.data ?? [])[0]?.transports_clients);
+  const delivers = Boolean((employmentResult.data ?? [])[0]?.delivers_services);
   const onboarding = checklist.filter((r) => r.phase === "Onboarding");
   const offboarding = checklist.filter((r) => r.phase === "Offboarding");
 
@@ -298,6 +310,8 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           rows={(credentialResult.data ?? []) as unknown as StatusRow[]}
           types={(typesResult.data ?? []) as CredentialType[]}
           transports={transports}
+          delivers={delivers}
+          decided={(requirementsResult.data ?? []) as CredentialDecision[]}
           readOnly={readOnly}
         />
 

@@ -256,6 +256,95 @@ begin
     raise notice 'ok  the attention list holds only what needs attention';
   end if;
 
+  -- ── asked of the people who need it (0288) ────────────────
+  -- ACRE was marked as everybody's, so the bookkeeper and two automated
+  -- accounts were chased daily for a job coaching certificate. An alert
+  -- nobody can act on teaches people to stop reading the list, which is where
+  -- a lapsed background check is supposed to show up.
+  declare
+    v_coach uuid; v_desk uuid; v_bot uuid;
+  begin
+    insert into public.staff (name, email, role, active)
+    values ('ZZ Coach Testperson', 'zz-coach@example.test', 'Job Search', true) returning id into v_coach;
+    insert into public.staff (name, email, role, active)
+    values ('ZZ Desk Testperson', 'zz-desk@example.test', 'Billing', true) returning id into v_desk;
+    -- A system account is a Job Search one by constraint, which is the
+    -- practice's own rule about what an automated check may read.
+    insert into public.staff (name, email, role, active, is_system)
+    values ('ZZ Automated Testcheck', 'zz-bot@example.test', 'Job Search', true, true) returning id into v_bot;
+
+    insert into public.staff_employment (staff_id, delivers_services) values (v_coach, true);
+
+    if not exists (select 1 from public.staff_credential_status
+                    where staff_id = v_coach and type_key = 'acre' and required) then
+      failures := failures || 'FAILED: somebody who delivers job coaching is not asked for ACRE'::text;
+    elsif exists (select 1 from public.staff_credential_status
+                   where staff_id = v_desk and type_key = 'acre' and required) then
+      failures := failures || 'FAILED: somebody who does not deliver job coaching is asked for ACRE'::text;
+    elsif exists (select 1 from public.staff_credential_status
+                   where staff_id = v_desk and type_key = 'ce' and required) then
+      failures := failures || 'FAILED: somebody who does not deliver job coaching is asked for continuing education'::text;
+    elsif not exists (select 1 from public.staff_credential_status
+                       where staff_id = v_desk and type_key = 'background' and required) then
+      failures := failures || 'FAILED: the background check stopped being everybody''s'::text;
+    else
+      raise notice 'ok  ACRE and the yearly hours are asked of the people who do the work, and the clearance of everybody';
+    end if;
+
+    -- An automated account is not a person and cannot hold a CPR card.
+    if exists (select 1 from public.staff_credential_status where staff_id = v_bot) then
+      failures := failures || 'FAILED: an automated account is being asked for credentials'::text;
+    elsif exists (select 1 from public.credential_attention where staff_id = v_bot) then
+      failures := failures || 'FAILED: an automated account is on the list of things needing attention'::text;
+    else
+      raise notice 'ok  an automated account holds no credentials and is chased for none';
+    end if;
+
+    -- And an Admin saying otherwise beats the default, both ways round.
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
+    perform public.set_credential_requirement(v_coach, 'acre', false, 'ZQ qualified elsewhere');
+    perform public.set_credential_requirement(v_desk, 'acre', true, 'ZQ covering a caseload');
+    perform set_config('role', 'postgres', true);
+
+    if exists (select 1 from public.staff_credential_status
+                where staff_id = v_coach and type_key = 'acre' and required) then
+      failures := failures || 'FAILED: an Admin saying somebody does not need ACRE was ignored'::text;
+    elsif not exists (select 1 from public.staff_credential_status
+                       where staff_id = v_desk and type_key = 'acre' and required) then
+      failures := failures || 'FAILED: an Admin saying somebody does need ACRE was ignored'::text;
+    else
+      raise notice 'ok  and an Admin saying otherwise about one person wins either way';
+    end if;
+
+    -- Clearing the decision puts them back on the default rather than on the
+    -- answer that happened to be right the day somebody set it.
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
+    perform public.set_credential_requirement(v_coach, 'acre', null, '');
+    perform set_config('role', 'postgres', true);
+    if not exists (select 1 from public.staff_credential_status
+                    where staff_id = v_coach and type_key = 'acre' and required) then
+      failures := failures || 'FAILED: clearing the decision did not put them back on the default'::text;
+    else
+      raise notice 'ok  and clearing it puts them back on the practice default';
+    end if;
+
+    -- Nobody else says who needs what.
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_oth_uid, 'role', 'authenticated')::text, true);
+    begin
+      perform public.set_credential_requirement(v_coach, 'acre', false, 'ZQ not mine to say');
+      failures := failures || 'FAILED: somebody who is not Admin said which credentials a colleague needs'::text;
+    exception when insufficient_privilege then
+      raise notice 'ok  and only Admin says which credentials somebody needs';
+    end;
+    perform set_config('role', 'postgres', true);
+  end;
+
   if failures = '{}' then
     raise notice '';
     raise notice '--- CERTIFICATIONS VERIFIED ---';

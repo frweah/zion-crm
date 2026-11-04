@@ -5,6 +5,8 @@ import {
   recordCredential,
   verifyCredential,
   setTransportsClients,
+  setDeliversServices,
+  setCredentialRequirement,
   logCeHours,
   type CredentialState,
 } from "./credential-actions";
@@ -22,6 +24,14 @@ export type CredentialType = {
   months_valid: number | null;
   applies_to: string;
   hours_target: number | null;
+};
+
+/** An Admin saying this person does or does not need one, whatever the default says. */
+export type CredentialDecision = {
+  type_key: string;
+  required: boolean;
+  reason: string;
+  decided_at: string;
 };
 
 export type StatusRow = {
@@ -65,6 +75,8 @@ export function StaffCredentials({
   rows,
   types,
   transports,
+  delivers,
+  decided,
   readOnly,
 }: {
   staffId: string;
@@ -72,6 +84,9 @@ export function StaffCredentials({
   rows: StatusRow[];
   types: CredentialType[];
   transports: boolean;
+  /** Delivers job coaching or supported employment, which is what ACRE is for. */
+  delivers: boolean;
+  decided: CredentialDecision[];
   /** Somebody inactive: what they held is shown, and nothing can be recorded or changed. */
   readOnly?: boolean;
 }) {
@@ -80,6 +95,8 @@ export function StaffCredentials({
     setTransportsClients,
     initial,
   );
+  const [deliverState, deliverAction, savingDeliver] = useActionState(setDeliversServices, initial);
+  const decidedBy = new Map(decided.map((d) => [d.type_key, d]));
   const [adding, setAdding] = useState<string | null>(null);
 
   const [verifyState, verifyAction, verifying] = useActionState(verifyCredential, initial);
@@ -104,13 +121,25 @@ export function StaffCredentials({
         </div>
 
         {!readOnly && (
-          <form action={transportAction}>
-            <input type="hidden" name="staff_id" value={staffId} />
-            <input type="hidden" name="transports" value={transports ? "no" : "yes"} />
-            <button className="btn ghost" type="submit" disabled={savingTransport}>
-              {transports ? "Does not transport clients" : "Transports clients"}
-            </button>
-          </form>
+          <div className="row2" style={{ gap: 6, flexWrap: "wrap" }}>
+            <form action={transportAction}>
+              <input type="hidden" name="staff_id" value={staffId} />
+              <input type="hidden" name="transports" value={transports ? "no" : "yes"} />
+              <button className="btn ghost" type="submit" disabled={savingTransport}>
+                {transports ? "Does not transport clients" : "Transports clients"}
+              </button>
+            </form>
+            {/* What ACRE and the yearly hours are actually for. It was asked of
+                everybody, so the bookkeeper was being chased for a job
+                coaching certificate (0288). */}
+            <form action={deliverAction}>
+              <input type="hidden" name="staff_id" value={staffId} />
+              <input type="hidden" name="delivers" value={delivers ? "no" : "yes"} />
+              <button className="btn ghost" type="submit" disabled={savingDeliver}>
+                {delivers ? "Does not deliver job coaching" : "Delivers job coaching"}
+              </button>
+            </form>
+          </div>
         )}
       </div>
 
@@ -119,6 +148,13 @@ export function StaffCredentials({
           Carries clients, so a licence and insurance are required as well.
         </p>
       )}
+      {delivers && (
+        <p className="lock" style={{ margin: "6px 0 0" }}>
+          Delivers job coaching, so ACRE and the yearly hours are required.
+        </p>
+      )}
+      {deliverState.error && <div className="alert bad" style={{ marginTop: 10 }}>{deliverState.error}</div>}
+      {deliverState.ok && <div className="alert ok" style={{ marginTop: 10 }}>{deliverState.ok}</div>}
 
       {verifyState.error && <div className="alert bad" style={{ marginTop: 10 }}>{verifyState.error}</div>}
       {verifyState.ok && <div className="alert ok" style={{ marginTop: 10 }}>{verifyState.ok}</div>}
@@ -153,6 +189,14 @@ export function StaffCredentials({
                 <>
                   {r.label}
                   {!r.required && <div className="lock">not required of them</div>}
+                  {!readOnly && (
+                    <RequiredChoice
+                      staffId={staffId}
+                      typeKey={r.type_key}
+                      required={r.required}
+                      decided={decidedBy.get(r.type_key)}
+                    />
+                  )}
                 </>
               ),
               state: <span className={"chip " + (TONE[r.state] ?? "")}>{r.state}</span>,
@@ -291,6 +335,75 @@ export function CeForm({
           Logged against them, recorded as entered by you.
         </p>
       )}
+    </form>
+  );
+}
+
+/**
+ * Whether this person needs this credential (0288).
+ *
+ * Three states, not two: required, not required, or whatever the default says.
+ * The third matters - an exception recorded for somebody who has since changed
+ * jobs is an exception nobody meant to keep, and "follow the default" is how
+ * it goes away rather than being flipped to the answer that happens to be
+ * right today.
+ *
+ * The reason is asked for, not demanded. Somebody will type one when it is not
+ * obvious and will not when it is, and a required field here would get "n/a".
+ */
+function RequiredChoice({
+  staffId,
+  typeKey,
+  required,
+  decided,
+}: {
+  staffId: string;
+  typeKey: string;
+  required: boolean;
+  decided?: CredentialDecision;
+}) {
+  const [state, action, saving] = useActionState(setCredentialRequirement, initial);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <div className="lock">
+        {decided ? (
+          <>
+            {decided.required ? "required" : "not required"} by decision
+            {decided.reason ? ` — ${decided.reason}` : ""}{" "}
+          </>
+        ) : null}
+        <button type="button" className="linkish" onClick={() => setOpen(true)}>
+          {decided ? "Change" : "Say whether they need it"}
+        </button>
+        {state.error && <span style={{ color: "var(--bad)" }}> {state.error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <form action={action} className="grid" style={{ gap: 4, marginTop: 4 }}>
+      <input type="hidden" name="staff_id" value={staffId} />
+      <input type="hidden" name="type_key" value={typeKey} />
+      <label className="sr-only" htmlFor={`need-${staffId}-${typeKey}`}>
+        Whether they need this credential
+      </label>
+      <select id={`need-${staffId}-${typeKey}`} name="choice" defaultValue={decided ? (decided.required ? "yes" : "no") : "default"}>
+        <option value="default">Follow the practice default</option>
+        <option value="yes">They need it</option>
+        <option value="no">They do not need it</option>
+      </select>
+      <input name="reason" placeholder="Why, if it is not obvious" defaultValue={decided?.reason ?? ""} maxLength={200} />
+      <div className="row2" style={{ gap: 6 }}>
+        <button className="btn" type="submit" disabled={saving}>
+          {saving ? "…" : "Record it"}
+        </button>
+        <button className="btn ghost" type="button" onClick={() => setOpen(false)}>
+          Leave it
+        </button>
+      </div>
+      <span className="lock">{required ? "Required of them now" : "Not required of them now"}</span>
     </form>
   );
 }

@@ -537,6 +537,9 @@
       "select",
       "update"
     ],
+    "staff_credential_requirements": [
+      "select"
+    ],
     "staff_credentials": [
       "delete",
       "insert",

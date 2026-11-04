@@ -4980,6 +4980,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_credential_requirements: {
+        Row: {
+          staff_id: string;
+          type_key: string;
+          required: boolean;
+          reason: string;
+          decided_by: string | null;
+          decided_at: string;
+        };
+        Insert: {
+          staff_id: string;
+          type_key: string;
+          required: boolean;
+          reason?: string;
+          decided_by?: string | null;
+          decided_at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          type_key?: string;
+          required?: boolean;
+          reason?: string;
+          decided_by?: string | null;
+          decided_at?: string;
+        };
+        Relationships: [];
+      };
       staff_credentials: {
         Row: {
           id: string;
@@ -5165,6 +5192,7 @@ export type Database = {
           notes: string;
           updated_at: string;
           transports_clients: boolean;
+          delivers_services: boolean;
         };
         Insert: {
           staff_id: string;
@@ -5173,6 +5201,7 @@ export type Database = {
           notes?: string;
           updated_at?: string;
           transports_clients?: boolean;
+          delivers_services?: boolean;
         };
         Update: {
           staff_id?: string;
@@ -5181,6 +5210,7 @@ export type Database = {
           notes?: string;
           updated_at?: string;
           transports_clients?: boolean;
+          delivers_services?: boolean;
         };
         Relationships: [];
       };
@@ -8059,6 +8089,10 @@ export type Database = {
       set_contractor_tin: {
         Args: { p_staff_id: string | null; p_tin: string | null; p_tin_type: string | null };
         Returns: undefined;
+      };
+      set_credential_requirement: {
+        Args: { p_staff: string | null; p_type: string | null; p_required: boolean | null; p_reason?: string | null };
+        Returns: string;
       };
       set_e_delivery_consent: {
         Args: { p_consent: boolean | null };

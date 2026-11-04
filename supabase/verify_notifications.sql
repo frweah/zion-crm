@@ -218,7 +218,15 @@ begin
   -- The nightly run is the only thing that will ever mention a CPR card
   -- before the day it is needed.
   select id, user_id into v_staff, v_staff_uid from public.staff
-   where active and role <> 'Admin' order by created_at limit 1;
+   where active and role <> 'Admin' and not is_system order by created_at limit 1;
+
+  -- The training hours are asked of the people who deliver job coaching and
+  -- supported employment, not of everybody (0288). So this says that of its
+  -- own person rather than hoping somebody on the roster happens to qualify -
+  -- which is how this assertion came to depend on who was employed.
+  insert into public.staff_employment (staff_id, delivers_services)
+  values (v_staff, true)
+  on conflict (staff_id) do update set delivers_services = true;
 
   perform public.generate_notifications();
 

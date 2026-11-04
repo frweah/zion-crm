@@ -172,3 +172,67 @@ export async function verifyCredential(_prev: CredentialState, formData: FormDat
   revalidatePath("/paperwork", "layout");
   return { error: null, ok: "Checked and verified." };
 }
+
+/**
+ * Whether somebody delivers job coaching or supported employment.
+ *
+ * A property of the person rather than their role, the same way transporting
+ * clients is. ACRE and the yearly continuing-education hours are what USOR
+ * asks of the people who do that work, and they were being asked of everybody
+ * - the bookkeeper, the reports writer and two automated accounts - which is
+ * how a list of real lapses became a list nobody reads (0288).
+ */
+export async function setDeliversServices(
+  _prev: CredentialState,
+  formData: FormData,
+): Promise<CredentialState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Admin only.", ok: null };
+
+  const staffId = String(formData.get("staff_id") ?? "");
+  const delivers = formData.get("delivers") === "yes";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("staff_employment")
+    .upsert({ staff_id: staffId, delivers_services: delivers }, { onConflict: "staff_id" });
+
+  if (error) return { error: error.message, ok: null };
+
+  revalidatePath("/admin/people", "layout"); // the People page and each person's record under it
+  return {
+    error: null,
+    ok: delivers
+      ? "Recorded. ACRE and the continuing-education hours are now required of them."
+      : "Recorded. ACRE and the continuing-education hours are no longer required of them.",
+  };
+}
+
+/**
+ * This person needs this credential, or does not, whatever the default says.
+ *
+ * The exception to the audience, kept as a record rather than a setting: who
+ * decided and why, because "Rispah does not need ACRE" is a decision somebody
+ * took and the next person to wonder deserves to see it. Clearing it puts them
+ * back on the default.
+ */
+export async function setCredentialRequirement(
+  _prev: CredentialState,
+  formData: FormData,
+): Promise<CredentialState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Admin only.", ok: null };
+
+  const choice = String(formData.get("choice") ?? "");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_credential_requirement", {
+    p_staff: String(formData.get("staff_id") ?? ""),
+    p_type: String(formData.get("type_key") ?? ""),
+    p_required: choice === "default" ? null : choice === "yes",
+    p_reason: String(formData.get("reason") ?? ""),
+  });
+
+  if (error) return { error: error.message, ok: null };
+  revalidatePath("/admin/people", "layout");
+  return { error: null, ok: typeof data === "string" ? data : "Recorded." };
+}
