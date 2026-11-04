@@ -3860,7 +3860,7 @@ export type Database = {
           id: string;
           seq: number;
           account_id: string | null;
-          client_id: string;
+          client_id: string | null;
           at: string;
           action: string;
           detail: string;
@@ -3872,7 +3872,7 @@ export type Database = {
           id?: string;
           seq?: number;
           account_id?: string | null;
-          client_id: string;
+          client_id?: string | null;
           at?: string;
           action: string;
           detail?: string;
@@ -3884,7 +3884,7 @@ export type Database = {
           id?: string;
           seq?: number;
           account_id?: string | null;
-          client_id?: string;
+          client_id?: string | null;
           at?: string;
           action?: string;
           detail?: string;
@@ -3898,8 +3898,8 @@ export type Database = {
         Row: {
           id: string;
           seq: number;
-          account_id: string;
-          client_id: string;
+          account_id: string | null;
+          client_id: string | null;
           terms_version: string;
           kind: string;
           given: boolean;
@@ -3912,8 +3912,8 @@ export type Database = {
         Insert: {
           id?: string;
           seq?: number;
-          account_id: string;
-          client_id: string;
+          account_id?: string | null;
+          client_id?: string | null;
           terms_version: string;
           kind: string;
           given: boolean;
@@ -3926,8 +3926,8 @@ export type Database = {
         Update: {
           id?: string;
           seq?: number;
-          account_id?: string;
-          client_id?: string;
+          account_id?: string | null;
+          client_id?: string | null;
           terms_version?: string;
           kind?: string;
           given?: boolean;
@@ -4663,7 +4663,7 @@ export type Database = {
         Row: {
           id: string;
           seq: number;
-          client_id: string;
+          client_id: string | null;
           state: string;
           phone: string;
           method: string;
@@ -4674,7 +4674,7 @@ export type Database = {
         Insert: {
           id?: string;
           seq?: number;
-          client_id: string;
+          client_id?: string | null;
           state: string;
           phone: string;
           method: string;
@@ -4685,7 +4685,7 @@ export type Database = {
         Update: {
           id?: string;
           seq?: number;
-          client_id?: string;
+          client_id?: string | null;
           state?: string;
           phone?: string;
           method?: string;
