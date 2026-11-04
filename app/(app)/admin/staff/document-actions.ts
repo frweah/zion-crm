@@ -277,15 +277,18 @@ export async function replaceStaffDocument(
   // What is left is to check that this person may replace *this* document,
   // which is what everything above does.
   const was = row.filename;
-  const { error } = await supabase
-    .from("staff_files")
-    .update({
-      storage_path: path,
-      filename,
-      mime_type: mimeType,
-      size_bytes: sizeBytes,
-    })
-    .eq("id", fileId);
+  // The database's own function, which returns the path it replaced. A direct
+  // update matched no rows and reported no error - and the code below then
+  // removed the old object, leaving the row pointing at bytes that were gone
+  // (0285). Now the old path comes back from the write that moved the row, so
+  // there is nothing to remove unless the row really moved.
+  const { data: replaced, error } = await supabase.rpc("replace_staff_document", {
+    p_file: fileId,
+    p_path: path,
+    p_filename: filename,
+    p_mime: mimeType,
+    p_size: sizeBytes,
+  });
 
   if (error) {
     // The row did not move, so the old file is still the document. Take the
@@ -295,7 +298,7 @@ export async function replaceStaffDocument(
   }
 
   // Only now: the row points at the new bytes, so losing the old ones is safe.
-  await supabase.storage.from("staff-files").remove([row.storage_path]);
+  if (replaced) await supabase.storage.from("staff-files").remove([replaced]);
 
   await supabase.rpc("log_staff_document", {
     p_staff: row.staff_id,

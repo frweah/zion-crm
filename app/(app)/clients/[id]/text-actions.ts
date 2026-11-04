@@ -64,14 +64,16 @@ export async function cancelScheduledText(_prev: TextState, formData: FormData):
   if (!me || !CAN_EDIT_CLIENTS.includes(me.role)) {
     return { error: "Your role does not send texts.", ok: null };
   }
+  // The database's own function. A direct delete matched no rows and reported
+  // success, so a text somebody called back went out at its window anyway
+  // (0285).
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("sms_messages")
-    .delete()
-    .eq("id", String(formData.get("text_id") ?? ""))
-    .eq("status", "Scheduled");
+  const { error } = await supabase.rpc("cancel_scheduled_text", {
+    p_id: String(formData.get("text_id") ?? ""),
+  });
   if (error) return { error: error.message, ok: null };
   revalidatePath(`/clients/${String(formData.get("client_id") ?? "")}`);
+  revalidatePath("/messages/texts");
   return { error: null, ok: "It will not be sent." };
 }
 

@@ -101,11 +101,13 @@ export async function sendClientSms(
     };
   }
 
+  // Through the database's own function, not a direct update. `sms_messages`
+  // carries a restrictive UPDATE policy and nothing permissive, so a direct
+  // update from a signed-in staff member matched no rows and reported
+  // success - which is how every text a person sent from a screen stayed on
+  // 'Queued' while the client had it in their hand (0285).
   const fail = async (error: string): Promise<SendResult> => {
-    await supabase
-      .from("sms_messages")
-      .update({ status: "Failed", error: error.slice(0, 300) })
-      .eq("id", row.id);
+    await supabase.rpc("record_text_failed", { p_id: row.id, p_error: error.slice(0, 300) });
     return { ok: false, error, recorded: true };
   };
 
@@ -133,14 +135,20 @@ export async function sendClientSms(
   const sent = await ghlSend({ contactId, message: params.body });
   if (!sent.ok) return fail(sent.error);
 
-  await supabase
-    .from("sms_messages")
-    .update({
-      status: "Sent",
-      sent_at: new Date().toISOString(),
-      provider_message_id: sent.data || null,
-    })
-    .eq("id", row.id);
+  const { error: recordError } = await supabase.rpc("record_text_sent", {
+    p_id: row.id,
+    p_provider_id: sent.data || null,
+  });
+  // The text has gone. If recording that fails, say so rather than reporting
+  // a clean send: a row left on 'Queued' is what somebody will try to send
+  // again.
+  if (recordError) {
+    return {
+      ok: false,
+      error: `The text went, but the record of it did not save. ${recordError.message}`,
+      recorded: true,
+    };
+  }
 
   return { ok: true, id: row.id };
 }
@@ -268,13 +276,10 @@ export async function sendScheduledTexts(
     });
 
     if (outcome.ok) {
-      await supabase.from("sms_messages").delete().eq("id", id);
+      await supabase.rpc("cancel_scheduled_text", { p_id: id });
       result.sent += 1;
     } else {
-      await supabase
-        .from("sms_messages")
-        .update({ status: "Failed", error: outcome.error.slice(0, 300), claimed_at: null })
-        .eq("id", id);
+      await supabase.rpc("record_text_failed", { p_id: id, p_error: outcome.error.slice(0, 300) });
       result.failed += 1;
       result.errors.push(`${client?.name ?? phone}: ${outcome.error}`);
     }
@@ -306,10 +311,7 @@ export async function resendRecorded(
   },
 ): Promise<SendResult> {
   const fail = async (error: string): Promise<SendResult> => {
-    await supabase
-      .from("sms_messages")
-      .update({ status: "Failed", error: error.slice(0, 300), claimed_at: null })
-      .eq("id", id);
+    await supabase.rpc("record_text_failed", { p_id: id, p_error: error.slice(0, 300) });
     return { ok: false, error, recorded: true };
   };
 
@@ -339,15 +341,17 @@ export async function resendRecorded(
   const sent = await ghlSend({ contactId, message: params.body });
   if (!sent.ok) return fail(sent.error);
 
-  await supabase
-    .from("sms_messages")
-    .update({
-      status: "Sent",
-      sent_at: new Date().toISOString(),
-      provider_message_id: sent.data || null,
-      error: "",
-    })
-    .eq("id", id);
+  const { error: recordError } = await supabase.rpc("record_text_sent", {
+    p_id: id,
+    p_provider_id: sent.data || null,
+  });
+  if (recordError) {
+    return {
+      ok: false,
+      error: `The text went, but the record of it did not save. ${recordError.message}`,
+      recorded: true,
+    };
+  }
 
   return { ok: true, id };
 }

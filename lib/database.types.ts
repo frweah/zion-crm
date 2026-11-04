@@ -7216,6 +7216,10 @@ export type Database = {
         Args: { p_staff: string | null; p_client: string | null };
         Returns: boolean;
       };
+      cancel_scheduled_text: {
+        Args: { p_id: string | null };
+        Returns: string;
+      };
       claim_scheduled_text: {
         Args: { p_id: string | null };
         Returns: { id: string | null; client_id: string | null; phone: string | null; body: string | null; kind: string | null; created_by: string | null }[];
@@ -7952,6 +7956,14 @@ export type Database = {
         Args: { p_client: string | null; p_nth: number | null; p_to: string | null };
         Returns: boolean;
       };
+      record_text_failed: {
+        Args: { p_id: string | null; p_error: string | null };
+        Returns: string;
+      };
+      record_text_sent: {
+        Args: { p_id: string | null; p_provider_id?: string | null };
+        Returns: string;
+      };
       records_request_bundle: {
         Args: { p_client: string | null; p_purpose?: string | null };
         Returns: Json;
@@ -7995,6 +8007,10 @@ export type Database = {
       replace_placeholder_authorization: {
         Args: { p_doc: string | null; p_placeholder: string | null; p_number: string | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
+      replace_staff_document: {
+        Args: { p_file: string | null; p_path: string | null; p_filename: string | null; p_mime: string | null; p_size: number | null };
+        Returns: string;
       };
       retry_text: {
         Args: { p_id: string | null };

@@ -342,6 +342,10 @@ const RPC_FUNCTIONS = [
   // Texts that heard nothing back (0280).
   "mark_texts_not_delivered",
   "retry_text",
+  "record_text_sent",
+  "record_text_failed",
+  "cancel_scheduled_text",
+  "replace_staff_document",
   "record_incoming_sms",
   "text_lapse_minutes",
   // The Monday health run (0278).
@@ -456,6 +460,34 @@ function argsType(args) {
   });
   return `{ ${fields.join("; ")} }`;
 }
+
+// -- which writes a signed-in person can actually make ---------
+//
+// A table with RLS on, the grant in place and no **permissive** policy for a
+// command refuses that command silently: the write matches no rows and
+// PostgREST reports success. That is how every text sent from a screen stayed
+// on 'Queued' for a week (0285).
+//
+// `scripts/check-writes.mjs` holds the line, and it runs on Vercel where there
+// are no database credentials - so the answer is written down here, where the
+// credentials are. The check re-derives this whenever it can, and says plainly
+// when it could not.
+const { rows: policies } = await client.query(`
+  select c.relname, x.cmd
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral (
+      select cmd, letter, priv from (values
+        ('select','r','SELECT'), ('insert','a','INSERT'),
+        ('update','w','UPDATE'), ('delete','d','DELETE')) as t(cmd, letter, priv)
+    ) x
+   where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+     and has_table_privilege('authenticated', c.oid, x.priv)
+     and exists (select 1 from pg_policy p
+                  where p.polrelid = c.oid and p.polpermissive
+                    and p.polcmd in (x.letter, '*'))
+   order by c.relname, x.cmd
+`);
 
 await client.end();
 
@@ -579,3 +611,27 @@ out.push("");
 
 await writeFile("lib/database.types.ts", out.join("\n"), "utf8");
 console.log(`lib/database.types.ts — ${tables.size} tables, ${rows.length} columns, ${fns.length} functions`);
+
+const allowed = {};
+for (const r of policies) (allowed[r.relname] ??= []).push(r.cmd);
+
+await writeFile(
+  "lib/rls-writes.json",
+  `${JSON.stringify(
+    {
+      note:
+        "Which commands a signed-in staff member can really run on each table: the tables " +
+        "with RLS on, the grant in place, and a permissive policy for that command. Written " +
+        "by scripts/gen-types.mjs, read by scripts/check-writes.mjs, which runs where there " +
+        "are no database credentials. Do not edit by hand.",
+      allowed,
+    },
+    null,
+    2,
+  )}
+`,
+  "utf8",
+);
+console.log(
+  `lib/rls-writes.json - ${Object.keys(allowed).length} tables a signed-in person can write`,
+);

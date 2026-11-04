@@ -1,0 +1,729 @@
+{
+  "note": "Which commands a signed-in staff member can really run on each table: the tables with RLS on, the grant in place, and a permissive policy for that command. Written by scripts/gen-types.mjs, read by scripts/check-writes.mjs, which runs where there are no database credentials. Do not edit by hand.",
+  "allowed": {
+    "access_log": [
+      "select"
+    ],
+    "asset_assignments": [
+      "select"
+    ],
+    "asset_classes": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "asset_depreciation": [
+      "select"
+    ],
+    "assets": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "attachments": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "authorization_corrections": [
+      "select"
+    ],
+    "authorization_events": [
+      "select"
+    ],
+    "authorizations": [
+      "delete",
+      "select",
+      "update"
+    ],
+    "bank_accounts": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "bank_statements": [
+      "select"
+    ],
+    "bank_transactions": [
+      "select"
+    ],
+    "billing_office_contacts": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "billing_offices": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "billing_service_rules": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "calendar_events": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ce_entries": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "chase_sent": [
+      "select"
+    ],
+    "chat_files": [
+      "select"
+    ],
+    "checklist_tasks": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "client_corrections": [
+      "insert",
+      "select"
+    ],
+    "client_deletions": [
+      "select"
+    ],
+    "client_document_events": [
+      "select"
+    ],
+    "client_file_categories": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "client_private": [
+      "delete",
+      "insert",
+      "update"
+    ],
+    "client_recents": [
+      "select"
+    ],
+    "client_reports": [
+      "delete",
+      "select",
+      "update"
+    ],
+    "client_stage_history": [
+      "delete",
+      "insert",
+      "select"
+    ],
+    "client_weekly_reports": [
+      "delete",
+      "select",
+      "update"
+    ],
+    "clients": [
+      "insert",
+      "select",
+      "update"
+    ],
+    "completions": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "contact_log": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "contractor_payments": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "contractor_profiles": [
+      "delete",
+      "insert",
+      "update"
+    ],
+    "contractor_statements": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "conversation_participants": [
+      "select"
+    ],
+    "conversations": [
+      "select"
+    ],
+    "counselors": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "credential_types": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "directory_changes": [
+      "select"
+    ],
+    "employers": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "expense_categories": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "expenses": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "form_1099_recipients": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "form_1099_runs": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "form_templates": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "forms": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "hours_requests": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "inbox_documents": [
+      "select",
+      "update"
+    ],
+    "inbox_folder_map": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "inbox_runs": [
+      "select"
+    ],
+    "intake_mail": [
+      "select"
+    ],
+    "intakes": [
+      "delete",
+      "insert",
+      "update"
+    ],
+    "job_leads": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "job_runs": [
+      "select"
+    ],
+    "job_status_history": [
+      "insert",
+      "select"
+    ],
+    "journal_lines": [
+      "select"
+    ],
+    "journals": [
+      "select"
+    ],
+    "lead_matches": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ledger_accounts": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ledger_budgets": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ledger_entities": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ledger_expense_map": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ledger_periods": [
+      "select"
+    ],
+    "ledger_revenue_map": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "ledger_settings": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "legal_holds": [
+      "insert",
+      "select",
+      "update"
+    ],
+    "mail_exclusions": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "mail_log": [
+      "delete",
+      "select"
+    ],
+    "mail_templates": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "message_moderation": [
+      "select"
+    ],
+    "messages": [
+      "select"
+    ],
+    "microsoft_connections": [
+      "delete"
+    ],
+    "microsoft_subscriptions": [
+      "select"
+    ],
+    "microsoft_sync_state": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "mileage_rates": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "money_baselines": [
+      "select",
+      "update"
+    ],
+    "note_templates": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "notes": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "notifications": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "offices": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "org_settings": [
+      "delete",
+      "insert",
+      "update"
+    ],
+    "payments": [
+      "select"
+    ],
+    "placements": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "portal_accounts": [
+      "select"
+    ],
+    "portal_activity": [
+      "select"
+    ],
+    "portal_consents": [
+      "select"
+    ],
+    "portal_notices": [
+      "select"
+    ],
+    "portal_requests": [
+      "select"
+    ],
+    "portal_resumes": [
+      "select"
+    ],
+    "portal_sessions": [
+      "select"
+    ],
+    "portal_terms": [
+      "select"
+    ],
+    "practice_form_entries": [
+      "insert",
+      "select"
+    ],
+    "practice_forms": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "practice_health": [
+      "select"
+    ],
+    "problem_reports": [
+      "insert",
+      "select",
+      "update"
+    ],
+    "purchase_requests": [
+      "insert",
+      "select",
+      "update"
+    ],
+    "rate_schedule": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "read_receipts": [
+      "select"
+    ],
+    "records_requests": [
+      "insert",
+      "select",
+      "update"
+    ],
+    "retention_dispositions": [
+      "insert",
+      "select"
+    ],
+    "retention_policies": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "saved_views": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "service_entries": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "shared_mailboxes": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "sms_consent_events": [
+      "insert",
+      "select"
+    ],
+    "sms_messages": [
+      "insert",
+      "select"
+    ],
+    "sms_templates": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "sops": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_access_grants": [
+      "select"
+    ],
+    "staff_alert_snoozes": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_checklist_items": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_credentials": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_day_events": [
+      "select"
+    ],
+    "staff_day_lines": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_days": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_emails": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_employment": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_entities": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_file_categories": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_files": [
+      "delete",
+      "insert",
+      "select"
+    ],
+    "staff_offboarding": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_onboarding": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_pay": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_payment_setup": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_personal": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_policies": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_policy_signatures": [
+      "select"
+    ],
+    "staff_prefs": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "staff_presence": [
+      "select"
+    ],
+    "staff_record_changes": [
+      "select"
+    ],
+    "staff_signatures": [
+      "select"
+    ],
+    "task_comments": [
+      "insert",
+      "select"
+    ],
+    "tasks": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "tax_form_submissions": [
+      "delete",
+      "insert",
+      "update"
+    ],
+    "tax_years": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "tour_hints": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "update_reads": [
+      "insert",
+      "select"
+    ],
+    "updates": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "vendor_bill_schedules": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "vendor_bills": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "vendors": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "warrant_documents": [
+      "select"
+    ],
+    "warrant_lines": [
+      "select"
+    ],
+    "warrant_pages": [
+      "select"
+    ],
+    "web_chats": [
+      "select"
+    ],
+    "work_categories": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "work_session_timers": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
+    "work_sessions": [
+      "insert",
+      "select",
+      "update"
+    ]
+  }
+}
