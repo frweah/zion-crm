@@ -70,3 +70,6 @@ agent/ocr-failed.json
 .probe/
 .probe-*.txt
 scripts/.tmp-*
+
+# Scratch files from a working session, never part of the build.
+.tmp-*
