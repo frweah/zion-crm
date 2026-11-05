@@ -3402,6 +3402,11 @@ button.attach-chip:hover {
 
 .clock-button .chip {
   font-variant-numeric: tabular-nums;
+  /* Wide enough for "on a break" and fixed, so the figure changing cannot
+     reflow the header. Tabular digits keep "1h 09m" and "1h 10m" the same
+     width; this keeps the whole row the same width as the words change. */
+  min-width: 86px;
+  text-align: center;
 }
 
 .clock-problem {

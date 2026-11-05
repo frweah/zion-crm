@@ -37,11 +37,25 @@ export function ClockButton({
   const [outState, outAction, clockingOut] = useActionState(clockOut, initial);
 
   // The figure has to move, or a person reads it once and stops believing it.
+  // Once a minute, on the minute, because minutes are all it shows.
+  //
+  // It ticked every second first, and the deploy's idle check caught what that
+  // costs: the header re-rendering every second never settles, so Playwright
+  // could not click a sidebar link within eight seconds and the walk stopped
+  // at /dashboard. A person would have met the same header - a row of controls
+  // that reflows under the cursor once a second - without anything saying why.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!startedAt) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      setNow(Date.now());
+      // To the next minute boundary rather than a flat sixty seconds, so the
+      // figure changes when the clock does and not up to a minute afterwards.
+      id = setTimeout(tick, 60_000 - (Date.now() % 60_000));
+    };
+    id = setTimeout(tick, 60_000 - (Date.now() % 60_000));
+    return () => clearTimeout(id);
   }, [startedAt]);
 
   const busy = clockingIn || breaking || backing || clockingOut;
