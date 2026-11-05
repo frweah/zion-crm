@@ -283,6 +283,18 @@ jobs:
         run: npm ci --ignore-scripts
       - if: steps.ready.outputs.ready == 'true'
         run: npx playwright install --with-deps chromium
+      # Before the real walk, walk a stand-in shell whose shape is the shape
+      # that broke it: groups opening one at a time, a pane with a shade over
+      # the page, an address that changes a beat after the click. The walk
+      # timed four screens of twenty-seven for a month without ever failing,
+      # and both faults made it quieter rather than louder - so the thing to
+      # check is that it still finds screens at all.
+      - name: Does the walk still walk?
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          set -o pipefail
+          node scripts/check-idle-walk.mjs 2>&1 | tee walk.log
+
       - name: Time every screen from click to quiet
         if: steps.ready.outputs.ready == 'true'
         env:

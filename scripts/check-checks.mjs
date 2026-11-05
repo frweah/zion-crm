@@ -46,6 +46,8 @@ const CANNOT = {
     "imports a server-only module, so it cannot load outside a request — the fix is to split the shape out, as lib/report-shape.ts was split from lib/report-period.ts",
   "check-irs-forms.mjs":
     "imports a server-only module, so it cannot load outside a request — same fix as check-1099",
+  "check-idle-walk.mjs":
+    "drives a real browser against scripts/idle-fixture.mjs, and prebuild runs on Vercel where there is no browser to drive; it runs in the deploy's timing job, before the walk it checks, so a walk that has stopped finding screens fails there instead of quietly reporting four of them",
 };
 
 const dir = new URL("../scripts/", import.meta.url);

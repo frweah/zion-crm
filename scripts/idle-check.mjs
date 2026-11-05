@@ -177,13 +177,32 @@ async function press(selector, name, { timed, who }) {
   // closes it, and the walk carries on.
   await dismissAnyPane();
 
-  const settled = await quiet(CEILING_MS + 2000);
+  /**
+   * Wait for the address to change, and only then for the network.
+   *
+   * A client navigation does not necessarily ask for anything in the first
+   * half-second, so quiet() returned on the silence *before* the navigation:
+   * the address had not moved yet, the screen was reported "already open",
+   * and the one after it was timed from the wrong starting point. On
+   * production that lost eleven screens of twenty-seven and reported them as
+   * already open - which is how a walk can look like it is working and be
+   * measuring the pause before the work.
+   *
+   * The address is the honest signal that the press did something. Where it
+   * never moves, the link really did point at the screen we were on.
+   */
+  const moved = await page
+    .waitForURL((u) => String(u) !== from, { timeout: CEILING_MS })
+    .then(() => true)
+    .catch(() => false);
+
+  const settled = moved ? await quiet(CEILING_MS + 2000) : null;
   if (!timed) return true;
 
   // A link that goes where we already are is not a navigation, and timing it
   // is timing nothing. It happens honestly - a group whose hub is the screen
   // somebody is on - and said plainly rather than counted as a screen.
-  if (page.url() === from) {
+  if (!moved) {
     console.log(`  --      ${name.padEnd(34)} already open`);
     return true;
   }
