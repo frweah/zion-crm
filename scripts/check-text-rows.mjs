@@ -19,7 +19,7 @@
  * because the list is what goes stale: a third screen showing texts next month
  * is exactly the case this is for.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { senderOf, lastLine, statusOf, canRetry, TEXT_LAPSE_MINUTES } from "../lib/text-rows.ts";
 
@@ -147,22 +147,40 @@ const DECIDES = /\bsenderOf\(|\blastLine\(/;
 // Two files name a text's columns without listing any: the action that sends
 // one, and the library that sends it. Named rather than pattern-matched so a
 // third is a decision somebody takes rather than a regex that quietly widens.
+//
+// Forward slashes, and every path normalised to them before it is compared.
+// `path.join` gives backslashes on Windows and forward slashes on Linux, so
+// this list matched on the machine it was written on and matched nothing on
+// Vercel - where the check then failed every deploy for five commits while
+// passing locally. A check that depends on which machine runs it is worse than
+// no check: it says "green" to the person who can fix it and "red" only to a
+// build log nobody is reading.
+const slashes = (p) => p.split("\\").join("/");
+
 const NOT_A_LIST = new Set([
-  join("app", "(app)", "clients", "[id]", "text-actions.ts"),
-  join("app", "(app)", "clients", "[id]", "page.tsx"),
-  join("app", "(app)", "messages", "texts", "actions.ts"),
+  "app/(app)/clients/[id]/text-actions.ts",
+  "app/(app)/clients/[id]/page.tsx",
+  "app/(app)/messages/texts/actions.ts",
 ]);
 
 const listing = [];
 for (const path of screens("app")) {
-  const rel = path.replace(/^app[\\/]/, "app/").replace(/\//g, "\\").replace(/^app\\/, "app\\");
+  const rel = slashes(path);
   const src = readFileSync(path, "utf8");
   if (!SHOWS_A_TEXT(src)) continue;
-  const key = path.replace(/\//g, "\\");
-  if (NOT_A_LIST.has(key)) continue;
-  listing.push(key);
+  if (NOT_A_LIST.has(rel)) continue;
+  listing.push(rel);
   if (!DECIDES.test(src)) {
     fail(`${rel} lists texts without saying which way each one went or who said it`);
+  }
+}
+
+// And the exceptions have to exist. A path renamed since somebody wrote it
+// here is an exception that silently stops applying - the same fault as the
+// one above, arriving from the other direction.
+for (const named of NOT_A_LIST) {
+  if (!existsSync(named)) {
+    fail(`${named} is excused from this check and is not there any more`);
   }
 }
 
