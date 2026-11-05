@@ -268,6 +268,8 @@ const ratioIn = (palette, a, b) => {
 // Every pair the stylesheet puts text on, and the edges a person has to see.
 const TEXT = [
   ["ink", "bone"], ["ink", "paper"], ["ink-2", "bone"], ["ink-2", "paper"],
+  // Body text is its own token since 5 November 2026, so it is its own pair.
+  ["body-ink", "bone"], ["body-ink", "paper"], ["body-ink", "bg"],
   ["muted", "bone"], ["muted", "paper"], ["muted", "accent-soft-hover"],
   // Gold as text on cream is --accent-text; the fill gold carries ink.
   ["accent-text", "paper"], ["accent-text", "bone"], ["accent-text", "accent-soft"], ["accent-text", "accent-soft-hover"],

@@ -131,3 +131,37 @@ ellipses. Put the fault back and watch the check fail before trusting it.
 answer "no."** The middleware read an auth error as "revoked"; `getCurrentStaff`
 read a failed query as "no access" and signed the whole practice out. Both now
 tell the two apart.
+
+## Definition of done
+
+**"Deployed" means production reached READY and somebody checked.** The
+production deployment at `crm.zionvocrehab.com` is serving the commit, and
+that was confirmed rather than assumed. A commit that is pushed and not yet
+live is reported as **"pushed, not live"**, with both hashes. A commit whose
+deploy failed is reported as failed, with the reason.
+
+**Every report states the live production hash.** Not the local one, not the
+one that was pushed — the one the site is actually serving.
+
+The question is one HTTP GET:
+
+```
+node scripts/check-deployed.mjs
+```
+
+It asks `crm.zionvocrehab.com/api/version` what commit is live and compares it
+with HEAD. `scripts/wait-for-deploy.mjs <short-sha>` waits for one to land and
+reports what the deploy checks made of it.
+
+This is a rule because the alternative happened. Eight consecutive production
+deployments failed and all eight were reported as deployed: a check written on
+Windows compared paths that `path.join` spells differently on Linux, so it
+passed every local run and failed every build, and nobody read the build log.
+`wait-for-deploy.mjs` had been in the repository for a month and had never been
+run. For two days production served code from before a release against a
+schema from after it.
+
+**A build cannot tell you whether it worked**, which is why this one check
+cannot live in `prebuild` — prebuild runs inside the deployment it would be
+asking about. It is in `check-checks`'s list of checks that cannot, with that
+reason, and it is the last thing to run before the word "deployed" is written.

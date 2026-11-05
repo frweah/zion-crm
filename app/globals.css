@@ -19,7 +19,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: 22px;
-  color: var(--ink);
+  color: var(--body-ink);
   background: var(--bg);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;

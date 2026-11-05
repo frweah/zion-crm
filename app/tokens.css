@@ -33,6 +33,12 @@
 :root {
   /* ink and paper */
   --ink: #1f2a26;
+  /* Body text, near-black, separate from --ink since 5 November 2026.
+     `body` and `.h2` both read --ink, so darkening the body text darkened
+     every heading with it - and the headings were the one thing not to
+     change. Split rather than compromised: --body-ink is what running text
+     inherits and --ink is what a heading, a chip and a tile value take. */
+  --body-ink: #131b18;
   --ink-2: #33423b;
   /* Secondary text, one step darker and one step greyer (owner, 5 Nov 2026).
      It was #556158, a green-grey at 6.49:1 on white; this is 7.73:1 and reads
@@ -163,6 +169,9 @@
      a machine set to dark. */
   :root:not([data-theme="light"]) {
     --ink: #ffffff;
+    /* Dark: white is white. Body and heading are the same colour here
+       because there is nothing darker than the page to move towards. */
+    --body-ink: #ffffff;
     --ink-2: #e8efea;
     --muted: #d2dcd6;
     --bone: #35463d;
@@ -218,6 +227,9 @@
 
 :root[data-theme="dark"] {
   --ink: #ffffff;
+  /* Dark: white is white. Body and heading are the same colour here
+     because there is nothing darker than the page to move towards. */
+  --body-ink: #ffffff;
   --ink-2: #e8efea;
   --muted: #d2dcd6;
   --bone: #35463d;

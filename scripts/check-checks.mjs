@@ -38,6 +38,8 @@ const CANNOT = {
     "needs a real transaction against the database; run by hand with --env-file=.env.local",
   "check-form-templates.mjs":
     "reads the form templates out of the database; run by hand with --env-file=.env.local",
+  "check-deployed.mjs":
+    "asks crm.zionvocrehab.com what it is serving, and prebuild runs inside the deployment it would be checking - a build cannot tell you whether it worked; run by hand before reporting anything as deployed",
   "check-no-client-names.mjs":
     "has to ask the database who the clients are, and there is no snapshot to fall back on - a list of client names in the repository would be the thing it is for; run by hand with --env-file=.env.local",
   "check-1099.mjs":
