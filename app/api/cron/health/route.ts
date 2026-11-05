@@ -17,7 +17,8 @@ import { healthEmail, type Health } from "@/lib/health-report";
  * oldest unsent.
  *
  *   curl -H "Authorization: Bearer $CRON_SECRET" https://APP/api/cron/health
- *   …?dry=1    what it would send, sending nothing
+ *   …?dry=1      what it would send, sending nothing
+ *   …?force=1    send it now, whatever day and hour it is
  *
  * **Monday is asked here and the hour is asked here**, which is the pattern
  * every other job in this system follows: pg_cron thinks in UTC and Utah is
@@ -82,6 +83,20 @@ async function handle(request: NextRequest) {
   // question anybody holding the secret can ask on a Wednesday.
   const dry = request.nextUrl.searchParams.get("dry") === "1";
 
+  // And send it now, whatever day it is.
+  //
+  // The day and the hour are asked here rather than in the schedule, which is
+  // right - it is what makes this 07:00 Mountain in both halves of the year -
+  // but it also meant there was no way to send the thing by hand. The week the
+  // job was found posting to localhost, the owner wanted that week's email
+  // without waiting for the next Monday, and the only honest answer was that
+  // the route would refuse.
+  //
+  // Behind the secret, like everything else here, and never set by the
+  // schedule: the job posts with no query string at all, so a forced send is
+  // always somebody asking for one.
+  const forced = request.nextUrl.searchParams.get("force") === "1";
+
   const now = today();
   const isMonday = new Date(`${now}T00:00:00Z`).getUTCDay() === 1;
   // The hour in Utah, which is what makes this 07:00 Mountain all year.
@@ -107,7 +122,7 @@ async function handle(request: NextRequest) {
     .eq("active", true);
   const to = (admins ?? []).map((a) => a.email).filter((e): e is string => Boolean(e?.trim()));
 
-  const due = isMonday && hour === 7;
+  const due = (isMonday && hour === 7) || forced;
 
   if (dry || !due) {
     return NextResponse.json({
@@ -139,5 +154,5 @@ async function handle(request: NextRequest) {
 
   await sendReferralNudge(token, to[0], to.slice(1), subject, body);
 
-  return NextResponse.json({ sent: true, today: now, utah_hour: hour, to, subject });
+  return NextResponse.json({ sent: true, forced, today: now, utah_hour: hour, to, subject });
 }

@@ -50,16 +50,21 @@ begin
   end if;
 
   -- ── the Everyone group is the staff list ──────────────────
+  -- The staff list means the colleagues on it. A system account is not a
+  -- colleague and is out of this group from 0294 - it was in it from 0272,
+  -- and this script read "in the group exactly when active" as the rule, so
+  -- it was asserting the fault.
   select count(*) into v_n
     from public.conversation_participants p
     join public.staff s on s.id = p.staff_id
-   where p.conversation_id = v_everyone and (p.left_at is null) <> s.active;
+   where p.conversation_id = v_everyone
+     and (p.left_at is null) <> (s.active and not s.is_system);
   if v_n > 0 then
-    failures := failures || format('FAILED: %s people are in the Everyone group when they are not staff, or out of it when they are', v_n);
+    failures := failures || format('FAILED: %s colleagues are in the Everyone group when they are not staff, or out of it when they are', v_n);
   elsif (select count(*) from public.conversation_participants
           where conversation_id = v_everyone and left_at is null)
-        <> (select count(*) from public.staff where active) then
-    failures := failures || 'FAILED: the Everyone group and the staff list are different lengths'::text;
+        <> (select count(*) from public.staff where active and not is_system) then
+    failures := failures || 'FAILED: the Everyone group and the list of colleagues are different lengths'::text;
   else
     raise notice 'ok  the Everyone group holds exactly the active staff';
   end if;

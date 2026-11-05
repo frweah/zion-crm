@@ -7,7 +7,7 @@
 --   It cannot insert, update or delete anything - a client, a note, a task,
 --   a preference - while a person with the same role still can.
 --
---   It is Job Search and nothing more: it cannot be made Admin, and no area
+--   It is one of the three roles a check account may hold, and no area
 --   can be given to it.
 --
 --   Every table with row-level security carries the rule, including any a
@@ -24,6 +24,7 @@ declare
   v_client uuid;
   v_n integer;
   v_missing text;
+  v_role   text;
   failures text[] := '{}';
 begin
   -- Staff first: an account can only be made for somebody already on staff,
@@ -87,35 +88,38 @@ begin
     raise notice 'ok  the system account reads and cannot write; a person with the same role still can';
   end if;
 
-  -- ── Job Search or Billing, and nothing more ───────────────
+  -- ── one of the three roles a check account may hold ─────
+  --
+  -- Job Search (0120), Billing (0129) and Admin (0294), because a role sees
+  -- its own screens and nothing else: as Job Search the deploy check could
+  -- not open Billing's screens, and the timing walk could not reach Admin's
+  -- at all. Anything else is still refused.
   perform set_config('role', 'postgres', true);
-  begin
-    update public.staff set role = 'Admin' where id = v_bot;
-    failures := failures || 'FAILED: a system account was made Admin'::text;
-  exception when check_violation then null;
-  end;
   begin
     update public.staff set role = 'Reports' where id = v_bot;
     failures := failures || 'FAILED: a system account was made Intake & Reports'::text;
   exception when check_violation then null;
   end;
-  -- Billing is allowed (0129), because the deploy check cannot see Billing's
-  -- screens as Job Search - and an account that writes nothing is no more
-  -- dangerous as one role than as the other.
-  begin
-    update public.staff set role = 'Billing' where id = v_bot;
-  exception when check_violation then
-    failures := failures || 'FAILED: a system account cannot be Billing, so the deploy check cannot open Billing''s screens'::text;
-  end;
-  -- Whatever role it holds, it still writes nothing.
-  perform set_config('role', 'authenticated', true);
-  perform set_config('request.jwt.claims', json_build_object('sub', v_bot_uid, 'role', 'authenticated')::text, true);
-  update public.clients set caseload = 'ZZ by the billing bot' where id = v_client;
-  get diagnostics v_n = row_count;
-  if v_n > 0 then
-    failures := failures || 'FAILED: a Billing system account changed a client'::text;
-  end if;
-  perform set_config('role', 'postgres', true);
+  foreach v_role in array array['Billing', 'Admin'] loop
+    begin
+      update public.staff set role = v_role where id = v_bot;
+    exception when check_violation then
+      failures := failures || format(
+        'FAILED: a system account cannot be %s, so that role''s screens are opened by nobody', v_role);
+    end;
+
+    -- Whatever role it holds, it still writes nothing. Asserted per role
+    -- rather than once, because Admin is the role that reaches the most and
+    -- the read-only promise is the whole reason it is allowed to.
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', v_bot_uid, 'role', 'authenticated')::text, true);
+    update public.clients set caseload = 'ZZ by the bot' where id = v_client;
+    get diagnostics v_n = row_count;
+    if v_n > 0 then
+      failures := failures || format('FAILED: a %s system account changed a client', v_role);
+    end if;
+    perform set_config('role', 'postgres', true);
+  end loop;
   update public.staff set role = 'Job Search' where id = v_bot;
   begin
     insert into public.staff_access_grants (staff_id, area, level) values (v_bot, 'billing', 'view');
@@ -133,7 +137,7 @@ begin
   if v_missing is not null then
     failures := failures || format('FAILED: these tables do not refuse the system account''s writes - call apply_system_read_only on them: %s', v_missing);
   else
-    raise notice 'ok  it is Job Search or Billing and nothing more, and every table refuses its writes whichever it is';
+    raise notice 'ok  it is Job Search, Billing or Admin and nothing more, and every table refuses its writes whichever it is';
   end if;
 
   if has_function_privilege('anon', 'public.current_staff_is_system()', 'execute') then

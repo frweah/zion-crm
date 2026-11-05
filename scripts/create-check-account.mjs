@@ -3,17 +3,24 @@
  *
  *   node --env-file=.env.local scripts/create-check-account.mjs [email]
  *   node --env-file=.env.local scripts/create-check-account.mjs --billing
+ *   node --env-file=.env.local scripts/create-check-account.mjs --admin
  *
- * There are two, because a role only sees its own screens: the Job Search one
- * opens what Job Search reaches, and the Billing one opens Invoices,
+ * There are three, because a role only sees its own screens: the Job Search
+ * one opens what Job Search reaches, the Billing one opens Invoices,
  * Authorizations, the Service log, Export, Overview and Items - none of which
- * the first has ever been able to see (0129). Neither can write anything.
+ * the first has ever been able to see (0129) - and the Admin one is for the
+ * timing walk, which was timing a fifth of the navigation because the screens
+ * Admin reaches were being opened by nobody (0294). None of them can write to
+ * a table.
  *
- * It adds the staff row (Job Search, is_system - read-only, never given more)
- * and then the sign-in, with a long random password it prints once, to be
- * pasted into GitHub → Settings → Secrets and variables → Actions as
+ * It adds the staff row (is_system - read-only, never given an area beyond
+ * its role) and then the sign-in, with a long random password it prints once,
+ * to be pasted into GitHub → Settings → Secrets and variables → Actions as
  * SMOKE_EMAIL and SMOKE_PASSWORD. It is not written to any file, and nothing
  * else keeps it: lose it and run with --reset to issue a new one.
+ *
+ * **GitHub, not Vercel.** The checks that use these run in GitHub Actions;
+ * Vercel never sees them, and a secret set there would do nothing at all.
  *
  * The email only has to be an address; nothing is ever sent to it - the
  * account is left out of every mailing and every list of colleagues.
@@ -24,10 +31,30 @@ import { createClient } from "@supabase/supabase-js";
 const args = process.argv.slice(2);
 const reset = args.includes("--reset");
 const billing = args.includes("--billing");
-const role = billing ? "Billing" : "Job Search";
+const isAdmin = args.includes("--admin");
+if (billing && isAdmin) {
+  console.error("Pick one: --billing or --admin. They are two accounts, not one with two roles.");
+  process.exit(1);
+}
+const which = billing ? "billing" : isAdmin ? "admin" : "job-search";
+const role = billing ? "Billing" : isAdmin ? "Admin" : "Job Search";
+const NAME = {
+  "job-search": "Automated check",
+  billing: "Automated check (billing)",
+  admin: "Automated check (admin)",
+};
+const SECRET = {
+  "job-search": ["SMOKE_EMAIL", "SMOKE_PASSWORD"],
+  billing: ["SMOKE_BILLING_EMAIL", "SMOKE_BILLING_PASSWORD"],
+  admin: ["SMOKE_ADMIN_EMAIL", "SMOKE_ADMIN_PASSWORD"],
+};
 const email = (
   args.find((a) => a.includes("@")) ??
-  (billing ? "automated-check-billing@zionvocrehab.com" : "automated-check@zionvocrehab.com")
+  {
+    "job-search": "automated-check@zionvocrehab.com",
+    billing: "automated-check-billing@zionvocrehab.com",
+    admin: "automated-check-admin@zionvocrehab.com",
+  }[which]
 ).toLowerCase();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -56,7 +83,7 @@ if (existing?.user_id) {
     // Staff first: an account can only be made for somebody already on staff.
     const { error } = await admin
       .from("staff")
-      .insert({ name: billing ? "Automated check (billing)" : "Automated check", email, role, active: true, is_system: true });
+      .insert({ name: NAME[which], email, role, active: true, is_system: true });
     if (error) throw error;
   }
   const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -72,8 +99,8 @@ if (!linked?.user_id) {
 console.log("");
 console.log("Paste these into GitHub → Settings → Secrets and variables → Actions:");
 console.log("");
-console.log(`  ${billing ? "SMOKE_BILLING_EMAIL" : "SMOKE_EMAIL"}     ${email}`);
-console.log(`  ${billing ? "SMOKE_BILLING_PASSWORD" : "SMOKE_PASSWORD"}  ${password}`);
+console.log(`  ${SECRET[which][0]}     ${email}`);
+console.log(`  ${SECRET[which][1]}  ${password}`);
 console.log(`  SUPABASE_URL    ${url}`);
 console.log("  SUPABASE_ANON_KEY  (NEXT_PUBLIC_SUPABASE_ANON_KEY from .env.local)");
 console.log("");
