@@ -115,11 +115,18 @@ async function handle(request: NextRequest) {
   const health = (Array.isArray(rows) ? rows[0] : rows) as unknown as Health;
   const { subject, body } = healthEmail(health, now);
 
+  // Every active Admin who is a person. 0294 made the timing walk's check
+  // account an Admin, and this asked for the role and not the person - so the
+  // first forced run put automated-check-admin@ in the To line of the owner's
+  // email, an address nothing is ever sent to. 0120 said these accounts are
+  // "left out of every mailing"; a Job Search one never qualified for an
+  // Admin mailing, and an Admin one does.
   const { data: admins } = await admin
     .from("staff")
     .select("email")
     .eq("role", "Admin")
-    .eq("active", true);
+    .eq("active", true)
+    .eq("is_system", false);
   const to = (admins ?? []).map((a) => a.email).filter((e): e is string => Boolean(e?.trim()));
 
   const due = (isMonday && hour === 7) || forced;
