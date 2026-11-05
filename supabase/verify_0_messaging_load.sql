@@ -86,7 +86,14 @@ begin
   v_best := null;
   for i in 1..3 loop
     v_t := clock_timestamp();
-    select sum(unread) into v_n from public.my_unread();
+    -- The fixture's own conversations only. Every new staff member joins the
+    -- Everyone group (0272), which holds the practice's real messages, so a
+    -- bare sum here counts whatever Team chat happens to hold that day - it
+    -- read 2001 the first time somebody had an unread line in Everyone.
+    select coalesce(sum(u.unread), 0) into v_n
+      from public.my_unread() u
+      join public.conversations c on c.id = u.conversation_id
+     where c.title like 'ZZ load %';
     v_ms := extract(epoch from clock_timestamp() - v_t) * 1000;
     v_best := least(coalesce(v_best, v_ms), v_ms);
     if v_n <> 2000 then

@@ -19,6 +19,7 @@ import {
   type CredentialDecision,
 } from "../../staff/credentials";
 import { StaffDocuments, type DocCategory, type DocRow } from "../../staff/documents";
+import { ScheduleForm } from "../../staff/schedule-form";
 
 /**
  * One member of staff's record.
@@ -68,6 +69,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
     typesResult,
     employmentResult,
     requirementsResult,
+    scheduleResult,
     documentResult,
     docCategoryResult,
     offboardingResult,
@@ -99,6 +101,13 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .from("staff_credential_requirements")
         .select("type_key, required, reason, decided_at")
         .eq("staff_id", id),
+      // When they are expected to work (0293): the reminder and the
+      // over-forty flag both read it.
+      supabase
+        .from("staff_schedule")
+        .select("work_days, starts_at, weekly_hours, note")
+        .eq("staff_id", id)
+        .maybeSingle(),
       supabase
         .from("staff_documents")
         .select("*")
@@ -264,6 +273,21 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
             staffId={person.id}
             current={(employmentResult.data ?? [])[0]?.employment_type ?? null}
             startedOn={(employmentResult.data ?? [])[0]?.started_on ?? null}
+            readOnly={readOnly}
+          />
+        </div>
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3>Expected to work</h3>
+          <ScheduleForm
+            staffId={person.id}
+            workDays={(scheduleResult.data?.work_days ?? []) as number[]}
+            startsAt={scheduleResult.data?.starts_at ?? null}
+            weeklyHours={
+              scheduleResult.data?.weekly_hours == null
+                ? null
+                : Number(scheduleResult.data.weekly_hours)
+            }
+            note={scheduleResult.data?.note ?? ""}
             readOnly={readOnly}
           />
         </div>

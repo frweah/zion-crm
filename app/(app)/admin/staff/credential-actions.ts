@@ -236,3 +236,41 @@ export async function setCredentialRequirement(
   revalidatePath("/admin/people", "layout");
   return { error: null, ok: typeof data === "string" ? data : "Recorded." };
 }
+
+/**
+ * When somebody is expected to work.
+ *
+ * The practice held nothing of the kind until 0293, which is why the
+ * late-clock-in reminder could not exist: a reminder fifteen minutes after
+ * start needs a start. Days as ISO weekdays, so Monday is 1 and a four-day
+ * week is four numbers.
+ */
+export async function setSchedule(
+  _prev: CredentialState,
+  formData: FormData,
+): Promise<CredentialState> {
+  const me = await getCurrentStaff();
+  if (me?.role !== "Admin") return { error: "Admin only.", ok: null };
+
+  const days = [1, 2, 3, 4, 5, 6, 7].filter((d) => formData.get(`day_${d}`) === "on");
+  const starts = String(formData.get("starts_at") ?? "").trim();
+  const hours = String(formData.get("weekly_hours") ?? "").trim();
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_staff_schedule", {
+    p_staff: String(formData.get("staff_id") ?? ""),
+    p_days: days,
+    p_starts: starts || null,
+    p_hours: hours ? Number(hours) : null,
+    p_note: String(formData.get("note") ?? ""),
+  });
+
+  if (error) return { error: error.message, ok: null };
+  revalidatePath("/admin/people", "layout");
+  return {
+    error: null,
+    ok: days.length === 0
+      ? "Recorded. No scheduled days, so they are not reminded to clock in."
+      : `Recorded. ${days.length} day${days.length === 1 ? "" : "s"} a week.`,
+  };
+}

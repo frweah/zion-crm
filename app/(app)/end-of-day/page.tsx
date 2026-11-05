@@ -47,7 +47,7 @@ export default async function EndOfDayPage({
   // than one being created in their name.
   const dayId = existing?.id ?? null;
 
-  const [{ data: lineRows }, { data: events }, { data: managerRow }] = await Promise.all([
+  const [{ data: lineRows }, { data: events }, { data: managerRow }, { data: clocked }] = await Promise.all([
     dayId
       ? supabase
           .from("staff_day_lines")
@@ -69,12 +69,29 @@ export default async function EndOfDayPage({
           .eq("id", (existing?.manager_id ?? person?.manager_id)!)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // What the clock says about today, so somebody writing their day is not
+    // asked to remember it (0293, item 7). Shown rather than filled into a
+    // field: End of day records what was done, not how long it took, and the
+    // hours themselves are already on the record from the clock.
+    supabase
+      .from("my_hours_summary")
+      .select("today_hours, today_break_seconds")
+      .maybeSingle(),
   ]);
 
   const lines = (lineRows ?? []) as DayLine[];
+  const clockedHours = Number(clocked?.today_hours ?? 0);
+  const clockedBreak = Number(clocked?.today_break_seconds ?? 0);
 
   return (
     <>
+      {mine && clockedHours > 0 && (
+        <p className="lock" style={{ marginBottom: 10 }}>
+          The clock has {clockedHours.toFixed(2)} hours for you today
+          {clockedBreak > 0 ? `, and ${Math.round(clockedBreak / 60)} minutes of break` : ""}.
+        </p>
+      )}
+
       <PageHead
         title="My end of day"
         context={

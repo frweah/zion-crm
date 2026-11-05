@@ -5640,6 +5640,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_schedule: {
+        Row: {
+          staff_id: string;
+          work_days: number[];
+          starts_at: string | null;
+          weekly_hours: number | null;
+          note: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          staff_id: string;
+          work_days?: number[];
+          starts_at?: string | null;
+          weekly_hours?: number | null;
+          note?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          staff_id?: string;
+          work_days?: number[];
+          starts_at?: string | null;
+          weekly_hours?: number | null;
+          note?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       staff_signatures: {
         Row: {
           staff_id: string;
@@ -6367,6 +6397,9 @@ export type Database = {
           note: string;
           client_id: string | null;
           created_at: string;
+          break_started_at: string | null;
+          break_seconds: number;
+          last_seen_at: string;
         };
         Insert: {
           staff_id: string;
@@ -6374,6 +6407,9 @@ export type Database = {
           note?: string;
           client_id?: string | null;
           created_at?: string;
+          break_started_at?: string | null;
+          break_seconds?: number;
+          last_seen_at?: string;
         };
         Update: {
           staff_id?: string;
@@ -6381,6 +6417,9 @@ export type Database = {
           note?: string;
           client_id?: string | null;
           created_at?: string;
+          break_started_at?: string | null;
+          break_seconds?: number;
+          last_seen_at?: string;
         };
         Relationships: [];
       };
@@ -6399,6 +6438,17 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           category: string | null;
+          started_at: string | null;
+          ended_at: string | null;
+          break_seconds: number;
+          auto_closed: boolean;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+          approval: string;
+          approver_id: string | null;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string;
         };
         Insert: {
           id?: string;
@@ -6414,6 +6464,17 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           category?: string | null;
+          started_at?: string | null;
+          ended_at?: string | null;
+          break_seconds?: number;
+          auto_closed?: boolean;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          approval?: string;
+          approver_id?: string | null;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string;
         };
         Update: {
           id?: string;
@@ -6429,6 +6490,17 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           category?: string | null;
+          started_at?: string | null;
+          ended_at?: string | null;
+          break_seconds?: number;
+          auto_closed?: boolean;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          approval?: string;
+          approver_id?: string | null;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string;
         };
         Relationships: [];
       };
@@ -6893,6 +6965,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      hours_by_week: {
+        Row: {
+          staff_id: string | null;
+          staff_name: string | null;
+          staff_role: string | null;
+          employment_type: string | null;
+          week_start: string | null;
+          period_start: string | null;
+          period_end: string | null;
+          hours: number | null;
+          break_seconds: number | null;
+          sessions: number | null;
+          over_forty: boolean | null;
+        };
+        Relationships: [];
+      };
       inbox_pending: {
         Row: {
           id: string | null;
@@ -6920,9 +7008,14 @@ export type Database = {
         Row: {
           staff_id: string | null;
           today_hours: number | null;
+          today_break_seconds: number | null;
+          week_hours: number | null;
+          month_hours: number | null;
           period_hours: number | null;
+          period_break_seconds: number | null;
           period_start: string | null;
           period_end: string | null;
+          to_confirm: number | null;
         };
         Relationships: [];
       };
@@ -7096,6 +7189,7 @@ export type Database = {
           period_start: string | null;
           period_end: string | null;
           total_hours: number | null;
+          break_seconds: number | null;
           session_count: number | null;
         };
         Relationships: [];
@@ -7292,12 +7386,28 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      clock_in: {
+        Args: { p_note?: string | null; p_client?: string | null };
+        Returns: string;
+      };
+      clock_lapse_hours: {
+        Args: Record<string, never>;
+        Returns: { warn_after: number | null; close_after: number | null }[];
+      };
+      clock_out: {
+        Args: { p_description?: string | null; p_category?: string | null; p_at?: string | null };
+        Returns: string;
+      };
       close_client: {
         Args: { p_client: string | null; p_reason: string | null };
         Returns: { closed_authorizations: number | null }[];
       };
       close_empty_coaching_months: {
         Args: { p_today?: string | null };
+        Returns: number;
+      };
+      close_forgotten_sessions: {
+        Args: Record<string, never>;
         Returns: number;
       };
       close_ledger_month: {
@@ -7307,6 +7417,10 @@ export type Database = {
       confirm_authorization_document: {
         Args: { p_attachment?: string | null; p_doc?: string | null; p_auth?: string | null; p_number?: string | null; p_service_type?: string | null; p_rate_type?: string | null; p_rate?: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null };
         Returns: { authorization_id: string | null; auth_number: string | null; created: boolean | null; attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
+      confirm_auto_closed_session: {
+        Args: { p_session: string | null };
+        Returns: string;
       };
       confirm_onboarding_certifications: {
         Args: Record<string, never>;
@@ -7340,6 +7454,10 @@ export type Database = {
         Args: { p_client: string | null; p_note: string | null };
         Returns: { name: string | null; was: string | null }[];
       };
+      decide_hours_correction: {
+        Args: { p_correction: string | null; p_approve: boolean | null; p_reason?: string | null };
+        Returns: string;
+      };
       delete_client: {
         Args: { p_client: string | null; p_reason: string | null };
         Returns: string;
@@ -7363,6 +7481,10 @@ export type Database = {
       edit_message: {
         Args: { p_message: string | null; p_body: string | null };
         Returns: undefined;
+      };
+      end_break: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       escalate_unanswered_texts: {
         Args: { p_today: string | null };
@@ -7439,6 +7561,10 @@ export type Database = {
       hide_message: {
         Args: { p_message: string | null; p_hidden: boolean | null; p_reason: string | null };
         Returns: undefined;
+      };
+      hours_correction_needs_approval: {
+        Args: { p_staff: string | null; p_worked_on: string | null };
+        Returns: boolean;
       };
       hqi_for_placement: {
         Args: { p_placement: string | null };
@@ -8032,6 +8158,10 @@ export type Database = {
         Args: { p_older_than?: number | null };
         Returns: number;
       };
+      remind_to_clock_in: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
       remove_message: {
         Args: { p_message: string | null };
         Returns: undefined;
@@ -8054,6 +8184,10 @@ export type Database = {
       };
       replace_staff_document: {
         Args: { p_file: string | null; p_path: string | null; p_filename: string | null; p_mime: string | null; p_size: number | null };
+        Returns: string;
+      };
+      request_hours_correction: {
+        Args: { p_session: string | null; p_hours: number | null; p_description: string | null; p_reason: string | null };
         Returns: string;
       };
       retry_text: {
@@ -8152,6 +8286,10 @@ export type Database = {
         Args: { p_staff_id: string | null; p_rate: number | null; p_unit: string | null; p_effective_from: string | null; p_note?: string | null };
         Returns: string;
       };
+      set_staff_schedule: {
+        Args: { p_staff: string | null; p_days: number[] | null; p_starts: string | null; p_hours: number | null; p_note?: string | null };
+        Returns: string;
+      };
       set_statement_adjustment: {
         Args: { p_statement_id: string | null; p_amount: number | null; p_note: string | null };
         Returns: undefined;
@@ -8183,6 +8321,10 @@ export type Database = {
       staff_presence_status: {
         Args: Record<string, never>;
         Returns: { staff_id: string | null; status: string | null }[];
+      };
+      start_break: {
+        Args: Record<string, never>;
+        Returns: string;
       };
       start_direct_conversation: {
         Args: { p_other: string | null };

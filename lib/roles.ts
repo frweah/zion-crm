@@ -340,6 +340,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // standing recipient beside them (owner, 23 Oct 2026).
       { label: "Templates", href: "/admin/templates", roles: ADMIN, note: "Authorization requests, report covers, renewal chases." },
       { label: "System", href: "/admin/system", roles: ADMIN, note: "The access log, and what the system records about itself." },
+      // Everybody's clocked time, a period at a time (0293). Admin's, not
+      // Insights': it is what payroll is paid from and it names what each
+      // person worked.
+      { label: "Hours", href: "/admin/hours", roles: ADMIN, note: "Everybody's clocked time, and corrections waiting." },
       { label: "Money insights", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },

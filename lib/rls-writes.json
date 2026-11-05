@@ -641,6 +641,9 @@
     "staff_record_changes": [
       "select"
     ],
+    "staff_schedule": [
+      "select"
+    ],
     "staff_signatures": [
       "select"
     ],

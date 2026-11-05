@@ -11,6 +11,7 @@ import { GroupTabs } from "./group-tabs";
 import { HubBack } from "./hub-back";
 import { SidebarToggle } from "./sidebar-toggle";
 import { HeaderBar } from "./header-bar";
+import { ClockButton } from "./clock-button";
 import type { Theme } from "./theme-actions";
 import { BottomBar } from "./bottom-bar";
 import { NavIcon } from "./nav-icons";
@@ -28,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: chatPrefs }, { data: policyDue }, { data: twoFactorRows }, { data: claims }] =
+  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: chatPrefs }, { data: policyDue }, { data: twoFactorRows }, { data: claims }, { data: openSession }, { data: hoursToday }] =
     await Promise.all([
     requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
@@ -49,6 +50,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // How far this session has authenticated. aal1 is a password; aal2 means
     // a second factor was used on it.
     supabase.auth.getClaims(),
+    // The clock, which is in the header on every screen (0293). Both reads
+    // are one row each and they are here rather than on each screen for the
+    // same reason the bell is: a figure that is only right on one screen is
+    // worse than no figure.
+    supabase
+      .from("work_session_timers")
+      .select("started_at, break_started_at, break_seconds")
+      .maybeSingle(),
+    supabase.from("my_hours_summary").select("today_hours").maybeSingle(),
   ]);
   const twoFactor = Array.isArray(twoFactorRows) ? twoFactorRows[0] : null;
   const authLevel = (claims?.claims as { aal?: string } | undefined)?.aal;
@@ -203,6 +213,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <ClientSearch />
           <div className="row2" style={{ gap: 10, alignItems: "center" }}>
             <QuickAdd />
+            {/* On the clock or not, and for how long today. In the layout so
+                it is on every screen, which is what the brief asked for and
+                what check-clock-button holds. */}
+            <ClockButton
+              startedAt={openSession?.started_at ?? null}
+              onBreakSince={openSession?.break_started_at ?? null}
+              breakSeconds={Number(openSession?.break_seconds ?? 0)}
+              todayHours={Number(hoursToday?.today_hours ?? 0)}
+            />
             {/* What is waiting, and who you are (Design language, §1). */}
             <HeaderBar
               name={staff.name}

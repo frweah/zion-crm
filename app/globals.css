@@ -3375,3 +3375,43 @@ button.attach-chip:hover {
   background: var(--accent-soft);
   border: 1px solid var(--line);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   The clock, in the header on every screen (0293)
+
+   One row of small controls that has to survive next to the client search,
+   the "+" and the bell at 375px. Below 700px the running figure stays and the
+   two words shorten to their verbs, because what a person needs on a phone is
+   "am I on the clock" and one tap to change it.
+   ───────────────────────────────────────────────────────────── */
+.clock-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.clock-button form {
+  display: inline;
+}
+
+.clock-button .btn {
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.clock-button .chip {
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-problem {
+  color: var(--bad);
+}
+
+@media (max-width: 700px) {
+  /* The figure and one action. The second action is a tap away on the Time
+     clock screen, which the figure links to. */
+  .clock-button .btn.ghost {
+    display: none;
+  }
+}

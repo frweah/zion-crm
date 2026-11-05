@@ -34,7 +34,13 @@
   /* ink and paper */
   --ink: #1f2a26;
   --ink-2: #33423b;
-  --muted: #556158;
+  /* Secondary text, one step darker and one step greyer (owner, 5 Nov 2026).
+     It was #556158, a green-grey at 6.49:1 on white; this is 7.73:1 and reads
+     as grey rather than as a faded version of the ink. --ink and --ink-2 are
+     untouched: `body` and `.h2` both take their colour from --ink, so
+     darkening the body text would darken every heading with it, which is the
+     one thing that was not to change. */
+  --muted: #4b5551;
   --bone: #f7f4ee;
   --paper: #ffffff;
   --line: #ddd6cb;
