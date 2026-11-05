@@ -68,6 +68,61 @@ async function quiet(limitMs) {
   }
 }
 
+/**
+ * Escape out of anything covering the page.
+ *
+ * Returns true if something was in the way, which is worth knowing: a link
+ * that opens a pane is not a screen and its time is not a screen's time.
+ */
+async function dismissAnyPane() {
+  if (!(await page.$(".pane-shade"))) return false;
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".pane-shade", { state: "detached", timeout: 2000 }).catch(() => {});
+  if (await page.$(".pane-shade")) {
+    failures.push("a pane stayed over the page after Escape, so nothing below it can be clicked");
+  }
+  return true;
+}
+
+/**
+ * Why a click did not land.
+ *
+ * Playwright says "Timeout 8000ms exceeded" on the first line and puts the
+ * reason - not visible, not stable, something else receiving the pointer -
+ * in the retry log below it. This check reported the first line only, which
+ * is the one line that does not say anything: /dashboard "could not be
+ * clicked" on every deploy from 30 Oct 2026 and the log never said what was
+ * over it.
+ *
+ * So ask the page directly. Whatever is at the middle of the element is
+ * either the element or the thing covering it, and its tag and class name is
+ * usually the whole answer.
+ */
+async function inTheWay(handle) {
+  try {
+    const box = await handle.boundingBox();
+    if (!box) return "it has no box on the page, so it is not being shown";
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    return await page.evaluate(
+      ([x, y]) => {
+        const at = document.elementFromPoint(x, y);
+        if (!at) return `nothing is at (${Math.round(x)}, ${Math.round(y)}); it is off screen`;
+        const name = (el) =>
+          `<${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? ` class="${el.className}"` : ""}>`;
+        const target = document.elementFromPoint(x, y);
+        // The link itself being on top means the hold-up was visibility or
+        // movement rather than something over it.
+        return `${name(at)} is at the point that would be clicked` +
+          (target && target.closest("a") ? "" : ", and it is not the link");
+      },
+      [x, y],
+    );
+  } catch {
+    return null;
+  }
+}
+
 try {
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
   await page.fill('input[type="email"]', EMAIL);
@@ -134,9 +189,30 @@ try {
       // only happens if the sidebar offers the same screen twice.
       const from = page.url();
       const started = Date.now();
-      await target.click({ timeout: CEILING_MS }).catch((e) => {
-        throw new Error(`${href} could not be clicked: ${firstLine(String(e))}`);
+      let clicked = true;
+      await target.click({ timeout: CEILING_MS }).catch(async (e) => {
+        clicked = false;
+        const why = await inTheWay(target);
+        failures.push(`${href} could not be clicked: ${firstLine(String(e))}${why ? ` - ${why}` : ""}`);
+        console.log(`  FAILED  ${href.padEnd(34)} could not be clicked${why ? ` - ${why}` : ""}`);
       });
+      // One link nobody can click is a finding, not the end of the walk. It
+      // used to throw, and for a week every deploy reported one sentence
+      // about /dashboard while the other twenty-three screens went untimed -
+      // so the check had stopped measuring the thing it exists to measure
+      // and nothing said so.
+      if (!clicked) continue;
+
+      // Not every sidebar link is a screen. Team opens a pane over whatever
+      // somebody is looking at, with a shade across the page to stop a click
+      // reaching the work underneath - which is right for a person and fatal
+      // for a walk that then clicks the next link. It was the last link in
+      // the sidebar, so the untimed lap ended with the shade up and the timed
+      // lap died on its first link; /dashboard "could not be clicked" on
+      // every deploy from 30 Oct 2026 and nothing was wrong with /dashboard.
+      //
+      // So close it the way a person closes it, and carry on.
+      await dismissAnyPane();
       const settled = await quiet(CEILING_MS + 2000);
       if (!timed) continue;
 
