@@ -57,7 +57,7 @@ begin
 
   -- ── 2. a new system account does not join ────────────────
   insert into public.staff (name, email, role, active, is_system)
-  values ('ZQ check account', 'zq-sys@example.test', 'Admin', true, true)
+  values ('ZQ check account', 'zq-sys@example.test', 'Reports', true, true)
   returning id into v_sys;
 
   if exists (select 1 from public.conversation_participants
@@ -104,13 +104,21 @@ begin
 
   -- ── 6. the Admin check account is on file and is a system one ──
   select count(*) into v_n from public.staff
-   where email = 'automated-check-admin@zionvocrehab.com'
-     and role = 'Admin' and active and is_system;
+   where email = 'automated-check-reports@zionvocrehab.com'
+     and role = 'Reports' and active and is_system;
   if v_n <> 1 then
     failures := failures || format(
-      'FAILED: the Admin check account is not on file as an active Admin system account (%s found)', v_n);
+      'FAILED: the Reports check account is not on file as an active Intake & Reports system account (%s found)', v_n);
   else
-    raise notice 'ok  the Admin check account is an active Admin, flagged as a system account';
+    raise notice 'ok  the Reports check account is an active Intake & Reports, flagged as a system account';
+  end if;
+
+  -- And no system account is Admin, which 0294 allowed and 0295 took back.
+  select count(*) into v_n from public.staff where is_system and role = 'Admin';
+  if v_n > 0 then
+    failures := failures || format('FAILED: %s system account(s) hold Admin', v_n);
+  else
+    raise notice 'ok  and no system account holds Admin';
   end if;
 
   -- ── 7. and it is not a person anywhere a person is listed ──
@@ -119,7 +127,7 @@ begin
   -- one of those screens filters on, so the rule is that the flag is set and
   -- that nothing about credentials asks after it.
   select count(*) into v_n from public.staff_credential_status
-   where staff_id = (select id from public.staff where email = 'automated-check-admin@zionvocrehab.com');
+   where staff_id = (select id from public.staff where email = 'automated-check-reports@zionvocrehab.com');
   if v_n > 0 then
     failures := failures || format(
       'FAILED: the Admin check account has %s credential row(s), so it will be chased for an I-9', v_n);
@@ -132,11 +140,10 @@ begin
   -- verify script that always passes.
   -- ── 8. and it still cannot write ─────────────────────────
   --
-  -- 0294 let a system account be Admin so that Admin's screens could be
-  -- opened, and 0120's promise was that a leaked check password buys the
-  -- ability to look and not to change. That promise is 310 restrictive
-  -- policies, and it is worth asserting against the role that can now reach
-  -- the most, in its own session rather than as postgres.
+  -- 0120's promise is that a leaked check password buys the ability to look
+  -- and not to change, and that promise is 310 restrictive policies. Asserted
+  -- in the account's own session rather than as postgres, because as postgres
+  -- every policy is beside the point.
   insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   values (v_uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           'zq-sys@example.test', '{}', '{}', now(), now());
@@ -150,10 +157,10 @@ begin
     insert into public.notes (text) values ('ZQ a system account should not be able to write this');
     failures := failures || 'FAILED: an Admin system account inserted a note'::text;
   exception when insufficient_privilege or check_violation then
-    raise notice 'ok  an Admin system account is still refused a write to a table';
+    raise notice 'ok  a system account is still refused a write to a table';
   when others then
     -- Any refusal is a refusal; what would be wrong is the insert landing.
-    raise notice 'ok  an Admin system account is still refused a write to a table (%)', sqlstate;
+    raise notice 'ok  a system account is still refused a write to a table (%)', sqlstate;
   end;
 
   perform set_config('role', 'postgres', true);

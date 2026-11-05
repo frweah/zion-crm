@@ -7,7 +7,7 @@
 --   It cannot insert, update or delete anything - a client, a note, a task,
 --   a preference - while a person with the same role still can.
 --
---   It is one of the three roles a check account may hold, and no area
+--   It is one of the three roles a check account may hold - never Admin - and no area
 --   can be given to it.
 --
 --   Every table with row-level security carries the rule, including any a
@@ -90,17 +90,18 @@ begin
 
   -- ── one of the three roles a check account may hold ─────
   --
-  -- Job Search (0120), Billing (0129) and Admin (0294), because a role sees
-  -- its own screens and nothing else: as Job Search the deploy check could
-  -- not open Billing's screens, and the timing walk could not reach Admin's
-  -- at all. Anything else is still refused.
+  -- Job Search (0120), Billing (0129), Intake & Reports (0295), because a
+  -- role sees its own screens and nothing else. Admin is refused: 0294 let one
+  -- be Admin and 0295 took it back, because the read-only promise is
+  -- restrictive policies over tables and the 56 functions gated on is_admin()
+  -- are not tables.
   perform set_config('role', 'postgres', true);
   begin
-    update public.staff set role = 'Reports' where id = v_bot;
-    failures := failures || 'FAILED: a system account was made Intake & Reports'::text;
+    update public.staff set role = 'Admin' where id = v_bot;
+    failures := failures || 'FAILED: a system account was made Admin'::text;
   exception when check_violation then null;
   end;
-  foreach v_role in array array['Billing', 'Admin'] loop
+  foreach v_role in array array['Billing', 'Reports'] loop
     begin
       update public.staff set role = v_role where id = v_bot;
     exception when check_violation then
@@ -137,7 +138,7 @@ begin
   if v_missing is not null then
     failures := failures || format('FAILED: these tables do not refuse the system account''s writes - call apply_system_read_only on them: %s', v_missing);
   else
-    raise notice 'ok  it is Job Search, Billing or Admin and nothing more, and every table refuses its writes whichever it is';
+    raise notice 'ok  it is Job Search, Billing or Intake & Reports and never Admin, and every table refuses its writes whichever it is';
   end if;
 
   if has_function_privilege('anon', 'public.current_staff_is_system()', 'execute') then

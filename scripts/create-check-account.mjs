@@ -3,15 +3,16 @@
  *
  *   node --env-file=.env.local scripts/create-check-account.mjs [email]
  *   node --env-file=.env.local scripts/create-check-account.mjs --billing
- *   node --env-file=.env.local scripts/create-check-account.mjs --admin
+ *   node --env-file=.env.local scripts/create-check-account.mjs --reports
  *
  * There are three, because a role only sees its own screens: the Job Search
  * one opens what Job Search reaches, the Billing one opens Invoices,
  * Authorizations, the Service log, Export, Overview and Items - none of which
- * the first has ever been able to see (0129) - and the Admin one is for the
- * timing walk, which was timing a fifth of the navigation because the screens
- * Admin reaches were being opened by nobody (0294). None of them can write to
- * a table.
+ * the first has ever been able to see (0129) - and the Intake & Reports one
+ * walks the shell again as a third role for the timing check. None of them
+ * can write to a table, and none of them may be Admin: 0295 refuses it,
+ * because the read-only promise is restrictive policies over tables and the
+ * functions gated on is_admin() are not tables.
  *
  * It adds the staff row (is_system - read-only, never given an area beyond
  * its role) and then the sign-in, with a long random password it prints once,
@@ -31,29 +32,29 @@ import { createClient } from "@supabase/supabase-js";
 const args = process.argv.slice(2);
 const reset = args.includes("--reset");
 const billing = args.includes("--billing");
-const isAdmin = args.includes("--admin");
-if (billing && isAdmin) {
-  console.error("Pick one: --billing or --admin. They are two accounts, not one with two roles.");
+const isReports = args.includes("--reports");
+if (billing && isReports) {
+  console.error("Pick one: --billing or --reports. They are two accounts, not one with two roles.");
   process.exit(1);
 }
-const which = billing ? "billing" : isAdmin ? "admin" : "job-search";
-const role = billing ? "Billing" : isAdmin ? "Admin" : "Job Search";
+const which = billing ? "billing" : isReports ? "reports" : "job-search";
+const role = billing ? "Billing" : isReports ? "Reports" : "Job Search";
 const NAME = {
   "job-search": "Automated check",
   billing: "Automated check (billing)",
-  admin: "Automated check (admin)",
+  reports: "Automated check (reports)",
 };
 const SECRET = {
   "job-search": ["SMOKE_EMAIL", "SMOKE_PASSWORD"],
   billing: ["SMOKE_BILLING_EMAIL", "SMOKE_BILLING_PASSWORD"],
-  admin: ["SMOKE_ADMIN_EMAIL", "SMOKE_ADMIN_PASSWORD"],
+  reports: ["SMOKE_REPORTS_EMAIL", "SMOKE_REPORTS_PASSWORD"],
 };
 const email = (
   args.find((a) => a.includes("@")) ??
   {
     "job-search": "automated-check@zionvocrehab.com",
     billing: "automated-check-billing@zionvocrehab.com",
-    admin: "automated-check-admin@zionvocrehab.com",
+    reports: "automated-check-reports@zionvocrehab.com",
   }[which]
 ).toLowerCase();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

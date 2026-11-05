@@ -89,7 +89,7 @@ if (!up) {
 } else {
   const walk = spawn(
     process.execPath,
-    [here("./idle-check.mjs")],
+    ["--experimental-strip-types", here("./idle-check.mjs")],
     {
       env: {
         ...process.env,
@@ -101,8 +101,8 @@ if (!up) {
         // delay it exists to reproduce.
         IDLE_BUDGET_MS: "4000",
         IDLE_CEILING_MS: "8000",
-        SMOKE_ADMIN_EMAIL: "",
-        SMOKE_ADMIN_PASSWORD: "",
+        SMOKE_REPORTS_EMAIL: "",
+        SMOKE_REPORTS_PASSWORD: "",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
