@@ -19,12 +19,23 @@ import { DataTable } from "../data-table";
 import { StatementCard } from "./statement-card";
 
 /**
- * Hours, and - for Admin - statement approvals.
+ * Time & statements.
  *
- * Approvals has its own entry in the sidebar now, so this screen no longer
- * draws a "My hours / Approvals" strip of its own under the sidebar's. The
- * address is unchanged: ?tab=approvals still opens the approvals view, and
- * only for Admin.
+ * Three tabs, one screen, because they are three readings of the same record:
+ * the time somebody worked, the statement that prices it, and - for Admin -
+ * everybody's statements waiting on a decision.
+ *
+ * It was "Contractor statements" until the clock became everybody's. An
+ * employee's hours are kept here like anybody else's, and the old name sent
+ * them to a screen that announced it was for somebody else (owner, 5 Nov
+ * 2026). What an employee does not have is a statement: they are on payroll,
+ * their hours export for it, and nobody invoices anything - so for them this
+ * screen is one tab and the strip does not appear at all.
+ *
+ * Statement approvals is Admin's and is refused here rather than hidden. The
+ * navigation does not point at it, so a person who has not been told the
+ * address will not find it; a person who has, and is not Admin, lands on
+ * their own time.
  */
 export default async function HoursPage({
   searchParams,
@@ -34,7 +45,6 @@ export default async function HoursPage({
   const me = await requireStaff();
   const { tab: rawTab, period } = await searchParams;
   const isAdmin = me.role === "Admin";
-  const tab = isAdmin && rawTab === "approvals" ? "approvals" : "mine";
 
   const supabase = await createClient();
 
@@ -53,6 +63,39 @@ export default async function HoursPage({
     .eq("staff_id", me.id)
     .maybeSingle();
   const isContractor = (employment?.employment_type ?? "Contractor") === "Contractor";
+
+  /**
+   * Which tab, and which tabs there are to choose from.
+   *
+   * Worked out from what this person has rather than from what they asked
+   * for: an employee asking for ?tab=statements, or anybody who is not Admin
+   * asking for ?tab=approvals, gets their own time rather than an error. A
+   * guessed address is not a thing to tell somebody off for.
+   */
+  const TABS = [
+    { key: "time", label: "Your time", shown: true },
+    { key: "statements", label: "Statements", shown: isContractor },
+    { key: "approvals", label: "Statement approvals", shown: isAdmin },
+  ] as const;
+  const offered = TABS.filter((t) => t.shown);
+  const tab = offered.some((t) => t.key === rawTab) ? rawTab! : "time";
+
+  /** The strip. One tab is not a choice, so it is not drawn as one. */
+  const tabStrip =
+    offered.length > 1 ? (
+      <div className="segmented no-print" role="group" aria-label="Time and statements" style={{ marginBottom: 14 }}>
+        {offered.map((t) => (
+          <Link
+            key={t.key}
+            href={t.key === "time" ? "/hours" : `/hours?tab=${t.key}`}
+            className={tab === t.key ? "on" : undefined}
+            aria-current={tab === t.key ? "page" : undefined}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </div>
+    ) : null;
 
   // ── Admin: statements waiting on a decision ──────────────────
   if (tab === "approvals") {
@@ -93,9 +136,10 @@ export default async function HoursPage({
     return (
       <>
         <PageHead
-          title="Statement approvals"
-          context="Contractors' statements for each period, priced by the totals view, waiting on your decision."
+          title="Time & statements"
+          context="Statements for each period, waiting on your decision"
         />
+        {tabStrip}
         {waiting.length === 0 && (
           <p className="empty">Nothing waiting for approval.</p>
         )}
@@ -284,24 +328,41 @@ export default async function HoursPage({
     return d.toISOString().slice(0, 10);
   };
 
+  /**
+   * This screen, with the tab kept and a period added.
+   *
+   * The period links used to be a bare /hours, which was right while there
+   * was one view: now it would drop a person out of Statements and into their
+   * time for asking to see last fortnight.
+   */
+  const at = (day: string | null) =>
+    "/hours" +
+    [tab === "time" ? null : `tab=${tab}`, day ? `period=${day}` : null]
+      .filter(Boolean)
+      .reduce((q, part, i) => q + (i === 0 ? "?" : "&") + part, "");
+
   return (
     <>
       <PageHead
-        title="Contractor statements"
+        title="Time & statements"
         context={
-          isContractor
-            ? "Your work sessions and statements. No clock and no schedule — this is a record of work performed, and the basis of your invoice."
-            : "Your logged work and statements."
+          tab === "statements"
+            ? "What this period comes to, and the paper behind it"
+            : isContractor
+              ? "The work you performed, and the basis of your invoice"
+              : "The time you have worked, by period"
         }
       />
 
+      {tabStrip}
+
       {/* Moving between periods is a choice of which period to look at, so it is segmented. */}
       <div className="segmented no-print" style={{ marginBottom: 12 }}>
-        <Link href={`/hours?period=${shift(-1)}`}>← Previous period</Link>
-        <Link href="/hours" className={periodStart <= today() && today() <= periodEnd ? "on" : undefined}>
+        <Link href={at(shift(-1))}>← Previous period</Link>
+        <Link href={at(null)} className={periodStart <= today() && today() <= periodEnd ? "on" : undefined}>
           This period
         </Link>
-        {periodEnd < today() && <Link href={`/hours?period=${shift(15)}`}>Next period →</Link>}
+        {periodEnd < today() && <Link href={at(shift(15))}>Next period →</Link>}
       </div>
 
       <HoursSummary
@@ -315,43 +376,56 @@ export default async function HoursPage({
         }
       />
 
-      <WorkTimer
-        running={timerResult.data ?? null}
-        clients={clients}
-        categories={categories}
-        today={today()}
-      />
+      {/* Your time: the record, and the two ways into it - the clock and a
+          session logged by hand for work the clock missed. */}
+      {tab === "time" && (
+        <>
+          <WorkTimer
+            running={timerResult.data ?? null}
+            clients={clients}
+            categories={categories}
+            today={today()}
+          />
 
-      <SubmitStatement
-        periodStart={periodStart}
-        periodEnd={periodEnd}
-        totalHours={totalHours}
-        totalAmount={totalAmount}
-        unpricedHours={Number(totals?.unpriced_hours ?? 0)}
-        rateUnit={totals?.rate_unit ?? null}
-        status={statement?.status ?? null}
-        returnNote={statement?.return_note ?? ""}
-      />
+          {!locked && <LogSessionForm clients={clients} categories={categories} />}
 
-      {!locked && <LogSessionForm clients={clients} categories={categories} />}
+          <CategoryBreakdown sessions={sessions} categories={categories} />
 
-      <Expenses
-        rows={(expenseResult.data ?? []) as unknown as ExpenseRow[]}
-        categories={(expenseCategoryResult.data ?? []) as ExpenseCategory[]}
-        clients={clients}
-        today={today()}
-        locked={locked}
-        currentRate={
-          currentRateResult.data === null ? null : Number(currentRateResult.data)
-        }
-      />
+          <SessionList sessions={sessions} locked={locked} categories={categories} />
+        </>
+      )}
 
-      {/* The piece of paper somebody signs (Rei, Oct 2026). */}
-      <StatementCard staff={isAdmin ? (colleaguesResult.data ?? []) : []} />
+      {/* Statements: what the period comes to, what is being claimed back with
+          it, and the paper somebody signs (Rei, Oct 2026). Expenses are here
+          rather than with the time because they are reimbursed through the
+          statement, not worked. */}
+      {tab === "statements" && (
+        <>
+          <SubmitStatement
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+            totalHours={totalHours}
+            totalAmount={totalAmount}
+            unpricedHours={Number(totals?.unpriced_hours ?? 0)}
+            rateUnit={totals?.rate_unit ?? null}
+            status={statement?.status ?? null}
+            returnNote={statement?.return_note ?? ""}
+          />
 
-      <CategoryBreakdown sessions={sessions} categories={categories} />
+          <Expenses
+            rows={(expenseResult.data ?? []) as unknown as ExpenseRow[]}
+            categories={(expenseCategoryResult.data ?? []) as ExpenseCategory[]}
+            clients={clients}
+            today={today()}
+            locked={locked}
+            currentRate={
+              currentRateResult.data === null ? null : Number(currentRateResult.data)
+            }
+          />
 
-      <SessionList sessions={sessions} locked={locked} categories={categories} />
+          <StatementCard staff={isAdmin ? (colleaguesResult.data ?? []) : []} />
+        </>
+      )}
     </>
   );
 }

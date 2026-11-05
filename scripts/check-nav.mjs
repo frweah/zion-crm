@@ -409,11 +409,54 @@ for (const role of ["Job Search", "Reports", "Billing"]) {
   const never = ["/admin/people", "/admin/system", "/insights/capacity"];
   const leak = never.filter((p) => reach.includes(p));
   if (leak.length) fail(`${role} given every area reaches ${leak.join(", ")}, which no grant may open`);
-  if (reach.includes("/hours") && reachableFor({ role, grants: everything }).some((i) => i.label === "Statement approvals")) {
-    fail(`${role} given every area reaches Statement approvals`);
+}
+
+/**
+ * Statement approvals, which is nobody's but Admin's.
+ *
+ * This asked whether any role given every grant saw a navigation item called
+ * "Statement approvals", and the item was called "Contractor statement
+ * approvals" - so it asked a question nothing could answer yes to and passed
+ * every run for a fortnight. It is the fault CLAUDE.md names: a check that
+ * asks something merely near the rule passes the bug it was written for.
+ *
+ * Approvals is a tab inside Time & statements now and is in nobody's
+ * navigation, so there are two halves to hold instead of one: that the
+ * navigation does not offer it, and that the screen refuses it. A check on
+ * only the first would pass a screen that handed the tab to anybody who typed
+ * the address.
+ */
+let approvalsOk = true;
+const wrong = (said) => { approvalsOk = false; fail(said); };
+const APPROVALS = "/hours?tab=approvals";
+const navOffers = NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.href === APPROVALS);
+if (navOffers.length) {
+  wrong(
+    `the navigation offers ${APPROVALS} as "${navOffers[0].label}"; approvals is a tab inside Time & statements, ` +
+      "so either take it out of the navigation or give this check the new arrangement",
+  );
+}
+
+{
+  const page = await readFile(new URL("../app/(app)/hours/page.tsx", import.meta.url), "utf8");
+  // The tab is offered from a list, and its entry says who may see it. What
+  // this asserts is that the entry exists and that `isAdmin` is what decides
+  // it - not that the file mentions Admin somewhere, which it does for other
+  // reasons entirely.
+  const entry = page.match(/\{\s*key:\s*"approvals",[^}]*\}/);
+  if (!entry) {
+    wrong("Time & statements no longer offers an approvals tab, so nothing here says who may open it");
+  } else if (!/shown:\s*isAdmin\b/.test(entry[0])) {
+    wrong(`the approvals tab is offered as ${entry[0].replace(/\s+/g, " ")}, and only isAdmin may decide it`);
+  }
+  // And asking for a tab nobody offered has to land somewhere, not throw.
+  if (!/offered\.some\(\(t\) => t\.key === rawTab\)/.test(page)) {
+    wrong("Time & statements no longer checks the asked-for tab against the ones it offers");
   }
 }
-ok("no grant opens Admin (People, Documents, System), Capacity or Statement approvals");
+if (approvalsOk) {
+  ok("no grant opens Admin (People, Documents, System) or Capacity; Statement approvals is Admin's, inside the screen");
+}
 
 /**
  * A path relative to the project, worked out from this script's own location.
@@ -544,13 +587,13 @@ if (CLIENT_TABS.length <= 7 && !unmapped.length && !staleLinks.length) {
 const OFFERS = [
   // A control that offers to make one. A column heading that says "Invoiced"
   // is not an offer, so this looks for the verbs.
-  /<(?:button|a|Link)[^>]*>\s*(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice/i,
+  /<(?:button|a|Link)\b[^>]*>\s*(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice/i,
   /(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice\s*<\/(?:button|a|Link)>/i,
   // Writing one, or naming the table at all.
   /from\(["']invoices["']\)/,
   /rpc\(["'](?:draft_invoice_for_authorization|setInvoiceStatus)["']/,
   // A quick-add entry for one. Only quick-add declares entries this way.
-  /QUICK_ADD[\s\S]{0,400}?invoice/i,
+  /\bQUICK_ADD[\s\S]{0,400}?invoice/i,
 ];
 const offenders = [];
 for (const file of [

@@ -21,8 +21,12 @@
 -- so running this twice in a minute does no harm: a notification is said once
 -- by its dedupe key and a closed session is no longer open to close.
 
+-- zion- prefixed, like every other job. verify_scheduler fails any zion-% job
+-- that appears in no enable script, and a job called plain "clock-sweep"
+-- would have sat outside that rule - which is the one hole the rule exists to
+-- close, so a name that dodges it is worse than no name at all.
 select cron.schedule(
-  'clock-sweep',
+  'zion-clock-sweep',
   '*/15 * * * *',
   $$
     select net.http_post(
@@ -37,5 +41,5 @@ select cron.schedule(
 
 -- To see it, and to take it off again:
 --
---   select jobid, jobname, schedule, active from cron.job where jobname = 'clock-sweep';
---   select cron.unschedule('clock-sweep');
+--   select jobid, jobname, schedule, active from cron.job where jobname = 'zion-clock-sweep';
+--   select cron.unschedule('zion-clock-sweep');

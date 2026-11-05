@@ -16,6 +16,12 @@
 #                                     these six Billing screens are opened by
 #                                     nobody. The run says so when they are
 #                                     missing rather than passing quietly.
+#   SMOKE_ADMIN_EMAIL,                the third, for the timing job: the check
+#   SMOKE_ADMIN_PASSWORD              account is Job Search and sees a fifth
+#                                     of the navigation, so without these the
+#                                     heavy screens - Billing, Money, People,
+#                                     System - are timed by nobody. The run
+#                                     says so rather than passing quietly.
 #   SUPABASE_URL, SUPABASE_ANON_KEY   the project's public URL and anon key
 #   VERCEL_TOKEN                      only for the rollback; without it the
 #                                     check still fails and still opens the
@@ -283,6 +289,10 @@ jobs:
           SMOKE_BASE_URL: https://crm.zionvocrehab.com
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          # Admin walks the rest of the navigation. Missing, the walk still
+          # runs as the check account and warns that the rest went untimed.
+          SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
         run: |
           set -o pipefail
           node scripts/idle-check.mjs 2>&1 | tee idle.log

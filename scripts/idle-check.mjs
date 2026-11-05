@@ -7,14 +7,14 @@
  * loading after moving from the dashboard to Clients or Billing - a fetch
  * check cannot see that at all, because the HTML arrived perfectly well.
  *
- * So this walks the app the way a person does: sign in, open the dashboard,
- * then click each screen's own link in the navigation and wait for the
- * network to go quiet. What it measures is the click-to-quiet time, which is
- * the thing being complained about, and it deliberately excludes the first
- * cold load - a serverless function waking up is not what makes a screen feel
- * stuck.
+ * So this walks the app the way a person does: sign in, open a group, click
+ * each of its screens, and wait for the network to go quiet. What it measures
+ * is the click-to-quiet time, which is the thing being complained about, and
+ * it deliberately excludes the first cold load - a serverless function waking
+ * up is not what makes a screen feel stuck.
  *
  *   SMOKE_BASE_URL=https://crm.zionvocrehab.com SMOKE_EMAIL=… SMOKE_PASSWORD=… \
+ *   SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… \
  *   node scripts/idle-check.mjs
  *
  * BUDGET_MS is the owner's target (2 s). CEILING_MS is what fails the deploy:
@@ -25,8 +25,6 @@
 import { chromium } from "playwright";
 
 const BASE = (process.env.SMOKE_BASE_URL ?? "https://crm.zionvocrehab.com").replace(/\/$/, "");
-const EMAIL = process.env.SMOKE_EMAIL;
-const PASSWORD = process.env.SMOKE_PASSWORD;
 const BUDGET_MS = Number(process.env.IDLE_BUDGET_MS ?? 2000);
 const CEILING_MS = Number(process.env.IDLE_CEILING_MS ?? 8000);
 const QUIET_MS = 500;
@@ -38,7 +36,28 @@ const QUIET_MS = 500;
 const MIDDLEWARE_BUDGET_MS = Number(process.env.MIDDLEWARE_BUDGET_MS ?? 400);
 const MIDDLEWARE_CEILING_MS = Number(process.env.MIDDLEWARE_CEILING_MS ?? 2500);
 
-if (!EMAIL || !PASSWORD) {
+/**
+ * Who walks it.
+ *
+ * The check account is Job Search and sees a fifth of the navigation, so this
+ * timed four screens while calling itself "every screen". Admin sees the rest
+ * - Billing, Money, People, System - which is to say the heavy ones, which is
+ * to say the ones worth timing.
+ *
+ * A second account rather than a grant: a role sees its own screens and
+ * nothing else, which is the point of roles, and the same arrangement already
+ * carries Billing's screens through the deploy check (SMOKE_BILLING_*).
+ *
+ * Without the Admin secrets the walk still runs as the check account and says
+ * loudly that the rest went untimed. Passing quietly about it is how this got
+ * to four screens with nobody noticing.
+ */
+const WHO = [
+  { who: "check account", email: process.env.SMOKE_EMAIL, password: process.env.SMOKE_PASSWORD },
+  { who: "Admin", email: process.env.SMOKE_ADMIN_EMAIL, password: process.env.SMOKE_ADMIN_PASSWORD },
+];
+
+if (!WHO[0].email || !WHO[0].password) {
   console.log("  note  no SMOKE_EMAIL, so no screen was timed");
   process.exit(0);
 }
@@ -47,9 +66,13 @@ if (!EMAIL || !PASSWORD) {
 const firstLine = (text) => String(text).split("\n")[0].slice(0, 200);
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const failures = [];
 const slow = [];
+const timedScreens = [];
+const notes = [];
+
+/** Whichever account's browser the walk is in. */
+let page = null;
 
 /** Resolves when nothing has been requested for QUIET_MS, or gives up. */
 async function quiet(limitMs) {
@@ -110,11 +133,10 @@ async function inTheWay(handle) {
         if (!at) return `nothing is at (${Math.round(x)}, ${Math.round(y)}); it is off screen`;
         const name = (el) =>
           `<${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? ` class="${el.className}"` : ""}>`;
-        const target = document.elementFromPoint(x, y);
-        // The link itself being on top means the hold-up was visibility or
-        // movement rather than something over it.
-        return `${name(at)} is at the point that would be clicked` +
-          (target && target.closest("a") ? "" : ", and it is not the link");
+        return (
+          `${name(at)} is at the point that would be clicked` +
+          (at.closest("a") ? "" : ", and it is not the link")
+        );
       },
       [x, y],
     );
@@ -123,168 +145,258 @@ async function inTheWay(handle) {
   }
 }
 
-try {
-  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  const signIn = page.locator('form button[type="submit"]').first();
-  try {
-    await Promise.all([page.waitForURL(/\/(dashboard|paperwork)/, { timeout: 30000 }), signIn.click()]);
-  } catch {
-    // Said plainly, because the alternative is a stack trace about a selector
-    // when the real answer is usually "the password in the secret is stale".
-    const said = (await page.locator(".alert").first().textContent().catch(() => null))?.trim();
-    console.error(`  FAILED  the check account could not sign in${said ? `: ${said}` : ""}`);
-    console.log(`::error title=Click to quiet::The check account could not sign in${said ? `: ${said}` : ""}`);
-    await browser.close();
-    process.exit(1);
-  }
-  await quiet(15000);
+/**
+ * Click one link in the sidebar and say how long the screen took to settle.
+ *
+ * Returns false when the click did not land, which is a finding rather than
+ * the end of the walk: it used to throw, and for a week every deploy reported
+ * one sentence about /dashboard while the other twenty-three screens went
+ * untimed - so the check had stopped measuring the thing it exists to measure
+ * and nothing said so.
+ */
+async function press(selector, name, { timed, who }) {
+  const target = await page.$(selector);
+  if (!target) return false;
 
-  // Every screen this account's navigation offers, reached the way a person
-  // reaches it: by clicking the link, not by typing the address.
-  //
-  // Waited for, not read the moment the network goes quiet. quiet() returns as
-  // soon as no request has been made for a moment, and the sidebar is in the
-  // DOM a beat after that - so this read the page too early and failed with
-  // "the sidebar offered no links", three seconds in, on a deployment that was
-  // perfectly healthy (9 Oct 2026; the smoke test opened forty screens on the
-  // same commit). The wait makes the assertion real: if the sidebar truly has
-  // no links, it still fails, just not by racing it.
-  await page.waitForSelector("nav.side a[href]", { timeout: 15000 }).catch(() => {});
-  const links = await page.$$eval("nav.side a[href]", (as) =>
+  const from = page.url();
+  const started = Date.now();
+  let clicked = true;
+  await target.click({ timeout: CEILING_MS }).catch(async (e) => {
+    clicked = false;
+    const why = await inTheWay(target);
+    failures.push(`${name} could not be clicked as ${who}: ${firstLine(String(e))}${why ? ` - ${why}` : ""}`);
+    console.log(`  FAILED  ${name.padEnd(34)} could not be clicked${why ? ` - ${why}` : ""}`);
+  });
+  if (!clicked) return false;
+
+  // Team is a sidebar link and a pane over the page, with a shade across
+  // everything beneath it to stop a click reaching work somebody cannot see.
+  // Right for a person, fatal for a walk that then clicks the next link: it
+  // was the last link in the sidebar, so the untimed lap ended with the shade
+  // up and the timed lap died on its first link. Closed the way a person
+  // closes it, and the walk carries on.
+  await dismissAnyPane();
+
+  const settled = await quiet(CEILING_MS + 2000);
+  if (!timed) return true;
+
+  // A link that goes where we already are is not a navigation, and timing it
+  // is timing nothing. It happens honestly - a group whose hub is the screen
+  // somebody is on - and said plainly rather than counted as a screen.
+  if (page.url() === from) {
+    console.log(`  --      ${name.padEnd(34)} already open`);
+    return true;
+  }
+
+  const took = settled === null ? null : Date.now() - started - QUIET_MS;
+  timedScreens.push(name);
+  if (took === null) {
+    failures.push(`${name} never went quiet as ${who} - still asking for things after ${CEILING_MS + 2000}ms`);
+    console.log(`  FAILED  ${name.padEnd(34)} never quiet`);
+  } else if (took > CEILING_MS) {
+    failures.push(`${name} took ${took}ms to go quiet as ${who}, and the ceiling is ${CEILING_MS}ms`);
+    console.log(`  FAILED  ${name.padEnd(34)} ${took}ms`);
+  } else if (took > BUDGET_MS) {
+    slow.push(`${name} ${took}ms (${who})`);
+    console.log(`  slow    ${name.padEnd(34)} ${took}ms (over the ${BUDGET_MS}ms target)`);
+  } else {
+    console.log(`  ok      ${name.padEnd(34)} ${took}ms`);
+  }
+  return true;
+}
+
+/**
+ * One lap of the whole navigation: each group, then each screen inside it.
+ *
+ * Read a group at a time rather than all at once, because the sidebar shows
+ * the six groups and only the open group's screens. Reading `nav.side a[href]`
+ * once - which is what this did - gives six groups and whichever group
+ * happened to be open when the page loaded, so it timed four screens of
+ * twenty-odd, and the entries that were no longer in the DOM were skipped in
+ * silence while the ones clicked from the screen they point at were reported
+ * as "already open". Opening the group first makes the list the real one.
+ *
+ * Timed only on the second lap. The first request to a screen after a deploy
+ * wakes a serverless function, which is Vercel's cold start rather than the
+ * app's behaviour - Communication failed once at 8s and measures half a
+ * second warm - and a check that cries wolf is one somebody turns off within
+ * a fortnight.
+ */
+async function lap({ timed, who }) {
+  // Waited for, not read the moment the network goes quiet. quiet() returns
+  // as soon as no request has been made for a moment, and the sidebar is in
+  // the DOM a beat after that - so this read the page too early and failed
+  // with "the sidebar offered no links", three seconds in, on a deployment
+  // that was perfectly healthy (9 Oct 2026; the deploy check opened forty
+  // screens on the same commit). The wait makes the assertion real: if the
+  // sidebar truly has no groups, it still fails, just not by racing it.
+  await page.waitForSelector(".nav-group > a[href]", { timeout: 15000 }).catch(() => {});
+  const groups = await page.$$eval(".nav-group > a[href]", (as) =>
     [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => h && h.startsWith("/")))],
   );
 
-  // Signed in and no navigation means the walk below does nothing at all, and
-  // a check that silently measures nothing is worse than no check.
-  if (links.length === 0) {
-    console.error("  FAILED  signed in, but the sidebar offered no links to follow");
-    console.log("::error title=Click to quiet::Signed in, but the sidebar offered no links to follow");
-    await browser.close();
-    process.exit(1);
+  // Signed in and no navigation means the walk does nothing at all, and a
+  // check that silently measures nothing is worse than no check.
+  if (groups.length === 0) {
+    failures.push(`signed in as ${who}, but the sidebar offered no groups to open`);
+    console.log(`  FAILED  the sidebar offered no groups to open as ${who}`);
+    return;
   }
 
-  /**
-   * One lap of the sidebar, clicking each link from wherever the last one
-   * left us. The sidebar is on every screen, so going back to the dashboard
-   * between links is a navigation nobody makes and one this check cannot
-   * afford: it was 24 loads of the heaviest screen in the app, and on
-   * 6 Oct 2026 one of them took longer than half a minute and stopped the
-   * walk (531ace3). A lap is one load per screen.
-   *
-   * Timed only on the second lap. The first request to a screen after a
-   * deploy wakes a serverless function, which is Vercel's cold start rather
-   * than the app's behaviour - Communication failed once at 8s and measures
-   * half a second warm - and a check that cries wolf is one somebody turns
-   * off within a fortnight.
-   */
-  async function lap(timed) {
-    for (const href of links) {
-      const target = await page.$(`nav.side a[href="${href}"]`);
-      if (!target) continue;
+  for (const group of groups) {
+    await press(`.nav-group > a[href="${group}"]`, group, { timed, who });
 
-      // Clicking the group you are already in goes nowhere, and timing a
-      // click that did not move is timing nothing. The order below means it
-      // only happens if the sidebar offers the same screen twice.
-      const from = page.url();
-      const started = Date.now();
-      let clicked = true;
-      await target.click({ timeout: CEILING_MS }).catch(async (e) => {
-        clicked = false;
-        const why = await inTheWay(target);
-        failures.push(`${href} could not be clicked: ${firstLine(String(e))}${why ? ` - ${why}` : ""}`);
-        console.log(`  FAILED  ${href.padEnd(34)} could not be clicked${why ? ` - ${why}` : ""}`);
-      });
-      // One link nobody can click is a finding, not the end of the walk. It
-      // used to throw, and for a week every deploy reported one sentence
-      // about /dashboard while the other twenty-three screens went untimed -
-      // so the check had stopped measuring the thing it exists to measure
-      // and nothing said so.
-      if (!clicked) continue;
-
-      // Not every sidebar link is a screen. Team opens a pane over whatever
-      // somebody is looking at, with a shade across the page to stop a click
-      // reaching the work underneath - which is right for a person and fatal
-      // for a walk that then clicks the next link. It was the last link in
-      // the sidebar, so the untimed lap ended with the shade up and the timed
-      // lap died on its first link; /dashboard "could not be clicked" on
-      // every deploy from 30 Oct 2026 and nothing was wrong with /dashboard.
-      //
-      // So close it the way a person closes it, and carry on.
-      await dismissAnyPane();
-      const settled = await quiet(CEILING_MS + 2000);
-      if (!timed) continue;
-
-      if (page.url() === from) {
-        console.log(`  --      ${href.padEnd(34)} already open`);
-        continue;
-      }
-
-      const took = settled === null ? null : Date.now() - started - QUIET_MS;
-      if (took === null) {
-        failures.push(`${href} never went quiet - still asking for things after ${CEILING_MS + 2000}ms`);
-        console.log(`  FAILED  ${href.padEnd(34)} never quiet`);
-      } else if (took > CEILING_MS) {
-        failures.push(`${href} took ${took}ms to go quiet, and the ceiling is ${CEILING_MS}ms`);
-        console.log(`  FAILED  ${href.padEnd(34)} ${took}ms`);
-      } else if (took > BUDGET_MS) {
-        slow.push(`${href} ${took}ms`);
-        console.log(`  slow    ${href.padEnd(34)} ${took}ms (over the ${BUDGET_MS}ms target)`);
-      } else {
-        console.log(`  ok      ${href.padEnd(34)} ${took}ms`);
+    // The group is open now, so these are its real screens rather than a
+    // list read before anybody pressed anything.
+    const screens = await page.$$eval(".nav-sub a[href]", (as) =>
+      [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => h && h.startsWith("/")))],
+    );
+    if (screens.length === 0 && timed) {
+      // A group with no screens under it is either a group that lost them or
+      // a sidebar that stopped opening. Both are worth a line.
+      console.log(`  --      ${group.padEnd(34)} opened no screens beneath it`);
+    }
+    for (const screen of screens) {
+      await press(`.nav-sub a[href="${screen}"]`, screen, { timed, who });
+      // Pressing a screen keeps its own group open, but a screen in a hub can
+      // move the open group - so the list is re-read if it has changed under
+      // us rather than clicking into a group that is no longer showing.
+      if (!(await page.$(`.nav-sub a[href="${screen}"]`))) {
+        await page.$(`.nav-group > a[href="${group}"]`).then((g) => g?.click({ timeout: CEILING_MS }).catch(() => {}));
+        await quiet(CEILING_MS);
       }
     }
   }
+}
 
-  await lap(false);
-  await lap(true);
+try {
+  for (const { who, email, password } of WHO) {
+    if (!email || !password) {
+      notes.push(`no secrets for ${who}, so that role's screens went untimed`);
+      console.log(`  note    no SMOKE_${who === "Admin" ? "ADMIN_" : ""}EMAIL, so ${who}'s screens went untimed`);
+      continue;
+    }
 
-  // ── and what the middleware costs ────────────────────────
-  //
-  // Measured on a path that does nothing else, so what is timed is the gate
-  // rather than a page: /api/version is behind the middleware, answers one
-  // string, and touches no database. Whatever that takes is close to pure
-  // middleware.
-  //
-  // Timed signed in and signed out, because they are different paths through
-  // it: a request with no auth cookie is answered without Supabase being
-  // asked at all, and one with a cookie verifies the token. The slow one is
-  // the one that matters, and the incident was the second.
-  //
-  // It is here rather than in the fetch-based deploy check because this is
-  // where timing lives, and a number nobody looks at on every deploy is a
-  // number that drifts until it is an outage.
-  for (const [who, context] of [
-    ["signed in", page],
-    ["a stranger", await browser.newPage()],
-  ]) {
+    // A context of its own per account. Two roles sharing one jar is one role
+    // signed in twice, and whichever signed in second is the only one walked.
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    page = await context.newPage();
+
+    console.log("");
+    console.log(`  as ${who}`);
+
+    let signedIn = true;
+    // The sign-in page itself not being there is a different fault from a
+    // stale password, and saying "page.fill timed out" for it sends whoever
+    // reads the log looking at the wrong thing.
+    try {
+      await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
+      await page.fill('input[type="email"]', email, { timeout: 15000 });
+      await page.fill('input[type="password"]', password, { timeout: 15000 });
+    } catch {
+      signedIn = false;
+      failures.push(`${BASE}/login did not offer an email and a password to type into`);
+      console.error(`  FAILED  ${BASE}/login did not offer an email and a password to type into`);
+    }
+    const signIn = page.locator('form button[type="submit"]').first();
+    if (!signedIn) {
+      await context.close();
+      continue;
+    }
+    await Promise.all([page.waitForURL(/\/(dashboard|paperwork|my-day)/, { timeout: 30000 }), signIn.click()]).catch(
+      async () => {
+        signedIn = false;
+        // Said plainly, because the alternative is a stack trace about a
+        // selector when the real answer is usually "the password in the
+        // secret is stale".
+        const said = (await page.locator(".alert").first().textContent().catch(() => null))?.trim();
+        failures.push(`${who} could not sign in${said ? `: ${said}` : ""}`);
+        console.error(`  FAILED  ${who} could not sign in${said ? `: ${said}` : ""}`);
+      },
+    );
+    if (!signedIn) {
+      await context.close();
+      continue;
+    }
+
+    await quiet(15000);
+    await lap({ timed: false, who });
+    await lap({ timed: true, who });
+
+    // ── and what the middleware costs ────────────────────────
+    //
+    // Measured on a path that does nothing else, so what is timed is the gate
+    // rather than a page: /api/version is behind the middleware, answers one
+    // string, and touches no database. Whatever that takes is close to pure
+    // middleware.
+    //
+    // Timed signed in and signed out, because they are different paths
+    // through it: a request with no auth cookie is answered without Supabase
+    // being asked at all, and one with a cookie verifies the token. The slow
+    // one is the one that matters, and the incident was the second.
+    //
+    // It is here rather than in the fetch-based deploy check because this is
+    // where timing lives, and a number nobody looks at on every deploy is a
+    // number that drifts until it is an outage.
+    for (const [whose, ctx] of [[`signed in as ${who}`, context]]) {
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        const started = Date.now();
+        const res = await ctx.request.get(`${BASE}/api/version`, { failOnStatusCode: false });
+        const took = Date.now() - started;
+        // A 504 here is the incident itself, and a failure whatever it took.
+        if (res.status() >= 500) {
+          failures.push(`the middleware answered HTTP ${res.status()} for ${whose} on /api/version`);
+          break;
+        }
+        samples.push(took);
+      }
+      if (!samples.length) continue;
+
+      // The slowest of five, not the average: the complaint is never about
+      // the median request.
+      const worst = Math.max(...samples);
+      const label = `middleware (${whose})`;
+      if (worst > MIDDLEWARE_CEILING_MS) {
+        failures.push(`${label} took ${worst}ms, over the ${MIDDLEWARE_CEILING_MS}ms ceiling`);
+      } else if (worst > MIDDLEWARE_BUDGET_MS) {
+        slow.push(`${label} ${worst}ms`);
+        console.log(`  slow    ${label.padEnd(34)} ${worst}ms (target ${MIDDLEWARE_BUDGET_MS}ms)`);
+      } else {
+        console.log(`  ok      ${label.padEnd(34)} ${worst}ms`);
+      }
+    }
+
+    await context.close();
+  }
+
+  // And the gate as a stranger meets it, which is the other path through the
+  // middleware and the one the October incident was on.
+  {
+    const stranger = await browser.newContext();
     const samples = [];
     for (let i = 0; i < 5; i++) {
       const started = Date.now();
-      const res = await context.request.get(`${BASE}/api/version`, { failOnStatusCode: false });
-      const took = Date.now() - started;
-      // A 504 here is the incident itself, and it is a failure whatever it took.
+      const res = await stranger.request.get(`${BASE}/api/version`, { failOnStatusCode: false });
       if (res.status() >= 500) {
-        failures.push(`the middleware answered HTTP ${res.status()} for ${who} on /api/version`);
+        failures.push(`the middleware answered HTTP ${res.status()} for a stranger on /api/version`);
         break;
       }
-      samples.push(took);
+      samples.push(Date.now() - started);
     }
-    if (!samples.length) continue;
-
-    // The slowest of five, not the average: the complaint is never about the
-    // median request.
-    const worst = Math.max(...samples);
-    const label = `middleware (${who})`;
-    if (worst > MIDDLEWARE_CEILING_MS) {
-      failures.push(`${label} took ${worst}ms, over the ${MIDDLEWARE_CEILING_MS}ms ceiling`);
-    } else if (worst > MIDDLEWARE_BUDGET_MS) {
-      slow.push(`${label} ${worst}ms`);
-      console.log(`  slow    ${label.padEnd(34)} ${worst}ms (target ${MIDDLEWARE_BUDGET_MS}ms)`);
-    } else {
-      console.log(`  ok      ${label.padEnd(34)} ${worst}ms`);
+    if (samples.length) {
+      const worst = Math.max(...samples);
+      const label = "middleware (a stranger)";
+      if (worst > MIDDLEWARE_CEILING_MS) {
+        failures.push(`${label} took ${worst}ms, over the ${MIDDLEWARE_CEILING_MS}ms ceiling`);
+      } else if (worst > MIDDLEWARE_BUDGET_MS) {
+        slow.push(`${label} ${worst}ms`);
+        console.log(`  slow    ${label.padEnd(34)} ${worst}ms (target ${MIDDLEWARE_BUDGET_MS}ms)`);
+      } else {
+        console.log(`  ok      ${label.padEnd(34)} ${worst}ms`);
+      }
     }
+    await stranger.close();
   }
 } catch (err) {
   // Anything the walk did not expect - a link that moved, a click that never
@@ -297,6 +409,7 @@ try {
 }
 
 console.log("");
+for (const n of notes) console.log(`::warning title=Some screens went untimed::${n}`);
 if (slow.length) {
   console.log(`::warning title=Screens over the ${BUDGET_MS}ms target::${slow.join(", ")}`);
 }
@@ -304,14 +417,17 @@ if (failures.length) {
   for (const f of failures) console.error(`  FAILED  ${f}`);
   // Said as an annotation, not only in the log.
   //
-  // On 6 Oct 2026 this check failed on step 7 and the finding was in the
-  // job log, which needs a token to read: the deploy knew which screen was
-  // stuck and nobody else could. An annotation shows on the commit and in
-  // the pull request, so what the check found is readable where the failure
-  // is seen.
+  // On 6 Oct 2026 this check failed on step 7 and the finding was in the job
+  // log, which needs a token to read: the deploy knew which screen was stuck
+  // and nobody else could. An annotation shows on the commit and in the pull
+  // request, so what the check found is readable where the failure is seen.
   console.log(`::error title=Click to quiet::${failures.join(" %0A ")}`);
   process.exit(1);
 }
+
+// The count, said out loud. "Every screen" was true of four of them for a
+// month, and a sentence that does not say how many cannot be caught at it.
+const unique = new Set(timedScreens).size;
 console.log(
-  `--- EVERY SCREEN WENT QUIET WITHIN ${CEILING_MS}ms, AND THE MIDDLEWARE WITHIN ${MIDDLEWARE_CEILING_MS}ms (${BASE}) ---`,
+  `--- ${unique} SCREENS WENT QUIET WITHIN ${CEILING_MS}ms, AND THE MIDDLEWARE WITHIN ${MIDDLEWARE_CEILING_MS}ms (${BASE}) ---`,
 );

@@ -30,7 +30,8 @@ declare
   v_expected text[] := array[
     'zion-intake', 'zion-chase', 'zion-reports', 'zion-outlook-sync',
     'zion-messages-digest', 'zion-scheduled-texts', 'zion-sms-reminders',
-    'zion-nightly-alerts', 'zion-nightly-digest', 'zion-monday-health'
+    'zion-nightly-alerts', 'zion-nightly-digest', 'zion-monday-health',
+    'zion-clock-sweep'
   ];
   v_name text;
   v_n integer;
@@ -70,6 +71,36 @@ begin
       'FAILED: %s job(s) still hold a placeholder instead of the address or the secret', v_n);
   else
     raise notice 'ok  no job posts to a placeholder';
+  end if;
+
+  -- ── and each one posts to the practice ──────────────
+  --
+  -- A placeholder is not the only address that goes nowhere.
+  -- zion-monday-health was scheduled against http://localhost:3000, and there
+  -- is no localhost from inside Supabase: it fired every Monday, reached
+  -- nothing, and said nothing. This script checked that job's *schedule* and
+  -- never its address - the fault CLAUDE.md names, a question asked merely
+  -- near the rule, and it passed for as long as the job has existed.
+  --
+  -- Asked of every job that posts rather than of a list of the ones that
+  -- should, so a tenth job added next month is covered without anybody
+  -- remembering to add it here.
+  for r in
+    select jobname, (regexp_match(command, 'url\s*:=\s*''([^'']*)'''))[1] as url
+      from cron.job
+     where command like '%net.http_post%'
+  loop
+    if r.url is null then
+      failures := failures || format(
+        'FAILED: %s posts over http and no address can be read out of it', r.jobname);
+    elsif r.url not like 'https://crm.zionvocrehab.com/%' then
+      failures := failures || format(
+        'FAILED: %s posts to %s, which is not the practice - it will fire and reach nothing',
+        r.jobname, r.url);
+    end if;
+  end loop;
+  if array_length(failures, 1) is null then
+    raise notice 'ok  every scheduled job posts to crm.zionvocrehab.com';
   end if;
 
   -- ── the Monday run ────────────────────────────────────────

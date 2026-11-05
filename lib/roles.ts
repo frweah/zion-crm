@@ -233,11 +233,17 @@ export const NAV_GROUPS: NavGroup[] = [
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
       { label: "Counselors", href: "/counselors", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
-      { label: "Contractor statements", href: "/hours", roles: EVERYONE, note: "Everything logged, and your statements." },
-      // A tab of the Hours screen, so it stays with Hours. A screen whose
-      // tabs are split across two sidebar groups is a screen nobody can find
-      // the other half of.
-      { label: "Contractor statement approvals", href: "/hours?tab=approvals", roles: ADMIN },
+      // One entry, three tabs inside it: Your time, Statements, Statement
+      // approvals. It was "Contractor statements" until everybody started
+      // clocking - an employee's hours live here too, and the name sent them
+      // to a screen that said it was for somebody else (owner, 5 Nov 2026).
+      //
+      // Approvals had its own sidebar entry for a fortnight and has gone back
+      // inside, because a strip of tabs under a sidebar that already lists
+      // them is how a screen stops being findable. Nothing in the navigation
+      // points at ?tab=approvals now; the screen itself refuses it to anybody
+      // who is not Admin, and check-nav holds both halves of that.
+      { label: "Time & statements", href: "/hours", roles: EVERYONE, note: "Your time, and your statements." },
 
       // ── and the person's own ──
       { label: "Time clock", href: "/time-clock", roles: EVERYONE, note: "Clock in and out; today and this period." },
