@@ -336,6 +336,11 @@ export default async function DashboardPage({
     unbilled: number;
     outstanding: number;
     receivedMonth: number;
+    // The invoice ledger's own figures (0306). What was sent this month, and
+    // what is unanswered past thirty days.
+    invoicedMonth: number;
+    overdue: number;
+    overdueCount: number;
     // What the practice owes, from the other side of the books (E3).
     dueThisWeek: number;
     dueThisWeekLate: number;
@@ -344,19 +349,36 @@ export default async function DashboardPage({
   if (isAdmin) {
     const week = new Date(day + "T00:00:00Z");
     week.setUTCDate(week.getUTCDate() + 7);
-    const [needs, { data: econ }, { data: paid }, { data: due }, { data: aging }] = await Promise.all([
+    const [needs, { data: econ }, { data: paid }, { data: due }, { data: aging }, { data: ledger }] = await Promise.all([
       countNeeds(supabase, me),
       supabase.from("authorization_economics").select("status, unbilled, outstanding"),
       supabase.from("billed_work").select("paid_amount").eq("paid", true).gte("paid_on", `${day.slice(0, 7)}-01`),
       supabase.rpc("bills_due_by", { p_by: week.toISOString().slice(0, 10) }),
       supabase.rpc("ledger_ap_aging", { p_as_of: day }),
+      supabase
+        .from("invoice_month")
+        .select("invoiced_this_month, paid_this_month, outstanding, overdue, overdue_invoices")
+        .maybeSingle(),
     ]);
     const n = (v: unknown) => Number(v ?? 0);
     const bills = (due ?? []) as { amount: number; late: boolean }[];
     business = {
       needs,
       unbilled: (econ ?? []).filter((e) => isLive(e.status ?? "")).reduce((s, e) => s + n(e.unbilled), 0),
-      outstanding: (econ ?? []).reduce((s, e) => s + n(e.outstanding), 0),
+      /**
+       * Outstanding, from the ledger rather than from the rates.
+       *
+       * This used to be the sum of authorization_economics.outstanding, which
+       * values an hourly authorization at the hours logged against it. On 6
+       * November that was $810 short of the invoices, because two
+       * authorizations were invoiced for hours that exist on the USOR forms
+       * and were never logged here. The invoice says what was sent; a rate
+       * only says what it would have come to.
+       */
+      outstanding: n(ledger?.outstanding),
+      invoicedMonth: n(ledger?.invoiced_this_month),
+      overdue: n(ledger?.overdue),
+      overdueCount: n(ledger?.overdue_invoices),
       receivedMonth: (paid ?? []).reduce((s, i) => s + n(i.paid_amount), 0),
       dueThisWeek: bills.reduce((s, b) => s + n(b.amount), 0),
       dueThisWeekLate: bills.filter((b) => b.late).length,
@@ -759,10 +781,25 @@ export default async function DashboardPage({
                 <small>earned, not invoiced</small>
               </div>
             </Link>
-            <Link href="/insights/money" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+            <Link href="/billing/invoices" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+              <div className="stat">
+                {money(business.invoicedMonth)}
+                <small>invoiced this month</small>
+              </div>
+            </Link>
+            <Link href="/billing/invoices?status=Submitted" className="card" style={{ textDecoration: "none", color: "inherit" }}>
               <div className="stat">
                 {money(business.outstanding)}
                 <small>invoiced, not paid</small>
+              </div>
+            </Link>
+            <Link href="/billing/invoices?status=Submitted" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+              <div className="stat" style={business.overdue > 0 ? { color: "var(--bad)" } : undefined}>
+                {money(business.overdue)}
+                <small>
+                  unpaid over 30 days
+                  {business.overdueCount > 0 ? `, ${business.overdueCount} ${business.overdueCount === 1 ? "invoice" : "invoices"}` : ""}
+                </small>
               </div>
             </Link>
             <Link href="/insights/money" className="card" style={{ textDecoration: "none", color: "inherit" }}>

@@ -93,6 +93,12 @@
       "select",
       "update"
     ],
+    "client_aliases": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+    ],
     "client_corrections": [
       "insert",
       "select"
@@ -255,6 +261,12 @@
       "delete",
       "insert",
       "update"
+    ],
+    "invoice_lines": [
+      "select"
+    ],
+    "invoices": [
+      "select"
     ],
     "job_leads": [
       "delete",

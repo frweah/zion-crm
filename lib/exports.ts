@@ -47,6 +47,12 @@ export const EXPORTS: ExportKind[] = [
       "Every authorization open at any point in the month, with what is authorized, earned, invoiced and received. Grouped by billing office.",
   },
   {
+    key: "invoices",
+    label: "Invoices",
+    detail:
+      "Every invoice sent to USOR in the month, with the office it went to, what it came to, and what came back - the warrant, the voucher and the amount. Invoices still owed are included whenever they were sent, because what is owed is not a fact about one month.",
+  },
+  {
     key: "placements",
     label: "Placements",
     detail: "Placements that started in the month, with the employer, the job and the checks.",

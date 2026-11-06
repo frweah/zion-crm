@@ -158,6 +158,51 @@ export async function GET(
       ];
     });
     rows = byOffice(rows);
+  } else if (kind === "invoices") {
+    /*
+     * Invoices sent in the month, plus everything still owed whenever it was
+     * sent. The second half matters: an invoice from September that nobody has
+     * paid is the thing somebody downloads this to chase, and a month filter
+     * that hid it would answer the question wrongly rather than narrowly.
+     */
+    const [{ data: invoices }, { data: clients }, { data: offices }, { data: auths }] =
+      await Promise.all([
+        supabase
+          .from("invoices")
+          .select(
+            "number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, warrant, voucher, office_id, sent_to, source",
+          )
+          .or(`and(submitted_on.gte.${start},submitted_on.lte.${end}),status.in.(Submitted,Short-paid)`)
+          .order("submitted_on", { ascending: true, nullsFirst: false }),
+        supabase.from("clients").select("id, name, client_no, agency_id"),
+        supabase.from("billing_offices").select("id, name"),
+        supabase.from("authorizations").select("id, number, service_type"),
+      ]);
+
+    const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
+    const officeById = new Map((offices ?? []).map((o) => [o.id, o]));
+    const authById = new Map((auths ?? []).map((a) => [a.id, a]));
+
+    headers = [
+      "Invoice", "Sent", "Client", "Client no", "USOR ID", "Authorization", "Claim",
+      "Service", "Office", "Sent to", "Amount", "Status", "Paid on", "Amount paid",
+      "Still owed", "Warrant", "Voucher", "Entered",
+    ];
+    rows = (invoices ?? []).map((i) => {
+      const c = i.client_id ? clientById.get(i.client_id) : undefined;
+      const a = i.auth_id ? authById.get(i.auth_id) : undefined;
+      const owed =
+        i.status === "Submitted" || i.status === "Short-paid"
+          ? Number(i.amount ?? 0) - Number(i.amount_paid ?? 0)
+          : 0;
+      return [
+        i.number, i.submitted_on ?? "", c?.name ?? "", c?.client_no ?? "", c?.agency_id ?? "",
+        a?.number ?? "", i.claim ?? "", a?.service_type ?? "",
+        i.office_id ? (officeById.get(i.office_id)?.name ?? "") : "", i.sent_to,
+        i.amount ?? "", i.status, i.paid_on ?? "", i.amount_paid ?? "",
+        owed || "", i.warrant, i.voucher, i.source,
+      ];
+    });
   } else if (kind === "placements") {
     const [{ data: placements }, { data: clients }] = await Promise.all([
       supabase

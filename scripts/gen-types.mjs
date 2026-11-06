@@ -376,6 +376,14 @@ const RPC_FUNCTIONS = [
   "placement_clock_started",
   "referral_received_on",
   "notify_person",
+  // The invoice ledger (0306-0309). raise_invoice is deliberately absent: it
+  // is revoked from everybody and reachable only from the two functions that
+  // carry the gates, so nothing in the app may call it and nothing should be
+  // typed as though it could.
+  "submit_invoice",
+  "chase_invoices",
+  "invoices_due",
+  "billing_office_for_authorization",
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
   "client_last_activity_for",

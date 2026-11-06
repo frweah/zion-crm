@@ -954,6 +954,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_aliases: {
+        Row: {
+          id: string;
+          client_id: string;
+          name: string;
+          source: string;
+          note: string;
+          added_by: string | null;
+          added_by_name: string;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          name: string;
+          source?: string;
+          note?: string;
+          added_by?: string | null;
+          added_by_name?: string;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          name?: string;
+          source?: string;
+          note?: string;
+          added_by?: string | null;
+          added_by_name?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
       client_corrections: {
         Row: {
           id: string;
@@ -2490,6 +2523,111 @@ export type Database = {
         };
         Relationships: [];
       };
+      invoice_lines: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          entry_id: string | null;
+          on_date: string | null;
+          description: string;
+          hours: number | null;
+          rate: number | null;
+          amount: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_id: string;
+          entry_id?: string | null;
+          on_date?: string | null;
+          description?: string;
+          hours?: number | null;
+          rate?: number | null;
+          amount?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          invoice_id?: string;
+          entry_id?: string | null;
+          on_date?: string | null;
+          description?: string;
+          hours?: number | null;
+          rate?: number | null;
+          amount?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          number: number;
+          client_id: string;
+          auth_id: string | null;
+          claim: string | null;
+          submitted_on: string | null;
+          submitted_by: string | null;
+          office_id: string | null;
+          sent_to: string;
+          amount: number | null;
+          report_id: string | null;
+          status: string;
+          paid_on: string | null;
+          warrant: string;
+          voucher: string;
+          amount_paid: number | null;
+          source: string;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          number?: number;
+          client_id: string;
+          auth_id?: string | null;
+          claim?: string | null;
+          submitted_on?: string | null;
+          submitted_by?: string | null;
+          office_id?: string | null;
+          sent_to?: string;
+          amount?: number | null;
+          report_id?: string | null;
+          status?: string;
+          paid_on?: string | null;
+          warrant?: string;
+          voucher?: string;
+          amount_paid?: number | null;
+          source?: string;
+          note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          number?: number;
+          client_id?: string;
+          auth_id?: string | null;
+          claim?: string | null;
+          submitted_on?: string | null;
+          submitted_by?: string | null;
+          office_id?: string | null;
+          sent_to?: string;
+          amount?: number | null;
+          report_id?: string | null;
+          status?: string;
+          paid_on?: string | null;
+          warrant?: string;
+          voucher?: string;
+          amount_paid?: number | null;
+          source?: string;
+          note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       job_leads: {
         Row: {
           id: string;
@@ -3685,6 +3823,8 @@ export type Database = {
           recorded_by: string | null;
           recorded_by_name: string;
           created_at: string;
+          claim: string | null;
+          invoice_id: string | null;
         };
         Insert: {
           id?: string;
@@ -3698,6 +3838,8 @@ export type Database = {
           recorded_by?: string | null;
           recorded_by_name?: string;
           created_at?: string;
+          claim?: string | null;
+          invoice_id?: string | null;
         };
         Update: {
           id?: string;
@@ -3711,6 +3853,8 @@ export type Database = {
           recorded_by?: string | null;
           recorded_by_name?: string;
           created_at?: string;
+          claim?: string | null;
+          invoice_id?: string | null;
         };
         Relationships: [];
       };
@@ -6548,6 +6692,20 @@ export type Database = {
         };
         Relationships: [];
       };
+      authorization_invoicing: {
+        Row: {
+          auth_id: string | null;
+          client_id: string | null;
+          number: string | null;
+          status: string | null;
+          authorized: number | null;
+          invoiced: number | null;
+          paid: number | null;
+          invoices: number | null;
+          invoices_open: number | null;
+        };
+        Relationships: [];
+      };
       authorization_record: {
         Row: {
           id: string | null;
@@ -7013,6 +7171,17 @@ export type Database = {
         };
         Relationships: [];
       };
+      invoice_month: {
+        Row: {
+          invoiced_this_month: number | null;
+          paid_this_month: number | null;
+          outstanding: number | null;
+          overdue: number | null;
+          open_invoices: number | null;
+          overdue_invoices: number | null;
+        };
+        Relationships: [];
+      };
       my_hours_summary: {
         Row: {
           staff_id: string | null;
@@ -7327,6 +7496,10 @@ export type Database = {
         Args: { p_today?: string | null };
         Returns: number;
       };
+      billing_office_for_authorization: {
+        Args: { p_auth: string | null };
+        Returns: string;
+      };
       billing_office_reconciliation: {
         Args: { p_billing_office: string | null; p_within_days?: number | null };
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
@@ -7358,6 +7531,10 @@ export type Database = {
       cancel_scheduled_text: {
         Args: { p_id: string | null };
         Returns: string;
+      };
+      chase_invoices: {
+        Args: { p_today?: string | null };
+        Returns: { staff_name: string | null; email: string | null; message: string | null; task_id: string | null }[];
       };
       claim_scheduled_text: {
         Args: { p_id: string | null };
@@ -7630,6 +7807,10 @@ export type Database = {
       intake_scans_now_readable: {
         Args: Record<string, never>;
         Returns: { document_id: string | null; message_id: string | null; from_address: string | null; subject: string | null; received_at: string | null; sha256: string | null; ocr_text: string | null }[];
+      };
+      invoices_due: {
+        Args: { p_today?: string | null };
+        Returns: { staff_name: string | null; email: string | null; message: string | null; task_id: string | null }[];
       };
       is_active_staff: {
         Args: Record<string, never>;
@@ -8349,6 +8530,10 @@ export type Database = {
       };
       submit_authorization_on_send: {
         Args: { p_auth: string | null; p_month: string | null; p_recipient: string | null; p_staff: string | null };
+        Returns: string;
+      };
+      submit_invoice: {
+        Args: { p_auth: string | null; p_office?: string | null; p_report?: string | null; p_amount?: number | null };
         Returns: string;
       };
       submit_own_credential: {

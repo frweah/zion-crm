@@ -5,9 +5,16 @@
 --
 -- What has to hold, each tried from the direction that would break it:
 --
---   There is one table a bill can live in. The invoice and the billing item are
---   gone - table, views, events and all - and nothing can recreate them by
---   accident because nothing refers to them.
+--   There is one table a bill can live in. The billing item is gone - table,
+--   views, events and all - and nothing can recreate it by accident because
+--   nothing refers to it.
+--
+--   The invoice came back on 6 November 2026 (Phase 3, 0306), and §10 still
+--   holds where it mattered: an invoice is a record of a claim against a bill,
+--   not a second way to create one. So the table exists, a signed-in person
+--   cannot write to it at all, and the only function that inserts into it is
+--   raise_invoice - which is itself revoked from everybody and reachable only
+--   from sending the packet or from Billing raising one by hand.
 --
 --   add_authorization() is the only way a row gets into it. A signed-in person
 --   has no insert on authorizations, so a screen that tried to go round the
@@ -39,7 +46,7 @@ declare
   failures  text[] := '{}';
 begin
   -- ── one table, and the old ones gone ──────────────────────
-  foreach v_doors in array array['invoices', 'billing_items', 'billing_item_events',
+  foreach v_doors in array array['billing_items', 'billing_item_events',
                                  'billing_item_rows', 'billing_items_undated'] loop
     if exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
                 where n.nspname = 'public' and c.relname = v_doors) then
@@ -47,7 +54,33 @@ begin
     end if;
   end loop;
   if failures = '{}' then
-    raise notice 'ok  the invoice and the billing item are gone, with their views and their events';
+    raise notice 'ok  the billing item is gone, with its views and its events';
+  end if;
+
+  -- ── the invoice exists, and is nobody's to write ──────────
+  if not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                  where n.nspname = 'public' and c.relname = 'invoices') then
+    failures := failures || 'FAILED: the invoice ledger is not there'::text;
+  elsif has_table_privilege('authenticated', 'public.invoices', 'insert')
+     or has_table_privilege('authenticated', 'public.invoices', 'update')
+     or has_table_privilege('authenticated', 'public.invoices', 'delete')
+     or has_table_privilege('authenticated', 'public.invoice_lines', 'insert') then
+    failures := failures || 'FAILED: a signed-in person can write the invoice ledger directly'::text;
+  else
+    raise notice 'ok  the invoice ledger exists and a signed-in person cannot write a row of it';
+  end if;
+
+  -- And exactly one function puts a row in it. Asked of the catalogue rather
+  -- than from a list, so a second one added later fails here.
+  select string_agg(p.proname, ', ' order by p.proname) into v_doors
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and pg_get_functiondef(p.oid) ~ 'insert\s+into\s+public\.invoices\M'
+     and p.proname <> 'raise_invoice';
+  if v_doors is not null then
+    failures := failures || format('FAILED: these also create an invoice: %s', v_doors);
+  else
+    raise notice 'ok  raise_invoice is the only thing that creates an invoice';
   end if;
 
   -- ── nothing names them any more ───────────────────────────
@@ -56,11 +89,11 @@ begin
   select string_agg(p.proname, ', ' order by p.proname) into v_doors
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public'
-     and pg_get_functiondef(p.oid) ~ '\mpublic\.(invoices|billing_items|billing_item_events|billing_item_rows|billing_item_gate|billing_gate_met|invoice_date_for)\M';
+     and pg_get_functiondef(p.oid) ~ '\mpublic\.(billing_items|billing_item_events|billing_item_rows|billing_item_gate|billing_gate_met|invoice_date_for)\M';
   if v_doors is not null then
     failures := failures || format('FAILED: these still read a record that no longer exists: %s', v_doors);
   else
-    raise notice 'ok  no function still reads the invoice or the billing item';
+    raise notice 'ok  no function still reads the billing item';
   end if;
 
   -- ── the door is the only way in ───────────────────────────

@@ -272,11 +272,49 @@ async function handle(request: NextRequest) {
     noReply = (data ?? 0) as number;
   }
 
+  /**
+   * An invoice nobody has answered, and work nobody has invoiced (0309).
+   *
+   * Here rather than in a route of its own for the reason the application
+   * rule is here: a day passing is the whole event, and these belong with the
+   * other rules that are about days passing.
+   *
+   * Both rules are the database's, and both are deduplicated there: thirty
+   * days raises it at the intake desk, forty-five reaches the owner, and
+   * running this twice in a day sends nothing twice. What comes back is the
+   * words for the email, one row per person who had something new.
+   */
+  let invoiceChase: { chased: number; emailed: number } = { chased: 0, emailed: 0 };
+  let invoiceDue: { raised: number; emailed: number } = { raised: 0, emailed: 0 };
+
+  if (!dry) {
+    const { data: chaseRows, error: chaseError } = await admin.rpc("chase_invoices", {});
+    if (chaseError) return NextResponse.json({ error: chaseError.message }, { status: 500 });
+    const told = (chaseRows ?? []) as { email: string | null; message: string }[];
+    invoiceChase.chased = told.length;
+    for (const who of told) {
+      if (!who.email || !emailConfigured()) continue;
+      await sendEmail({ to: who.email, subject: "Zion CRM — an invoice is unpaid", text: who.message });
+      invoiceChase.emailed += 1;
+    }
+
+    const { data: dueRows, error: dueError } = await admin.rpc("invoices_due", {});
+    if (dueError) return NextResponse.json({ error: dueError.message }, { status: 500 });
+    const toBill = (dueRows ?? []) as { email: string | null; message: string }[];
+    invoiceDue.raised = toBill.length;
+    for (const who of toBill) {
+      if (!who.email || !emailConfigured()) continue;
+      await sendEmail({ to: who.email, subject: "Zion CRM — an invoice is due", text: who.message });
+      invoiceDue.emailed += 1;
+    }
+  }
+
   return NextResponse.json({
     dry,
     rule6: { waiting: waiting.length, would_send: waiting.filter((w) => w.send).length, nudged },
     rule7: { ending: ending.length, chased },
     applications: { days: NO_REPLY_DAYS, marked_no_response: noReply },
+    invoices: { chase: invoiceChase, due: invoiceDue },
     emailed,
   });
 }

@@ -94,7 +94,10 @@ const EXPECTED = {
     // "/admin/hours" since 5 November 2026: everybody's clocked time, which
     // is what payroll is paid from, so it is Admin's rather than Insights'.
     "/admin/documents", "/admin/hours", "/admin/people", "/admin/settings-hub", "/admin/system", "/admin/templates",
-    "/billing",
+    // "/billing/invoices" since 6 November 2026: Phase 3 gives the practice an
+    // invoice ledger, so the screen §9 removed when there was no invoice to
+    // look at comes back. Read-only - nothing on it raises one.
+    "/billing", "/billing/invoices",
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
     "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
@@ -121,7 +124,7 @@ const EXPECTED = {
   ],
   Billing: [
     "/admin/documents",
-    "/billing", "/calendar", "/clients", "/counselors",
+    "/billing", "/billing/invoices", "/calendar", "/clients", "/counselors",
     "/dashboard",
     "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
   ],
@@ -582,21 +585,34 @@ if (CLIENT_TABS.length <= 7 && !unmapped.length && !staleLinks.length) {
   ok(`the client record has ${CLIENT_TABS.length} tabs, every old tab redirects to one, and no link names an old tab`);
 }
 
-// ── nothing offers to raise an invoice ───────────────────────
+// ── there is still one door to a bill ────────────────────────
 //
-// §10: there is one door to a bill and it is entering an authorization. The
-// check is on what a person is *offered*, not on the word itself - the history
-// of this practice is full of invoices and the screens may say so. What they
-// may not do is put a button, a link, a menu item or a quick-add entry in front
-// of somebody that makes one.
+// §10 said there is one door to a bill and it is entering an authorization,
+// and this check used to hold the screens to it by refusing to let them name
+// the invoices table at all. Phase 3 (0306-0309, owner 6 Nov 2026) gives the
+// practice an invoice ledger, so the first half of that is over: the screens
+// read invoices now, and the Invoices screen is the point of them.
+//
+// The half that survives is the half §10 was actually about. An invoice is
+// raised by sending the packet - submit_authorization_on_send writes it in the
+// database - and not by a person pressing "New invoice". So:
+//
+//   nothing offers a control that makes one;
+//   nothing writes the table from the app, which is also RLS's answer - there
+//   is no write policy on invoices at all;
+//   and nothing calls submit_invoice from a screen, because the by-hand route
+//   exists for Billing against the database and a screen that called it would
+//   be the second door.
 const OFFERS = [
   // A control that offers to make one. A column heading that says "Invoiced"
   // is not an offer, so this looks for the verbs.
   /<(?:button|a|Link)\b[^>]*>\s*(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice/i,
   /(?:New|Raise|Create|Add|Make)\s+(?:an?\s+)?invoice\s*<\/(?:button|a|Link)>/i,
-  // Writing one, or naming the table at all.
-  /from\(["']invoices["']\)/,
-  /rpc\(["'](?:draft_invoice_for_authorization|setInvoiceStatus)["']/,
+  // Writing one from the app, rather than naming the table, which is now
+  // allowed and necessary.
+  /from\(["']invoices["']\)\s*\n?\s*\.(?:insert|update|upsert|delete)/,
+  /from\(["']invoice_lines["']\)\s*\n?\s*\.(?:insert|update|upsert|delete)/,
+  /rpc\(["'](?:draft_invoice_for_authorization|setInvoiceStatus|submit_invoice)["']/,
   // A quick-add entry for one. Only quick-add declares entries this way.
   /\bQUICK_ADD[\s\S]{0,400}?invoice/i,
 ];
@@ -611,9 +627,9 @@ for (const file of [
   }
 }
 if (offenders.length) {
-  fail(`something still offers to raise an invoice: ${offenders.join(", ")}`);
+  fail(`something offers to raise an invoice, or writes one: ${offenders.join(", ")}`);
 } else {
-  ok("nothing offers to raise an invoice, and nothing writes one");
+  ok("an invoice is raised by sending the packet: nothing offers one and nothing writes one");
 }
 
 // ── and nothing writes a bill around the door ────────────────

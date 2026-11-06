@@ -69,7 +69,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
   // The client's other files, so one of them can be attached here, and what
   // the inbox read off the ones that came through it. §11: the file exists
   // once, in the client's record, and this references it.
-  const [{ data: loose }, { data: readings }, { data: corrections }, payments] = await Promise.all([
+  const [{ data: loose }, { data: readings }, { data: corrections }, payments, { data: billing }, { data: invoices }] = await Promise.all([
     supabase
       .from("attachments")
       .select("id, storage_path, filename, category, auth_id, created_at, review_note")
@@ -87,6 +87,19 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
       .eq("auth_id", id)
       .order("at"),
     readPayments(supabase, [id]),
+    // What this authorization authorized, what has been invoiced against it,
+    // and what has been paid (0306). Read from the rows rather than kept
+    // beside them, so the three figures cannot drift apart.
+    supabase
+      .from("authorization_invoicing")
+      .select("authorized, invoiced, paid, invoices, invoices_open")
+      .eq("auth_id", id)
+      .maybeSingle(),
+    supabase
+      .from("invoices")
+      .select("id, number, claim, submitted_on, amount, status, paid_on, amount_paid, warrant, sent_to")
+      .eq("auth_id", id)
+      .order("number"),
   ]);
 
   // §13.10: the forms this service requires, and the ones already produced.
@@ -167,6 +180,38 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
                 {rec.rate_type === "Hourly"
                   ? `${Number(rec.hours_logged ?? 0)} h × ${money(Number(rec.rate ?? 0))}`
                   : "flat fee"}
+              </small>
+            </div>
+          </div>
+          {/* Phase 3: the two figures the invoice ledger answers. Left to
+              bill is what was authorized and has not gone out; owed is what
+              went out and has not come back. */}
+          <div className="card">
+            <div className="stat" style={{ fontSize: "var(--text-md)" }}>
+              {money(Math.max(Number(billing?.authorized ?? 0) - Number(billing?.invoiced ?? 0), 0))}
+              <small>
+                left to bill
+                {Number(billing?.invoices ?? 0) > 0
+                  ? ` of ${money(Number(billing?.authorized ?? 0))}`
+                  : ", nothing invoiced yet"}
+              </small>
+            </div>
+          </div>
+          <div className="card">
+            <div
+              className="stat"
+              style={
+                Number(billing?.invoiced ?? 0) - Number(billing?.paid ?? 0) > 0
+                  ? { fontSize: "var(--text-md)", color: "var(--bad)" }
+                  : { fontSize: "var(--text-md)" }
+              }
+            >
+              {money(Number(billing?.invoiced ?? 0) - Number(billing?.paid ?? 0))}
+              <small>
+                invoiced and not paid
+                {Number(billing?.invoices_open ?? 0) > 0
+                  ? ` on ${Number(billing?.invoices_open)} ${Number(billing?.invoices_open) === 1 ? "invoice" : "invoices"}`
+                  : ""}
               </small>
             </div>
           </div>
@@ -411,6 +456,41 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               note: (rec.note as string) ?? "",
             }}
           />
+          {/* The invoices sent against it (0306). One line each, because the
+              question here is what went out and what came back - the ledger
+              itself is Billing - Invoices. */}
+          {(invoices ?? []).length > 0 ? (
+            <details className="card" style={{ marginTop: 12 }}>
+              <summary>
+                Invoices sent ({(invoices ?? []).length})
+              </summary>
+              <table className="t" data-layout="invoices against this authorization: the number, when it went, what it came to, and what came back">
+                <tbody>
+                  {(invoices ?? []).map((i) => (
+                    <tr key={i.id}>
+                      <td>
+                        <b>{i.number}</b>
+                        {i.claim ? <span className="lock"> claim {i.claim}</span> : null}
+                      </td>
+                      <td className="lock">{i.submitted_on ?? "day not on file"}</td>
+                      <td>{money(Number(i.amount ?? 0))}</td>
+                      <td>
+                        <span className={"chip " + (i.status === "Short-paid" || i.status === "Rejected" ? "bad" : "")}>
+                          {i.status}
+                        </span>
+                      </td>
+                      <td className="lock">
+                        {i.amount_paid
+                          ? `${money(Number(i.amount_paid))}${i.warrant ? ` on ${i.warrant}` : ""}${i.paid_on ? `, ${i.paid_on}` : ""}`
+                          : i.sent_to || ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          ) : null}
+
           {(corrections ?? []).length > 0 ? (
             <details className="card" style={{ marginTop: 12 }}>
               <summary>Corrections to this record ({(corrections ?? []).length})</summary>

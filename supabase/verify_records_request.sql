@@ -75,6 +75,8 @@ declare
     -- The other spellings of their own name (0303): held so a warrant or an
     -- invoice under one of them finds the record, and theirs to see.
     'client_aliases=other_spellings',
+    -- The invoices sent about them (0306), with the services on each.
+    'invoices=invoices',
     'mail_log=email',
     -- Texts, web chats and staff threads about the client (0104).
     'conversations=conversations',

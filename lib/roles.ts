@@ -301,6 +301,18 @@ export const NAV_GROUPS: NavGroup[] = [
         note: "Everything waiting to be billed, chased or paid.",
       },
       { label: "Service log", href: "/billing?tab=hours", roles: BILLS, area: "billing" },
+      // Invoices (Phase 3, owner 6 Nov 2026). §9 took Invoices off this group
+      // when the authorization was the bill and there was no invoice to look
+      // at. There is one now - one record per invoice sent to USOR - so the
+      // screen comes back, read-only: nothing on it raises an invoice,
+      // because sending the packet does that.
+      {
+        label: "Invoices",
+        href: "/billing/invoices",
+        roles: BILLS,
+        area: "billing",
+        note: "Every invoice sent to USOR, what came back, and what is owed.",
+      },
       // The books (ERP brief, E1). Not under /insights: that is Admin's
       // alone and the people who read the books are the two already in this
       // group all day. The area is Billing's, which is also how a CPA is let
