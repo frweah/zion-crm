@@ -527,6 +527,18 @@ for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
 // ── the verdict ───────────────────────────────────────────────
 const all = [];
 await signIn(env("SMOKE_EMAIL"), env("SMOKE_PASSWORD"), "automated-check");
+/**
+ * Team, asked for before the sweep rather than after it.
+ *
+ * It is in the sidebar below the groups rather than in one of them, so the
+ * sweep never opens it for this role - and asking afterwards made it the 83rd
+ * request of the pass, where it came back redirected to /login. The same page
+ * opened cleanly for the Billing account moments later on a session two
+ * minutes old, so what that found was a session, not a screen. Asked here, it
+ * is an ordinary early request like every other one.
+ */
+const teamPage = await open("/team");
+
 const jobSearch = await pass("Job Search");
 all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
 
@@ -546,9 +558,7 @@ all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
 {
   const opened = jobSearch.results.filter((r) => r.ok && r.body);
   const without = opened.filter((r) => r.path !== "/team" && !r.body.includes('class="team-bubble'));
-  // Asked for, not waited for: Team is in the sidebar below the groups rather
-  // than in one of them, so the sweep above never opens it.
-  const team = await open("/team");
+  const team = teamPage;
   if (opened.length === 0) {
     all.push({ role: "Job Search", path: "the Team bubble", ok: false, why: "no screen came back with a page to look at" });
   } else if (!team.ok) {
