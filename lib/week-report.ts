@@ -133,7 +133,9 @@ export function owedLines(w: Week): string[] {
         : w.reports_overdue >= w.reports_due
           ? "all of them past their date"
           : `${w.reports_overdue} past their date`;
-    lines.push(`Reports: ${count(w.reports_due, "report", "reports")} to finish, ${late}.`);
+    // "Reports: 16 reports to finish" says reports twice. The label is the
+    // noun; the line is the number.
+    lines.push(`Reports: ${w.reports_due} to finish, ${late}.`);
   }
   if (lines.length === 0) {
     return ["Nothing is waiting to be filed, nobody has gone quiet, and no report is owing."];

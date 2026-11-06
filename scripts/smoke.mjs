@@ -942,6 +942,25 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
    * production.
    */
   all.push(...(await invokeActions("/billing", "Reports")));
+  /**
+   * And My day, which has had server actions since the "To file" inbox
+   * (0317): assign, confirm, discard.
+   *
+   * The owner's definition of done for that item asks that the smoke check
+   * post a Confirm. Posted the way everything here is posted - empty, as a
+   * system account the database refuses writes to - so what comes back is
+   * "Choose the client it was about" rather than a contact-log entry on
+   * somebody's record. What is asserted is that the module loads and the
+   * action answers, which is the whole lesson of 19 October.
+   *
+   * It reports nothing when the inbox is empty: there are no forms on the
+   * screen then, and an inbox nobody has anything waiting in is the ordinary
+   * state rather than a fault.
+   */
+  const myDay = await invokeActions("/my-day", "Reports");
+  if (!myDay.some((r) => r.why?.includes("no server action on the page"))) {
+    all.push(...myDay);
+  }
 
   const reports = await pass("Reports");
   all.push(...reports.results.map((r) => ({ ...r, role: "Reports" })));

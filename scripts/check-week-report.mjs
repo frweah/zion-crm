@@ -112,7 +112,7 @@ if (!/Nothing is waiting on you/.test(waitingLine(empty))) {
     fail(`things to file are not named: ${owed}`);
   } else if (!/Quiet: 3 clients/.test(owed)) {
     fail(`clients gone quiet are not named: ${owed}`);
-  } else if (!/16 reports to finish, all of them past their date/.test(owed)) {
+  } else if (!/Reports: 16 to finish, all of them past their date/.test(owed)) {
     fail(`reports due and overdue are not named: ${owed}`);
   } else {
     ok("it leads with what is waiting to be filed, who has gone quiet, and the reports owing");
