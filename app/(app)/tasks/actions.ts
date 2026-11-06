@@ -7,6 +7,28 @@ import { getCurrentStaff } from "@/lib/session";
 
 export type TaskState = { error: string | null; ok: string | null };
 
+/**
+ * Every screen a task is listed on (owner, 6 Nov 2026).
+ *
+ * The two actions are on every task row now, so a task marked complete on
+ * Home has to disappear from the client's record and from My day as well -
+ * and whoever presses it has no idea which of the five screens cached what.
+ * Listed once here rather than three paths at each call site, which is how
+ * `/my-day` came to be revalidated by removing a task and not by finishing
+ * one.
+ *
+ * The client's record is a dynamic route, so it is revalidated by its shape:
+ * the task knows its client, but the screens that list tasks across clients
+ * do not, and a path per client would mean reading the task back to find out.
+ */
+function revalidateTaskScreens() {
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/needs");
+  revalidatePath("/my-day");
+  revalidatePath("/clients/[id]", "page");
+}
+
 export async function createTask(_prev: TaskState, formData: FormData): Promise<TaskState> {
   const me = await getCurrentStaff();
   if (!me) return { error: "You are not signed in.", ok: null };
@@ -203,8 +225,7 @@ export async function setTaskStatus(_prev: TaskState, formData: FormData): Promi
     };
   }
 
-  revalidatePath("/tasks");
-  revalidatePath("/dashboard");
+  revalidateTaskScreens();
   return { error: null, ok: null };
 }
 
@@ -246,9 +267,7 @@ export async function removeTask(_prev: TaskState, formData: FormData): Promise<
     };
   }
 
-  revalidatePath("/tasks");
-  revalidatePath("/dashboard");
-  revalidatePath("/my-day");
+  revalidateTaskScreens();
   return { error: null, ok: null };
 }
 
@@ -280,8 +299,6 @@ export async function restoreTask(_prev: TaskState, formData: FormData): Promise
     };
   }
 
-  revalidatePath("/tasks");
-  revalidatePath("/dashboard");
-  revalidatePath("/my-day");
+  revalidateTaskScreens();
   return { error: null, ok: null };
 }

@@ -3,6 +3,23 @@
 import { useActionState, useState } from "react";
 import { removeTask, restoreTask, setTaskStatus, type TaskState } from "./actions";
 
+/**
+ * One control, everywhere a task is listed (owner, 6 Nov 2026).
+ *
+ * The pair below was on Today and on Tasks. The client's record had its own:
+ * a button drawn as a circle that filled in when you pressed it, which said
+ * nothing to anybody not using a screen reader - the exact thing
+ * check-task-actions forbids on Today, enforced on one screen and not on the
+ * four others. My day and the lists behind the Home counters had neither
+ * action at all, so a task finished while reading the day had to be found
+ * again somewhere else.
+ *
+ * So: this file is the only place a task's two actions are drawn, and
+ * tasks/actions.ts is the only place a task's status is written. A second
+ * control is how one of them ends up doing something slightly different from
+ * the other.
+ */
+
 const initial: TaskState = { error: null, ok: null };
 
 /**
@@ -61,6 +78,31 @@ export function TaskActions({ taskId, compact = false }: { taskId: string; compa
       </button>
       {doneState.error && <span className="task-remove-error">{doneState.error}</span>}
     </span>
+  );
+}
+
+/**
+ * A task that is finished, opened again.
+ *
+ * Shown where finished tasks are shown, which is the client's record and
+ * Tasks with the done ones turned on. Separate from "Put it back" below
+ * because they are different facts: one was done, the other should never have
+ * been on the list, and a single button for both would make the record say
+ * whichever of them was easier to draw.
+ */
+export function TaskReopen({ taskId }: { taskId: string }) {
+  const [state, reopen, pending] = useActionState(setTaskStatus, initial);
+  return (
+    <form action={reopen} style={{ display: "inline" }}>
+      <input type="hidden" name="task_id" value={taskId} />
+      {/* "open" is what it is now, not what it will be: false means it is
+          finished, so this reopens it. */}
+      <input type="hidden" name="open" value="false" />
+      <button className="btn ghost" type="submit" disabled={pending} style={{ padding: "1px 9px", lineHeight: 1.4 }}>
+        Reopen
+      </button>
+      {state.error && <span className="task-remove-error">{state.error}</span>}
+    </form>
   );
 }
 

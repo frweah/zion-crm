@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { addTask, toggleTask, type DetailState } from "./actions";
+import { addTask, type DetailState } from "./actions";
+import { TaskActions, TaskReopen } from "../../tasks/task-actions";
 import { today } from "@/lib/constants";
 
 const initial: DetailState = { error: null, ok: null };
@@ -18,28 +19,20 @@ export type TaskRow = {
 
 type Option = { id: string; name: string };
 
-export function TaskToggle({ clientId, task }: { clientId: string; task: TaskRow }) {
-  const [state, action, pending] = useActionState(toggleTask, initial);
+/**
+ * A task on the client's record.
+ *
+ * The two actions come from the same control as Today, Tasks, My day and the
+ * Home counters, which is the whole of what changed here: this row used to
+ * draw a circle that filled in, offered no way to take a task off the list,
+ * and went through an action of its own that wrote the same column.
+ */
+export function ClientTaskRow({ task }: { task: TaskRow }) {
   const open = task.status === "Open";
   const overdue = open && task.due && task.due < today();
 
   return (
     <div className={"taskrow" + (open ? "" : " done")}>
-      <form action={action}>
-        <input type="hidden" name="id" value={clientId} />
-        <input type="hidden" name="task_id" value={task.id} />
-        <input type="hidden" name="open" value={open ? "true" : "false"} />
-        <button
-          className="btn ghost"
-          type="submit"
-          disabled={pending}
-          style={{ padding: "2px 10px" }}
-          aria-label={open ? "Mark done" : "Reopen"}
-        >
-          {open ? "○" : "✓"}
-        </button>
-      </form>
-
       <span style={{ flex: 1 }}>
         {task.title}
         {task.system_generated && (
@@ -56,9 +49,7 @@ export function TaskToggle({ clientId, task }: { clientId: string; task: TaskRow
         {task.assigned_name || "—"}
       </span>
 
-      {state.error && (
-        <span style={{ color: "var(--bad)", fontSize: "var(--text-sm)" }}>{state.error}</span>
-      )}
+      {open ? <TaskActions taskId={task.id} compact /> : <TaskReopen taskId={task.id} />}
     </div>
   );
 }
@@ -114,7 +105,7 @@ export function TasksTab({
       {tasks.length === 0 && <div className="empty">No tasks for this client.</div>}
 
       {open.map((t) => (
-        <TaskToggle key={t.id} clientId={clientId} task={t} />
+        <ClientTaskRow key={t.id} task={t} />
       ))}
 
       {done.length > 0 && (
@@ -123,7 +114,7 @@ export function TasksTab({
             Completed
           </h3>
           {done.map((t) => (
-            <TaskToggle key={t.id} clientId={clientId} task={t} />
+            <ClientTaskRow key={t.id} task={t} />
           ))}
         </>
       )}

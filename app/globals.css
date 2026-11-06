@@ -1678,8 +1678,14 @@ table.t tbody tr[aria-selected="true"] td {
   .signout {
     padding: 7px 0;
   }
-  /* The width decides here, so there is nothing to choose. */
-  .side-toggle {
+  /* The width decides here, so there is nothing to choose.
+
+     The class was `.side-toggle` from 30 September until 6 November and the
+     button has been `.side-chevron` the whole time, so this rule has never
+     hidden anything: below 1100px the sidebar was forced to icons and the
+     chevron offering to do it sat there anyway, at the foot of the sidebar,
+     under the Team bubble. */
+  .side-chevron {
     display: none;
   }
   .main {
@@ -3366,9 +3372,17 @@ button.attach-chip:hover {
 }
 
 /* ── the bubble, and the window anchored to it (owner, 5 Nov) ─
-   Bottom-left, above the sidebar's edge, so it is in the corner of the eye on
-   every screen without standing in front of anything: the toasts are bottom
-   right and the "+" is in the header.
+   Bottom-left of the content area, so it is in the corner of the eye on every
+   screen without standing in front of anything: the toasts are bottom right
+   and the "+" is in the header.
+
+   **Of the content area, not of the window (owner, 6 Nov).** At `left: 16px`
+   it sat on top of the sidebar's own foot, which is where the chevron that
+   narrows the sidebar lives - two round controls in one place, each covering
+   the other depending on which was drawn last. So its left edge is the
+   sidebar's width, and it moves when the sidebar does. Three widths to be
+   right at: wide, narrowed by choice, and narrowed by the screen being under
+   1100px. `scripts/check-bubble.mjs` does the arithmetic before every build.
 
    On a phone the bottom bar is the navigation, so the bubble sits above it
    rather than on it - a round button over six tab icons is a seventh tab
@@ -3377,7 +3391,7 @@ button.attach-chip:hover {
   /* Fixed, which also makes it the containing block for the count hanging off
      its top-right corner. */
   position: fixed;
-  left: 16px;
+  left: calc(var(--side-wide) + 16px);
   bottom: 16px;
   z-index: 69;
   width: 46px;
@@ -3415,13 +3429,19 @@ button.attach-chip:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* Narrowed by choice: the bubble and its window follow the sidebar in. */
+.shell.side-narrow .team-bubble,
+.shell.side-narrow .team-pane.compact {
+  left: calc(var(--side-narrow) + 16px);
+}
+
 /* The same chat, anchored to the bubble instead of filling the right-hand
    edge. No shade over the page, because this one is meant to stay open while
    somebody works - which is also why it is small. */
 .team-pane.compact {
   top: auto;
   right: auto;
-  left: 16px;
+  left: calc(var(--side-wide) + 16px);
   bottom: 74px;
   width: min(360px, calc(100vw - 32px));
   height: min(520px, calc(100vh - 140px));
@@ -3449,14 +3469,25 @@ button.attach-chip:hover {
   font-size: var(--text-sm);
 }
 
+/* Under 1100px the sidebar is icons whether or not anybody chose that, so the
+   class cannot be relied on here. */
+@media (max-width: 1099px) {
+  .team-bubble,
+  .team-pane.compact {
+    left: calc(var(--side-narrow) + 16px);
+  }
+}
+
 @media (max-width: 760px) {
   .team-bubble {
     bottom: calc(72px + env(safe-area-inset-bottom));
   }
   /* Clear of the bubble by more than the count badge, which stands 4px proud
-     of it: at 120px the badge sat behind this window's corner. */
+     of it: at 120px the badge sat behind this window's corner. The left edge
+     still clears the icon rail, which is on screen at this width too - the
+     bottom bar is as well as the sidebar, not instead of it. */
   .team-pane.compact {
-    left: 8px;
+    left: calc(var(--side-narrow) + 8px);
     right: 8px;
     width: auto;
     bottom: calc(130px + env(safe-area-inset-bottom));

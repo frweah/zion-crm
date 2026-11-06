@@ -241,43 +241,6 @@ export async function addTask(_prev: DetailState, formData: FormData): Promise<D
   return { error: null, ok: "Task added." };
 }
 
-/**
- * Open or close a task.
- *
- * The database decides whether this is allowed: only the assignee, the person
- * who raised it, or Admin can change a task.
- */
-export async function toggleTask(_prev: DetailState, formData: FormData): Promise<DetailState> {
-  const me = await getCurrentStaff();
-  if (!me) return { error: "You are not signed in.", ok: null };
-
-  const taskId = String(formData.get("task_id") ?? "");
-  const clientId = String(formData.get("id") ?? "");
-  const nowOpen = String(formData.get("open") ?? "") === "true";
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("tasks")
-    .update({
-      status: nowOpen ? "Done" : "Open",
-      done_at: nowOpen ? today() : null,
-    })
-    .eq("id", taskId)
-    .select("id")
-    .maybeSingle();
-
-  if (error) return { error: error.message, ok: null };
-  if (!data) {
-    return {
-      error: "Only the person a task is assigned to, whoever raised it, or Admin can change it.",
-      ok: null,
-    };
-  }
-
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/tasks");
-  return { error: null, ok: null };
-}
 
 /**
  * Save the intake.

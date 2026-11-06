@@ -9,7 +9,7 @@ import {
   type EventState,
 } from "./calendar-actions";
 import { excludeThread, type MailState } from "./mail-actions";
-import { TaskToggle, type TaskRow } from "./tasks-tab";
+import { ClientTaskRow, type TaskRow } from "./tasks-tab";
 import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: EventState = { error: null, ok: null };
@@ -186,7 +186,7 @@ export function ComingUp({
       )}
 
       {tasks.map((t) => (
-        <TaskToggle key={t.id} clientId={clientId} task={t} />
+        <ClientTaskRow key={t.id} task={t} />
       ))}
 
       {upcoming.map((e) => (

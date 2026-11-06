@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NEEDS, loadNeed, countNeeds, type NeedKey } from "@/lib/needs";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
+import { TaskActions } from "../../tasks/task-actions";
 
 /**
  * The list behind a dashboard counter.
@@ -70,6 +71,13 @@ export default async function NeedsPage({
           columns={[
             { key: "item", label: "What" },
             { key: "when", label: "When", align: "right", width: 120 },
+            // Only the tasks list has anything to do from here. The other four
+            // are interviews, follow-up dates, quiet clients and missing
+            // paperwork, and none of those is finished by pressing a button on
+            // a list of them (owner, 6 Nov 2026).
+            ...(key === "tasks"
+              ? [{ key: "do", label: "", align: "right" as const, width: 210 }]
+              : []),
           ]}
           rows={rows.map((r) => ({
             key: `${key}-${r.id}`,
@@ -83,6 +91,7 @@ export default async function NeedsPage({
                 </>
               ),
               when: <span style={{ whiteSpace: "nowrap", color: "var(--muted)" }}>{r.when ?? ""}</span>,
+              ...(key === "tasks" ? { do: <TaskActions taskId={r.id} compact /> } : {}),
             },
             sort: { item: r.title, when: r.when },
             text: `${r.title} ${r.detail} ${r.when ?? ""}`,

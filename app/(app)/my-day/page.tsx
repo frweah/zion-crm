@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { today, fmtStamp , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { ToFile, type FileItem, type ClientOption } from "./to-file";
+import { TaskActions } from "../tasks/task-actions";
 
 /**
  * My day (Design language, §3).
@@ -26,6 +27,10 @@ type Row = {
   detail: string;
   href: string;
   bad?: boolean;
+  // A task carries its id so the row can carry the same two actions as every
+  // other place a task is listed (owner, 6 Nov 2026). Nothing else on this
+  // screen is a task, so nothing else sets it.
+  taskId?: string;
 };
 
 export default async function MyDayPage() {
@@ -147,6 +152,7 @@ export default async function MyDayPage() {
   for (const t of tasks ?? []) {
     rows.push({
       key: `task-${t.id}`,
+      taskId: t.id,
       at: null,
       kind: "Task",
       what: t.title,
@@ -253,6 +259,7 @@ export default async function MyDayPage() {
                       </Link>
                       {r.detail && <span className="lock"> {r.detail}</span>}
                     </span>
+                    {r.taskId && <TaskActions taskId={r.taskId} compact />}
                   </li>
                 ))}
               </ul>

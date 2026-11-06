@@ -4,7 +4,7 @@ import { useState, useActionState } from "react";
 import Link from "next/link";
 import { createTask, setTaskStatus, addStep, commentOnTask, setTaskRepeat, type TaskState } from "./actions";
 import { answerReminder, type ReminderState } from "./reminder-actions";
-import { TaskActions, TaskRestore } from "./task-actions";
+import { TaskActions, TaskReopen, TaskRestore } from "./task-actions";
 import { today, JOB_STATUSES } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
@@ -54,9 +54,8 @@ function ReminderPrompt({ task }: { task: TaskListRow }) {
         type="button"
         onClick={() => setOpen(true)}
         style={{ padding: "1px 9px", lineHeight: 1.4 }}
-        title="How did it go?"
       >
-        ○
+        How did it go?
       </button>
     );
   }
@@ -101,35 +100,32 @@ function ReminderPrompt({ task }: { task: TaskListRow }) {
 
 type Option = { id: string; name: string };
 
+/**
+ * What this task row offers, which is what every task row offers.
+ *
+ * It was a button drawn as a circle, with Mark complete and Remove tucked
+ * inside the row's expanded panel - so the one control a person actually
+ * pressed on this screen was a glyph calling the same action under a
+ * different name, and the two named actions took a press to find. The owner
+ * asked for the pair on every task row on 6 November, which reverses the note
+ * that used to be here about the row being four controls wide already.
+ */
 function StatusBox({ task }: { task: TaskListRow }) {
-  const [state, action, pending] = useActionState(setTaskStatus, initial);
-  const open = task.status === "Open";
-
   // Off the list rather than finished, so the only thing to offer is putting
-  // it back. A tick here would turn a removal into a completion and lose the
-  // difference the status exists to keep.
+  // it back. Marking it complete here would turn a removal into a completion
+  // and lose the difference the status exists to keep.
   if (task.status === "Removed") return <TaskRestore taskId={task.id} />;
-
-  // A reminder raised by a job closes by saying what came of it.
-  if (open && task.source_match_id) return <ReminderPrompt task={task} />;
+  if (task.status !== "Open") return <TaskReopen taskId={task.id} />;
 
   return (
-    <form action={action}>
-      <input type="hidden" name="task_id" value={task.id} />
-      <input type="hidden" name="open" value={open ? "true" : "false"} />
-      <button
-        className="btn ghost"
-        type="submit"
-        disabled={pending}
-        style={{ padding: "1px 9px", lineHeight: 1.4 }}
-        title={state.error ?? (open ? "Mark done" : "Reopen")}
-      >
-        {open ? "○" : "✓"}
-      </button>
-      {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: "var(--text-xs)", maxWidth: 200 }}>{state.error}</div>
-      )}
-    </form>
+    <span className="task-actions">
+      {/* A reminder raised by a job closes by saying what came of it, and
+          that is offered first because at that moment somebody knows. The
+          pair is still here: a person who has nothing to report should not
+          have to invent an outcome to clear the row. */}
+      {task.source_match_id && <ReminderPrompt task={task} />}
+      <TaskActions taskId={task.id} compact />
+    </span>
   );
 }
 
@@ -212,10 +208,6 @@ function TaskTitle({ task, steps }: { task: TaskListRow; steps: TaskListRow[] })
           </form>
           {repeatState.error && <div className="lock">{repeatState.error}</div>}
 
-          {/* Taking it off the list, in here rather than in the row: the row
-              is four controls wide already, and this is the one that should
-              take a moment to find. */}
-          {task.status === "Open" && <TaskActions taskId={task.id} />}
         </div>
       )}
     </div>
@@ -311,13 +303,13 @@ export function TasksView({
         Show finished and removed ({doneCount})
       </label>
 
-      {/* The tick (or "How did it go?") is a cell of its own, so the rest of the row can sort and filter. */}
+      {/* The two actions are a cell of their own, so the rest of the row can sort and filter. */}
       <div className="card" style={{ padding: 0, marginTop: 8 }}>
         <DataTable
           label="tasks"
           sortBy
           columns={[
-            { key: "done", label: "", sortable: false, width: 40 },
+            { key: "done", label: "", sortable: false, width: 220 },
             { key: "title", label: "Task" },
             { key: "client", label: "Client" },
             { key: "assigned", label: "Assigned" },
