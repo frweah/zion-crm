@@ -3390,6 +3390,31 @@ button.attach-chip:hover {
   border: 1px solid var(--line);
 }
 
+/* ── the two actions on a task (0297) ────────────────────────
+   Side by side, and the reason box replaces them in the same place rather
+   than opening a dialog over the list: it is one line, it is optional, and a
+   dialog would cost a press to open and a press to dismiss. */
+.task-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.task-remove {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.task-remove .field {
+  margin-bottom: 0;
+  min-width: 140px;
+}
+.task-remove-error {
+  color: var(--bad);
+  font-size: var(--text-sm);
+}
+
 /* ── the bubble, and the window anchored to it (owner, 5 Nov) ─
    Bottom-left, above the sidebar's edge, so it is in the corner of the eye on
    every screen without standing in front of anything: the toasts are bottom

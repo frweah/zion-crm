@@ -1,11 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
-import { setTaskStatus, type TaskState } from "../tasks/actions";
+import { TaskActions } from "../tasks/task-actions";
 import { TaskDue, TaskWho } from "../task-inline";
-
-const initial: TaskState = { error: null, ok: null };
 
 export function DashboardTask({
   id,
@@ -25,25 +22,9 @@ export function DashboardTask({
   /** Empty for somebody who cannot reassign, which hides the control. */
   staff: { id: string; name: string }[];
 }) {
-  const [state, action, pending] = useActionState(setTaskStatus, initial);
-
   return (
     <>
       <div className="taskrow">
-        <form action={action}>
-          <input type="hidden" name="task_id" value={id} />
-          <input type="hidden" name="open" value="true" />
-          <button
-            className="btn ghost"
-            type="submit"
-            disabled={pending}
-            style={{ padding: "1px 9px", lineHeight: 1.4 }}
-            aria-label="Mark done"
-          >
-            ○
-          </button>
-        </form>
-
         <span style={{ flex: 1 }}>
           {clientId ? (
             <Link href={`/clients/${clientId}`} style={{ color: "inherit" }}>
@@ -59,10 +40,11 @@ export function DashboardTask({
             the task and back. */}
         <TaskDue taskId={id} due={due} overdue={overdue} />
         {staff.length > 0 && <TaskWho taskId={id} staffId={assignedStaffId} staff={staff} />}
+        {/* Named rather than drawn. This was a "○" with "Mark done" read out
+            to a screen reader and nothing at all to anybody else, which is a
+            button that does not say what it does. */}
+        <TaskActions taskId={id} compact />
       </div>
-      {state.error && (
-        <div style={{ color: "var(--bad)", fontSize: "var(--text-sm)", paddingBottom: 6 }}>{state.error}</div>
-      )}
     </>
   );
 }

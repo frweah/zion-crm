@@ -5735,6 +5735,9 @@ export type Database = {
           parent_id: string | null;
           repeat_every: string | null;
           repeat_until: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
+          removed_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -5755,6 +5758,9 @@ export type Database = {
           parent_id?: string | null;
           repeat_every?: string | null;
           repeat_until?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
+          removed_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -5775,6 +5781,9 @@ export type Database = {
           parent_id?: string | null;
           repeat_every?: string | null;
           repeat_until?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
+          removed_reason?: string | null;
         };
         Relationships: [];
       };

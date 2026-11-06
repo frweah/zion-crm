@@ -4,6 +4,7 @@ import { useState, useActionState } from "react";
 import Link from "next/link";
 import { createTask, setTaskStatus, addStep, commentOnTask, setTaskRepeat, type TaskState } from "./actions";
 import { answerReminder, type ReminderState } from "./reminder-actions";
+import { TaskActions, TaskRestore } from "./task-actions";
 import { today, JOB_STATUSES } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
@@ -28,6 +29,9 @@ export type TaskListRow = {
   /** Set when this task was raised by a job, which is what makes it askable. */
   source_match_id: string | null;
   source_kind: string | null;
+  /** Who took it off the list, and why, when somebody has (0297). */
+  removed_by_name: string | null;
+  removed_reason: string | null;
 };
 
 const reminderInitial: ReminderState = { error: null, ok: null };
@@ -101,6 +105,11 @@ function StatusBox({ task }: { task: TaskListRow }) {
   const [state, action, pending] = useActionState(setTaskStatus, initial);
   const open = task.status === "Open";
 
+  // Off the list rather than finished, so the only thing to offer is putting
+  // it back. A tick here would turn a removal into a completion and lose the
+  // difference the status exists to keep.
+  if (task.status === "Removed") return <TaskRestore taskId={task.id} />;
+
   // A reminder raised by a job closes by saying what came of it.
   if (open && task.source_match_id) return <ReminderPrompt task={task} />;
 
@@ -141,11 +150,21 @@ function TaskTitle({ task, steps }: { task: TaskListRow; steps: TaskListRow[] })
 
   return (
     <div className="checklist">
-      <span className={task.status === "Done" ? "checklist-done" : undefined}>
+      <span className={task.status === "Open" ? undefined : "checklist-done"}>
         {task.title}
         {task.system_generated && <span className="chip" style={{ marginLeft: 6 }}>auto</span>}
         {task.repeat_every && <span className="chip" style={{ marginLeft: 6 }}>every {task.repeat_every}</span>}
+        {task.status === "Removed" && <span className="chip" style={{ marginLeft: 6 }}>removed</span>}
       </span>
+
+      {/* Who took it off, and why if they said. A task that vanished with
+          nobody's name on it is the thing this was built to avoid. */}
+      {task.status === "Removed" && (
+        <span className="lock">
+          Taken off by {task.removed_by_name ?? "somebody who has since left"}
+          {task.removed_reason ? ` — ${task.removed_reason}` : ""}
+        </span>
+      )}
 
       <button className="row-link" type="button" onClick={() => setOpen((v) => !v)}>
         {steps.length > 0 ? `${finished} of ${steps.length} steps` : open ? "Hide" : "Steps and notes"}
@@ -192,6 +211,11 @@ function TaskTitle({ task, steps }: { task: TaskListRow; steps: TaskListRow[] })
             <button className="row-link" type="submit">Save</button>
           </form>
           {repeatState.error && <div className="lock">{repeatState.error}</div>}
+
+          {/* Taking it off the list, in here rather than in the row: the row
+              is four controls wide already, and this is the one that should
+              take a moment to find. */}
+          {task.status === "Open" && <TaskActions taskId={task.id} />}
         </div>
       )}
     </div>
@@ -284,7 +308,7 @@ export function TasksView({
           checked={showDone}
           onChange={(e) => setShowDone(e.target.checked)}
         />
-        Show completed ({doneCount})
+        Show finished and removed ({doneCount})
       </label>
 
       {/* The tick (or "How did it go?") is a cell of its own, so the rest of the row can sort and filter. */}

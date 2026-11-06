@@ -207,3 +207,81 @@ export async function setTaskStatus(_prev: TaskState, formData: FormData): Promi
   revalidatePath("/dashboard");
   return { error: null, ok: null };
 }
+
+/**
+ * Take a task off the list, for everybody (owner, 5 Nov 2026).
+ *
+ * Not Done. A task somebody finished and a task that should never have been
+ * raised are different facts, and recording both as Done loses the second -
+ * along with who decided it, which is the part anybody would ask about later.
+ *
+ * Who and when are written by a trigger (0297), not here and not by the
+ * browser. A reason is optional, as asked, and kept with it; a blank one is
+ * stored as nothing rather than as an empty string, so "no reason given" and
+ * "the reason was an empty box" are the same thing on every screen.
+ *
+ * Who may: the same rule as closing one, which the database already holds -
+ * the assignee, whoever raised it, or Admin. Nothing new is granted here.
+ */
+export async function removeTask(_prev: TaskState, formData: FormData): Promise<TaskState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const taskId = String(formData.get("task_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ status: "Removed", removed_reason: reason || null })
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message, ok: null };
+  if (!data) {
+    return {
+      error: "Only the person a task is assigned to, whoever raised it, or Admin can change it.",
+      ok: null,
+    };
+  }
+
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+  revalidatePath("/my-day");
+  return { error: null, ok: null };
+}
+
+/**
+ * And put one back, which is the same rule in reverse.
+ *
+ * The record of who took it off stays: the status says whether it is off the
+ * list now, removed_by says who took it off last. A removal undone and a
+ * removal that never happened should not read the same.
+ */
+export async function restoreTask(_prev: TaskState, formData: FormData): Promise<TaskState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const taskId = String(formData.get("task_id") ?? "");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ status: "Open" })
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message, ok: null };
+  if (!data) {
+    return {
+      error: "Only the person a task is assigned to, whoever raised it, or Admin can change it.",
+      ok: null,
+    };
+  }
+
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+  revalidatePath("/my-day");
+  return { error: null, ok: null };
+}
