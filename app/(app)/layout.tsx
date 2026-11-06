@@ -18,6 +18,7 @@ import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
 import { TeamLink } from "./team-link";
 import { TeamPane } from "./team-pane";
+import { TeamBubble } from "./team-bubble";
 import { chatSettings } from "@/lib/chat-prefs";
 import { ClientSearch } from "./client-search";
 import { createClient } from "@/lib/supabase/server";
@@ -119,6 +120,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ) {
     redirect("/security/two-factor");
   }
+
+  // This person's Team chat settings, read once: the pop-up, the sound and
+  // do-not-disturb are the live half's, and whether the bubble is shown is
+  // the bubble's.
+  const chat = chatSettings(chatPrefs ?? []);
 
   // The hint for this screen, if there is one this person has not put away.
   // Matched longest-first so /clients/<id> gets the record hint rather than
@@ -248,10 +254,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Suspense fallback={null}>
         <BottomBar groups={nav} />
       </Suspense>
-      <LiveMessaging myId={staff.id} settings={chatSettings(chatPrefs ?? [])} />
+      <LiveMessaging myId={staff.id} settings={chat} />
       {/* Over whatever page is open, so answering a colleague does not cost
           somebody the form they were filling in. */}
       <TeamPane myId={staff.id} />
+      {/* And the way in that is always in the corner of the eye, with the
+          count on it. It opens the pane above in its compact presentation. */}
+      <TeamBubble off={chat.bubbleOff} />
     </div>
   );
 }

@@ -38,6 +38,7 @@ export function TeamSettings({ settings }: { settings: ChatSettings }) {
     "chat:preview": settings.preview,
     "chat:sound": settings.sound,
     "chat:dnd": settings.dnd,
+    "chat:bubble-off": settings.bubbleOff,
   };
 
   // "default" until asked, "granted" or "denied" after. Read in an effect
@@ -50,7 +51,7 @@ export function TeamSettings({ settings }: { settings: ChatSettings }) {
 
   return (
     <section style={{ marginTop: 22 }}>
-      <h2 className="h2">Pop-ups and sound</h2>
+      <h2 className="h2">Pop-ups, sound and the bubble</h2>
       <div className="card" style={{ display: "grid", gap: 10 }}>
         {CHAT_PREFS.map((p) => (
           <Toggle key={p} pref={p} on={on[p]} />

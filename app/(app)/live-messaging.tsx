@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { waitingConversations } from "./inbox-count-actions";
 import { mailWaiting } from "./inbox-mail";
+import { teamOpenNow } from "./team-open";
 import type { ChatSettings } from "@/lib/chat-prefs";
 
 /**
@@ -61,6 +62,34 @@ export function useUnreadMessages(): number {
     () => 0,
   );
 }
+// ── and the Team count, which is a different question ────────
+// What a colleague has said to this person, as against what is waiting from
+// outside the practice. Two numbers that were one, and the sidebar's badge
+// meant neither.
+//
+// Read here rather than in the components that show it. The sidebar link and
+// the bubble both show it, and each reading `my_unread` for itself meant two
+// calls on every arriving message and two answers that could differ. This is
+// refreshed in the same place as the Inbox count, which is also the place that
+// hears a read receipt - so reading a thread in the pane now puts the badge
+// down, which it did not before.
+let teamTotal = 0;
+const teamListeners = new Set<() => void>();
+function setTeamTotal(n: number) {
+  teamTotal = n;
+  teamListeners.forEach((l) => l());
+}
+export function useTeamUnread(): number {
+  return useSyncExternalStore(
+    (l) => {
+      teamListeners.add(l);
+      return () => teamListeners.delete(l);
+    },
+    () => teamTotal,
+    () => 0,
+  );
+}
+
 const OUTSIDE_MS = 2 * 60 * 1000;
 
 const IDLE_MS = 5 * 60 * 1000;
@@ -190,8 +219,14 @@ export function LiveMessaging({ myId, settings }: { myId: string; settings: Chat
       try {
         // waitingConversations already counts this person's chat as well, so
         // the live half above is replaced rather than added to.
-        const [waiting, mail] = await Promise.all([waitingConversations(), mailWaiting(0)]);
+        const [waiting, mail, team] = await Promise.all([
+          waitingConversations(),
+          mailWaiting(0),
+          supabase.rpc("my_unread"),
+        ]);
         setWaiting(waiting + mail.count);
+        const perThread = (team.data ?? []) as { unread: number }[];
+        setTeamTotal(perThread.reduce((n, r) => n + (r.unread ?? 0), 0));
         outsideFailures = 0;
       } catch (err) {
         // A badge that cannot be worked out keeps its last number - but the
@@ -240,10 +275,14 @@ export function LiveMessaging({ myId, settings }: { myId: string; settings: Chat
         if (row.sender_kind !== "staff") void refreshOutside();
         window.dispatchEvent(new CustomEvent("zion:message", { detail: row }));
         // The thread is already open on this screen, so there is nothing to
-        // tell anybody. Both ends of the chat count: the full page and the
-        // pane that slides over whatever else they were doing.
+        // tell anybody. Three ends of the chat count: the full page, the pane
+        // that slides over whatever else they were doing, and the bubble's
+        // compact window - which is not in the address, so it says where it is
+        // through team-open.ts instead.
         const open = new URLSearchParams(window.location.search).get("c");
         if (open === row.conversation_id) return;
+        const pane = teamOpenNow();
+        if (pane.visible && pane.threadId === row.conversation_id) return;
         // Do not disturb stops the pop-up and the notification. The count has
         // already been refreshed above, which is the part it does not stop.
         if (chat.current.dnd) return;

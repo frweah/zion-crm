@@ -3330,12 +3330,26 @@ button.attach-chip:hover {
 .team-pane {
   animation: pane-in var(--motion);
 }
+/* Put away rather than taken apart: the composer is an uncontrolled textarea
+   and a dropped file is already uploaded, so unmounting would throw away a
+   half-written message. `display: flex` above beats the browser's own rule for
+   [hidden], which is why this says it again. */
+.team-pane[hidden] {
+  display: none;
+}
 /* It slides, and nothing fades: a pane arriving by sliding is the movement
    the owner asked for, and faded text is never readable on the way in. */
 @keyframes pane-in {
   from {
     transform: translateX(24px);
   }
+}
+.pane-head {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
 }
 .pane-list,
 .pane-lines {
@@ -3374,6 +3388,105 @@ button.attach-chip:hover {
 .pane-line.mine {
   background: var(--accent-soft);
   border: 1px solid var(--line);
+}
+
+/* ── the bubble, and the window anchored to it (owner, 5 Nov) ─
+   Bottom-left, above the sidebar's edge, so it is in the corner of the eye on
+   every screen without standing in front of anything: the toasts are bottom
+   right and the "+" is in the header.
+
+   On a phone the bottom bar is the navigation, so the bubble sits above it
+   rather than on it - a round button over six tab icons is a seventh tab
+   nobody can read. */
+.team-bubble {
+  /* Fixed, which also makes it the containing block for the count hanging off
+     its top-right corner. */
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 69;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 6px 18px var(--scrim);
+  cursor: pointer;
+}
+.team-bubble:hover {
+  border-color: var(--accent);
+}
+/* Open, it is the thing the window belongs to rather than a way in. */
+.team-bubble.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.team-bubble-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The same chat, anchored to the bubble instead of filling the right-hand
+   edge. No shade over the page, because this one is meant to stay open while
+   somebody works - which is also why it is small. */
+.team-pane.compact {
+  top: auto;
+  right: auto;
+  left: 16px;
+  bottom: 74px;
+  width: min(360px, calc(100vw - 32px));
+  height: min(520px, calc(100vh - 140px));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px var(--scrim);
+  animation: compact-in var(--motion);
+}
+@keyframes compact-in {
+  from {
+    transform: translateY(12px);
+  }
+}
+/* 360px will not hold a title and three buttons on one line, and the three
+   buttons wrapped one above another cost a third of the window's height. The
+   title takes its own line and the controls take theirs, smaller - which is
+   what a compact window is. */
+.team-pane.compact .pane-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.team-pane.compact .pane-head .btn {
+  padding: 2px 8px;
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 760px) {
+  .team-bubble {
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  /* Clear of the bubble by more than the count badge, which stands 4px proud
+     of it: at 120px the badge sat behind this window's corner. */
+  .team-pane.compact {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: calc(130px + env(safe-area-inset-bottom));
+    height: min(460px, calc(100vh - 210px));
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────

@@ -239,6 +239,98 @@ if (!/record_chat_file|recordDroppedFile/.test(pane)) {
   ok("a dropped file is uploaded first and then attached by reference");
 }
 
+// ── the bubble and its window (owner, 5 Nov 2026) ────────────
+//
+// Five things, each of which would be invisible in a pull request and obvious
+// to whoever lost a message because of it.
+const bubble = await read("team-bubble.tsx");
+const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+// 1. Not over the full page, where the same conversations already fill the
+//    screen.
+if (!bubble) {
+  fail("there is no Team bubble");
+} else if (!/pathname === "\/team"/.test(bubble) || !/return null/.test(bubble)) {
+  fail("the bubble does not stand down on the full Team page, so it floats over the same conversations");
+} else {
+  ok("the bubble is not shown on the full Team page");
+}
+
+// 2. One chat in two presentations. A composer of its own would be a second
+//    chat to keep in step with this one, and the one that drifted would be
+//    whichever is used less.
+if (bubble && (/<textarea|sendChatMessage|from "\.\/messages\/actions"/.test(bubble))) {
+  fail("the bubble has a composer of its own, so there are two chats to fix rather than one");
+} else if (bubble && !/zion:team-bubble/.test(bubble)) {
+  fail("the bubble does not ask the pane to open, so pressing it does nothing");
+} else if (!/zion:team-bubble/.test(pane) || !/setMode\("compact"\)/.test(pane)) {
+  fail("the pane does not answer the bubble with its compact window");
+} else {
+  ok("the bubble opens the pane in its compact presentation rather than a second chat");
+}
+
+// 3. No shade over the page while the compact window is open. A
+//    `position: fixed; inset: 0` shade makes every click on the page a click
+//    on the chat - which is how the timing walk sat on the dashboard for a
+//    week, pressing a link that something invisible was in front of.
+const shade = (pane.match(/\{[^{}]*pane-shade[\s\S]{0,120}?\}/) ?? [])[0] ?? "";
+if (!/pane-shade/.test(pane)) {
+  fail("nothing stops a click reaching the page behind the pane");
+} else if (!/!compact|mode === "pane"/.test(shade)) {
+  fail("the shade is put up whichever window is open, so the compact one blocks the page behind it");
+} else {
+  ok("the compact window leaves the page behind it clickable");
+}
+
+// 4. Put away, not taken apart. Two halves, and the CSS half is the one that
+//    looks fine in the diff: `hidden` on an element the stylesheet gives
+//    `display: flex` does nothing at all.
+const closedReturn = /if \(!mounted\) return null/.test(pane);
+const hiddenAttr = /hidden=\{!open\}/.test(pane);
+const hiddenCss = /\.team-pane\[hidden\]\s*\{[^}]*display:\s*none/.test(css);
+if (!closedReturn || !hiddenAttr) {
+  fail("the pane is unmounted when it is put away, so minimising loses a half-written message");
+} else if (!hiddenCss) {
+  fail("nothing in the stylesheet hides a [hidden] pane, and display: flex beats the browser's own rule - so a closed pane is still on the screen");
+} else {
+  ok("putting the window away keeps the draft and the files dropped into it");
+}
+
+// 5. The pop-up asks where the window is. The address says where the full page
+//    is; the compact window floats over whatever page somebody is on and is
+//    nowhere in the URL, so without this a message arrives as a card on top of
+//    the window already showing it.
+if (!/teamOpenNow/.test(live)) {
+  fail("the pop-up does not ask whether the compact window is already showing that thread");
+} else {
+  const guard = (live.match(/teamOpenNow\(\)[\s\S]{0,200}/) ?? [])[0];
+  if (!/threadId === row\.conversation_id[\s\S]{0,40}return/.test(guard)) {
+    fail("the pop-up asks where the window is and does nothing with the answer");
+  } else {
+    ok("no pop-up for a thread the window is already showing");
+  }
+}
+
+// 6. Every setting a person has can be changed by that person. Asked of the
+//    list rather than of a count: a pref added to CHAT_PREFS with no label and
+//    no toggle is a setting that exists and cannot be reached.
+const prefsFile = await readFile(new URL("../lib/chat-prefs.ts", import.meta.url), "utf8");
+const settings = await read("team/settings.tsx");
+const listed = [...((prefsFile.match(/export const CHAT_PREFS = \[([^\]]*)\]/) ?? [])[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+if (listed.length === 0) {
+  fail("CHAT_PREFS cannot be read, so nothing here knows what the settings are");
+} else {
+  const unlabelled = listed.filter((p) => !new RegExp(`"${p}":`).test(prefsFile.slice(prefsFile.indexOf("CHAT_PREF_LABELS"))));
+  const unreachable = listed.filter((p) => !settings.includes(`"${p}"`));
+  if (unlabelled.length) {
+    fail(`${unlabelled.join(", ")} has no label, so the toggle would have nothing beside it`);
+  } else if (unreachable.length) {
+    fail(`${unreachable.join(", ")} cannot be turned on or off by the person it belongs to`);
+  } else {
+    ok(`all ${listed.length} Team chat settings have a label and a toggle of their own`);
+  }
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { setTeamOpen } from "./team-open";
 import { sendChatMessage, markRead, type ChatState } from "./messages/actions";
 import { useActionState } from "react";
 import { recordDroppedFile } from "./team/drop-file";
@@ -24,6 +26,27 @@ import { PRACTICE_TZ } from "@/lib/constants";
  *
  * The full page at /team is the same conversations for a long read. This is
  * for the sentence somebody needs now.
+ *
+ * ── two presentations, one chat (owner, 5 Nov 2026) ──────────
+ *
+ * The bubble bottom-left opens the same thing in a compact window anchored to
+ * it. Same component, same queries, same composer: a second chat window built
+ * beside this one would be two things to fix every time and two things that
+ * drift. What differs is `mode`, and it differs in two ways that matter -
+ * where the window sits, and whether there is a shade over the page.
+ *
+ * **The compact window has no shade.** A `position: fixed; inset: 0` shade is
+ * how the pane keeps a stray click off the form behind it, which is right for
+ * something you open, use and dismiss. The compact window is meant to stay
+ * open while somebody works, so a shade would make every click on the page
+ * land on the chat instead - the exact fault that stopped the timing walk at
+ * the dashboard for a week.
+ *
+ * **It is never unmounted once opened.** Closing hides it instead, because the
+ * composer is an uncontrolled textarea and a file dropped in it is already in
+ * storage with its id held here: unmounting throws away a half-written message
+ * and a file somebody dragged in. Minimising to the bubble has to keep both,
+ * which means React has to keep the DOM.
  */
 
 const initial: ChatState = { error: null, ok: null };
@@ -66,6 +89,10 @@ function when(iso: string | null): string {
 
 export function TeamPane({ myId }: { myId: string }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"pane" | "compact">("pane");
+  // Mounted once it has been opened once, and kept. Nothing is rendered for
+  // the many people who never open it on a given page.
+  const [mounted, setMounted] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -222,19 +249,35 @@ export function TeamPane({ myId }: { myId: string }) {
     return () => window.removeEventListener("zion:message", onMessage);
   }, [open, current, loadThreads, loadLines]);
 
-  // Opened from the pop-up, on whatever page somebody is looking at.
+  // Opened from the pop-up or the sidebar, on whatever page somebody is
+  // looking at - and from the bubble, which asks for the compact window.
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent).detail as string | undefined;
+      setMode("pane");
+      setMounted(true);
       setOpen(true);
       if (id) setCurrent(id);
     };
+    // The bubble toggles: pressed again, it puts the window away without
+    // taking the draft with it.
+    const onBubble = (e: Event) => {
+      const id = (e as CustomEvent).detail as string | undefined;
+      setMode("compact");
+      setMounted(true);
+      setOpen((was) => !(was && mode === "compact"));
+      if (id) setCurrent(id);
+    };
     window.addEventListener("zion:open-team", onOpen);
-    return () => window.removeEventListener("zion:open-team", onOpen);
-  }, []);
+    window.addEventListener("zion:team-bubble", onBubble);
+    return () => {
+      window.removeEventListener("zion:open-team", onOpen);
+      window.removeEventListener("zion:team-bubble", onBubble);
+    };
+  }, [mode]);
 
-  // Escape closes it, because a pane over somebody's work has to be easy to
-  // get out of.
+  // Escape puts it away, because something over somebody's work has to be easy
+  // to get out of. The draft stays either way.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -243,6 +286,19 @@ export function TeamPane({ myId }: { myId: string }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // The full page is the same conversations, so two of them on one screen is
+  // one too many.
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname === "/team") setOpen(false);
+  }, [pathname]);
+
+  // What is open, where the pop-up can read it: a message arriving for the
+  // thread already on the screen is not news.
+  useEffect(() => {
+    setTeamOpen({ visible: open, mode, threadId: open ? current : null });
+  }, [open, mode, current]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
@@ -257,17 +313,25 @@ export function TeamPane({ myId }: { myId: string }) {
     }
   }, [state, current, loadLines]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   const thread = threads.find((t) => t.id === current) ?? null;
+  const compact = mode === "compact";
 
   return (
     <>
       {/* The page underneath is still there and still scrolled where it was;
-          this only stops a click reaching it by accident. */}
-      <div className="pane-shade" onClick={() => setOpen(false)} aria-hidden="true" />
-      <aside className="team-pane" aria-label="Team">
-        <div className="row2" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          the shade only stops a click reaching it by accident. The compact
+          window has none, on purpose: it is meant to be left open while
+          somebody works, and a shade over the page would turn every click on
+          the page into a click on the chat. */}
+      {open && !compact && (
+        <div className="pane-shade" onClick={() => setOpen(false)} aria-hidden="true" />
+      )}
+      <aside className={"team-pane" + (compact ? " compact" : "")} aria-label="Team" hidden={!open}>
+        {/* A class rather than an inline style, because the compact window
+            stacks this and an inline rule cannot be overridden by one. */}
+        <div className="pane-head">
           <b>{thread ? thread.title : "Team"}</b>
           <div className="row2" style={{ gap: 6 }}>
             {thread && (
@@ -279,7 +343,7 @@ export function TeamPane({ myId }: { myId: string }) {
               Open Team full page
             </Link>
             <button className="btn ghost" type="button" onClick={() => setOpen(false)}>
-              Close
+              {compact ? "Minimise" : "Close"}
             </button>
           </div>
         </div>

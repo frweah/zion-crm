@@ -1,5 +1,5 @@
 /**
- * The three settings a person has over Team chat.
+ * The settings a person has over Team chat.
  *
  * Kept out of the server action and out of the client component so both read
  * the same list, and so the check script can read it without loading either.
@@ -18,8 +18,14 @@
  *   `chat:dnd` stops the pop-up and the desktop notification. The unread count
  *   stays, because do-not-disturb is about not being interrupted and not about
  *   not being told.
+ *
+ *   `chat:bubble-off` hides the floating bubble (owner, 5 Nov 2026). Named for
+ *   what storing it does rather than for the bubble, so the absence of a row
+ *   still means the quiet thing to do: leave the person what everybody else
+ *   has. A `chat:bubble` meaning "show it" would hide the bubble from every
+ *   colleague who has never opened the setting.
  */
-export const CHAT_PREFS = ["chat:preview", "chat:sound", "chat:dnd"] as const;
+export const CHAT_PREFS = ["chat:preview", "chat:sound", "chat:dnd", "chat:bubble-off"] as const;
 
 export type ChatPref = (typeof CHAT_PREFS)[number];
 
@@ -27,15 +33,17 @@ export type ChatSettings = {
   preview: boolean;
   sound: boolean;
   dnd: boolean;
+  bubbleOff: boolean;
 };
 
-/** What the three say, given whatever rows this person has. */
+/** What they say, given whatever rows this person has. */
 export function chatSettings(rows: { key: string }[]): ChatSettings {
   const has = (k: ChatPref) => rows.some((r) => r.key === k);
   return {
     preview: has("chat:preview"),
     sound: has("chat:sound"),
     dnd: has("chat:dnd"),
+    bubbleOff: has("chat:bubble-off"),
   };
 }
 
@@ -44,4 +52,5 @@ export const CHAT_PREF_LABELS: Record<ChatPref, string> = {
   "chat:preview": "Show the message in the pop-up",
   "chat:sound": "Make a sound",
   "chat:dnd": "Do not disturb",
+  "chat:bubble-off": "Hide the Team bubble",
 };

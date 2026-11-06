@@ -530,6 +530,48 @@ await signIn(env("SMOKE_EMAIL"), env("SMOKE_PASSWORD"), "automated-check");
 const jobSearch = await pass("Job Search");
 all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
 
+/**
+ * The Team bubble is on every screen, and not on the Team page (owner, 5 Nov).
+ *
+ * Asked of the deployment rather than of the source, because the two ways this
+ * breaks are both invisible in a diff: a layout that stops rendering it, and a
+ * pathname guard that matches everything. Every screen this role opened is
+ * checked, not one of them - the bubble lives in the layout, so "on every
+ * screen" is the claim, and one screen passing says nothing about the rest.
+ *
+ * It is in the server-rendered HTML because a client component still renders
+ * once on the server, which is also why this can be a fetch rather than a
+ * browser.
+ */
+{
+  const opened = jobSearch.results.filter((r) => r.ok && r.body);
+  const without = opened.filter((r) => r.path !== "/team" && !r.body.includes('class="team-bubble'));
+  // Asked for, not waited for: Team is in the sidebar below the groups rather
+  // than in one of them, so the sweep above never opens it.
+  const team = await open("/team");
+  if (opened.length === 0) {
+    all.push({ role: "Job Search", path: "the Team bubble", ok: false, why: "no screen came back with a page to look at" });
+  } else if (!team.ok) {
+    all.push({ role: "Job Search", path: "/team", ok: false, why: team.why ?? "the Team page did not open" });
+  } else if (without.length > 0) {
+    all.push({
+      role: "Job Search",
+      path: "the Team bubble",
+      ok: false,
+      why: `${without.length} of ${opened.length} screens have no Team bubble, starting with ${without[0].path}`,
+    });
+  } else if (team.body.includes('class="team-bubble')) {
+    all.push({
+      role: "Job Search",
+      path: "the Team bubble",
+      ok: false,
+      why: "the bubble is on /team as well, floating over the same conversations",
+    });
+  } else {
+    all.push({ role: "Job Search", path: `the Team bubble on all ${opened.length} screens`, ok: true });
+  }
+}
+
 // The Billing account is optional: until it exists the check runs as it
 // always has, and says which screens nobody is opening (0129).
 if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {

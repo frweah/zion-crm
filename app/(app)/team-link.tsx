@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { NavIcon } from "./nav-icons";
+import { useTeamUnread } from "./live-messaging";
 
 /**
  * Team, in the sidebar directly below the main tabs (owner, 30 Oct 2026).
@@ -15,43 +14,21 @@ import { NavIcon } from "./nav-icons";
  * questions that were one number, and the number was the reason nobody could
  * tell whether the badge meant a client was waiting.
  *
- * Refreshed when a message arrives, because live-messaging.tsx already hears
- * every insert over Realtime and says so on the window. One subscription for
- * the whole window, not one per component.
+ * The number comes from live-messaging.tsx, which already hears every insert
+ * and every read receipt over Realtime. One subscription and one answer for
+ * the whole window: this link and the bubble bottom-left show the same count
+ * because they read the same store, rather than each asking the database and
+ * disagreeing by a message.
+ *
+ * It asked for itself until 5 Nov 2026, and the cost was not only the second
+ * call - it was refreshed on an arriving message and on coming back to the
+ * tab, but not on a read receipt, so reading a thread in the pane left the
+ * badge showing messages that had just been read.
  */
 export function TeamLink() {
-  const [unread, setUnread] = useState(0);
+  const unread = useTeamUnread();
   const pathname = usePathname();
   const here = pathname === "/team";
-
-  useEffect(() => {
-    let stopped = false;
-    const supabase = createClient();
-
-    const read = async () => {
-      if (stopped) return;
-      const { data } = await supabase.rpc("my_unread");
-      if (stopped) return;
-      const rows = (data ?? []) as { unread: number }[];
-      setUnread(rows.reduce((n, r) => n + (r.unread ?? 0), 0));
-    };
-
-    void read();
-    const onMessage = () => void read();
-    window.addEventListener("zion:message", onMessage);
-    // Opening the screen reads the thread, so the count is wrong until it is
-    // asked again.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void read();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      stopped = true;
-      window.removeEventListener("zion:message", onMessage);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [pathname]);
 
   return (
     <Link
