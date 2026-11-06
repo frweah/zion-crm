@@ -597,15 +597,33 @@ all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
   }
 }
 
+/**
+ * One thing asked of the page, and it is the claim: somebody on this tab can
+ * be messaged.
+ *
+ * Nothing else on this screen renders the word Message on its own - the six
+ * other places in the app that do are all on other screens - so this fails if
+ * the tab fell back to the counselors, and it fails if the table came back
+ * with nobody in it.
+ *
+ * It asked for the filter box first, which was a question near the rule rather
+ * than the rule: DataTable draws that box only above eight rows, the practice
+ * has five people on it, and so a healthy screen failed and rolled production
+ * back. Written without having watched it pass, because there was nowhere to
+ * watch it pass but the deployment it was about to judge.
+ */
 {
   const page = colleaguesTab;
   const path = "/counselors?tab=colleagues";
   if (!page.ok) {
     all.push({ role: "Job Search", path, ok: false, why: page.why ?? "the Colleagues tab did not open" });
-  } else if (!page.body.includes("Filter colleagues")) {
-    all.push({ role: "Job Search", path, ok: false, why: "the tab opened without the colleagues table on it" });
-  } else if (!/>Message</.test(page.body)) {
-    all.push({ role: "Job Search", path, ok: false, why: "nobody on the tab can be messaged, so the table is empty or the control is gone" });
+  } else if (!/>Message\s*</.test(page.body)) {
+    all.push({
+      role: "Job Search",
+      path,
+      ok: false,
+      why: "nobody on the tab can be messaged - either the counselors came back instead, or the table has nobody in it",
+    });
   } else {
     all.push({ role: "Job Search", path, ok: true });
   }
