@@ -16,6 +16,7 @@
  *   email, every note somebody wrote down.
  */
 import { readdir, readFile } from "node:fs/promises";
+import { sourceFiles, withoutComments } from "./copy-text.mjs";
 import { NAV_GROUPS, navFor, navPath, hubBack, reachableFor, canReach, ROLE_NAMES, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
 import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
 import { SIDEBAR_SCREENS } from "../lib/roles.ts";
@@ -902,6 +903,47 @@ if (sidebarMissing.length) {
   fail("the phone's bottom bar has grown a sub-list; it is five destinations and was to be left alone");
 } else {
   ok(`a group opens its own screens beneath it, one group at a time, never in the rail`);
+}
+
+// ── a link to Team asks Team something it answers ───────────
+//
+// The Directory's "Message" control linked to `/messages?to=<id>`. That
+// address has redirected to /team since chat moved there (30 Oct 2026), and
+// the screen has never read `to` — so the control resolved, rendered, opened
+// Team, and started nothing. Every assertion above asks whether a path
+// exists, and this path does, which is why nothing saw it for a week.
+//
+// Asked as a rule rather than against a list: the allowed keys are the ones
+// the screen's own searchParams names, so teaching the screen a parameter is
+// what makes a link using it allowed.
+const chatScreen = await readFile(new URL("../app/(app)/messages/screen.tsx", import.meta.url), "utf8");
+const chatType = /searchParams:\s*Promise<\{([^}]*)\}>/.exec(chatScreen);
+const chatKeys = new Set((chatType?.[1] ?? "").match(/[A-Za-z_][A-Za-z0-9_]*(?=\??\s*:)/g) ?? []);
+if (chatKeys.size === 0) {
+  fail("the Team screen's searchParams could not be read, so no link to it could be checked");
+} else {
+  const deadLinks = [];
+  for (const file of await sourceFiles(new URL("../app/", import.meta.url), [".tsx", ".ts"])) {
+    const src = withoutComments(await readFile(file, "utf8"));
+    // Anchored at the opening quote: `${root}/messages?` is Microsoft Graph
+    // and `/end-of-day/team?page=` is a different screen. Neither is a link
+    // to this one.
+    for (const link of src.matchAll(/["'`]\/(?:team|messages)\?([^"'`]*)/g)) {
+      for (const pair of link[1].split("&")) {
+        const key = pair.split("=")[0];
+        // A whole query string interpolated in, as the /messages redirect
+        // does: it carries whatever it was given, and what it was given is
+        // checked where it was written.
+        if (!key || key.startsWith("$")) continue;
+        if (!chatKeys.has(key)) deadLinks.push(`${rel(file)} links to Team with ?${key}=, which Team does not read`);
+      }
+    }
+  }
+  if (deadLinks.length) {
+    for (const d of deadLinks) fail(d);
+  } else {
+    ok(`every link to Team asks it only for ${[...chatKeys].sort().join(", ")}`);
+  }
 }
 
 console.log("");

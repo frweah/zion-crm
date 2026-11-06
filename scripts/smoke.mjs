@@ -539,6 +539,21 @@ await signIn(env("SMOKE_EMAIL"), env("SMOKE_PASSWORD"), "automated-check");
  */
 const teamPage = await open("/team");
 
+/**
+ * Colleagues, asked early for the same reason Team is (owner, 6 Nov 2026).
+ *
+ * The sweep walks the navigation, the navigation names /counselors, and
+ * /counselors lands on the counselors. So the tab that holds the practice's
+ * own numbers is never opened by a pass unless it is opened here.
+ *
+ * Two things would make it useless and neither shows in a diff: a table that
+ * came back with nobody in it, and no way to start a conversation. The
+ * Message control is the one that has been wrong before — the Directory's
+ * version pointed at an address Team does not read, and did nothing for a
+ * week without anybody noticing.
+ */
+const colleaguesTab = await open("/counselors?tab=colleagues");
+
 const jobSearch = await pass("Job Search");
 all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
 
@@ -579,6 +594,20 @@ all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
     });
   } else {
     all.push({ role: "Job Search", path: `the Team bubble on all ${opened.length} screens`, ok: true });
+  }
+}
+
+{
+  const page = colleaguesTab;
+  const path = "/counselors?tab=colleagues";
+  if (!page.ok) {
+    all.push({ role: "Job Search", path, ok: false, why: page.why ?? "the Colleagues tab did not open" });
+  } else if (!page.body.includes("Filter colleagues")) {
+    all.push({ role: "Job Search", path, ok: false, why: "the tab opened without the colleagues table on it" });
+  } else if (!/>Message</.test(page.body)) {
+    all.push({ role: "Job Search", path, ok: false, why: "nobody on the tab can be messaged, so the table is empty or the control is gone" });
+  } else {
+    all.push({ role: "Job Search", path, ok: true });
   }
 }
 

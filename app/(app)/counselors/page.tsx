@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { today } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { DataTable } from "../data-table";
-import { can } from "@/lib/roles";
+import { can, ROLE_LABEL, type Role } from "@/lib/roles";
+import { startDirect } from "../messages/actions";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
 import { BillingOfficesPanel } from "./billing-offices-panel";
@@ -24,7 +25,7 @@ import {
  * is the default, and it is the first in the sidebar, so plain /counselors
  * opens the tab the sidebar marks current.
  */
-const TABS = ["directory", "contact", "hours"];
+const TABS = ["directory", "contact", "hours", "colleagues"];
 
 export default async function CounselorsPage({
   searchParams,
@@ -55,7 +56,7 @@ export default async function CounselorsPage({
     <>
       <PageHead
         title="Counselors"
-        context="Counselor directory, every contact with them, and additional-hours requests"
+        context="Counselors, every contact with them, hours requests, and colleagues"
       />
       <div className="segmented" role="group" aria-label="Counselors" style={{ marginBottom: 14 }}>
         {(
@@ -63,6 +64,7 @@ export default async function CounselorsPage({
             ["directory", "Directory"],
             ["contact", "Contact log"],
             ["hours", "Hours requests"],
+            ["colleagues", "Colleagues"],
           ] as const
         ).map(([key, label]) => (
           <Link key={key} href={`/counselors?tab=${key}`} className={tab === key ? "on" : undefined} aria-current={tab === key ? "page" : undefined}>
@@ -251,6 +253,89 @@ export default async function CounselorsPage({
             />
           </div>
         </section>
+      </>
+    );
+  }
+
+  /**
+   * Colleagues (owner, 6 November 2026).
+   *
+   * The Directory screen had two halves and only the counselors half had
+   * somewhere else to be, so this is the other half: every colleague with the
+   * two things anybody wants from a directory, the number and a way to start a
+   * conversation. It is the only screen where a person who is not Admin can
+   * look one up — Admin → People is Admin's alone, and Team chat will find a
+   * colleague but not their phone.
+   *
+   * A table rather than the cards the old screen drew, for the reason the
+   * counselors tab beside it is a table: a directory is looked up and sorted,
+   * and a card is a summary of something that needs more than one line.
+   */
+  if (tab === "colleagues") {
+    const { data: colleagues } = await supabase
+      .from("staff")
+      .select("id, name, role, email, phone")
+      .eq("active", true)
+      .eq("is_system", false)
+      .order("name");
+
+    const roleOf = (role: string) => ROLE_LABEL[role as Role] ?? role;
+
+    return (
+      <>
+        {header}
+        <div className="card" style={{ padding: 0 }}>
+          <DataTable
+            label="colleagues"
+            sortBy
+            columns={[
+              { key: "name", label: "Name" },
+              { key: "role", label: "Role" },
+              { key: "phone", label: "Phone" },
+              { key: "email", label: "Email" },
+              { key: "message", label: "", sortable: false },
+            ]}
+            rows={(colleagues ?? []).map((s) => ({
+              key: s.id,
+              text: [s.name, roleOf(s.role), s.phone, s.email].filter(Boolean).join(" "),
+              sort: { name: s.name, role: roleOf(s.role), phone: s.phone, email: s.email },
+              cells: {
+                name: <b>{s.name}</b>,
+                role: roleOf(s.role),
+                phone: s.phone ? (
+                  <a href={`tel:${s.phone.replace(/[^0-9+]/g, "")}`} style={{ whiteSpace: "nowrap" }}>
+                    {s.phone}
+                  </a>
+                ) : (
+                  <span className="lock">Not on file</span>
+                ),
+                email: s.email ? (
+                  <a href={`mailto:${s.email}`}>{s.email}</a>
+                ) : (
+                  <span className="lock">Not on file</span>
+                ),
+                /*
+                 * The old screen's Message link went to /messages?to=<id>.
+                 * That address has redirected to Team since 30 October and
+                 * Team has never read `to`, so the link opened the screen and
+                 * started nothing. This posts to the same action the Team
+                 * screen's own "Message a colleague" posts to, which asks the
+                 * database for the thread and lands on it.
+                 */
+                message:
+                  s.id === me.id ? null : (
+                    <form action={startDirect}>
+                      <input type="hidden" name="staff_id" value={s.id} />
+                      <button className="row-link" type="submit">
+                        Message
+                      </button>
+                    </form>
+                  ),
+              },
+            }))}
+            empty="Nobody is on the staff list yet."
+          />
+        </div>
       </>
     );
   }
