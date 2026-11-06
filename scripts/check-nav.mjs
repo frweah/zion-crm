@@ -111,7 +111,11 @@ const EXPECTED = {
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
-    "/calendar", "/clients", "/dashboard", "/end-of-day", "/hours",
+    // "/counselors" since 6 November 2026: Colleagues is a tab of it, and it
+    // is the only screen where somebody who is not Admin finds a colleague's
+    // number. The counselors themselves are still behind the Counselors area,
+    // which this role does not have - the screen gates its own tabs.
+    "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/hours",
     "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],

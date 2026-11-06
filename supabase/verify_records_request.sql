@@ -72,6 +72,9 @@ declare
     'calendar_events=appointments',
     'sms_messages=texts',
     'sms_consent_events=texting_consent',
+    -- The other spellings of their own name (0303): held so a warrant or an
+    -- invoice under one of them finds the record, and theirs to see.
+    'client_aliases=other_spellings',
     'mail_log=email',
     -- Texts, web chats and staff threads about the client (0104).
     'conversations=conversations',

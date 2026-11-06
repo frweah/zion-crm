@@ -98,7 +98,21 @@ function remember(res) {
 
 let supabase = null;
 
+/**
+ * Signing in, which first signs out whoever was signed in.
+ *
+ * The sign-out used to be the last line of pass(), and on 5 November that put
+ * it one line before a request: /team was asked for after the pass that had
+ * just signed the account out, so the middleware sent it to /login and two
+ * deploys rolled back over it. The message said "the account is signed out",
+ * which was exactly true and read like a guess.
+ *
+ * Here it cannot happen. A sign-out belongs before the next session rather
+ * than after the last request of the old one, and there is one place it
+ * happens instead of one per pass.
+ */
 async function signIn(email, password, who) {
+  if (supabase) await supabase.auth.signOut().catch(() => {});
   jar.clear();
   supabase = createServerClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
     cookies: {
@@ -125,6 +139,18 @@ const ERROR_MARKS = [
 ];
 
 async function open(path) {
+  /**
+   * No session, said as no session.
+   *
+   * Every path this opens needs one, so an empty jar is the check's own
+   * doing and not the screen's. It used to arrive as "sent to /login - the
+   * account is signed out or has no access", three possibilities in one
+   * sentence, and the true one sounded like the least likely. Two days went
+   * into the other two.
+   */
+  if (![...jar.keys()].some((name) => /^sb-.*-auth-token/.test(name))) {
+    return { path, ok: false, why: "there is no session in the jar - the check signed itself out before asking for this" };
+  }
   let url = `${BASE}${path}`;
   for (let hop = 0; hop < 6; hop++) {
     const res = await fetch(url, {
@@ -520,7 +546,6 @@ for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
   // counted across roles at the end.
   backChecked.push(...hubTabs.map((r) => r.path));
 
-  await supabase.auth.signOut().catch(() => {});
   return { results, client, item, statement };
 }
 
@@ -531,11 +556,16 @@ await signIn(env("SMOKE_EMAIL"), env("SMOKE_PASSWORD"), "automated-check");
  * Team, asked for before the sweep rather than after it.
  *
  * It is in the sidebar below the groups rather than in one of them, so the
- * sweep never opens it for this role - and asking afterwards made it the 83rd
- * request of the pass, where it came back redirected to /login. The same page
- * opened cleanly for the Billing account moments later on a session two
- * minutes old, so what that found was a session, not a screen. Asked here, it
- * is an ordinary early request like every other one.
+ * sweep never opens it for this role and it has to be asked for here.
+ *
+ * It used to be asked for after the pass, and that failed two deploys in a
+ * row: pass() ended by signing the account out, so the next line asked for a
+ * screen with no session and the middleware sent it to /login. The comment
+ * that stood here blamed the age of the session and said so at length. It was
+ * wrong - the session was twenty-four seconds old - and the real cause was one
+ * line above the request. The sign-out has moved into signIn(), where it
+ * cannot get in front of a request, and open() now says when the jar is empty
+ * rather than listing three things it might be.
  */
 const teamPage = await open("/team");
 

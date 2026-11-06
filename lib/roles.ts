@@ -232,7 +232,19 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Jobs", href: "/leads", roles: EVERYONE, note: "Openings, applications and the employers behind them." },
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
-      { label: "Counselors", href: "/counselors", roles: ["Admin", "Job Search", "Billing"], area: "counselors" },
+      /**
+       * Everybody's, since 6 November 2026, because Colleagues is a tab of it
+       * and that is the one screen where somebody who is not Admin can look up
+       * a colleague's number. What is behind the other three tabs did not
+       * widen with it: the screen itself asks for the Counselors area before
+       * it shows a counselor, a contact or an hours request, and for Billing
+       * before it shows a billing office.
+       */
+      // No `area`: a Counselors grant is no longer what opens this screen,
+      // because everybody can open it. The grant still decides what is on it -
+      // the page asks can(me, "counselors") before it shows a counselor, a
+      // contact or an hours request, and a grant answers that.
+      { label: "Counselors", href: "/counselors", roles: EVERYONE },
       // One entry, three tabs inside it: Your time, Statements, Statement
       // approvals. It was "Contractor statements" until everybody started
       // clocking - an employee's hours live here too, and the name sent them

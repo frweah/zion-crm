@@ -22,10 +22,18 @@ import {
 
 /**
  * The labels and order live with the navigation; this picks a view. The first
- * is the default, and it is the first in the sidebar, so plain /counselors
- * opens the tab the sidebar marks current.
+ * one a person can see is their default, so plain /counselors opens the tab
+ * the sidebar marks current.
+ *
+ * The screen is everybody's since 6 November 2026, because Colleagues lives
+ * here and that is the one place a person who is not Admin can look up a
+ * colleague's number. The counselors themselves, the contact log and the
+ * hours requests are not everybody's and did not become so: they need the
+ * Counselors area, which is what each role had before. The billing offices
+ * need Billing.
  */
-const TABS = ["directory", "contact", "hours", "colleagues"];
+const TABS = ["directory", "contact", "hours", "colleagues"] as const;
+type Tab = (typeof TABS)[number];
 
 export default async function CounselorsPage({
   searchParams,
@@ -34,11 +42,15 @@ export default async function CounselorsPage({
 }) {
   const me = await requireStaff();
   const { tab: rawTab, bo: rawBo } = await searchParams;
-  const tab = TABS.includes(rawTab ?? "") ? rawTab! : TABS[0];
 
   const supabase = await createClient();
   // Their role's, or a Counselors edit grant's. View-only grants see, not change.
   const canEdit = can(me, "counselors", "edit");
+  // What each tab needs. Colleagues needs nothing beyond being staff.
+  const canSee = (t: Tab) => (t === "colleagues" ? true : can(me, "counselors"));
+  const mine = TABS.filter(canSee);
+  const tab: Tab = mine.includes((rawTab ?? "") as Tab) ? ((rawTab as Tab) ?? mine[0]) : mine[0];
+  const canSeeBilling = can(me, "billing");
 
   const [counselorsResult, clientsResult] = await Promise.all([
     supabase.from("counselors").select("id, name, agency, office, phone, fax, email, notes").order("name"),
@@ -56,7 +68,11 @@ export default async function CounselorsPage({
     <>
       <PageHead
         title="Counselors"
-        context="Counselors, every contact with them, hours requests, and colleagues"
+        context={
+          can(me, "counselors")
+            ? "Counselors, every contact with them, hours requests, and colleagues"
+            : "Colleagues, with their numbers"
+        }
       />
       <div className="segmented" role="group" aria-label="Counselors" style={{ marginBottom: 14 }}>
         {(
@@ -66,7 +82,9 @@ export default async function CounselorsPage({
             ["hours", "Hours requests"],
             ["colleagues", "Colleagues"],
           ] as const
-        ).map(([key, label]) => (
+        )
+          .filter(([key]) => canSee(key))
+          .map(([key, label]) => (
           <Link key={key} href={`/counselors?tab=${key}`} className={tab === key ? "on" : undefined} aria-current={tab === key ? "page" : undefined}>
             {label}
           </Link>
@@ -164,6 +182,9 @@ export default async function CounselorsPage({
           />
         )}
 
+        {/* Where USOR's money comes from is Billing's and Admin's, which is
+            where it was before this screen was opened to everybody. */}
+        {canSeeBilling && (
         <section id="billing-offices" style={{ marginTop: 28 }}>
           <h2 className="h2" style={{ marginBottom: 4 }}>
             Billing offices
@@ -238,6 +259,7 @@ export default async function CounselorsPage({
             />
           )}
         </section>
+        )}
 
         <section id="directory-changes" style={{ marginTop: 28 }}>
           <h2 className="h2" style={{ marginBottom: 4 }}>

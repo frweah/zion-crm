@@ -57,6 +57,17 @@ begin
   insert into public.attachments (client_id, storage_path, filename, mime_type, size_bytes, category)
   values (v_old, 'zz/merge-fixture.pdf', 'ZZ old document.pdf', 'application/pdf', 1024, 'Other');
 
+  -- And a consent, which is the fifth append-only log and the one that is not
+  -- worded like the other four. The merge used to find append-only logs by
+  -- looking for the words "never changed or removed" in the trigger; the
+  -- consent guard says "A consent record cannot be changed", so it was not
+  -- found, and a real merge stopped dead on 6 November 2026. It is asked
+  -- rather than read now - the move is attempted and a refusal is the answer -
+  -- and this fixture is the thing that proves it, because a merge that went
+  -- back to reading the wording would fail outright here.
+  insert into public.sms_consent_events (client_id, state, phone, method, note, staff_id)
+  values (v_old, 'Granted', '801-555-0142', 'Verbal', 'ZQ consent on the record being merged away', v_worker);
+
   -- And a week both records have a draft for. client_weekly_reports is unique
   -- on client and week, so a merge that moves the row blindly collides. Also
   -- found by the same real merge, one error later.
@@ -120,6 +131,17 @@ begin
     failures := failures || 'FAILED: the append-only document log was rewritten by a merge'::text;
   else
     raise notice 'ok  a filed document moves and the log of its filing stays where it happened';
+  end if;
+
+  -- ── a log that refuses, in its own words ───────────────────
+  if (select count(*) from public.sms_consent_events where client_id = v_old) <> 1 then
+    failures := failures || 'FAILED: the consent record did not stay where it happened'::text;
+  elsif (select count(*) from public.sms_consent_events where client_id = v_new) <> 0 then
+    failures := failures || 'FAILED: a consent record was moved onto the kept record'::text;
+  elsif (select count(*) from public.notes where client_id = v_new) = 0 then
+    failures := failures || 'FAILED: the merge did not finish once a log refused to move'::text;
+  else
+    raise notice 'ok  a log that refuses in its own wording is left alone and the rest of the merge still lands';
   end if;
 
   -- ── a week both records had ────────────────────────────────

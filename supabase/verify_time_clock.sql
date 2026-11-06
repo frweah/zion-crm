@@ -198,12 +198,24 @@ begin
   end if;
 
   -- A contractor's own same-day correction needs nobody.
+  --
+  -- The day is written on the fixture rather than taken from the session the
+  -- clock produced earlier, and that is a fix rather than a shortcut. The
+  -- clocked-out session was started four hours before now, so a run in the
+  -- small hours produced a session dated yesterday, this select found
+  -- nothing, and request_hours_correction refused a null id with "Those
+  -- hours are not on file." The script failed on the hour it was run and
+  -- that would be blamed on whatever change was in flight - it was, on
+  -- 6 November, at two in the morning.
+  --
+  -- What this case is about is who has to agree to a same-day correction, not
+  -- how worked_on is derived from a timer, which the cases above cover.
+  insert into public.work_sessions (staff_id, worked_on, hours, description, created_by)
+  values (v_con, public.practice_today(), 4.00, 'ZQ the contractor''s own day', v_con)
+  returning id into v_id;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_con_uid, 'role', 'authenticated')::text, true);
-  select id into v_id from public.work_sessions
-   where staff_id = v_con and worked_on = public.practice_today() and not voided
-   order by created_at desc limit 1;
   v_corr := public.request_hours_correction(v_id, 3.50, '', 'ZQ rounded it up');
   perform set_config('role', 'postgres', true);
   if (select approval from public.work_sessions where id = v_corr) <> 'Not needed' then
