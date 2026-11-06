@@ -105,6 +105,25 @@ if (!monday) {
   ok("the Monday run fires twice in UTC and sends once, at 07:00 Mountain either half of the year");
 }
 
+// ── and the Friday week email, the same way ──────────────────
+// The second schedule in the system that is not obvious from its own cron
+// line. Asked as the same four questions rather than copied as a second
+// paragraph of prose: the shape is the point, and a new job that follows it
+// should be checkable by adding four lines.
+const friday = await readFile(new URL("enable_friday_week.sql", SUPA), "utf8").catch(() => "");
+const week = await readFile(new URL("../app/api/cron/week/route.ts", import.meta.url), "utf8").catch(() => "");
+if (!friday) {
+  fail("nothing enables the Friday week email");
+} else if (!/'0 21,22 \* \* 5'/.test(friday)) {
+  fail("the week email is not scheduled at 21:00 and 22:00 UTC on a Friday, so it is not 15:00 Mountain all year");
+} else if (!/America\/Denver/.test(week)) {
+  fail("the week route does not read the hour in Utah, so one of the two firings sends a second email");
+} else if (!/hour === 15/.test(week)) {
+  fail("the week route does not hold the send to three o'clock in Utah");
+} else {
+  ok("the Friday week email fires twice in UTC and sends once, at 15:00 Mountain either half of the year");
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);

@@ -388,6 +388,8 @@ const RPC_FUNCTIONS = [
   "record_invoice_query",
   // A close undone (0315).
   "reopen_authorization",
+  // The Friday email about somebody's own week (0316).
+  "staff_week",
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
   "client_last_activity_for",

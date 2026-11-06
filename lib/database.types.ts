@@ -8579,6 +8579,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: { staff_id: string | null; status: string | null }[];
       };
+      staff_week: {
+        Args: { p_today?: string | null };
+        Returns: { staff_id: string | null; staff_name: string | null; email: string | null; role: string | null; week_start: string | null; week_end: string | null; billable_hours: number | null; clocked_hours: number | null; notes_written: number | null; contacts_logged: number | null; tasks_done: number | null; tasks_open: number | null; tasks_overdue: number | null; clients_carried: number | null; appointments: number | null }[];
+      };
       start_break: {
         Args: Record<string, never>;
         Returns: string;
