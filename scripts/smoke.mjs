@@ -677,6 +677,11 @@ async function invokeActions(path, role) {
  * billing - by a grant rather than by the role itself. Optional like the
  * others, and loud about it when it is missing, because this is the role the
  * 19 Oct outage was reported on.
+ *
+ * Not a check account, and not the one 0296 dropped. The actions below are
+ * posted, and a system account cannot write to a table - these secrets name
+ * somebody with the grant. They have never been set, which is why every
+ * deploy says so.
  */
 if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
   await signIn(process.env.SMOKE_REPORTS_EMAIL, process.env.SMOKE_REPORTS_PASSWORD, "automated-check (reports)");

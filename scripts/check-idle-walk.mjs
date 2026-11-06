@@ -101,8 +101,11 @@ if (!up) {
         // delay it exists to reproduce.
         IDLE_BUDGET_MS: "4000",
         IDLE_CEILING_MS: "8000",
-        SMOKE_REPORTS_EMAIL: "",
-        SMOKE_REPORTS_PASSWORD: "",
+        // One role against the fixture, which serves the same fourteen
+        // screens to anybody. The real walk signs in twice; this is asking
+        // whether it finds screens at all.
+        SMOKE_BILLING_EMAIL: "",
+        SMOKE_BILLING_PASSWORD: "",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },

@@ -20,6 +20,7 @@ declare
   v_them uuid;
   v_uid  uuid := gen_random_uuid();
   v_n    integer;
+  v_said text;
   r record;
   failures text[] := '{}';
 begin
@@ -102,15 +103,47 @@ begin
     raise notice 'ok  switching one off and on again does not put it in';
   end if;
 
-  -- ── 6. the Admin check account is on file and is a system one ──
+  -- ── 6. the dropped one is out of service, and has no sign-in ──
+  --
+  -- 0296 dropped it. The row survives, because the change log is append-only
+  -- and `on delete set null` would be an update to it - so what is asserted
+  -- is that it is out of service and that nothing can sign in as it. A row
+  -- switched off with a live password is the half of a dropped account that
+  -- would matter.
   select count(*) into v_n from public.staff
-   where email = 'automated-check-reports@zionvocrehab.com'
-     and role = 'Reports' and active and is_system;
-  if v_n <> 1 then
-    failures := failures || format(
-      'FAILED: the Reports check account is not on file as an active Intake & Reports system account (%s found)', v_n);
+   where email = 'automated-check-reports@zionvocrehab.com' and (active or user_id is not null);
+  if v_n > 0 then
+    failures := failures || 'FAILED: the dropped Reports check account is active or still has a sign-in'::text;
   else
-    raise notice 'ok  the Reports check account is an active Intake & Reports, flagged as a system account';
+    raise notice 'ok  the dropped Reports check account is out of service';
+  end if;
+
+  select count(*) into v_n from auth.users where email = 'automated-check-reports@zionvocrehab.com';
+  if v_n > 0 then
+    failures := failures || format('FAILED: %s sign-in(s) still exist for the dropped Reports address', v_n);
+  else
+    raise notice 'ok  and no sign-in exists for its address';
+  end if;
+
+  -- And no system account is in service in a role no check signs in as.
+  --
+  -- The rule rather than the roster: not "there are two" - which would fail
+  -- the day somebody legitimately adds one, and is the shape that left
+  -- check-quick-add asserting six kinds when there were nine - but "a robot
+  -- in service is a robot some check uses". The deploy signs in as Job Search
+  -- (SMOKE_*) and Billing (SMOKE_BILLING_*). A third role in service is
+  -- either a check nobody wrote or the dropped account put back.
+  -- Fixture rows excluded, and this script makes one two cases up: a rule
+  -- about the practice's robots has no business judging a row invented for a
+  -- test, which is the line the change log takes too.
+  select string_agg(distinct role, ', ') into v_said from public.staff
+   where is_system and active and role <> all (array['Job Search', 'Billing'])
+     and not public.is_fixture_name(name);
+  if v_said is not null then
+    failures := failures || format(
+      'FAILED: a system account is in service as %s, and no deploy check signs in as that role', v_said);
+  else
+    raise notice 'ok  and every system account in service is one a check signs in as';
   end if;
 
   -- And no system account is Admin, which 0294 allowed and 0295 took back.
@@ -130,7 +163,7 @@ begin
    where staff_id = (select id from public.staff where email = 'automated-check-reports@zionvocrehab.com');
   if v_n > 0 then
     failures := failures || format(
-      'FAILED: the Admin check account has %s credential row(s), so it will be chased for an I-9', v_n);
+      'FAILED: a check account has %s credential row(s), so it will be chased for an I-9', v_n);
   else
     raise notice 'ok  and nothing asks it for a credential';
   end if;

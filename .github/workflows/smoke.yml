@@ -16,12 +16,17 @@
 #                                     these six Billing screens are opened by
 #                                     nobody. The run says so when they are
 #                                     missing rather than passing quietly.
-#   SMOKE_REPORTS_EMAIL,              the third, for the timing job: Intake &
-#   SMOKE_REPORTS_PASSWORD            Reports, which walks the shell again as
-#                                     another role. Not Admin - 0295 refuses a
-#                                     system account that role. The twelve HR
-#                                     and Admin screens are timed by nobody
-#                                     either way, and the run names them.
+#   SMOKE_REPORTS_EMAIL,              Margaret's role for the billing actions
+#   SMOKE_REPORTS_PASSWORD            below: Intake & Reports with a grant,
+#                                     which is not a system account and so is
+#                                     not one of the two above. Never set, so
+#                                     no billing action is posted on any
+#                                     deploy; the check says so loudly.
+#                                     A third *check* account was made for the
+#                                     timing job and dropped (0296) - Intake &
+#                                     Reports timed no screen Job Search did
+#                                     not. The twelve HR and Admin screens are
+#                                     timed by nobody, and the run names them.
 #   SUPABASE_URL, SUPABASE_ANON_KEY   the project's public URL and anon key
 #   VERCEL_TOKEN                      only for the rollback; without it the
 #                                     check still fails and still opens the
@@ -306,10 +311,10 @@ jobs:
           # only thing missing was these two lines.
           SMOKE_BILLING_EMAIL: ${{ secrets.SMOKE_BILLING_EMAIL }}
           SMOKE_BILLING_PASSWORD: ${{ secrets.SMOKE_BILLING_PASSWORD }}
-          # And a third role. Missing, the walk still runs and says which
-          # screens nobody timed.
-          SMOKE_REPORTS_EMAIL: ${{ secrets.SMOKE_REPORTS_EMAIL }}
-          SMOKE_REPORTS_PASSWORD: ${{ secrets.SMOKE_REPORTS_PASSWORD }}
+          # These two walk every screen a check account can reach. The walk
+          # names the twelve that nothing times - HR and Admin, which only
+          # Admin reaches and no system account may be Admin (0295) - as a
+          # warning rather than a failure.
         run: |
           set -o pipefail
           # --experimental-strip-types because the walk reads the navigation

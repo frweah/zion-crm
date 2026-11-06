@@ -8284,3 +8284,63 @@ One other thing the dry run showed, which is the system working rather than a
 fault: 19 monthly reports for October, drafted at 12:50 UTC that morning by
 `zion-reports` because it was the first in Utah, due 5 November. The first
 production write to the table 0276 renamed.
+
+## 6 Nov 2026 — the Reports check account is dropped, and a row that will not delete
+
+The third check account lasted four hours. 0294 made one an Admin so the
+timing walk could open the twelve screens only Admin reaches; the owner read
+what that cost and declined it; 0295 made it Intake & Reports instead and
+said plainly that what Reports bought in screens was nothing — every screen it
+reaches, Job Search reaches too. The owner then dropped it, which is the right
+call on that sentence. A role is worth an account when it reaches something no
+other account can.
+
+What it leaves behind is worth writing down, because it is the shape of two
+guards working.
+
+**The row will not delete, by design.** `delete from staff` is refused with
+"The staff change log is a record; it is added to, never changed or removed."
+Three things conspire, each correctly:
+`staff_record_changes.staff_id` is `on delete set null`, so deleting a
+colleague makes Postgres *update* the change log; `staff_record_changes_append_only`
+refuses every update to that log, whoever is asking; and the log's own trigger
+writes a "Removed" row naming a staff id that by then does not exist. So this
+practice deactivates people and does not erase them — which is why both other
+check accounts have only ever been switched off and on.
+
+Deleting this one would have meant opening a hole in the append-only guard and
+teaching the log to write a null id: a new power over the staff record for
+every row in the table, bought to tidy away one robot. 0296 takes the account
+out of service instead — the sign-in deleted, the row switched off, the change
+log carrying the reason in its note column, which is what that column is for.
+
+**And switched off turns out to be enough.** Trying to put the fault back —
+reactivate the row, give it a sign-in — was refused by `link_staff_account` on
+`auth.users`: "The staff account for … is closed." A guard nobody wrote for
+this situation already covers the half that would have mattered, which is an
+address with a live password and no account behind it. Found by trying to break
+the new check rather than by reading for it.
+
+`create-check-account.mjs` now refuses a closed staff row for the same reason.
+Handed the dropped address it would have made a new password and linked it,
+putting the account back without anybody deciding to.
+
+**The new assertion asks the rule, not the roster.** The first draft said
+"there are two system accounts", which is the shape that left `check-quick-add`
+asserting six kinds when there were nine. It asks instead whether any system
+account is in service in a role no deploy check signs in as — so a legitimate
+third account is fine and a resurrected Reports one is not. Fixture rows are
+excluded, because the script makes one two cases above and a rule about the
+practice's robots has no business judging a row invented for a test.
+
+The timing walk keeps the two accounts that do add screens, and the twelve HR
+and Admin screens are still named by the run. 27 screens timed, which is what
+it timed with three.
+
+One thing left standing deliberately: `smoke.mjs` has read `SMOKE_REPORTS_*`
+since 19 Oct for a different account — Margaret's role, Intake & Reports *with
+a billing grant*, which posts the billing actions and therefore cannot be a
+system account at all. Those secrets have never been set, so no billing action
+has been submitted on any deploy; the check says so loudly every time. The two
+uses of that name briefly meant two different accounts, which is now written
+into both comments.

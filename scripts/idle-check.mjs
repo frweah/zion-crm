@@ -14,7 +14,7 @@
  * up is not what makes a screen feel stuck.
  *
  *   SMOKE_BASE_URL=https://crm.zionvocrehab.com SMOKE_EMAIL=… SMOKE_PASSWORD=… \
- *   SMOKE_BILLING_EMAIL=… SMOKE_BILLING_PASSWORD=…  *   SMOKE_REPORTS_EMAIL=… SMOKE_REPORTS_PASSWORD=… \
+ *   SMOKE_BILLING_EMAIL=… SMOKE_BILLING_PASSWORD=… \
  *   node --experimental-strip-types scripts/idle-check.mjs
  *
  * BUDGET_MS is the owner's target (2 s). CEILING_MS is what fails the deploy:
@@ -44,14 +44,14 @@ const MIDDLEWARE_CEILING_MS = Number(process.env.MIDDLEWARE_CEILING_MS ?? 2500);
  * nothing else, which is the point of roles, and the same arrangement already
  * carries Billing's screens through the deploy check (SMOKE_BILLING_*).
  *
- * Intake & Reports, not Admin. An Admin check account would reach every
- * screen, and 0295 refuses one: the read-only promise these accounts carry is
- * 310 restrictive policies over tables, and the 56 functions gated on
- * `is_admin()` are not tables, so an Admin one could act as Admin. What
- * Reports buys in screens is nothing - every screen it reaches, Job Search
- * reaches too - so this walks the same twenty a second time, as a different
- * role. Worth something, because a screen can render for one role and break
- * for another; not coverage.
+ * Two, and there was briefly a third. An Admin check account would reach
+ * every screen, and 0295 refuses one: the read-only promise these accounts
+ * carry is 310 restrictive policies over tables, and the 56 functions gated
+ * on `is_admin()` are not tables, so an Admin one could act as Admin. Intake
+ * & Reports was made instead and dropped in 0296, because what it bought in
+ * screens was nothing - every screen Reports reaches, Job Search reaches too,
+ * so it walked the same twenty a second time. A role that adds no screen is
+ * a second account to issue a password for and no more coverage.
  *
  * The screens nothing times are named at the end of the run, read out of the
  * navigation rather than written down here, so the list cannot go stale while
@@ -69,13 +69,6 @@ const WHO = [
     email: process.env.SMOKE_BILLING_EMAIL,
     password: process.env.SMOKE_BILLING_PASSWORD,
     secret: "SMOKE_BILLING_",
-  },
-  {
-    who: "Reports",
-    role: "Reports",
-    email: process.env.SMOKE_REPORTS_EMAIL,
-    password: process.env.SMOKE_REPORTS_PASSWORD,
-    secret: "SMOKE_REPORTS_",
   },
 ];
 
