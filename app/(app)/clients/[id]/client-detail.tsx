@@ -30,6 +30,7 @@ export type ClientDetail = {
   agency_id: string;
   funding_source: string;
   phone: string;
+  no_phone_reason: string;
   email: string;
   counselor_id: string | null;
   referring_office: string;
@@ -168,6 +169,11 @@ export function DetailsForm({
           <label className="field">
             Phone
             <input name="phone" defaultValue={client.phone} disabled={!canEdit} />
+            {/* Why there is not one, where somebody looking for a number
+                will read it rather than wondering (0314). */}
+            {!client.phone && client.no_phone_reason ? (
+              <span className="lock">No phone — {client.no_phone_reason}</span>
+            ) : null}
           </label>
           <label className="field">
             Email

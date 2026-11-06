@@ -24,6 +24,15 @@
 --   A warrant line that turns up later for a payment recorded by hand with
 --   no warrant number claims that payment instead of paying it twice.
 --
+--   A payment lands on an authorization nobody marked as sent, dated the day
+--   the money came, with the correction log saying where the submission date
+--   came from - and without the submission gate being put in front of money
+--   that has already arrived.
+--
+--   A closed authorization is reopened by Billing with a reason, and the log
+--   says who, from what and why. An ordinary step through the flow is still
+--   not a correction.
+--
 --   None of these functions is reachable by somebody not signed in, or by a
 --   role that does not own billing.
 --
@@ -46,6 +55,7 @@ declare
   v_a1       uuid;
   v_a2       uuid;
   v_a3       uuid;
+  v_a4       uuid;
   v_att      uuid;
   v_pdf      text := 'zz/billing-unlocked/authorization.pdf';
   v_pay      uuid;
@@ -441,7 +451,83 @@ begin
     raise notice 'ok  and a client''s entry cannot be removed from it';
   end;
 
-  -- ═══ 9. who may do any of this ═════════════════════════════
+  -- ═══ 9. money before the paperwork (3a) ════════════════════
+  -- An authorization nobody has marked as sent, which is what a backlog item
+  -- looks like when the remittance arrives first.
+  perform set_config('role', 'postgres', true);
+  insert into public.authorizations
+    (client_id, number, service_type, rate_type, rate, start_date, end_date, received_on, status)
+  values (v_client, 'ZQ-UN-4', 'Job Coaching', 'Flat Fee', 250,
+          date '2026-01-01', date '2026-12-31', date '2026-02-01', 'Authorized') returning id into v_a4;
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_bil_uid, 'role', 'authenticated')::text, true);
+
+  v_pay := public.record_payment(v_a4, v_when, 250, 'ZW-UN-0010', null);
+  if (select status from public.authorizations where id = v_a4) <> 'Paid' then
+    failures := failures || 'FAILED: a payment on an authorization nobody had submitted was refused, or did not pay it'::text;
+  elsif (select submitted_on from public.authorizations where id = v_a4) is distinct from v_when then
+    failures := failures || format('FAILED: it was submitted on %s rather than the day the money came',
+                                   (select submitted_on from public.authorizations where id = v_a4))::text;
+  elsif not exists (select 1 from public.authorization_corrections k
+                     where k.auth_id = v_a4 and k.reason like 'Submitted on payment%') then
+    failures := failures || 'FAILED: nothing in the correction log says the submission came off the payment'::text;
+  else
+    raise notice 'ok  a payment lands on an authorization nobody had marked sent, dated the day it came';
+  end if;
+
+  -- And the gate submitting runs is not run on the way: this authorization
+  -- has no USOR forms on it at all, which is what would have stopped it had
+  -- it been stepped through Submitted to get there.
+  if (select count(*) from public.payments where auth_id = v_a4) <> 1 then
+    failures := failures || 'FAILED: the payment was recorded more than once, or not at all'::text;
+  else
+    raise notice 'ok  and the submission gate is not put in front of money already received';
+  end if;
+
+  -- ═══ 10. a close undone (3b) ═══════════════════════════════
+  -- ZQ-UN-2 was closed in bulk in section 7, with its reason on it.
+  begin
+    perform public.reopen_authorization(v_a2, '   ');
+    failures := failures || 'FAILED: an authorization was reopened with no reason'::text;
+  exception when check_violation then
+    raise notice 'ok  reopening needs a reason';
+  end;
+
+  begin
+    perform public.reopen_authorization(v_a1, 'ZZ it was never closed');
+    failures := failures || 'FAILED: something that was not closed was reopened'::text;
+  exception when check_violation then
+    raise notice 'ok  and only a closed one is reopened';
+  end;
+
+  v_text := public.reopen_authorization(v_a2, 'ZZ closed in error: the counselor had confirmed the wrong number');
+  if (select status from public.authorizations where id = v_a2) <> 'Authorized' then
+    failures := failures || format('FAILED: reopening left it %s',
+                                   (select status from public.authorizations where id = v_a2))::text;
+  elsif coalesce((select closed_reason from public.authorizations where id = v_a2), '') <> '' then
+    failures := failures || 'FAILED: a reopened authorization still says why it was closed'::text;
+  elsif not exists (select 1 from public.authorization_corrections k
+                     where k.auth_id = v_a2 and k.field = 'Status'
+                       and k.was_value = 'Closed' and k.new_value = 'Authorized'
+                       and k.reason like 'ZZ closed in error%'
+                       and k.staff_id = v_bil) then
+    failures := failures || 'FAILED: the correction log does not say who reopened it, from what, and why'::text;
+  else
+    raise notice 'ok  Billing reopens a closed authorization, and the log says who, from what and why';
+  end if;
+
+  -- An ordinary step through the flow is still not in the log, which is the
+  -- whole point of adding the status as a field that needs no reason.
+  perform public.set_authorization_status(v_a2, 'Due', null, null);
+  if (select count(*) from public.authorization_corrections
+       where auth_id = v_a2 and field = 'Status' and coalesce(reason, '') = '') <> 0 then
+    failures := failures || 'FAILED: an ordinary status move is being written to the correction log'::text;
+  else
+    raise notice 'ok  and an ordinary move through the flow is not a correction';
+  end if;
+
+  -- ═══ 11. who may do any of this ═════════════════════════════
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_rep_uid, 'role', 'authenticated')::text, true);
   begin
@@ -462,6 +548,12 @@ begin
   exception when insufficient_privilege then
     raise notice 'ok  nor clear a batch of them';
   end;
+  begin
+    perform public.reopen_authorization(v_a2, 'ZZ trying it on');
+    failures := failures || 'FAILED: somebody on Reports reopened a closed authorization'::text;
+  exception when insufficient_privilege or check_violation then
+    raise notice 'ok  nor reopen one that was closed';
+  end;
 
   perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
@@ -471,6 +563,7 @@ begin
      or has_function_privilege('anon', 'public.set_authorization_status(uuid, text, text, date)', 'execute')
      or has_function_privilege('anon', 'public.bulk_mark_paid(uuid[], date)', 'execute')
      or has_function_privilege('anon', 'public.bulk_close(uuid[], text)', 'execute')
+     or has_function_privilege('anon', 'public.reopen_authorization(uuid, text)', 'execute')
      or has_function_privilege('anon', 'public.billing_hands()', 'execute') then
     failures := failures || 'FAILED: somebody not signed in can reach one of the billing functions'::text;
   else

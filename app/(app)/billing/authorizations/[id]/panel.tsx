@@ -7,6 +7,7 @@ import {
   markDue,
   submitAuthorization,
   closeAuthorization,
+  reopenAuthorization,
   moveStaleDate,
   recordServiceDates,
   resolveZeroHours,
@@ -167,6 +168,25 @@ export function CloseIt({ authId }: { authId: string }) {
       </label>
       <button className="btn" disabled={pending}>
         {pending ? "…" : "Close it"}
+      </button>
+      <Said state={state} />
+    </form>
+  );
+}
+
+export function ReopenIt({ authId }: { authId: string }) {
+  const [state, action, pending] = useActionState(reopenAuthorization, EMPTY);
+  return (
+    <form action={action} className="card">
+      <input type="hidden" name="auth_id" value={authId} />
+      <h3 className="h2">Open it again</h3>
+      <p className="lock">It goes back to Authorized, and the log keeps the reason.</p>
+      <label className="field">
+        <span>Why</span>
+        <input name="reason" required placeholder="Closed in error: the hours had not been logged" />
+      </label>
+      <button className="btn" disabled={pending}>
+        {pending ? "…" : "Open it"}
       </button>
       <Said state={state} />
     </form>

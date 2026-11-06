@@ -1393,6 +1393,7 @@ export type Database = {
           job_search_email: string;
           billing_staff_id: string | null;
           closed_at: string | null;
+          no_phone_reason: string;
         };
         Insert: {
           id?: string;
@@ -1427,6 +1428,7 @@ export type Database = {
           job_search_email?: string;
           billing_staff_id?: string | null;
           closed_at?: string | null;
+          no_phone_reason?: string;
         };
         Update: {
           id?: string;
@@ -1461,6 +1463,7 @@ export type Database = {
           job_search_email?: string;
           billing_staff_id?: string | null;
           closed_at?: string | null;
+          no_phone_reason?: string;
         };
         Relationships: [];
       };
@@ -8418,6 +8421,10 @@ export type Database = {
       };
       remove_payment: {
         Args: { p_payment: string | null; p_reason: string | null };
+        Returns: string;
+      };
+      reopen_authorization: {
+        Args: { p_auth: string | null; p_reason: string | null };
         Returns: string;
       };
       reopen_ledger_month: {

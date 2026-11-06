@@ -269,6 +269,31 @@ export async function closeAuthorization(
 }
 
 /**
+ * A close undone (owner, 3 November 2026, part 3b).
+ *
+ * Closing one in error is an ordinary mistake - the wrong row in a list of
+ * four, a month closed as empty whose hours had not been logged yet - and
+ * until now it needed an Admin and there was nothing on any screen to do it
+ * with. reopen_authorization puts it back to Authorized, which is where it
+ * would have been had nobody closed it, and writes the reason into the
+ * correction log against the status it changed.
+ */
+export async function reopenAuthorization(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { supabase } = await billingHands();
+  const id = String(formData.get("auth_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { error: "Say why it is being reopened.", ok: null };
+
+  const { error } = await supabase.rpc("reopen_authorization", { p_auth: id, p_reason: reason });
+  if (error) return refusal(error.message);
+  done(id);
+  return { error: null, ok: "Open again, at Authorized, with the reason on the record." };
+}
+
+/**
  * Moving the date an authorization goes stale (§2).
  *
  * The reason is required by the database at the moment the date moves, not

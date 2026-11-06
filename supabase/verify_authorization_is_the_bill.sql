@@ -35,6 +35,7 @@ do $$
 declare
   v_entity   uuid;
   v_client   uuid;
+  v_outsider uuid;
   v_staff    uuid;
   v_adm_uid  uuid := gen_random_uuid();
   v_auth     uuid;
@@ -475,27 +476,73 @@ begin
     raise notice 'ok  every change of status is written down, with who and when';
   end if;
 
-  -- Reopening a closed authorization is Admin's alone.
+  /**
+   * Reopening a closed authorization is Billing's as well as Admin's.
+   *
+   * This case asserted the opposite until 6 November 2026, with a Billing
+   * clerk as the person refused - which was the rule as written (0190) and
+   * is not the rule the owner wanted: "reopen a Closed authorization (Admin
+   * or Billing, reason, logged)", part 3b of 3 November. So the person
+   * refused here is somebody outside billing altogether, and the clerk now
+   * succeeds, which is the half that was missing.
+   */
   update public.authorizations
      set status = 'Closed', closed_reason = 'ZZ for the reopen test' where id = v_auth;
   perform set_config('role', 'postgres', true);
   insert into public.staff (name, email, role, active)
   values ('ZZ Bill Clerk', 'zz-clerk@example.test', 'Billing', true) returning id into v_staff;
+  insert into public.staff (name, email, role, active)
+  values ('ZZ Bill Outsider', 'zz-outsider@example.test', 'Job Search', true) returning id into v_outsider;
   insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-          'zz-clerk@example.test', '{}', '{}', now(), now());
+          'zz-clerk@example.test', '{}', '{}', now(), now()),
+         (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-outsider@example.test', '{}', '{}', now(), now());
   update public.staff set user_id = (select id from auth.users where email = 'zz-clerk@example.test')
    where id = v_staff;
+  update public.staff set user_id = (select id from auth.users where email = 'zz-outsider@example.test')
+   where id = v_outsider;
+
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object(
-    'sub', (select user_id from public.staff where id = v_staff), 'role', 'authenticated')::text, true);
+    'sub', (select user_id from public.staff where id = v_outsider), 'role', 'authenticated')::text, true);
+  begin
+    perform public.reopen_authorization(v_auth, 'ZZ trying it on');
+    failures := failures || 'FAILED: somebody outside billing reopened a closed authorization'::text;
+  exception when check_violation or insufficient_privilege then
+    raise notice 'ok  reopening a closed authorization is not everybody''s';
+  end;
+  -- And not around the function either. A row policy that refuses the update
+  -- outright leaves no exception to catch, so this asks what the record says
+  -- rather than what was raised - which is the difference between "refused"
+  -- and "did nothing", and only one of them is a passing test.
   begin
     update public.authorizations set status = 'Due' where id = v_auth;
-    failures := failures || 'FAILED: somebody who is not an Admin reopened a closed authorization'::text;
-  exception when check_violation then
-    raise notice 'ok  reopening a closed authorization is an Admin''s alone';
+  exception when check_violation or insufficient_privilege then
+    null;
   end;
+  if (select status from public.authorizations where id = v_auth) <> 'Closed' then
+    failures := failures || 'FAILED: somebody outside billing moved a closed authorization by hand'::text;
+  else
+    raise notice 'ok  nor by writing the status straight onto the record';
+  end if;
+
+  perform set_config('request.jwt.claims', json_build_object(
+    'sub', (select user_id from public.staff where id = v_staff), 'role', 'authenticated')::text, true);
+  perform public.reopen_authorization(v_auth, 'ZZ closed in error, and Billing noticed');
+  if (select status from public.authorizations where id = v_auth) <> 'Authorized' then
+    failures := failures || 'FAILED: Billing could not reopen a closed authorization'::text;
+  elsif not exists (select 1 from public.authorization_corrections k
+                     where k.auth_id = v_auth and k.field = 'Status'
+                       and k.new_value = 'Authorized' and k.reason like 'ZZ closed in error%') then
+    failures := failures || 'FAILED: the reopen is not in the correction log'::text;
+  else
+    raise notice 'ok  Billing reopens one, and the correction log says why';
+  end if;
+  -- Put back as it was, so the sections below find what they expect.
   perform set_config('role', 'postgres', true);
+  update public.authorizations
+     set status = 'Closed', closed_reason = 'ZZ for the reopen test' where id = v_auth;
 
   -- ── §5: the parent holds the hours, the months hold the bill ──
   insert into public.authorizations (

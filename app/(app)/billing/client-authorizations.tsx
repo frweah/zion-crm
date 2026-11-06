@@ -5,7 +5,7 @@ import { useState } from "react";
 import { authorizationNumberLabel } from "@/lib/billing";
 import { money, today , PRACTICE_TZ } from "@/lib/constants";
 import { DataTable } from "../data-table";
-import { CloseIt, CorrectPaidDate, EditEverything, RecordPayment } from "./authorizations/[id]/panel";
+import { CloseIt, CorrectPaidDate, EditEverything, RecordPayment, ReopenIt } from "./authorizations/[id]/panel";
 
 /**
  * Every authorization a client has, in three groups (owner, 26 Oct 2026).
@@ -244,12 +244,16 @@ export function ClientAuthorizations({
                           <Pick row={r} which="date" open={open} setOpen={setOpen}>
                             Correct the date
                           </Pick>
-                        ) : (
+                        ) : r.status === "Closed" ? null : (
                           <Pick row={r} which="pay" open={open} setOpen={setOpen}>
                             Record payment
                           </Pick>
                         )}
-                        {r.status === "Closed" ? null : (
+                        {r.status === "Closed" ? (
+                          <Pick row={r} which="reopen" open={open} setOpen={setOpen}>
+                            Open it again
+                          </Pick>
+                        ) : (
                           <Pick row={r} which="close" open={open} setOpen={setOpen}>
                             Close
                           </Pick>
@@ -306,6 +310,7 @@ export function ClientAuthorizations({
             <CorrectPaidDate authId={acting.id} paidOn={acting.paid_on} today={today()} />
           ) : null}
           {open?.which === "close" ? <CloseIt authId={acting.id} /> : null}
+          {open?.which === "reopen" ? <ReopenIt authId={acting.id} /> : null}
           {open?.which === "edit" ? (
             <EditEverything
               authId={acting.id}

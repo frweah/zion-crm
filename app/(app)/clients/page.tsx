@@ -20,6 +20,8 @@ import { SavedViews, type SavedView } from "./saved-views";
 import { loadCaseload } from "@/lib/caseload";
 import { CaseloadSummary } from "../caseload-summary";
 import { LIVE_STATUSES } from "@/lib/billing";
+import { readRateSchedule } from "@/lib/rate-schedule";
+import { can } from "@/lib/roles";
 import { ClientsBoard, type Card, type FileCategory } from "./board";
 import { ClientRowActions } from "./row-actions";
 
@@ -95,7 +97,7 @@ export default async function ClientsPage({
   if (filters.hasImportReview) query = query.neq("import_review", "");
   if (filters.since) query = query.gte("created_at", filters.since);
 
-  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult, categoriesResult] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult, categoriesResult, rates] =
     await Promise.all([
       readBillingOffices(supabase),
       query,
@@ -124,6 +126,9 @@ export default async function ClientsPage({
       // read rather than a list kept in the component, which is the rule
       // 0203 set when this list stopped being hard-coded.
       supabase.from("client_file_categories").select("key, label").order("key"),
+      // The rate schedule, for the authorization half of the referral form.
+      // Read here rather than priced in the component (§13.13).
+      readRateSchedule(supabase),
     ]);
 
   const boardCards = (boardResult.data ?? []) as Card[];
@@ -454,6 +459,8 @@ export default async function ClientsPage({
           counselors={counselors}
           staff={staff}
           offices={(officesResult.data ?? []).map((o) => o.name)}
+          rates={rates}
+          canBill={can(me, "billing", "edit")}
         />
       )}
 

@@ -16,6 +16,7 @@ import {
   ServiceDates,
   MoveStale,
   CloseIt,
+  ReopenIt,
   ZeroHours,
   Forms,
   RecordPayment,
@@ -410,7 +411,11 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               end={(rec.service_end as string) ?? null}
             />
             <MoveStale authId={rec.id as string} staleDate={(rec.stale_date as string) ?? null} />
-            <CloseIt authId={rec.id as string} />
+            {rec.status === "Closed" ? (
+              <ReopenIt authId={rec.id as string} />
+            ) : (
+              <CloseIt authId={rec.id as string} />
+            )}
           </div>
         </section>
       ) : null}
