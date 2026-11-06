@@ -269,7 +269,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // What the practice tells everybody, and who it can reach
       // (Design language, §3).
       { label: "Updates", href: "/updates", roles: EVERYONE, note: "Posts from the practice, and what you have read." },
-      { label: "Directory", href: "/directory", roles: EVERYONE, note: "Colleagues and counselors, with their numbers." },
     ],
   },
   {

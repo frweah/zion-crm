@@ -119,6 +119,12 @@ const nextConfig = {
       "/people": "/admin/people",
       "/insights": "/insights/money",
       "/dashboard/tasks": "/tasks",
+      /**
+       * Directory, which was colleagues and counselors on one screen (owner,
+       * 5 Nov 2026). The counselors half is Clients - Counselors - Directory
+       * and always was; the screen was a second way in to it.
+       */
+      "/directory": "/counselors?tab=directory",
     };
     return Object.entries(moved).map(([source, destination]) => ({
       source,

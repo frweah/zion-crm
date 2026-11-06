@@ -95,7 +95,7 @@ const EXPECTED = {
     "/admin/documents", "/admin/hours", "/admin/people", "/admin/settings-hub", "/admin/system", "/admin/templates",
     "/billing",
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
-    "/directory", "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
+    "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
     "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
@@ -105,19 +105,19 @@ const EXPECTED = {
   // from the client's own record, which they still reach. What they no longer
   // have is a screen of blank forms and a second way to bill.
   "Job Search": [
-    "/calendar", "/clients", "/counselors", "/dashboard", "/directory",
+    "/calendar", "/clients", "/counselors", "/dashboard",
     "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
-    "/calendar", "/clients", "/dashboard", "/directory", "/end-of-day", "/hours",
+    "/calendar", "/clients", "/dashboard", "/end-of-day", "/hours",
     "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
     "/admin/documents",
     "/billing", "/calendar", "/clients", "/counselors",
-    "/dashboard", "/directory",
+    "/dashboard",
     "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
   ],
 };

@@ -228,7 +228,7 @@ export function DetailsForm({
             return (
               <p className="lock" style={{ gridColumn: "1 / -1", margin: 0 }}>
                 {reach || "No phone or email on this counselor's record."}{" "}
-                <Link href="/directory" style={{ color: "var(--teal)" }}>
+                <Link href="/counselors?tab=directory" style={{ color: "var(--teal)" }}>
                   {reach ? "On the counselor's record" : "Add it to their record"}
                 </Link>
               </p>
