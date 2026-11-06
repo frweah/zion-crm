@@ -265,6 +265,9 @@
     "invoice_lines": [
       "select"
     ],
+    "invoice_queries": [
+      "select"
+    ],
     "invoices": [
       "select"
     ],

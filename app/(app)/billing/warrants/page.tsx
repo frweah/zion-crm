@@ -17,6 +17,18 @@ import { DataTable, type DataRow } from "../../data-table";
  * section, not a second list.
  */
 
+type WaitingRow = {
+  payment_id: string;
+  client_id: string;
+  client_name: string;
+  about: string;
+  amount: number;
+  warrant_date: string | null;
+  source: string;
+  recorded_by_name: string;
+  days: number | null;
+};
+
 type PageRow = {
   id: string;
   page_no: number;
@@ -35,11 +47,24 @@ export default async function WarrantsPage() {
   if (!can(me, "billing", "view")) redirect("/dashboard");
 
   const supabase = await createClient();
-  const { data: pageData } = await supabase
-    .from("warrant_pages")
-    .select("id, page_no, image_path, warrant_no, warrant_date, total, status, received_at, warrant_documents(filename, page_count), warrant_lines(status, amount)")
-    .order("received_at", { ascending: false })
-    .limit(300);
+  const [{ data: pageData }, { data: waitingData }] = await Promise.all([
+    supabase
+      .from("warrant_pages")
+      .select("id, page_no, image_path, warrant_no, warrant_date, total, status, received_at, warrant_documents(filename, page_count), warrant_lines(status, amount)")
+      .order("received_at", { ascending: false })
+      .limit(300),
+    // Money recorded from a remittance whose stub has not arrived (0311).
+    // Asked of the rows rather than read off a flag: the import takes a row
+    // off this list by writing the warrant number onto the payment, and a
+    // flag would need somebody to remember to clear it.
+    supabase
+      .from("payment_waiting_for_its_warrant")
+      .select("payment_id, client_id, client_name, about, amount, warrant_date, source, recorded_by_name, days")
+      .order("warrant_date", { ascending: true }),
+  ]);
+
+  const waiting = (waitingData ?? []) as WaitingRow[];
+  const waitingTotal = waiting.reduce((n, w) => n + Number(w.amount ?? 0), 0);
 
   const pages = (pageData ?? []) as unknown as PageRow[];
   const allLines = pages.flatMap((p) => p.warrant_lines ?? []);
@@ -138,6 +163,64 @@ export default async function WarrantsPage() {
       </div>
 
       {count("Needs review") > 0 && <WarrantsToReview showAllLink={false} />}
+
+      <h2 className="h2" style={{ margin: "32px 0 8px" }}>
+        Warrant not on file
+      </h2>
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="payments waiting for a warrant"
+          sortBy
+          columns={[
+            { key: "client", label: "Client" },
+            { key: "about", label: "Authorization" },
+            { key: "amount", label: "Amount", align: "right" },
+            { key: "when", label: "Received" },
+            { key: "who", label: "Recorded by" },
+            { key: "waiting", label: "Waiting", align: "right" },
+          ]}
+          rows={waiting.map((w) => ({
+            key: w.payment_id,
+            cells: {
+              client: (
+                <Link href={`/clients/${w.client_id}?tab=billing`} style={{ color: "var(--teal)" }}>
+                  {w.client_name}
+                </Link>
+              ),
+              about: w.about,
+              amount: money(Number(w.amount ?? 0)),
+              when: w.warrant_date ?? <span className="lock">—</span>,
+              who: (
+                <span className="lock">
+                  {w.recorded_by_name || "—"} · {w.source.toLowerCase()}
+                </span>
+              ),
+              waiting:
+                w.days === null ? (
+                  <span className="lock">—</span>
+                ) : (
+                  <span className={w.days >= 30 ? "chip warn" : "chip"}>{w.days} days</span>
+                ),
+            },
+            sort: {
+              client: w.client_name,
+              about: w.about,
+              amount: Number(w.amount ?? 0),
+              when: w.warrant_date,
+              who: w.recorded_by_name,
+              waiting: w.days ?? -1,
+            },
+            text: [w.client_name, w.about, w.recorded_by_name].filter(Boolean).join(" "),
+          }))}
+          empty="Every payment on file names the warrant that paid it."
+        />
+      </div>
+      {waiting.length > 0 && (
+        <p className="lock">
+          {money(waitingTotal)} received with no stub on file — put the warrant in <b>_Warrants</b> and
+          reconciliation matches these rather than paying them twice
+        </p>
+      )}
 
       <h2 className="h2" style={{ margin: "32px 0 8px" }}>
         Received

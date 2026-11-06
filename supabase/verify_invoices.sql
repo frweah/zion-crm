@@ -1,4 +1,4 @@
--- Zion Vocational Rehab CRM — the invoice ledger (0306-0309)
+-- Zion Vocational Rehab CRM — the invoice ledger (0306-0312)
 --
 -- What has to hold:
 --
@@ -17,6 +17,11 @@
 --   either. Work logged and not invoiced is raised after the 5th of the
 --   following month, and not before it.
 --
+--   A short payment is raised the day it happens, and stops being raised once
+--   somebody records what came of querying it. A note that settles the
+--   question has to say what settled it, it is never rewritten, and settling
+--   one does not stop the chase on money still owed.
+--
 --   And on the live ledger: every authorization's invoices agree with its
 --   payments, and every payment that names a warrant is on an invoice.
 --
@@ -31,7 +36,8 @@ do $$
 declare
   v_admin uuid; v_admin_uid uuid := gen_random_uuid();
   v_client uuid; v_auth uuid; v_auth2 uuid;
-  v_inv uuid; v_inv2 uuid; v_pay uuid;
+  v_inv uuid; v_inv2 uuid; v_inv3 uuid; v_pay uuid;
+  v_auth3 uuid; v_q uuid; v_num bigint;
   v_e1 uuid; v_e2 uuid;
   v_n integer; v_amount numeric; v_status text;
   v_office uuid;
@@ -225,6 +231,97 @@ begin
     raise notice 'ok  forty-five days reaches the owner, and the earlier one stays';
   end if;
 
+  -- ── a short payment can be queried ────────────────────
+  -- The half Phase 3 left out: the chase raised a short payment every night
+  -- for ever, because nothing could tell it the conversation had happened.
+  --
+  -- Measured on the item rather than on what chase_invoices returned.
+  -- notify_person returns nothing when neither the bell nor My day had
+  -- anything new, so a second call over the same invoice is silent whatever
+  -- the rule says - counting its rows would have passed a rule that does
+  -- nothing, and the first version of this case did exactly that.
+  insert into public.authorizations
+    (client_id, number, service_type, rate_type, rate, status, submitted_on, start_date, end_date)
+  values (v_client, 'V0000905', 'Job Development', 'Flat Fee', 560, 'Submitted',
+          public.practice_today() - 3, public.practice_today() - 90, public.practice_today() + 90)
+  returning id into v_auth3;
+
+  insert into public.invoices (client_id, auth_id, submitted_on, submitted_by, amount, source)
+  values (v_client, v_auth3, public.practice_today() - 3, v_admin, 560, 'Backfill')
+  returning id into v_inv3;
+
+  perform public.record_payment(v_auth3, public.practice_today(), 400.00, 'FZZ0004', 'ZZAW0000004');
+  perform public.chase_invoices(public.practice_today());
+
+  select count(*) into v_n from public.tasks
+   where source_kind = 'invoice_short_paid' and source_ref = v_inv3 and status = 'Open';
+  if (select status from public.invoices where id = v_inv3) <> 'Short-paid' then
+    failures := failures || 'FAILED: $400 against $560 did not read as short-paid'::text;
+  elsif v_n = 0 then
+    failures := failures || 'FAILED: a short payment was not raised at all'::text;
+  else
+    raise notice 'ok  a short payment is raised the day it happens';
+  end if;
+
+  -- A call with no answer yet changes nothing. It is a note, not a decision.
+  v_q := public.record_invoice_query(v_inv3, 'ZQ Downtown billing', 'ZQ they are looking into it');
+  if not exists (select 1 from public.tasks
+                  where source_kind = 'invoice_short_paid' and source_ref = v_inv3 and status = 'Open') then
+    failures := failures || 'FAILED: an unsettled note took the short payment off the list'::text;
+  else
+    raise notice 'ok  a note that settles nothing leaves the short payment on the list';
+  end if;
+
+  -- And one that closes the question has to carry the answer.
+  begin
+    perform public.record_invoice_query(v_inv3, 'ZQ Downtown billing', null, true);
+    failures := failures || 'FAILED: a note closed the question without saying what settled it'::text;
+  exception when check_violation then
+    raise notice 'ok  a note that closes the question has to say what settled it';
+  end;
+
+  v_q := public.record_invoice_query(v_inv3, 'ZQ Downtown billing',
+    'ZQ the difference was a rate correction and will not be paid', true);
+  -- Settled: the item goes, the bell goes, and the next sweep does not bring
+  -- either back.
+  perform public.chase_invoices(public.practice_today());
+  if exists (select 1 from public.tasks
+              where source_kind = 'invoice_short_paid' and source_ref = v_inv3 and status = 'Open') then
+    failures := failures || 'FAILED: a settled short payment is still on somebody''s list'::text;
+  elsif exists (select 1 from public.notifications
+                 where dedupe_key = 'invoice_short_paid:' || v_inv3::text) then
+    failures := failures || 'FAILED: the bell still rings for a settled short payment'::text;
+  else
+    raise notice 'ok  and a settled one comes off the list and stays off';
+  end if;
+
+  -- ── settling a query does not settle a debt ───────────
+  -- The forty-day-old invoice on V0000902 is unpaid rather than short-paid.
+  -- A note saying somebody was spoken to does not take money owed off the
+  -- list, and that is the distinction the whole rule turns on.
+  select id into v_inv from public.invoices where auth_id = v_auth2 order by submitted_on limit 1;
+  perform public.record_invoice_query(v_inv, 'ZQ Downtown billing',
+    'ZQ they say it is in the next batch', true);
+  if not exists (select 1 from public.tasks
+                  where source_kind = 'invoice_unpaid' and source_ref = v_inv and status = 'Open') then
+    failures := failures || 'FAILED: a resolved note cleared the chase on money still owed'::text;
+  else
+    raise notice 'ok  a resolved note does not stop the chase on money still owed';
+  end if;
+
+  -- ── and a note is never rewritten ─────────────────
+  begin
+    update public.invoice_queries set said = 'ZQ something else' where id = v_q;
+    failures := failures || 'FAILED: a note about a query was rewritten'::text;
+  exception when check_violation or insufficient_privilege then
+    begin
+      delete from public.invoice_queries where id = v_q;
+      failures := failures || 'FAILED: a note about a query was deleted'::text;
+    exception when check_violation or insufficient_privilege then
+      raise notice 'ok  a note is never changed or removed - the next note says what changed';
+    end;
+  end;
+
   -- ── work logged and not invoiced ──────────────────────────
   insert into public.authorizations
     (client_id, number, service_type, rate_type, rate, total_hours, status, start_date, end_date)
@@ -272,9 +369,29 @@ begin
     raise notice 'ok  every authorization''s invoices agree with the payments pointed at them';
   end if;
 
-  -- Every payment that names a warrant answers an invoice. The one that does
-  -- not name one is the 26 October entry with no warrant and no voucher,
-  -- which the owner has not ruled on; it is counted rather than excused.
+  -- Where an invoice says what it was for, that is what it was for. The five
+  -- still owed carry the days off their USOR forms; the 156 backfilled from
+  -- the warrant index carry none, because the stub that paid them says what
+  -- was paid and not which days were worked. Counting the fixtures too: an
+  -- invoice Submit raised is lines by construction, and this is the assertion
+  -- that would notice if it stopped being.
+  select count(*) into v_n
+    from public.invoices i
+   where exists (select 1 from public.invoice_lines l where l.invoice_id = i.id)
+     and (select coalesce(sum(l.amount), 0) from public.invoice_lines l where l.invoice_id = i.id)
+         <> coalesce(i.amount, 0);
+  if v_n <> 0 then
+    failures := failures || format('FAILED: %s invoice(s) whose lines do not come to what was invoiced', v_n)::text;
+  else
+    raise notice 'ok  where an invoice has lines, they come to what was invoiced';
+  end if;
+
+  -- Every payment that names a warrant answers an invoice. The one that names
+  -- none is the 26 October entry whose warrant is not on file: the owner ruled
+  -- on 6 November that it was paid and the stub has not arrived, so it stays,
+  -- on the Billing list that 0311 reads, until reconciliation matches it. This
+  -- check asks about payments that name a warrant, so it does not excuse that
+  -- one - it is not one of them.
   select count(*) into v_n
     from public.payments p
     join public.authorizations a on a.id = p.auth_id
@@ -290,6 +407,8 @@ begin
   -- ── and none of it is reachable signed out ────────────────
   if has_table_privilege('anon', 'public.invoices', 'select')
      or has_table_privilege('anon', 'public.invoice_lines', 'select')
+     or has_table_privilege('anon', 'public.invoice_queries', 'select')
+     or has_function_privilege('anon', 'public.record_invoice_query(uuid, text, text, boolean, date)', 'execute')
      or has_function_privilege('anon', 'public.submit_invoice(uuid, uuid, uuid, numeric)', 'execute')
      or has_function_privilege('authenticated', 'public.raise_invoice(uuid, uuid, uuid, numeric, uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.chase_invoices(date)', 'execute') then
@@ -300,7 +419,10 @@ begin
 
   if has_table_privilege('authenticated', 'public.invoices', 'insert')
      or has_table_privilege('authenticated', 'public.invoices', 'update')
-     or has_table_privilege('authenticated', 'public.invoices', 'delete') then
+     or has_table_privilege('authenticated', 'public.invoices', 'delete')
+     or has_table_privilege('authenticated', 'public.invoice_queries', 'insert')
+     or has_table_privilege('authenticated', 'public.invoice_queries', 'update')
+     or has_table_privilege('authenticated', 'public.invoice_queries', 'delete') then
     failures := failures || 'FAILED: the invoice ledger can be written to without going through a function'::text;
   else
     raise notice 'ok  the ledger is only written through the functions that say who did it';

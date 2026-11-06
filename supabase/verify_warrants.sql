@@ -14,6 +14,10 @@
 --   marked as reconciled from the warrant. An invoice over what the
 --   authorization allows is not created; the line waits with the reason.
 --
+--   Money recorded from a remittance with no stub on file waits on the
+--   Billing list, and the arriving stub matches that payment rather than
+--   paying it twice - which is what takes it off the list.
+--
 --   By hand, only Admin and Billing record or set aside a line. Nobody writes
 --   payments directly. An invoice marked Paid by hand records its payment, and
 --   un-paying it takes that payment back.
@@ -51,6 +55,10 @@ declare
   v_l32     uuid;
   v_l33     uuid;
   v_hand    uuid;
+  v_auth5   uuid;
+  v_p5      uuid;
+  v_l5      uuid;
+  v_pay5    uuid;
   v_count   int;
   r         record;
   failures  text[] := '{}';
@@ -153,6 +161,28 @@ begin
   values (v_doc, 4, 'ZW0000004', date '2026-04-15', 9999.00) returning id into v_p4;
   insert into public.warrant_lines (page_id, line_no, invoice_ref, described_ref, amount)
   values (v_p4, 1, 'ZQ9600001', 'ZQ9600001', 9999);
+
+  -- A flat fee submitted and paid from the remittance, with its stub still to
+  -- come: the fixture for the waiting list further down. Made here with the
+  -- other fixtures because a signed-in Admin cannot write an authorization or
+  -- a warrant page directly - which is itself one of the rules above.
+  insert into public.authorizations
+    (client_id, number, service_type, rate_type, rate, status)
+  values (v_client, 'ZQ9600005', 'Job Development', 'Flat Fee', 560, 'Authorized')
+  returning id into v_auth5;
+  update public.completions
+     set start_date = date '2026-04-01', completion = date '2026-05-01'
+   where auth_id = v_auth5;
+  update public.authorizations set status = 'Due' where id = v_auth5;
+  update public.authorizations
+     set status = 'Submitted', submitted_on = date '2026-05-02', recipient = 'ZZ USOR'
+   where id = v_auth5;
+
+  -- The stub, which arrives further down.
+  insert into public.warrant_pages (document_id, page_no, warrant_no, warrant_date, total)
+  values (v_doc, 5, 'ZW0000005', date '2026-05-15', 560.00) returning id into v_p5;
+  insert into public.warrant_lines (page_id, line_no, voucher, invoice_ref, described_ref, amount)
+  values (v_p5, 1, '26PR00000000005', 'ZQ9600005', 'ZQ9600005', 560) returning id into v_l5;
 
   -- ── nobody else writes it ──────────────────────────────────
   if has_function_privilege('anon', 'public.reconcile_warrant_line(uuid, boolean, uuid, numeric)', 'execute')
@@ -328,6 +358,74 @@ begin
     failures := failures || 'FAILED: dismissing a line did not set it aside, or cleared a page with a line still waiting'::text;
   else
     raise notice 'ok  a dismissed line is set aside, and the page waits while any line does';
+  end if;
+
+  -- ── a payment whose warrant is not on file ─────────────────
+  --
+  -- The owner's ruling of 6 November 2026, on the one payment in the ledger
+  -- the warrant index does not account for: it was paid, the stub has not
+  -- arrived, keep it and say so until the import matches it.
+  --
+  -- The saying-so is a question asked of the rows (0311) rather than a flag,
+  -- and this is the path end to end: money recorded with no warrant number
+  -- waits on the list, and the arriving stub takes it off by writing the
+  -- number onto the payment that was already there.
+  -- Recorded from the remittance: the date and the amount, and no stub.
+  v_pay5 := public.record_payment(v_auth5, date '2026-05-10', 560, null, null);
+
+  if not exists (select 1 from public.payment_waiting_for_its_warrant w
+                  where w.payment_id = v_pay5 and w.about = 'ZQ9600005' and w.amount = 560) then
+    failures := failures || 'FAILED: money recorded with no warrant number is on no list'::text;
+  elsif exists (select 1 from public.payment_waiting_for_its_warrant w where w.payment_id = v_wb_pay) then
+    failures := failures || 'FAILED: a payment that names its warrant is waiting for one'::text;
+  else
+    raise notice 'ok  money recorded without its stub waits on the Billing list, and one with a stub does not';
+  end if;
+
+  -- The stub is read.
+  r := null;
+  select public.reconcile_warrant_line(v_l5) as status into r;
+  if r.status <> 'Already recorded' then
+    failures := failures || format('FAILED: the arriving stub made the waiting payment %s', r.status)::text;
+  elsif (select count(*) from public.payments where auth_id = v_auth5) <> 1 then
+    failures := failures || 'FAILED: the arriving stub paid the same money a second time'::text;
+  elsif not exists (select 1 from public.payments p
+                     where p.id = v_pay5 and p.warrant_no = 'ZW0000005'
+                       and p.warrant_date = date '2026-05-15'
+                       and p.voucher = '26PR00000000005' and p.warrant_line_id = v_l5) then
+    failures := failures || 'FAILED: the stub did not put its number, date and voucher on the payment'::text;
+  elsif exists (select 1 from public.payment_waiting_for_its_warrant w where w.payment_id = v_pay5) then
+    failures := failures || 'FAILED: the payment is still waiting for a warrant it now has'::text;
+  else
+    raise notice 'ok  the arriving stub matches that payment, names it, and takes it off the list';
+  end if;
+
+  -- And the day the money arrived is the warrant's, not the day somebody sat
+  -- down to type it in - with the correction written down (0313). The payment
+  -- was recorded as 10 May and the stub is dated the 15th.
+  if (select paid_on from public.authorizations where id = v_auth5) <> date '2026-05-15' then
+    failures := failures || format('FAILED: the authorization is still dated %s against a warrant dated 15 May',
+                                   (select paid_on from public.authorizations where id = v_auth5))::text;
+  elsif not exists (select 1 from public.authorization_corrections k
+                     where k.auth_id = v_auth5 and k.field = 'Paid on'
+                       and k.was_value = '2026-05-10' and k.new_value = '2026-05-15'
+                       and k.reason like '%ZW0000005%') then
+    failures := failures || 'FAILED: the date moved to the warrant''s with nothing in the correction log'::text;
+  else
+    raise notice 'ok  the stub''s own date wins, and the correction log says which two dates and why';
+  end if;
+
+  -- On the live ledger: nothing the import itself recorded is waiting. The
+  -- import writes the warrant number as it writes the payment, so a Warrant
+  -- or Workbook row with no number would mean reconciliation had stopped
+  -- doing that - and the list would fill with money that is not missing
+  -- anything.
+  select count(*) into v_count from public.payments
+   where coalesce(btrim(warrant_no), '') = '' and source in ('Warrant', 'Workbook');
+  if v_count <> 0 then
+    failures := failures || format('FAILED: %s payment(s) came off a warrant with no warrant number on them', v_count)::text;
+  else
+    raise notice 'ok  every payment the import recorded carries the warrant it came from';
   end if;
 
   begin

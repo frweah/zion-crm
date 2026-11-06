@@ -55,6 +55,15 @@ export type ClientAuthRow = {
   /** The one line the working list says about what this row waits on (§13.11). */
   attention?: string | null;
   urgency?: number | null;
+  /**
+   * What the ledger says about this row (0306): how many invoices have gone
+   * out, what is left to bill, and what was billed and not paid. Null where
+   * the ledger has nothing to say, which is not the same as zero.
+   */
+  invoiced?: number | null;
+  invoices?: number | null;
+  left_to_bill?: number | null;
+  owed?: number | null;
 };
 
 const GROUPS = ["Past", "Current", "Upcoming"] as const;
@@ -112,6 +121,17 @@ export function ClientAuthorizations({
    */
   const acting = open ? (rows.find((r) => r.id === open.id) ?? null) : null;
 
+  /**
+   * The client's own two figures, over the rows being shown.
+   *
+   * Taken from the rows rather than asked for separately, so the line above
+   * the table and the columns in it cannot disagree - and a past
+   * authorization contributes nothing to either, which is why turning Past on
+   * does not move them.
+   */
+  const toBill = showing.reduce((n, r) => n + Number(r.left_to_bill ?? 0), 0);
+  const owed = showing.reduce((n, r) => n + Number(r.owed ?? 0), 0);
+
   return (
     <>
       <div className="segmented" style={{ marginBottom: 10 }}>
@@ -128,6 +148,12 @@ export function ClientAuthorizations({
         ))}
       </div>
 
+      {toBill + owed > 0 && (
+        <p className="sub" style={{ marginBottom: 10 }}>
+          {money(toBill)} left to bill · {money(owed)} invoiced and not paid
+        </p>
+      )}
+
       <div className="card" style={{ padding: 0, marginBottom: 14 }}>
         <DataTable
           label="authorizations"
@@ -138,6 +164,8 @@ export function ClientAuthorizations({
             { key: "service", label: "Service" },
             { key: "when", label: "Dates" },
             { key: "amount", label: "Amount", align: "right" },
+            { key: "tobill", label: "Left to bill", align: "right" },
+            { key: "owed", label: "Invoiced, not paid", align: "right" },
             { key: "status", label: "Status" },
             { key: "attention", label: "Waiting on" },
             ...(canBill ? [{ key: "do", label: "Do", sortable: false }] : []),
@@ -171,6 +199,18 @@ export function ClientAuthorizations({
                   </span>
                 ),
               amount: money(worth(r)),
+              tobill: r.left_to_bill ? (
+                money(Number(r.left_to_bill))
+              ) : (
+                <span className="lock">—</span>
+              ),
+              owed: r.owed ? (
+                <span className="chip warn">{money(Number(r.owed))}</span>
+              ) : r.invoices ? (
+                <span className="lock">paid</span>
+              ) : (
+                <span className="lock">nothing invoiced</span>
+              ),
               status:
                 r.status === "Closed" ? (
                   <>
@@ -227,6 +267,8 @@ export function ClientAuthorizations({
               service: r.service_type,
               when: r.paid_on ?? r.start_date ?? "",
               amount: worth(r),
+              tobill: Number(r.left_to_bill ?? 0),
+              owed: Number(r.owed ?? 0),
               status: r.status,
               attention: r.urgency ?? 99,
             },

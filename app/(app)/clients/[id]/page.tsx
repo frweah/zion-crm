@@ -738,7 +738,7 @@ export default async function ClientPage({
      * which meant every client record paid for counting the hours behind
      * every open authorization in the practice (stress test finding 3).
      */
-    const [{ data: worklist }, { data: authRows }, rates] = await Promise.all([
+    const [{ data: worklist }, { data: authRows }, { data: invoicing }, rates] = await Promise.all([
       supabase.rpc("billing_worklist", { p_client: id }),
       supabase
         .from("client_authorizations")
@@ -748,17 +748,46 @@ export default async function ClientPage({
         .eq("client_id", id)
         .order("start_date", { ascending: false, nullsFirst: false })
         .order("number", { ascending: false }),
+      /**
+       * What has been billed against each of them, and what has come back
+       * (0306). The two figures the brief asks for on this tab are
+       * subtractions of these three: authorized less invoiced is what is left
+       * to bill, invoiced less paid is what is owed. Read from the ledger
+       * rather than from the rate, which is the whole lesson of Phase 2 - a
+       * rate said $900 where the signed authorization said $450, and only one
+       * of them went to the state.
+       */
+      supabase
+        .from("authorization_invoicing")
+        .select("auth_id, authorized, invoiced, paid, invoices, invoices_open")
+        .eq("client_id", id),
       readRateSchedule(supabase),
     ]);
 
     const waiting = new Map(
       ((worklist ?? []) as WorklistRow[]).map((w) => [w.id, w]),
     );
-    const authorizations = ((authRows ?? []) as ClientAuthRow[]).map((r) => ({
-      ...r,
-      attention: waiting.get(r.id)?.attention ?? null,
-      urgency: waiting.get(r.id)?.urgency ?? null,
-    }));
+    const billed = new Map(
+      ((invoicing ?? []) as {
+        auth_id: string;
+        authorized: number | null;
+        invoiced: number | null;
+        paid: number | null;
+        invoices: number | null;
+      }[]).map((b) => [b.auth_id, b]),
+    );
+    const authorizations = ((authRows ?? []) as ClientAuthRow[]).map((r) => {
+      const b = billed.get(r.id);
+      return {
+        ...r,
+        attention: waiting.get(r.id)?.attention ?? null,
+        urgency: waiting.get(r.id)?.urgency ?? null,
+        invoiced: b ? Number(b.invoiced ?? 0) : null,
+        invoices: b ? Number(b.invoices ?? 0) : null,
+        left_to_bill: b ? Math.max(Number(b.authorized ?? 0) - Number(b.invoiced ?? 0), 0) : null,
+        owed: b ? Math.max(Number(b.invoiced ?? 0) - Number(b.paid ?? 0), 0) : null,
+      };
+    });
 
     return (
       <>

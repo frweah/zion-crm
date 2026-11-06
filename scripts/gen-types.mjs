@@ -384,6 +384,8 @@ const RPC_FUNCTIONS = [
   "chase_invoices",
   "invoices_due",
   "billing_office_for_authorization",
+  // And what came of querying one (0312).
+  "record_invoice_query",
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
   "client_last_activity_for",

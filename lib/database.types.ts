@@ -2559,6 +2559,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      invoice_queries: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          asked_on: string;
+          asked_of: string;
+          said: string;
+          resolved: boolean;
+          recorded_by: string | null;
+          recorded_by_name: string;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_id: string;
+          asked_on: string;
+          asked_of: string;
+          said?: string;
+          resolved?: boolean;
+          recorded_by?: string | null;
+          recorded_by_name?: string;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          invoice_id?: string;
+          asked_on?: string;
+          asked_of?: string;
+          said?: string;
+          resolved?: boolean;
+          recorded_by?: string | null;
+          recorded_by_name?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
       invoices: {
         Row: {
           id: string;
@@ -7222,6 +7258,26 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_waiting_for_its_warrant: {
+        Row: {
+          payment_id: string | null;
+          auth_id: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          about: string | null;
+          service_type: string | null;
+          authorization_status: string | null;
+          amount: number | null;
+          warrant_date: string | null;
+          voucher: string | null;
+          source: string | null;
+          recorded_by_name: string | null;
+          invoice_id: string | null;
+          created_at: string | null;
+          days: number | null;
+        };
+        Relationships: [];
+      };
       sms_due_reminders: {
         Row: {
           event_id: string | null;
@@ -8295,6 +8351,10 @@ export type Database = {
       record_incoming_sms: {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null; p_media?: string | null; p_media_type?: string | null };
         Returns: { client_id: string | null; action: string | null }[];
+      };
+      record_invoice_query: {
+        Args: { p_invoice: string | null; p_asked_of: string | null; p_said?: string | null; p_resolved?: boolean | null; p_asked_on?: string | null };
+        Returns: string;
       };
       record_my_mailbox_address: {
         Args: { p_address: string | null };
