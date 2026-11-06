@@ -214,8 +214,40 @@ begin
   update public.authorizations
      set status = 'Paid', paid_on = public.practice_today() - 30, paid_amount = 500
    where id = v_item;
+
+  /**
+   * The fixture has to outvote the practice.
+   *
+   * `ledger_payment_lag()` is the median over every real authorization paid
+   * in the last year, so one fixture row asserts the median of the fixture
+   * and the practice together. This passed for weeks because the window
+   * happened to be empty, and failed the afternoon one real payment landed
+   * in it: {15, 20} has a median of 17.5, so "twenty days measured as 18".
+   *
+   * A check that only works while the practice has done nothing is not a
+   * check. So the window is counted and enough fixture rows at twenty days
+   * are added to be a strict majority, which makes twenty the median
+   * whatever the real rows say.
+   */
+  select count(*) into v_n
+    from public.authorizations a
+   where a.paid_on is not null and a.submitted_on is not null
+     and a.paid_on >= a.submitted_on
+     and a.submitted_on >= public.practice_today() - 365
+     and a.id <> v_item;
+
+  insert into public.authorizations
+    (client_id, service_type, rate_type, rate, total_hours, status, end_date,
+     number, submitted_on, paid_on, paid_amount, recipient)
+  select v_client, 'Job Coaching', 'Hourly', 50, 40, 'Paid',
+         public.practice_today() + 60, 'ZZ-LAG-' || g,
+         public.practice_today() - 50, public.practice_today() - 30, 500, 'ZZ USOR'
+    from generate_series(1, greatest(v_n, 1) * 2 + 1) g;
+
   if public.ledger_payment_lag() <> 20 then
-    failures := failures || format('FAILED: twenty days from sent to paid measured as %s', public.ledger_payment_lag())::text;
+    failures := failures || format(
+      'FAILED: twenty days from sent to paid measured as %s, over %s fixture rows and %s real ones',
+      public.ledger_payment_lag(), greatest(v_n, 1) * 2 + 2, v_n)::text;
   else
     raise notice 'ok  how long USOR takes to pay is measured from what it has actually done';
   end if;

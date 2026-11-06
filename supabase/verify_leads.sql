@@ -56,11 +56,11 @@ begin
     failures := failures || 'Applied did not write an "Application submitted" note'::text;
   end if;
 
-  update public.lead_matches set status = 'Interview' where id = v_match;
+  update public.lead_matches set status = 'Interview scheduled' where id = v_match;
   if not exists (select 1 from public.notes
                   where client_id = v_client and type = 'Interview'
-                    and text like 'Interview for%') then
-    failures := failures || 'Interview did not write an "Interview" note'::text;
+                    and text like 'Interview booked for%') then
+    failures := failures || 'Interview scheduled did not write an "Interview" note'::text;
   end if;
 
   update public.lead_matches set status = 'Hired' where id = v_match;

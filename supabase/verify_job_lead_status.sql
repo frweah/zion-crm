@@ -39,7 +39,7 @@ declare
   v_mine uuid; v_theirs uuid; v_into uuid;
   v_employer uuid; v_lead uuid; v_second_lead uuid; v_third_lead uuid;
   v_match uuid; v_other_match uuid; v_spare uuid; v_fresh uuid;
-  v_row uuid; v_word text; v_n integer; v_notes integer;
+  v_row uuid; v_word text; v_status text; v_n integer; v_notes integer;
   failures text[] := '{}';
 begin
   -- ── the people ─────────────────────────────────────────────
@@ -83,24 +83,41 @@ begin
   insert into public.lead_matches (lead_id, client_id, status, created_by)
   values (v_lead, v_theirs, 'Saved', v_admin) returning id into v_other_match;
 
-  -- ── the nine are the nine ──────────────────────────────────
-  select count(*) into v_n
-    from (values ('Applied'), ('Employer responded'), ('Interview scheduled'), ('Interviewed'),
-                 ('Offer'), ('Hired'), ('Declined by employer'), ('Client withdrew'), ('No response')) w(s)
-   where public.lead_status_for_application(w.s) is null;
-  if v_n > 0 then
-    failures := failures || format('FAILED: %s of the nine statuses have no word in lead_matches.status', v_n);
-  else
-    raise notice 'ok  all nine statuses map onto the vocabulary the rest of the system reads';
+  -- ── the nine are the nine, on both sides (0322) ────────────
+  --
+  -- There used to be a second vocabulary here and a function translating
+  -- between them. Now the words a job can hold are the nine plus 'Saved', so
+  -- what this asks is that every one of the nine is a word the job's own
+  -- column accepts - said by putting each one on a real row.
+  v_n := 0;
+  foreach v_status in array array['Applied', 'Employer responded', 'Interview scheduled',
+                                 'Interviewed', 'Offer', 'Hired', 'Declined by employer',
+                                 'Client withdrew', 'No response']
+  loop
+    begin
+      update public.lead_matches set status = v_status where id = v_other_match;
+    exception when check_violation then
+      v_n := v_n + 1;
+      failures := failures || format('FAILED: %s is an application status and lead_matches.status refuses it', v_status);
+    end;
+  end loop;
+  if v_n = 0 then
+    raise notice 'ok  every one of the nine is a word the job itself can hold';
   end if;
+  update public.lead_matches set status = 'Saved' where id = v_other_match;
 
-  -- The old eight-word vocabulary belongs to lead_matches.status and is not a
-  -- second way of saying the same thing here.
+  -- And the eight words that were the other vocabulary are gone from both
+  -- sides, rather than quietly still accepted on one of them.
+  begin
+    update public.lead_matches set status = 'Not selected' where id = v_other_match;
+    failures := failures || 'FAILED: lead_matches.status still accepts the old eight-word vocabulary'::text;
+  exception when check_violation then
+    raise notice 'ok  the old vocabulary is refused by the job as well as by the history';
+  end;
   begin
     insert into public.job_status_history (match_id, status) values (v_match, 'Not selected');
     failures := failures || 'FAILED: an eight-word status was accepted as an application status'::text;
-  exception when check_violation then
-    raise notice 'ok  the old vocabulary is refused rather than kept alongside the new';
+  exception when check_violation then null;
   end;
   begin
     insert into public.job_status_history (match_id, status) values (v_match, 'Saved');
@@ -241,7 +258,10 @@ begin
 
   insert into public.job_status_history (match_id, status, at, note, automatic)
   values (v_match, 'Interview scheduled', public.practice_today() - 2, 'ZZ booked', true);
-  if (select status from public.lead_matches where id = v_match) <> 'Interview' then
+  -- The word itself now, not 'Interview' standing for both of them: an
+  -- interview booked and one already held were the same thing on the board
+  -- until 0322, and they are not the same thing.
+  if (select status from public.lead_matches where id = v_match) <> 'Interview scheduled' then
     failures := failures || 'FAILED: an interview entry did not move the application on'::text;
   else
     raise notice 'ok  a later entry moves the application on';
@@ -253,7 +273,7 @@ begin
   -- and the application is still at interview.
   insert into public.job_status_history (match_id, status, at, note, automatic)
   values (v_match, 'Employer responded', public.practice_today() - 6, 'ZZ they rang', true);
-  if (select status from public.lead_matches where id = v_match) <> 'Interview' then
+  if (select status from public.lead_matches where id = v_match) <> 'Interview scheduled' then
     failures := failures || 'FAILED: a back-dated entry moved the application backwards'::text;
   elsif not exists (select 1 from public.job_status_history
                      where match_id = v_match and status = 'Employer responded') then
@@ -282,12 +302,21 @@ begin
   if not exists (select 1 from public.job_status_history
                   where match_id = v_spare and status = 'No response') then
     failures := failures || 'FAILED: an application left at Applied for twenty days was not marked No response'::text;
-  elsif (select status from public.lead_matches where id = v_spare) <> 'Applied' then
-    failures := failures || 'FAILED: No response changed what the application says it is, and nothing happened'::text;
+  -- Turned round by 0322, and this is the assertion the whole unification is
+  -- for. Under the two vocabularies 'No response' mapped back onto 'Applied',
+  -- so the board went on saying an application was live a fortnight after the
+  -- practice had recorded that nobody answered - 202 of them, on the real
+  -- rows. The board says what the history says now.
+  elsif (select status from public.lead_matches where id = v_spare) <> 'No response' then
+    failures := failures || 'FAILED: the board still says an application nobody answered is live'::text;
+  -- And it is still quiet. A note typed by nobody on 202 records is noise,
+  -- and note_type_for_match would file it as 'Job search' - one of the four
+  -- activity types USOR 96 autofill counts, so nothing happening would have
+  -- become job-search activity on a form that goes to the state.
   elsif (select count(*) from public.notes where client_id = v_into) <> v_notes then
-    failures := failures || 'FAILED: No response wrote a contact note about nothing happening'::text;
+    failures := failures || 'FAILED: a fortnight of silence wrote a note, and USOR 96 counts that kind'::text;
   else
-    raise notice 'ok  nothing heard for a fortnight is recorded, quietly, and changes nothing else';
+    raise notice 'ok  silence moves the board and writes nothing on the record';
   end if;
 
   if exists (select 1 from public.job_status_history
@@ -308,7 +337,7 @@ begin
   values (v_spare, 'Employer responded', public.practice_today(), true);
   if public.mark_applications_with_no_reply(14) <> 0 then
     failures := failures || 'FAILED: No response came back after somebody recorded a reply'::text;
-  elsif (select status from public.lead_matches where id = v_spare) <> 'Follow-up' then
+  elsif (select status from public.lead_matches where id = v_spare) <> 'Employer responded' then
     failures := failures || 'FAILED: a reply recorded after No response did not move the application on'::text;
   else
     raise notice 'ok  recording a reply overrides it, and it does not come back';

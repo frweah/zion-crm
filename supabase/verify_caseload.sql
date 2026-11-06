@@ -92,7 +92,7 @@ begin
   end if;
 
   insert into public.lead_matches (client_id, lead_id, status, created_by)
-  values (v_client, v_lead, 'Interview', v_admin)
+  values (v_client, v_lead, 'Interview scheduled', v_admin)
   returning id into v_match;
 
   update public.lead_matches set interview_on = public.practice_today() + 2 where id = v_match;
@@ -134,7 +134,7 @@ begin
     perform set_config('role', 'authenticated', true);
     perform set_config('request.jwt.claims',
                        json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
-    perform public.answer_reminder(v_task, 'Not selected', 'ZZ went to another candidate');
+    perform public.answer_reminder(v_task, 'Declined by employer', 'ZZ went to another candidate');
     perform set_config('role', 'postgres', true);
     perform set_config('request.jwt.claims', '', true);
 
@@ -144,7 +144,7 @@ begin
     ) then
       failures := failures || 'FAILED: a job that came to nothing still wants following up'::text;
     else
-      raise notice 'ok  answering "Not selected" takes the job off the books entirely';
+      raise notice 'ok  answering "Declined by employer" takes the job off the books entirely';
     end if;
 
     if exists (

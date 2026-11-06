@@ -73,8 +73,18 @@ begin
     raise notice 'ok  adding a job writes a note on the client, as before';
   end if;
 
-  -- ── every step in the new vocabulary writes one ────────────
-  foreach v_status in array array['Applied', 'Follow-up', 'Interview', 'Offer', 'Not selected']
+  -- ── every step in the one vocabulary writes one ────────────
+  --
+  -- All of them, not a chosen five. 0322 left ten words where there were
+  -- eight, and a list of five would have gone on passing while four of the
+  -- new ones fell through to the generic sentence.
+  --
+  -- Two are left out and asserted on their own below, because they do more
+  -- than write a note: 'Hired' starts a placement, and 'No response'
+  -- deliberately writes nothing at all.
+  foreach v_status in array array['Applied', 'Employer responded', 'Interview scheduled',
+                                  'Interviewed', 'Offer', 'Declined by employer',
+                                  'Client withdrew']
   loop
     -- The notes written in here all share a created_at, because now() is fixed
     -- for the whole transaction. Ordering by it returns an arbitrary row, and
@@ -105,7 +115,7 @@ begin
   select coalesce(array_agg(id), '{}') into v_seen
     from public.notes where client_id = v_client;
   update public.lead_matches
-     set status = 'Interview', outcome = 'ZZ they liked her'
+     set status = 'Interview scheduled', outcome = 'ZZ they liked her'
    where id = v_match;
   select text into v_text from public.notes
    where client_id = v_client and not (id = any(v_seen));
@@ -116,9 +126,11 @@ begin
   end if;
 
   -- ── a rejection is dated ───────────────────────────────────
-  -- Declined was renamed. Left unchanged, setMatchStatus would have stopped
-  -- recording the day a rejection happened, and nothing would have said so.
-  update public.lead_matches set status = 'Not selected', decided_on = current_date
+  -- Declined was renamed twice: to 'Not selected' in Phase 7 and to the
+  -- employer's own words in 0322. Left unchanged either time, setMatchStatus
+  -- would have stopped recording the day a rejection happened, and nothing
+  -- would have said so.
+  update public.lead_matches set status = 'Declined by employer', decided_on = current_date
    where id = v_match;
   if (select decided_on from public.lead_matches where id = v_match) is null then
     failures := failures || 'FAILED: a rejection recorded no date'::text;
@@ -190,8 +202,25 @@ begin
     raise notice 'ok  the panel sees the employer, the site and the follow-up date';
   end if;
 
+  -- ── and silence writes nothing (0322) ──────────────────────
+  --
+  -- The fourteen-day sweep moves the board now, where under the two
+  -- vocabularies it moved nothing. It must still put nothing on the record:
+  -- note_type_for_match files a job-search note, and USOR 96 autofill counts
+  -- that kind, so nothing happening would have become activity on a form
+  -- that goes to the state.
+  select count(*) into v_before from public.notes where client_id = v_client;
+  update public.lead_matches set status = 'No response' where id = v_match;
+  if (select status from public.lead_matches where id = v_match) <> 'No response' then
+    failures := failures || 'FAILED: a job cannot be recorded as unanswered at all'::text;
+  elsif (select count(*) from public.notes where client_id = v_client) <> v_before then
+    failures := failures || 'FAILED: a fortnight of silence wrote a note, and USOR 96 counts that kind'::text;
+  else
+    raise notice 'ok  silence moves the board and writes nothing on the record';
+  end if;
+
   -- ── the steps are ordered by progress, not alphabet ────────
-  if public.job_status_rank('Applied') >= public.job_status_rank('Not selected')
+  if public.job_status_rank('Applied') >= public.job_status_rank('Declined by employer')
      or public.job_status_rank('Saved') >= public.job_status_rank('Hired') then
     failures := failures || 'FAILED: the statuses do not rank in the order they happen'::text;
   else

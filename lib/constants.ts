@@ -364,46 +364,10 @@ export function median(values: number[]): number | null {
 export const POST_JD_STAGES = ["Job Development", "Job Search", "Job Placement", "Job Coaching"];
 
 /**
- * The steps a job goes through, in Margaret's words and in order.
- *
- * One list, because the same names appear on the leads board, on the client's
- * job tracker, in a database constraint and in the trigger that writes the
- * note. Renaming them in Phase 7 left four copies disagreeing, and the board
- * would have hit the constraint the next time somebody used it.
- */
-export const JOB_STATUSES = [
-  "Saved",
-  "Applied",
-  "Follow-up",
-  "Interview",
-  "Offer",
-  "Hired",
-  "Not selected",
-  // The client stepped away - declined an offer, backed out (0117).
-  "Withdrawn",
-] as const;
-
-/** A job that is over, one way or the other. */
-export const JOB_DONE = ["Hired", "Not selected", "Withdrawn"] as const;
-
-/** How an interview happens, whether the client said they will go, and what came of it (0117). */
-export const INTERVIEW_KINDS = ["In person", "Video", "Phone"] as const;
-export const INTERVIEW_CONFIRMED = ["Confirmed", "Unconfirmed"] as const;
-export const INTERVIEW_RESULTS = ["Done", "Rescheduled", "Cancelled", "Backed out", "No-show", "Unscheduled"] as const;
-
-export type JobStatus = (typeof JOB_STATUSES)[number];
-
-/**
  * Where an application got to, one entry at a time (0270).
  *
- * The nine the owner listed on 30 October. These are statuses of an
- * application rather than of a job: `JOB_STATUSES` above is the one word
- * `lead_matches.status` carries as the latest of these, which the leads board
- * and seven database functions read, and `lead_status_for_application` in the
- * database is the one place the two vocabularies meet.
- *
- * "Saved" is in that list and not in this one. A job somebody saved to try is
- * not an application, and gets its first status when it becomes one.
+ * The nine the owner listed on 30 October, each with a date and the person who
+ * reported it, kept as history in `job_status_history`.
  */
 export const APPLICATION_STATUSES = [
   "Applied",
@@ -413,16 +377,49 @@ export const APPLICATION_STATUSES = [
   "Offer",
   "Hired",
   "Declined by employer",
+  // The client stepped away - declined an offer, backed out (0117).
   "Client withdrew",
+  // Recorded by the fourteen-day sweep rather than typed by anybody.
   "No response",
 ] as const;
 
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
+/**
+ * The steps a job goes through, in Margaret's words and in order (0322).
+ *
+ * Derived rather than written out, because for a month this was a second list
+ * of eight words with a translation between it and the nine - and the
+ * translation was lossy in the direction it ran. 'No response' and 'Applied'
+ * both came out as 'Applied', so the board showed two hundred applications as
+ * live that the practice had already recorded as dead.
+ *
+ * One word longer than the nine. 'Saved' is not an application status: a job
+ * somebody put aside to try has not been applied for and has no history, and
+ * it gets its first status when it becomes an application.
+ */
+export const JOB_STATUSES = ["Saved", ...APPLICATION_STATUSES] as const;
+
+/** A job that is over, one way or the other. Silence is not one of them. */
+export const JOB_DONE = ["Hired", "Declined by employer", "Client withdrew"] as const;
+
+/** How an interview happens, whether the client said they will go, and what came of it (0117). */
+export const INTERVIEW_KINDS = ["In person", "Video", "Phone"] as const;
+export const INTERVIEW_CONFIRMED = ["Confirmed", "Unconfirmed"] as const;
+export const INTERVIEW_RESULTS = ["Done", "Rescheduled", "Cancelled", "Backed out", "No-show", "Unscheduled"] as const;
+
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
 /** Recorded by a rule rather than typed by anybody, so a screen can say so. */
 export const NO_REPLY_DAYS = 14;
 
-/** Where an application has got to, for a chip: good, over, or still going. */
+/**
+ * Where an application has got to, for a chip: good, over, or still going.
+ *
+ * One function, because there is one vocabulary (0322). There were two of
+ * these, one per vocabulary, and the second said a job was still going when
+ * the first said the employer had refused it.
+ */
 export function applicationStatusTone(status: string): "ok" | "warn" | "" {
   if (status === "Hired") return "ok";
   if (status === "Declined by employer" || status === "Client withdrew") return "";
@@ -431,13 +428,6 @@ export function applicationStatusTone(status: string): "ok" | "warn" | "" {
 
 /** Where an opening is, on the Jobs screen. Server and client both read it. */
 export const LEAD_STATUSES = ["Open", "Submitted", "Interviewing", "Filled", "Closed"] as const;
-
-/** Where a job has got to, for a chip: good, over, or still going. */
-export function jobStatusTone(status: string): "ok" | "warn" | "" {
-  if (status === "Hired") return "ok";
-  if (status === "Not selected" || status === "Withdrawn") return "";
-  return "warn";
-}
 
 /**
  * A pay rate, written the way it was agreed.

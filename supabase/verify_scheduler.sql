@@ -31,7 +31,13 @@ declare
     'zion-intake', 'zion-chase', 'zion-reports', 'zion-outlook-sync',
     'zion-messages-digest', 'zion-scheduled-texts', 'zion-sms-reminders',
     'zion-nightly-alerts', 'zion-nightly-digest', 'zion-monday-health',
-    'zion-clock-sweep'
+    'zion-clock-sweep',
+    -- Both scheduled on 6 Nov 2026 and neither added here until the suite
+    -- was run again afterwards. The suite had been reported as 141 of 141
+    -- that morning, before either job existed, and the second half of this
+    -- check - a job running that no file accounts for - is precisely what
+    -- that gap looks like.
+    'zion-friday-week', 'zion-to-file'
   ];
   v_name text;
   v_n integer;
