@@ -6083,6 +6083,7 @@ export type Database = {
           decided_by_name: string;
           decided_at: string | null;
           created_at: string;
+          by_staff_id: string;
         };
         Insert: {
           id?: string;
@@ -6103,6 +6104,7 @@ export type Database = {
           decided_by_name?: string;
           decided_at?: string | null;
           created_at?: string;
+          by_staff_id: string;
         };
         Update: {
           id?: string;
@@ -6123,6 +6125,7 @@ export type Database = {
           decided_by_name?: string;
           decided_at?: string | null;
           created_at?: string;
+          by_staff_id?: string;
         };
         Relationships: [];
       };
@@ -8714,7 +8717,7 @@ export type Database = {
         Returns: number;
       };
       to_file_offer: {
-        Args: { p_staff: string | null; p_source: string | null; p_source_key: string | null; p_title: string | null; p_detail?: string | null; p_happened?: string | null; p_client?: string | null; p_guess_why?: string | null };
+        Args: { p_staff: string | null; p_source: string | null; p_source_key: string | null; p_title: string | null; p_detail?: string | null; p_happened?: string | null; p_client?: string | null; p_guess_why?: string | null; p_by_staff?: string | null };
         Returns: string;
       };
       two_factor_roster: {
@@ -8724,6 +8727,10 @@ export type Database = {
       two_factor_state: {
         Args: Record<string, never>;
         Returns: { required: boolean | null; enrolled: boolean | null }[];
+      };
+      unassigned_filing_desk: {
+        Args: Record<string, never>;
+        Returns: string;
       };
       unfile_mail: {
         Args: { p_id: string | null; p_reason: string | null };

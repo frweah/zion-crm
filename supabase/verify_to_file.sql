@@ -44,8 +44,13 @@ declare
   v_admin_u uuid := gen_random_uuid();
   v_client  uuid;
   v_else    uuid;
+  v_theirs  uuid;
+  v_nobody  uuid;
+  v_desk    uuid;
   v_cal     uuid;
   v_mail    uuid;
+  v_mail2   uuid;
+  v_credit  uuid;
   v_contact uuid;
   v_counselor uuid;
   v_n       integer;
@@ -146,6 +151,100 @@ begin
     failures := failures || 'FAILED: the same email was offered twice'::text;
   else
     raise notice 'ok  and not a second time the next night';
+  end if;
+
+  -- ── whose inbox, and whose contact (0321) ─────────────────
+  --
+  -- The owner's ruling on the backlog: a suggestion goes to the assigned
+  -- staff member, not to the mailbox it was found in. Of the ninety-five real
+  -- messages, seventy-eight were in a mailbox belonging to somebody who does
+  -- not work the client named in them.
+  insert into public.clients (name, stage, status, assigned_staff_id, phone)
+  values ('ZZ Worked By Somebody Else', 'Job Coaching', 'Active', v_other, '(801) 555-0182')
+  returning id into v_theirs;
+
+  insert into public.mail_log
+    (staff_id, counselor_id, graph_message_id, subject, sent_at, direction, counterpart_email, filed_at)
+  values (v_mine, v_counselor, 'ZQ-MSG-3', 'ZQ about ZZ Worked By Somebody Else', now() - interval '1 day',
+          'Outgoing', 'zq-file-counselor@example.test', now());
+
+  v_n := public.to_file_from_mail(public.practice_today() - 7);
+  select id into v_mail2 from public.to_file where source_key = 'ZQ-MSG-3';
+  if v_mail2 is null then
+    failures := failures || 'FAILED: mail about somebody else''s client was not offered at all'::text;
+  elsif (select staff_id from public.to_file where id = v_mail2) <> v_other then
+    failures := failures || 'FAILED: the suggestion went to the mailbox owner rather than to whoever works the client'::text;
+  elsif (select by_staff_id from public.to_file where id = v_mail2) <> v_mine then
+    failures := failures || 'FAILED: the item does not remember whose mailbox it came out of'::text;
+  elsif (select detail from public.to_file where id = v_mail2) not like '%ZZ File Owner%' then
+    failures := failures || 'FAILED: the item does not say whose mailbox it was, so its reader cannot ask'::text;
+  else
+    raise notice 'ok  a suggestion goes to whoever works the client, and says whose mailbox it came from';
+  end if;
+
+  -- And confirming it credits the person who sent it, not the person who
+  -- pressed the button. The contact log is what a monthly report reads, so a
+  -- job coach confirming the Admin desk's email must not produce a record
+  -- saying the job coach wrote to them.
+  --
+  -- Only asked where the item actually reached the right inbox. Confirming
+  -- something that is in somebody else's inbox raises rather than returning,
+  -- so without this the routing fault above would abandon the script with
+  -- "That is not in your inbox." and the assertion that found it would never
+  -- be reached.
+  if (select staff_id from public.to_file where id = v_mail2) = v_other then
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_other_u, 'role', 'authenticated')::text, true);
+    v_credit := public.to_file_confirm(v_mail2, 'happened', 'ZQ sent the update', 'General progress');
+    if v_credit is null then
+      failures := failures || 'FAILED: confirming the mail item made no contact-log entry'::text;
+    elsif (select staff_id from public.contact_log where id = v_credit) <> v_mine then
+      failures := failures || 'FAILED: the contact log credits whoever confirmed it instead of whoever had the contact'::text;
+    elsif (select decided_by from public.to_file where id = v_mail2) <> v_other then
+      failures := failures || 'FAILED: the item does not record who decided it'::text;
+    else
+      raise notice 'ok  the contact log credits whose mail it was, and the item records who decided';
+    end if;
+  end if;
+  -- Back to the sweep for the rest of this section.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+
+  -- A client nobody is assigned to: the desk, asked as a rule rather than
+  -- named. "Margaret where none" is a person today and the Reports desk for
+  -- as long as the practice exists.
+  v_desk := public.unassigned_filing_desk();
+  insert into public.clients (name, stage, status, assigned_staff_id, phone)
+  values ('ZZ Nobody Works This One', 'Job Coaching', 'Active', null, '(801) 555-0183')
+  returning id into v_nobody;
+  insert into public.mail_log
+    (staff_id, counselor_id, graph_message_id, subject, sent_at, direction, counterpart_email, filed_at)
+  values (v_mine, v_counselor, 'ZQ-MSG-4', 'ZQ about ZZ Nobody Works This One', now() - interval '1 day',
+          'Incoming', 'zq-file-counselor@example.test', now());
+
+  v_n := public.to_file_from_mail(public.practice_today() - 7);
+  if v_desk is null then
+    failures := failures || 'FAILED: the practice has no desk for a client nobody is assigned to'::text;
+  elsif (select staff_id from public.to_file where source_key = 'ZQ-MSG-4') <> v_desk then
+    failures := failures || 'FAILED: mail about an unassigned client did not reach the filing desk'::text;
+  elsif (select role from public.staff where id = v_desk) not in ('Reports', 'Admin') then
+    failures := failures || 'FAILED: the filing desk is somebody who was not asked to hold it'::text;
+  else
+    raise notice 'ok  mail about a client nobody works goes to the Reports desk';
+  end if;
+
+  -- Two clients named in one subject is one thing to decide, not two.
+  insert into public.mail_log
+    (staff_id, counselor_id, graph_message_id, subject, sent_at, direction, counterpart_email, filed_at)
+  values (v_mine, v_counselor, 'ZQ-MSG-5',
+          'ZQ ZZ Filed Person and ZZ Worked By Somebody Else both', now() - interval '1 day',
+          'Incoming', 'zq-file-counselor@example.test', now());
+  v_n := public.to_file_from_mail(public.practice_today() - 7);
+  if (select count(*) from public.to_file where source_key = 'ZQ-MSG-5') <> 1 then
+    failures := failures || 'FAILED: an email naming two clients became two things to clear'::text;
+  else
+    raise notice 'ok  an email naming two clients is offered once, to be reassigned if the guess is wrong';
   end if;
 
   -- ── an item is its owner's ────────────────────────────────
@@ -259,7 +358,7 @@ begin
      or has_table_privilege('authenticated', 'public.to_file', 'delete')
      or has_table_privilege('anon', 'public.to_file', 'select')
      or has_function_privilege('authenticated',
-          'public.to_file_offer(uuid, text, text, text, text, timestamptz, uuid, text)', 'execute')
+          'public.to_file_offer(uuid, text, text, text, text, timestamptz, uuid, text, uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.to_file_from_mail(date)', 'execute') then
     failures := failures || 'FAILED: the inbox can be written without going through a function'::text;
   else

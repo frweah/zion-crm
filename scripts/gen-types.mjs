@@ -397,6 +397,7 @@ const RPC_FUNCTIONS = [
   "to_file_confirm",
   "to_file_discard",
   "to_file_from_mail",
+  "unassigned_filing_desk",
   "clients_named_in",
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
