@@ -10,6 +10,8 @@ import { useActionState } from "react";
 import { recordDroppedFile } from "./team/drop-file";
 import { FileToClient } from "./team/file-to-client";
 import { TeamsMeetingButton } from "./team/meeting-button";
+import { EmojiPicker } from "./emoji-picker";
+import { expandShortcodes } from "@/lib/emoji";
 import { PRACTICE_TZ } from "@/lib/constants";
 
 /**
@@ -99,6 +101,42 @@ export function TeamPane({ myId }: { myId: string }) {
   const [state, send, sending] = useActionState(sendChatMessage, initial);
   const bottom = useRef<HTMLDivElement | null>(null);
   const form = useRef<HTMLFormElement | null>(null);
+  const box = useRef<HTMLTextAreaElement | null>(null);
+
+  /**
+   * Writing into a composer that React does not control.
+   *
+   * The textarea here is uncontrolled on purpose: closing this window hides
+   * it rather than unmounting it, so a half-written message survives, and
+   * holding the text in state would mean the window re-rendering on every
+   * keystroke behind whatever page is open. So an emoji goes in through
+   * `setRangeText`, which is the browser's own insert - it moves the caret,
+   * leaves undo working, and does not make this a controlled field.
+   */
+  function insertEmoji(char: string) {
+    const el = box.current;
+    if (!el) return;
+    const at = el.selectionStart ?? el.value.length;
+    el.setRangeText(char, at, el.selectionEnd ?? at, "end");
+    el.focus();
+  }
+
+  /**
+   * `:tada:` becomes the character as the closing colon is typed.
+   *
+   * Same rule as the full page, done against the element instead of against
+   * state, and only when the character just typed was a colon.
+   */
+  function expandAsTyped() {
+    const el = box.current;
+    if (!el) return;
+    const at = el.selectionStart ?? 0;
+    if (el.value[at - 1] !== ":") return;
+    const before = el.value.slice(0, at);
+    const grown = expandShortcodes(before);
+    if (grown === before) return;
+    el.setRangeText(grown, 0, at, "end");
+  }
   // Files dropped or pasted into this thread but not sent yet. They go with
   // the next message, by reference, which is 0106's rule kept.
   const [carrying, setCarrying] = useState<{ id: string; name: string }[]>([]);
@@ -428,17 +466,20 @@ export function TeamPane({ myId }: { myId: string }) {
               <label className="field" htmlFor="pane-body">
                 Say it
                 <textarea
+                  ref={box}
                   id="pane-body"
                   name="body"
                   rows={2}
                   placeholder="Drag a file in, or paste one"
                   required={carrying.length === 0}
+                  onInput={expandAsTyped}
                 />
               </label>
               <div className="row2" style={{ gap: 6, alignItems: "center" }}>
                 <button className="btn" type="submit" disabled={sending || dropping}>
                   {dropping ? "Adding the file…" : sending ? "Sending…" : "Say it"}
                 </button>
+                <EmojiPicker onPick={insertEmoji} />
                 <TeamsMeetingButton conversationId={thread.id} subject={thread.title} />
               </div>
             </form>

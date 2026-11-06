@@ -16,6 +16,8 @@ import {
   type ChatAttachment,
 } from "./actions";
 import { FileToClient } from "../team/file-to-client";
+import { EmojiPicker } from "../emoji-picker";
+import { expandShortcodes } from "@/lib/emoji";
 import { findClients, type Found } from "../search-actions";
 
 const initial: ChatState = { error: null, ok: null };
@@ -271,6 +273,28 @@ export function Composer({
       : participants.filter((p) => p.name.toLowerCase().includes(picking.toLowerCase())).slice(0, 6);
 
   function onBody(value: string, caret: number) {
+    /**
+     * `:tada:` becomes the character as the closing colon is typed.
+     *
+     * Only up to the caret, so a name somebody is in the middle of typing is
+     * left alone - and only when the character before the caret is a colon,
+     * which is the moment a name was finished rather than every keystroke
+     * after it. Without that, going back to edit a word earlier in the
+     * message would re-run over the whole thing on every letter.
+     */
+    if (value[caret - 1] === ":") {
+      const before = value.slice(0, caret);
+      const grown = expandShortcodes(before);
+      if (grown !== before) {
+        const next = grown + value.slice(caret);
+        setBody(next);
+        setCaretAfter(grown.length);
+        setPicking(null);
+        setNaming(null);
+        return;
+      }
+    }
+
     setBody(value);
     const before = value.slice(0, caret);
     const at = before.lastIndexOf("@");
@@ -325,6 +349,20 @@ export function Composer({
     setNaming(null);
     setNamed((all) => (all.some((c) => c.id === client.id) ? all : [...all, client]));
     setCaretAfter(hash + client.name.length + 2);
+  }
+
+  /**
+   * An emoji at the caret.
+   *
+   * The same shape as a mention or a client chip: put it in where the caret
+   * is, then put the caret after it, which `caretAfter` does once the
+   * textarea actually holds the new text.
+   */
+  function insertEmoji(char: string) {
+    const el = box.current;
+    const caret = el?.selectionStart ?? body.length;
+    setBody(body.slice(0, caret) + char + body.slice(caret));
+    setCaretAfter(caret + char.length);
   }
 
   function insertMention(name: string) {
@@ -517,6 +555,7 @@ export function Composer({
           )}
         </label>
         <div className="row2" style={{ gap: 6 }}>
+          <EmojiPicker onPick={insertEmoji} />
           {clientId && (
             <button type="button" className="btn ghost" onClick={() => setShowFiles(!showFiles)}>
               {showFiles ? "Done attaching" : "Attach"}

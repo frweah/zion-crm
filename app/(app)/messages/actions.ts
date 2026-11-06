@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { expandShortcodes } from "@/lib/emoji";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
@@ -97,7 +98,11 @@ export async function sendChatMessage(_prev: ChatState, formData: FormData): Pro
   }
   const { error } = await supabase.rpc("post_message", {
     p_conversation: conversation,
-    p_body: String(formData.get("body") ?? ""),
+    // Last chance to turn `:tada:` into the character. The composers do it as
+    // the closing colon is typed, which covers everything typed in order -
+    // this covers a name pasted in whole, and is what makes "stored as plain
+    // Unicode" true of the record rather than of the keyboard.
+    p_body: expandShortcodes(String(formData.get("body") ?? "")),
     p_attachments: attachments as never,
     p_mentions: formData.getAll("mention").map(String),
     // Clients named with a # chip (0274). References, so the client's record
@@ -113,7 +118,7 @@ export async function editMessage(_prev: ChatState, formData: FormData): Promise
   const supabase = await createClient();
   const { error } = await supabase.rpc("edit_message", {
     p_message: String(formData.get("message_id") ?? ""),
-    p_body: String(formData.get("body") ?? ""),
+    p_body: expandShortcodes(String(formData.get("body") ?? "")),
   });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/team");

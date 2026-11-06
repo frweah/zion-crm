@@ -331,6 +331,64 @@ if (listed.length === 0) {
   }
 }
 
+// 7. Emoji (owner, 6 Nov 2026): a picker in every composer, shortcodes that
+//    expand, and the character stored rather than the name.
+//
+//    The last of those is the one that would rot quietly. `:tada:` sitting in
+//    a message body looks fine on the screen that rendered it and reaches the
+//    nightly digest, the mail path, a notification and search as five
+//    characters of punctuation - so the expansion has to be on the way in to
+//    the database and not only in the keyboard.
+const emoji = await readFile(new URL("../lib/emoji.ts", import.meta.url), "utf8");
+const picker = await read("emoji-picker.tsx");
+const COMPOSERS = {
+  "team-pane.tsx": "the pane, and the compact window with it",
+  "messages/thread.tsx": "the full page",
+};
+
+const chars = [...emoji.matchAll(/char: "([^"]+)"/g)].map((m) => m[1]);
+const codes = [...emoji.matchAll(/codes: \[([^\]]*)\]/g)].map((m) => m[1]);
+if (!picker) {
+  fail("there is no emoji picker, so the button has nothing to open");
+} else if (chars.length === 0) {
+  fail("lib/emoji.ts offers no emoji, so the picker would open on nothing");
+} else if (codes.length !== chars.length) {
+  fail("an emoji has no :name:, so it can be pressed and not typed");
+} else if (chars.some((c) => /^:|:$/.test(c))) {
+  fail("an emoji is stored as its shortcode rather than as the character");
+} else {
+  ok(`all ${chars.length} emoji have a character and a name somebody can type`);
+}
+
+const without = [];
+for (const [file, what] of Object.entries(COMPOSERS)) {
+  const text = await read(file);
+  if (!text) {
+    fail(`${file} is gone, so this no longer knows where the composers are`);
+  } else if (!/EmojiPicker/.test(text) || !/expandShortcodes/.test(text)) {
+    without.push(`${what} (${file})`);
+  }
+}
+if (without.length) {
+  fail(`${without.join(", ")} has no emoji button, or takes the picker without the typing`);
+} else {
+  ok(`both composers offer the picker and expand a :name: as it is typed`);
+}
+
+// And the body that reaches post_message has been through it. Asked of the
+// call rather than of the file: an import that nothing uses would pass a
+// check that only looked for the name.
+const posted = chatActions.match(/p_body:[^\n]*/g) ?? [];
+if (posted.length === 0) {
+  fail("nothing sends a message body, so there is nothing to expand");
+} else if (!posted.every((line) => /expandShortcodes\(/.test(line))) {
+  fail(
+    "a message body reaches the database without its shortcodes expanded, so :tada: would be stored as five characters of punctuation and read that way by search, the digest and every notification",
+  );
+} else {
+  ok(`every message body written to the database has its shortcodes expanded first`);
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);
