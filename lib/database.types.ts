@@ -1519,6 +1519,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           billing_office_id: string | null;
+          category: string | null;
         };
         Insert: {
           id?: string;
@@ -1535,6 +1536,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           billing_office_id?: string | null;
+          category?: string | null;
         };
         Update: {
           id?: string;
@@ -1551,6 +1553,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           billing_office_id?: string | null;
+          category?: string | null;
         };
         Relationships: [];
       };
@@ -6060,6 +6063,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      to_file: {
+        Row: {
+          id: string;
+          staff_id: string;
+          source: string;
+          source_key: string;
+          client_id: string | null;
+          guess_why: string;
+          happened_at: string | null;
+          title: string;
+          detail: string;
+          state: string;
+          outcome: string;
+          category: string | null;
+          note: string;
+          contact_id: string | null;
+          decided_by: string | null;
+          decided_by_name: string;
+          decided_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          source: string;
+          source_key: string;
+          client_id?: string | null;
+          guess_why?: string;
+          happened_at?: string | null;
+          title?: string;
+          detail?: string;
+          state?: string;
+          outcome?: string;
+          category?: string | null;
+          note?: string;
+          contact_id?: string | null;
+          decided_by?: string | null;
+          decided_by_name?: string;
+          decided_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          source?: string;
+          source_key?: string;
+          client_id?: string | null;
+          guess_why?: string;
+          happened_at?: string | null;
+          title?: string;
+          detail?: string;
+          state?: string;
+          outcome?: string;
+          category?: string | null;
+          note?: string;
+          contact_id?: string | null;
+          decided_by?: string | null;
+          decided_by_name?: string;
+          decided_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       tour_hints: {
         Row: {
           key: string;
@@ -7631,6 +7697,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      clients_named_in: {
+        Args: { p_text: string | null };
+        Returns: { client_id: string | null; how: string | null }[];
+      };
       clock_in: {
         Args: { p_note?: string | null; p_client?: string | null };
         Returns: string;
@@ -8581,7 +8651,7 @@ export type Database = {
       };
       staff_week: {
         Args: { p_today?: string | null };
-        Returns: { staff_id: string | null; staff_name: string | null; email: string | null; role: string | null; week_start: string | null; week_end: string | null; billable_hours: number | null; clocked_hours: number | null; notes_written: number | null; contacts_logged: number | null; tasks_done: number | null; tasks_open: number | null; tasks_overdue: number | null; clients_carried: number | null; appointments: number | null }[];
+        Returns: { staff_id: string | null; staff_name: string | null; email: string | null; role: string | null; week_start: string | null; week_end: string | null; billable_hours: number | null; clocked_hours: number | null; notes_written: number | null; contacts_logged: number | null; tasks_done: number | null; tasks_open: number | null; tasks_overdue: number | null; clients_carried: number | null; appointments: number | null; to_file_waiting: number | null; quiet_clients: number | null; reports_due: number | null; reports_overdue: number | null }[];
       };
       start_break: {
         Args: Record<string, never>;
@@ -8626,6 +8696,26 @@ export type Database = {
       timer_elapsed_hours: {
         Args: { p_started: string | null };
         Returns: number;
+      };
+      to_file_assign: {
+        Args: { p_item: string | null; p_client: string | null };
+        Returns: undefined;
+      };
+      to_file_confirm: {
+        Args: { p_item: string | null; p_outcome: string | null; p_note?: string | null; p_category?: string | null };
+        Returns: string;
+      };
+      to_file_discard: {
+        Args: { p_item: string | null; p_reason?: string | null };
+        Returns: undefined;
+      };
+      to_file_from_mail: {
+        Args: { p_since?: string | null };
+        Returns: number;
+      };
+      to_file_offer: {
+        Args: { p_staff: string | null; p_source: string | null; p_source_key: string | null; p_title: string | null; p_detail?: string | null; p_happened?: string | null; p_client?: string | null; p_guess_why?: string | null };
+        Returns: string;
       };
       two_factor_roster: {
         Args: Record<string, never>;

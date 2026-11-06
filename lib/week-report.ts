@@ -12,6 +12,11 @@
  * learns to stop reading the email. And **it names no client**, so the email
  * can be read on a phone in public: counts, hours and dates only, which is
  * the rule the Monday email follows.
+ *
+ * **What it leads with is what the brief asked for**, in the owner's order:
+ * things waiting to be filed, clients who have gone quiet, and reports due or
+ * overdue. The week's own figures - hours, notes, calls, tasks - come after
+ * them, because they are what happened and the three above are what to do.
  */
 
 export type Week = {
@@ -29,6 +34,11 @@ export type Week = {
   tasks_overdue: number;
   clients_carried: number;
   appointments: number;
+  /** The three the brief names, counted in 0319. */
+  to_file_waiting: number;
+  quiet_clients: number;
+  reports_due: number;
+  reports_overdue: number;
 };
 
 const n = (v: number | string | null | undefined): number => Number(v ?? 0);
@@ -101,20 +111,62 @@ export function aheadLine(w: Week): string {
 }
 
 /**
+ * The three things to do something about, each left out when there is nothing
+ * to say. All three silent is its own sentence: somebody with an empty inbox,
+ * no quiet clients and no report owing should be told that plainly rather than
+ * reading three lines of zeros to work it out.
+ */
+export function owedLines(w: Week): string[] {
+  const lines: string[] = [];
+  if (w.to_file_waiting > 0) {
+    lines.push(`To file: ${count(w.to_file_waiting, "thing", "things")} waiting on My day.`);
+  }
+  if (w.quiet_clients > 0) {
+    lines.push(
+      `Quiet: ${count(w.quiet_clients, "client", "clients")} with nothing on the record for a fortnight.`,
+    );
+  }
+  if (w.reports_due > 0) {
+    const late =
+      w.reports_overdue === 0
+        ? "none past its date"
+        : w.reports_overdue >= w.reports_due
+          ? "all of them past their date"
+          : `${w.reports_overdue} past their date`;
+    lines.push(`Reports: ${count(w.reports_due, "report", "reports")} to finish, ${late}.`);
+  }
+  if (lines.length === 0) {
+    return ["Nothing is waiting to be filed, nobody has gone quiet, and no report is owing."];
+  }
+  return lines;
+}
+
+/**
  * The email.
  *
- * The subject carries the one thing that is actually late, because a subject
- * that always says the same words is a subject nobody reads. Everything else
- * is in the four lines below it.
+ * The subject carries the most pressing of the three, because a subject that
+ * always says the same words is a subject nobody reads. Reports first: they
+ * are the thing with a date the state is waiting on.
  */
 export function weekEmail(w: Week, on: string): { subject: string; body: string } {
-  const subject =
-    w.tasks_overdue > 0
-      ? `Your week — ${count(w.tasks_overdue, "task", "tasks")} past their date (${on})`
-      : `Your week — nothing past its date (${on})`;
+  const lead =
+    w.reports_overdue > 0
+      ? `${count(w.reports_overdue, "report", "reports")} past their date`
+      : w.to_file_waiting > 0
+        ? `${count(w.to_file_waiting, "thing", "things")} to file`
+        : w.quiet_clients > 0
+          ? `${count(w.quiet_clients, "client", "clients")} gone quiet`
+          : w.reports_due > 0
+            ? `${count(w.reports_due, "report", "reports")} to finish`
+            : w.tasks_overdue > 0
+              ? `${count(w.tasks_overdue, "task", "tasks")} past their date`
+              : "nothing waiting";
+  const subject = `Your week — ${lead} (${on})`;
 
   const body = [
     `${w.staff_name}, your week of ${span(w.week_start, w.week_end)}.`,
+    "",
+    ...owedLines(w),
     "",
     didLine(w),
     waitingLine(w),

@@ -77,6 +77,12 @@ declare
     'client_aliases=other_spellings',
     -- The invoices sent about them (0306), with the services on each.
     'invoices=invoices',
+    -- What was noticed and not yet filed (0317). Deliberately not on the
+    -- client's record - that is what keeps an unconfirmed item out of a
+    -- report - and still something the practice holds with this client's
+    -- name against it, including the ones somebody discarded, because those
+    -- rows stay so the sweep does not offer them again.
+    'to_file=noticed_not_filed',
     'mail_log=email',
     -- Texts, web chats and staff threads about the client (0104).
     'conversations=conversations',

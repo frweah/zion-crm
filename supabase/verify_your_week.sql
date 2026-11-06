@@ -36,6 +36,7 @@ declare
   v_gone    uuid;
   v_quiet   uuid;
   v_client  uuid;
+  v_silent  uuid;
   v_auth    uuid;
   v_task    uuid;
   v_friday  date := date '2026-11-06';
@@ -59,6 +60,17 @@ begin
   -- Somebody else's client, to prove the count is per person.
   insert into public.clients (name, stage, status, assigned_staff_id, phone)
   values ('ZZ Week Bystander', 'Job Coaching', 'Active', v_other, '(801) 555-0171');
+  -- And one of theirs with nothing on the record at all, which is the
+  -- quietest a client can be.
+  insert into public.clients (name, stage, status, assigned_staff_id, phone)
+  values ('ZZ Week Silence', 'Job Coaching', 'Active', v_doer, '(801) 555-0172') returning id into v_silent;
+  -- Creating a client writes a stage-history row, and that row is activity -
+  -- so a client made a minute ago has been active a minute ago, which is
+  -- true and is not what this case is about. Taken away, so this client has
+  -- nothing on the record at all: the last-activity function then answers
+  -- nothing rather than a date, and "nothing" has to count as quiet. An
+  -- imported client nobody ever touched is exactly that row.
+  delete from public.client_stage_history where client_id = v_silent;
 
   insert into public.authorizations
     (client_id, number, service_type, rate_type, rate, total_hours, status, start_date, end_date)
@@ -155,10 +167,49 @@ begin
     failures := failures || format('FAILED: %s task(s) open where two are, and the removed one is not', w.tasks_open)::text;
   elsif w.tasks_overdue <> 1 then
     failures := failures || format('FAILED: %s task(s) past their date where one is', w.tasks_overdue)::text;
-  elsif w.clients_carried <> 1 then
-    failures := failures || format('FAILED: %s client(s) carried where one is theirs', w.clients_carried)::text;
   else
     raise notice 'ok  every figure is this person''s own, and this week''s';
+  end if;
+
+  -- ── the three the Friday email is for ────────────────────
+  -- Counted for this person: an item in their inbox, a client of theirs with
+  -- nothing on the record for a fortnight, and a report they owe.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  perform public.to_file_offer(v_doer, 'Calendar', 'ZQ-WEEK-EVENT', 'ZQ something to file',
+                               '', timestamptz '2026-11-04 17:00+00', v_client, 'named');
+  perform public.to_file_offer(v_other, 'Calendar', 'ZQ-OTHER-EVENT', 'ZQ somebody else''s',
+                               '', timestamptz '2026-11-04 17:00+00', v_client, 'named');
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into public.client_reports (client_id, period, owner_id, status, due_on, template)
+  values (v_client, date '2026-10-01', v_doer, 'Draft', date '2026-11-05', 'Monthly client report'),
+         (v_client, date '2026-09-01', v_doer, 'Draft', date '2026-11-30', 'Monthly client report');
+
+  select * into w from public.staff_week(v_friday) k where k.staff_id = v_doer;
+
+  if w.to_file_waiting <> 1 then
+    failures := failures || format('FAILED: %s thing(s) to file where one is theirs', w.to_file_waiting)::text;
+  elsif w.reports_due <> 2 then
+    failures := failures || format('FAILED: %s report(s) to finish where two are', w.reports_due)::text;
+  elsif w.reports_overdue <> 1 then
+    failures := failures || format('FAILED: %s report(s) past their date where one is', w.reports_overdue)::text;
+  else
+    raise notice 'ok  the three the email is for are counted, and only this person''s';
+  end if;
+
+  -- One of their two clients was seen this week and the other has nothing on
+  -- the record at all. A client with no activity whatever is the quietest
+  -- there is, and counting the null is what says so - the obvious comparison
+  -- leaves them out, which is the wrong way round.
+  if w.quiet_clients <> 1 then
+    failures := failures || format('FAILED: %s quiet client(s) where one has nothing on the record and one was seen this week',
+                                   w.quiet_clients)::text;
+  elsif w.clients_carried <> 2 then
+    failures := failures || format('FAILED: %s client(s) carried where two are theirs', w.clients_carried)::text;
+  else
+    raise notice 'ok  a client with nothing on the record is quiet, and one seen this week is not';
   end if;
 
   -- ── the week ahead ───────────────────────────────────────

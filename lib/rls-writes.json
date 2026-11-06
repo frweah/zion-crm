@@ -683,6 +683,9 @@
       "select",
       "update"
     ],
+    "to_file": [
+      "select"
+    ],
     "tour_hints": [
       "delete",
       "insert",

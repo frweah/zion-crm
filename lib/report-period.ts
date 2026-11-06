@@ -319,7 +319,7 @@ export async function buildPeriodContent(
       .limit(50),
     supabase
       .from("contact_log")
-      .select("date, method, topic, outcome")
+      .select("date, method, topic, outcome, category")
       .eq("client_id", clientId)
       .gte("date", from)
       .lte("date", to)
@@ -464,7 +464,19 @@ export async function buildPeriodContent(
   }
 
   for (const c of contactsResult.data ?? []) {
-    put(null, {
+    /**
+     * A contact has a category now (0317), and Personal is nobody else's
+     * business in a report the same way a Personal note is.
+     *
+     * Filtered here rather than in the query, deliberately: `category <>
+     * 'Personal'` is null for every row whose category is null, and in SQL
+     * that means "left out" - so a query written the obvious way would have
+     * dropped every contact nobody had categorised, which is most of them.
+     */
+    if (isPersonal(c.category)) continue;
+    // And a contact that says which service it was about goes in that
+    // section, by the same map a note's category uses.
+    put(c.category ? (FAMILY_OF_CATEGORY[c.category] ?? null) : null, {
       on: c.date,
       kind: "contact",
       text: `${c.method} — ${c.topic}${c.outcome ? ` — ${c.outcome}` : ""}`,

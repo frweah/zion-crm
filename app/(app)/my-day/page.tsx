@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { today, fmtStamp , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../page-head";
+import { ToFile, type FileItem, type ClientOption } from "./to-file";
 
 /**
  * My day (Design language, §3).
@@ -34,7 +35,8 @@ export default async function MyDayPage() {
   const dayStart = new Date(`${day}T00:00:00`);
   const dayEnd = new Date(`${day}T23:59:59`);
 
-  const [{ data: events }, { data: tasks }, { data: due }, { data: weeksDue }, { data: monthsDue }] = await Promise.all([
+  const [{ data: events }, { data: tasks }, { data: due }, { data: weeksDue }, { data: monthsDue },
+    { data: waiting }, { data: everybody }] = await Promise.all([
     supabase
       .from("calendar_events")
       .select("id, client_id, kind, title, starts_at, ends_at, location")
@@ -76,7 +78,41 @@ export default async function MyDayPage() {
       .neq("status", "Sent")
       .order("period")
       .limit(60),
+    // ── To file (item E) ──────────────────────────────────────
+    // This person's inbox of things nobody has filed. Read here rather than
+    // in the component so the screen makes one round of calls, and read
+    // through the table's own policy: an item is its owner's, and Admin's.
+    supabase
+      .from("to_file")
+      .select("id, source, title, detail, happened_at, client_id, guess_why, clients(name)")
+      .eq("staff_id", me.id)
+      .eq("state", "Waiting")
+      .order("happened_at", { ascending: false, nullsFirst: false })
+      .limit(60),
+    // Every client, for the "whose was it" box. Names only.
+    supabase.from("clients").select("id, name").is("merged_into", null).order("name").limit(2000),
   ]);
+
+  const toFile = ((waiting ?? []) as unknown as {
+    id: string;
+    source: string;
+    title: string;
+    detail: string;
+    happened_at: string | null;
+    client_id: string | null;
+    guess_why: string;
+    clients: { name: string } | null;
+  }[]).map<FileItem>((f) => ({
+    id: f.id,
+    source: f.source,
+    title: f.title,
+    detail: f.detail,
+    happened_at: f.happened_at,
+    client_id: f.client_id,
+    client_name: f.clients?.name ?? null,
+    guess_why: f.guess_why,
+  }));
+  const clientOptions = ((everybody ?? []) as ClientOption[]) ?? [];
 
   const reportClientIds = [
     ...new Set([
@@ -171,7 +207,9 @@ export default async function MyDayPage() {
         context={me.name}
       />
 
-      {rows.length === 0 && reports.length === 0 ? (
+      <ToFile items={toFile} clients={clientOptions} />
+
+      {rows.length === 0 && reports.length === 0 && toFile.length === 0 ? (
         <p className="empty">
           Nothing is scheduled and nothing is due. What is waiting for a reply is on{" "}
           <Link href="/dashboard">Home</Link>.

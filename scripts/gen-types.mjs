@@ -390,6 +390,14 @@ const RPC_FUNCTIONS = [
   "reopen_authorization",
   // The Friday email about somebody's own week (0316).
   "staff_week",
+  // "To file" (0317-0318): the inbox, the three actions, and the two sweeps
+  // that may only offer.
+  "to_file_offer",
+  "to_file_assign",
+  "to_file_confirm",
+  "to_file_discard",
+  "to_file_from_mail",
+  "clients_named_in",
   // One call for a whole caseload rather than one per client (0189).
   "client_next_actions_for",
   "client_last_activity_for",

@@ -542,6 +542,21 @@ if (went < 0 || marked < 0) {
     ok("a Personal note is out of the monthly report and is not counted as held back");
   }
 
+  // A contact has a category too, since the "To file" inbox started writing
+  // them (0317), and the same rule applies to it. Asserted on the source
+  // rather than the query, because the query is where it must *not* be: in
+  // SQL `category <> 'Personal'` is null for an uncategorised row and in
+  // means left out, so a filter written there would have dropped nearly every
+  // contact the practice has.
+  if (!/isPersonal\(c\.category\)\)\s*continue/.test(period)) {
+    fail("the monthly report does not drop a Personal contact");
+  } else if (/\.neq\("category", "Personal"\)[\s\S]{0,200}contact_log/.test(period)
+             || /contact_log[\s\S]{0,300}\.neq\("category"/.test(period)) {
+    fail("the contact query filters Personal in SQL, which also drops every uncategorised contact");
+  } else {
+    ok("a Personal contact is out of the report, and not by a query that drops the uncategorised with it");
+  }
+
   if (!/category !== "Personal"/.test(src("lib/report.ts"))) {
     fail("the on-demand report does not drop Personal notes");
   } else if (!/neq\("category", PERSONAL\)/.test(src("lib/form-autofill.ts"))) {

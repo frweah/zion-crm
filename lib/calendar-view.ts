@@ -19,6 +19,14 @@ export type CalendarItem = {
   webLink: string;
   showAs: string;
   isCancelled: boolean;
+  /**
+   * Who was invited, as names and addresses in one string.
+   *
+   * Read for the "To file" sweep (0317): the owner's rule is that an
+   * appointment whose title, attendee or location names a client belongs to
+   * that client, and two of those three were already here.
+   */
+  attendees: string;
 };
 
 type GraphEvent = {
@@ -31,13 +39,14 @@ type GraphEvent = {
   webLink?: string;
   showAs?: string;
   isCancelled?: boolean;
+  attendees?: { emailAddress?: { name?: string; address?: string } }[];
 };
 
 export async function listCalendar(token: string, from: Date, to: Date): Promise<CalendarItem[]> {
   const params = new URLSearchParams({
     startDateTime: from.toISOString(),
     endDateTime: to.toISOString(),
-    $select: "id,subject,start,end,isAllDay,location,webLink,showAs,isCancelled",
+    $select: "id,subject,start,end,isAllDay,location,webLink,showAs,isCancelled,attendees",
     $top: "250",
     $orderby: "start/dateTime",
   });
@@ -57,6 +66,10 @@ export async function listCalendar(token: string, from: Date, to: Date): Promise
     webLink: e.webLink ?? "",
     showAs: e.showAs ?? "",
     isCancelled: Boolean(e.isCancelled),
+    attendees: (e.attendees ?? [])
+      .map((a) => [a.emailAddress?.name, a.emailAddress?.address].filter(Boolean).join(" "))
+      .filter(Boolean)
+      .join(", "),
   }));
 }
 

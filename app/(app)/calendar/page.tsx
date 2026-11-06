@@ -116,6 +116,8 @@ export default async function CalendarPage({
       location: r.location,
       webLink: "",
       showAs: "",
+      // Saved here and not in Outlook, so there is nobody invited to read.
+      attendees: "",
       isCancelled: false,
       row: r,
       clientId: r.client_id,
