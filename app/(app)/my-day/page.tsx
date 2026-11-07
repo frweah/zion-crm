@@ -41,7 +41,7 @@ export default async function MyDayPage() {
   const dayEnd = new Date(`${day}T23:59:59`);
 
   const [{ data: events }, { data: tasks }, { data: due }, { data: weeksDue }, { data: monthsDue },
-    { data: waiting }, { data: everybody }] = await Promise.all([
+    { data: waiting }, { count: waitingCount }, { data: everybody }] = await Promise.all([
     supabase
       .from("calendar_events")
       .select("id, client_id, kind, title, starts_at, ends_at, location")
@@ -94,6 +94,13 @@ export default async function MyDayPage() {
       .eq("state", "Waiting")
       .order("happened_at", { ascending: false, nullsFirst: false })
       .limit(60),
+    // And how many there are, so the heading can say when it is showing a
+    // part of them. Head only: a count, no rows.
+    supabase
+      .from("to_file")
+      .select("id", { count: "exact", head: true })
+      .eq("staff_id", me.id)
+      .eq("state", "Waiting"),
     // Every client, for the "whose was it" box. Names only.
     supabase.from("clients").select("id, name").is("merged_into", null).order("name").limit(2000),
   ]);
@@ -213,7 +220,7 @@ export default async function MyDayPage() {
         context={me.name}
       />
 
-      <ToFile items={toFile} clients={clientOptions} />
+      <ToFile items={toFile} clients={clientOptions} waiting={waitingCount ?? toFile.length} />
 
       {rows.length === 0 && reports.length === 0 && toFile.length === 0 ? (
         <p className="empty">

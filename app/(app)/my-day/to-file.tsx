@@ -42,14 +42,29 @@ export type ClientOption = { id: string; name: string };
  * Nothing here is on a client's record yet. Confirming is what writes the
  * contact-log entry, so a report cannot carry a thing nobody has looked at.
  */
-export function ToFile({ items, clients }: { items: FileItem[]; clients: ClientOption[] }) {
+export function ToFile({
+  items,
+  clients,
+  waiting,
+}: {
+  items: FileItem[];
+  clients: ClientOption[];
+  // How many are waiting in all, which is not always how many are shown. The
+  // screen reads sixty at a time; the mail backlog put seventy-eight into one
+  // inbox on its first night, and a list that quietly stopped at sixty would
+  // have had eighteen nobody knew about.
+  waiting: number;
+}) {
   const [open, setOpen] = useState<{ id: string; which: string } | null>(null);
 
   if (items.length === 0) return null;
 
   return (
     <section className="page-section">
-      <h2 className="h2">To file</h2>
+      <h2 className="h2">
+        To file
+        {waiting > items.length ? ` — ${items.length} of ${waiting}` : ""}
+      </h2>
       <ul className="day-list">
         {items.map((item) => (
           <li key={item.id} style={{ display: "block" }}>
