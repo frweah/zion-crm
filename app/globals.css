@@ -1242,6 +1242,19 @@ table.t tbody tr[aria-selected="true"] td {
 }
 
 @media (max-width: 760px) {
+  /* And one place carries them, not two (owner, 6 Nov 2026).
+
+     The rail and the bar were both on screen below 760px, offering the same
+     hubs twice and spending a fifth of a narrow screen on the copy nobody's
+     thumb reaches - which is the thing the bar's own comment argues against.
+     Three things in the sidebar are not hubs, and each is answered: the two
+     telephone numbers moved to the avatar menu, Team is the bubble, which
+     stays on at this width whatever the setting says, and the Assistant is a
+     Microsoft product with an app of its own on a phone. */
+  .side {
+    display: none;
+  }
+
   .bottom-bar {
     display: flex;
     position: fixed;
@@ -3552,15 +3565,16 @@ button.attach-chip:hover {
 }
 
 @media (max-width: 760px) {
+  /* There is no rail to clear here any more: the bottom bar is instead of the
+     sidebar at this width, not as well as it (owner, 6 Nov 2026). */
   .team-bubble {
+    left: 16px;
     bottom: calc(72px + env(safe-area-inset-bottom));
   }
   /* Clear of the bubble by more than the count badge, which stands 4px proud
-     of it: at 120px the badge sat behind this window's corner. The left edge
-     still clears the icon rail, which is on screen at this width too - the
-     bottom bar is as well as the sidebar, not instead of it. */
+     of it: at 120px the badge sat behind this window's corner. */
   .team-pane.compact {
-    left: calc(var(--side-narrow) + 8px);
+    left: 8px;
     right: 8px;
     width: auto;
     bottom: calc(130px + env(safe-area-inset-bottom));

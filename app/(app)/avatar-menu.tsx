@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ThemeChoice } from "./theme-choice";
 import { ReportProblem } from "./report-problem";
 import type { Theme } from "./theme-actions";
+import { ORG } from "@/lib/roles";
 
 /**
  * The person, top right (Design language, §1).
@@ -65,6 +66,11 @@ export function AvatarMenu({
             <strong>{name}</strong>
             <div className="lock">{role}</div>
             {extra && <div className="lock">{extra}</div>}
+            {/* The two numbers staff give out, which were the sidebar's and
+                are nowhere on a phone now that it is hidden there. */}
+            <div className="lock">
+              Counselors {ORG.phone} · Clients {ORG.clientPhone}
+            </div>
           </div>
           <Link href="/paperwork" role="menuitem" onClick={() => setOpen(false)}>
             My paperwork

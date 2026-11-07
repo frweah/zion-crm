@@ -1,13 +1,19 @@
 /**
- * The Team bubble and the sidebar do not stand on each other (owner, 6 Nov 2026).
+ * One navigation at every width, and the Team bubble standing on none of it.
  *
  *   node scripts/check-bubble.mjs
  *
- * The bubble was `position: fixed; left: 16px`, which put it inside the
- * sidebar - on top of the chevron that narrows the sidebar, at the sidebar's
- * own foot. Which of the two you could press depended on the stacking order,
- * and at 64px wide the sidebar is narrower than the bubble, so the bubble
- * also hung over the page.
+ * Two rules, both the owner's and both about the same corner of the screen.
+ *
+ * 6 November, morning: the bubble was `position: fixed; left: 16px`, which put
+ * it inside the sidebar - on top of the chevron that narrows the sidebar, at
+ * the sidebar's own foot. Which of the two you could press depended on the
+ * stacking order, and at 64px wide the sidebar is narrower than the bubble, so
+ * the bubble also hung over the page.
+ *
+ * 6 November, afternoon: "hide the sidebar; the bottom bar carries the hubs.
+ * One place, not two." Below 760px both were on screen, offering the same
+ * hubs twice.
  *
  * So this is arithmetic rather than a search for a string: the bubble's left
  * edge, in pixels, against the sidebar's width, in pixels, at every width the
@@ -18,13 +24,18 @@
  * Four states, because the sidebar has four widths:
  *
  *   wide, over 1100px and nobody has narrowed it     - 236px
- *   narrowed by choice, over 1100px                  - 64px
- *   under 1100px, where the width decides            - 64px
- *   under 760px, where the bottom bar appears too    - 64px
+ *   narrowed by choice, over 1100px                  -  64px
+ *   under 1100px, where the width decides            -  64px
+ *   under 760px, where the bottom bar carries them   -   0px, hidden
  *
  * and the bottom bar is the vertical half of the same question: it spans the
- * whole width, including over the sidebar, so on a phone the bubble has to
- * clear its height as well as the rail's width.
+ * whole width, so on a phone the bubble has to clear its height.
+ *
+ * Each state asks its rules the way a browser does - the top-level rule, then
+ * the 1100px one, then the 760px one, last value wins - rather than reading
+ * one block and hoping the others agree. The first version read the phone's
+ * bubble out of the 1100px block with a fallback, which was right by accident
+ * and would have gone on being right after the phone's own rule changed.
  *
  * What it cannot ask: whether anything *else* is drawn bottom-left. If a
  * third floating control is added there one day, this check will say the
@@ -107,6 +118,16 @@ function valueOf(query, test, prop) {
   return value;
 }
 
+/** The same, read through every block that applies at one width. */
+function cascade(queries, test, prop) {
+  let value = null;
+  for (const q of queries) {
+    const got = valueOf(q, test, prop);
+    if (got !== null) value = got;
+  }
+  return value;
+}
+
 /** `calc(var(--side-wide) + 16px)` → 252. `16px` → 16. */
 function px(value) {
   if (value === null) return null;
@@ -122,40 +143,64 @@ function px(value) {
   return terms.reduce((sum, t) => sum + Number(t.replace(/\s|px/g, "")), 0);
 }
 
-const BUBBLE_WIDTH = px(valueOf(null, /^\.team-bubble$/, "width")) ?? 0;
+const TOP = [null];
+const TABLET = [null, "(max-width: 1099px)"];
+const PHONE = [null, "(max-width: 1099px)", "(max-width: 760px)"];
 
-// ── the four states, and the sidebar's width in each ─────────
+// ── the four states ──────────────────────────────────────────
 const STATES = [
   {
     what: "wide, with the sidebar in full",
-    side: WIDE,
-    // Outside every media query, and not under .side-narrow.
-    left: px(valueOf(null, /^\.team-bubble$/, "left")),
-    pane: px(valueOf(null, /^\.team-pane\.compact$/, "left")),
+    at: TOP,
+    width: WIDE,
+    bubble: /^\.team-bubble$/,
+    pane: /^\.team-pane\.compact$/,
   },
   {
     what: "narrowed to icons by choice",
-    side: NARROW,
-    left: px(valueOf(null, /^\.shell\.side-narrow \.team-bubble$/, "left")),
-    pane: px(valueOf(null, /^\.shell\.side-narrow \.team-pane\.compact$/, "left")),
+    at: TOP,
+    width: NARROW,
+    bubble: /^\.shell\.side-narrow \.team-bubble$/,
+    pane: /^\.shell\.side-narrow \.team-pane\.compact$/,
   },
   {
     what: "under 1100px, where the width decides",
-    side: NARROW,
-    left: px(valueOf("(max-width: 1099px)", /^\.team-bubble$/, "left")),
-    pane: px(valueOf("(max-width: 1099px)", /^\.team-pane\.compact$/, "left")),
+    at: TABLET,
+    width: NARROW,
+    bubble: /^\.team-bubble$/,
+    pane: /^\.team-pane\.compact$/,
   },
   {
-    what: "under 760px, with the bottom bar as well",
-    side: NARROW,
-    // At this width the 1099px block still applies to the bubble; only the
-    // window is given a left of its own.
-    left: px(valueOf("(max-width: 760px)", /^\.team-bubble$/, "left"))
-      ?? px(valueOf("(max-width: 1099px)", /^\.team-bubble$/, "left")),
-    pane: px(valueOf("(max-width: 760px)", /^\.team-pane\.compact$/, "left")),
+    what: "under 760px, where the bottom bar carries the hubs",
+    at: PHONE,
+    width: NARROW,
+    bubble: /^\.team-bubble$/,
+    pane: /^\.team-pane\.compact$/,
   },
 ];
 
+for (const s of STATES) {
+  s.sideShown = cascade(s.at, /^\.side$/, "display") !== "none";
+  s.barShown = cascade(s.at, /^\.bottom-bar$/, "display") !== "none";
+  s.side = s.sideShown ? s.width : 0;
+  s.left = px(cascade(s.at, s.bubble, "left"));
+  s.paneLeft = px(cascade(s.at, s.pane, "left"));
+}
+
+// ── one place, not two ───────────────────────────────────────
+for (const s of STATES) {
+  if (s.sideShown && s.barShown) {
+    fail(`${s.what}: the sidebar and the bottom bar are both on screen, offering the same hubs twice`);
+  } else if (!s.sideShown && !s.barShown) {
+    fail(`${s.what}: neither the sidebar nor the bottom bar is on screen, so there is no way to any hub`);
+  }
+}
+if (!problems.length) {
+  ok("the sidebar carries the hubs, or the bottom bar does, at all four widths");
+}
+
+// ── and the bubble stands on neither ─────────────────────────
+const before = problems.length;
 for (const s of STATES) {
   if (s.left === null) {
     fail(`nothing says where the bubble sits ${s.what}, so it falls back to a rule written for another width`);
@@ -166,13 +211,11 @@ for (const s of STATES) {
       `${s.what}: the bubble's left edge is ${s.left}px and the sidebar is ${s.side}px wide, ` +
         `so ${s.side - s.left}px of it is over the sidebar - which is where the chevron that narrows the sidebar is`,
     );
-  } else if (s.pane !== null && s.pane < s.side) {
-    fail(
-      `${s.what}: the chat window's left edge is ${s.pane}px and the sidebar is ${s.side}px wide`,
-    );
+  } else if (s.paneLeft !== null && s.paneLeft < s.side) {
+    fail(`${s.what}: the chat window's left edge is ${s.paneLeft}px and the sidebar is ${s.side}px wide`);
   }
 }
-if (!problems.length) {
+if (problems.length === before) {
   ok(`the bubble and its window clear the sidebar at all ${STATES.length} widths it has`);
 }
 
@@ -198,7 +241,7 @@ if (!klass) {
 // ── the bubble clears the bottom bar on a phone ──────────────
 const barTop = px(valueOf("(max-width: 760px)", /^\.bottom-bar$/, "padding"));
 const itemHeight = px(valueOf("(max-width: 760px)", /^\.bottom-item$/, "min-height"));
-const bubbleBottom = px(valueOf("(max-width: 760px)", /^\.team-bubble$/, "bottom"));
+const bubbleBottom = px(cascade(PHONE, /^\.team-bubble$/, "bottom"));
 if (bubbleBottom === null) {
   fail("nothing lifts the bubble above the bottom bar on a phone");
 } else if (itemHeight === null) {
@@ -218,9 +261,26 @@ if (bubbleBottom === null) {
   }
 }
 
+// ── and it is there to be pressed where it is the only way ───
+//
+// Team is in the sidebar and in no hub, so with the sidebar hidden the bubble
+// is the only way to Team chat on a phone - including for somebody who turned
+// it off, who would otherwise have no way to the screen that turns it back on.
+const bubbleSource = await readFile(new URL("../app/(app)/team-bubble.tsx", import.meta.url), "utf8");
+if (!/max-width:\s*760px/.test(bubbleSource)) {
+  fail(
+    "the Team bubble does not know about the width the sidebar is hidden at, so turning it off leaves a phone " +
+      "with no way to Team chat and no way to the setting",
+  );
+} else if (!/off\s*&&\s*!phone/.test(bubbleSource)) {
+  fail("the Team bubble is hidden on a phone when it is turned off, and on a phone it is the only way in");
+} else {
+  ok("the bubble stays on a phone whatever the setting says, because there it is the only way to Team chat");
+}
+
 console.log("");
 if (problems.length) {
   for (const p of problems) console.error(`  FAILED  ${p}`);
   process.exit(1);
 }
-console.log("--- THE BUBBLE STANDS ON NOTHING ---");
+console.log("--- ONE NAVIGATION, AND THE BUBBLE STANDS ON NOTHING ---");
