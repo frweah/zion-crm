@@ -544,6 +544,85 @@ begin
   update public.authorizations
      set status = 'Closed', closed_reason = 'ZZ for the reopen test' where id = v_auth;
 
+  /**
+   * A closing reason belongs to a closed record (0324).
+   *
+   * Closed to Paid rather than the reopen above, deliberately:
+   * reopen_authorization clears the field itself, so asserting it there
+   * would pass whether or not anything else in the system holds the rule.
+   * This is the warrant reader's move - it found the state had paid
+   * something the practice had written off - and it is the move that left
+   * V1028168 and V1041336 saying Paid in one field and saying why they were
+   * closed in the next.
+   */
+  v_text := '';
+  begin
+    update public.authorizations
+       set status = 'Paid', paid_on = public.practice_today() where id = v_auth;
+  exception when check_violation then
+    -- The constraint and the trigger are a pair: with nothing clearing the
+    -- field, the constraint refuses the move itself. So this is what the
+    -- warrant reader would hit, and it is this case's failure to report.
+    v_text := sqlerrm;
+  end;
+  if v_text <> '' then
+    failures := failures ||
+      format('FAILED: a closed authorization could not be marked Paid, because nothing cleared the reason it was closed: %s',
+             v_text)::text;
+  elsif coalesce(btrim((select closed_reason from public.authorizations where id = v_auth)), '') <> '' then
+    failures := failures || 'FAILED: a paid authorization still says why it was closed'::text;
+  elsif not exists (select 1 from public.authorization_events e
+                     where e.auth_id = v_auth and e.became = 'Closed'
+                       and e.note = 'ZZ for the reopen test') then
+    failures := failures || 'FAILED: the reason it was closed is not in the event log either'::text;
+  else
+    raise notice 'ok  leaving Closed clears the reason, and the event log still has it';
+  end if;
+
+  /**
+   * Refused, and refused in a sentence.
+   *
+   * The constraint would refuse this too, which is the point of having it -
+   * and is why this case reads the message rather than only the failure. A
+   * person editing the Billing form is on this path, and "violates check
+   * constraint" is not something anybody can act on. Without the second
+   * half of this assertion, deleting the trigger's sentence would leave the
+   * test passing on the constraint's error text.
+   */
+  begin
+    update public.authorizations
+       set closed_reason = 'ZZ not closed though' where id = v_auth;
+    failures := failures || 'FAILED: a paid authorization was given a reason for being closed'::text;
+  exception when check_violation then
+    if sqlerrm not like '%no reason it is closed%' then
+      failures := failures ||
+        format('FAILED: refused, but not in a sentence: %s', sqlerrm)::text;
+    else
+      raise notice 'ok  a record that is not closed refuses a reason for being closed, in words';
+    end if;
+  end;
+
+  -- And the half that catches what never passes the trigger at all.
+  begin
+    insert into public.authorizations
+      (client_id, number, service_type, rate_type, rate, total_hours, status,
+       start_date, end_date, closed_reason)
+    values (v_client, 'ZZ-NOT-CLOSED', 'WSA Tier 2', 'Hourly', 45, 2, 'Authorized',
+            public.practice_today() - 10, public.practice_today() + 10, 'ZZ not closed at all');
+    failures := failures || 'FAILED: a new authorization was written with a reason it was closed'::text;
+  exception when check_violation then
+    if sqlerrm not like '%authorizations_reason_means_closed%' then
+      failures := failures ||
+        format('FAILED: the insert was refused by something else: %s', sqlerrm)::text;
+    else
+      raise notice 'ok  and one cannot be written that way in the first place';
+    end if;
+  end;
+
+  -- And back to Closed again, for the sections below.
+  update public.authorizations
+     set status = 'Closed', closed_reason = 'ZZ for the reopen test' where id = v_auth;
+
   -- ── §5: the parent holds the hours, the months hold the bill ──
   insert into public.authorizations (
     client_id, number, service_type, rate_type, rate, total_hours,
