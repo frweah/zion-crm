@@ -8344,3 +8344,138 @@ system account at all. Those secrets have never been set, so no billing action
 has been submitted on any deploy; the check says so loudly every time. The two
 uses of that name briefly meant two different accounts, which is now written
 into both comments.
+
+## 6 Nov 2026 — the backlog, one vocabulary, and three from the owner
+
+Four commits after the morning's deploy: the ninety-five unfiled emails sent
+to the inboxes that can decide about them, the two job-status vocabularies
+collapsed into one, and the owner's three screen notes.
+
+### A suggestion goes to whoever works the client (0321)
+
+0318 offered unfiled mail to whoever owned the mailbox it was found in, which
+is the obvious reading of "one inbox per staff member" and the wrong one. The
+live rows settle it: of the ninety-five, fifty-seven were in the Admin mailbox
+and forty-eight in Reports, and seventy-eight are about clients worked by
+somebody who is neither.
+
+So whose inbox it is and whose thing it was became different questions, and the
+second one got a column. `to_file.by_staff_id` is whose email, calendar or
+recording it was, and it is what the contact log credits when the item is
+confirmed — because without it a job coach confirming the Admin desk's email
+would have written an entry on the client saying the job coach wrote to them,
+and the contact log is what a monthly report reads. For a calendar item the two
+are the same person and nothing changed.
+
+"Margaret where none" is written down as the Reports desk rather than as a
+name: a person today, a role for as long as the practice exists, and already
+the desk that sees every inbox. On this backlog it never fired — every client
+named has somebody assigned.
+
+One suggestion per message, not per client named, so the twelve that name two
+clients are one decision each with a reassign in a press.
+
+**Three faults were put back**, and the second case had to be restructured:
+confirming an item in somebody else's inbox *raises*, so the routing fault
+abandoned the script with "That is not in your inbox." before the assertion
+that would have named it. The confirm case is now guarded by the routing being
+right. A third fault — removing the `distinct on` — turned out not to break
+anything, because the per-message guard enforces the same rule on its own; the
+fault that does break it is 0318's shape, both halves together.
+
+### One vocabulary for where a job got to (0322)
+
+0270 left two vocabularies and said so: the nine in `job_status_history` and
+eight different words in `lead_matches.status`, with
+`lead_status_for_application` between them. The mapping was lossy in the
+direction it ran, and the cost was visible in the data: 'No response' and
+'Applied' both came out as 'Applied', so **the leads board called 202
+applications live that the practice had already recorded as never answered**.
+'Interview' flattened 'Interview scheduled' and 'Interviewed' together.
+
+282 rows now carry Saved plus the nine, set from the latest history entry
+rather than from a reverse mapping — the history already knows which 'Applied'
+meant silence.
+
+**Two things the migration had to be careful about.** The triggers were
+disabled for it (`alter table ... disable trigger user`), because
+`log_lead_match` would have written 275 notes today about September and
+`set_updated_at` would have made "when did anything last happen to this
+application" mean the afternoon of the rename. And the fourteen-day sweep now
+*moves* the column where it used to move nothing, so it would have written a
+note on each of those 202 — filed as 'Job search', which is one of the four
+activity types USOR 96 autofill counts. Nothing happening would have become
+job-search activity on a form that goes to the state. `log_lead_match` returns
+early for 'No response', and both the prebuild check and the verify script say
+so.
+
+`check-job-status` was rewritten around the new shape. It no longer asks
+whether two vocabularies agree; it asks that there is one — the ten words,
+nothing mapping between them, and every word with a rank, a note type and a
+sentence of its own. Six faults, six failures.
+
+Three other verify scripts changed, and two were failing for reasons of their
+own, found by running the suite rather than by reading: `zion-friday-week` and
+`zion-to-file` had been scheduled that morning and added to no roster, and the
+payment-lag assertion only held while no real payment sat in its window. Both
+are in the exceptions report.
+
+### The bubble stands on nothing
+
+`position: fixed; left: 16px` put the Team bubble over the sidebar's own foot,
+which is where the chevron that narrows the sidebar lives. Its left edge is the
+sidebar's width now and moves with it, at all four widths the sidebar has.
+
+Underneath was a five-week-old typo: the rule hiding that chevron below 1100px
+names `.side-toggle` and the button has rendered as `.side-chevron` since 30
+September, so the rule has never hidden anything.
+
+`check-bubble.mjs` does arithmetic rather than looking for a phrase — the
+bubble's left edge in pixels against the sidebar's width in pixels, at each
+width the layout has a rule for, plus the bottom bar's height on a phone. Its
+first version read the stylesheet with one regular expression and a brace
+counter, and `@keyframes` made the counter go negative: every media query after
+that point read as top-level and the check failed on its own fix. It walks the
+characters now.
+
+### A task row says what it offers
+
+Mark complete and Remove were on Today and, behind a press, on Tasks. The
+client's record had a button drawn as a circle — the exact thing
+`check-task-actions` forbids on Today, enforced on one screen and not on the
+four others — with no Remove at all and a server action of its own writing the
+same column. My day and the lists behind the Home counters had neither action.
+
+One control draws them now; `tasks/actions.ts` is the only module that writes
+the status; one function lists the five screens to revalidate, because a task
+finished on Home has to leave the client's record too. Two more glyph buttons
+turned up while checking, one of them on Tasks itself, where the row's only
+visible control was a circle calling the same action under a different name.
+
+The check asks three things rather than naming screens: nothing else draws a
+task's actions, nothing else writes a task's status, and every screen that
+lists tasks — worked out from the code — can reach the control. Its glyph rule
+had to learn the difference between a tick in a button and a tick in a state
+chip, which it failed on first.
+
+### Emoji in Team chat
+
+A picker in the composer, in all three places the same chat appears, and
+`:shortcode:` typing. Thirty-four characters, grouped, each with the name
+people already type elsewhere.
+
+Plain Unicode is the requirement that shaped it: a message body is text, and
+search, the nightly digest, the mail path and every notification read it. So
+the composers expand a name as its closing colon is typed *and* `post_message`
+and `edit_message` expand again on the way in — the second one is what makes
+"stored as the character" true of the record rather than of the keyboard, and
+it is what the check asks of the call rather than of the file.
+
+The pane's textarea stays uncontrolled, so an emoji goes in through
+`setRangeText`: hiding that window rather than unmounting it is how a
+half-written message survives, and holding the body in state would re-render
+it on every keystroke behind whatever page is open.
+
+It does not touch the writing standard. That rule keeps emoji off headings and
+buttons, where the practice is speaking; a message is what one colleague says
+to another.
