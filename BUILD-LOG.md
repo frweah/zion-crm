@@ -8479,3 +8479,115 @@ it on every keystroke behind whatever page is open.
 It does not touch the writing standard. That rule keeps emoji off headings and
 buttons, where the practice is speaking; a message is what one colleague says
 to another.
+
+## 6 Nov 2026, later — three rulings from the owner
+
+The three answers to the afternoon's report, in the order they were given.
+
+### An invoice number comes from the ledger (0323)
+
+"Keep the ledger numbers 955662-955666; the sequence continues from them."
+
+It did not. `zion_invoice_number` stood at 955804 and the ledger ended at
+955666, so the next invoice the practice sent would have been numbered
+955805 — a hundred and thirty-eight numbers past the end.
+
+The hundred and thirty-eight were spent by this repository. A sequence is
+deliberately not transactional, every verification script builds its fixtures
+against production inside begin/rollback, and `verify_invoices.sql` raises
+three invoices each run. The rows went away; the numbers did not. The same
+thing had happened once before and is visible in the ledger itself: the
+warrant index ends at 955636 and the five invoices Phase 3 raised start at
+955662, so twenty-five went the same way in October.
+
+So the ledger decides. The number is one past the highest in the table,
+worked out by a BEFORE INSERT trigger under an advisory lock, and a
+rolled-back fixture leaves no row and therefore spends nothing. The sequence
+is dropped rather than left where a later default could find it.
+
+**A belt-and-braces half was carried for an hour and taken out again.** A
+BEFORE ROW trigger is documented as unable to see the rows its own statement
+has already written, which would hand both rows of a two-row insert the same
+number — and `verify_invoices.sql` raises two claims in one statement. A
+transaction-local floor was written to cover it. No fault injection could
+make the floor matter: a query inside a volatile plpgsql function runs with a
+fresh snapshot and does see the earlier row. The floor came out, the finding
+went into the comment, and the behaviour is asserted in
+`verify_invoice_numbers.sql` so it will be noticed if it ever stops being
+true. A mechanism nothing can falsify is a comment pretending to be code.
+
+`check-invoice-numbers.mjs` is the half that needs no credentials: the newest
+migration naming the sequence drops it, nothing since gives the column a
+default back, and no screen writes an invoice row itself. Three faults, three
+failures. Four more against the verify script — the ledger ignored, the
+default back, the trigger off, the sequence recreated.
+
+### A closing reason belongs to a closed record (0324)
+
+"V1028168 and V1041336: clear the 'never billed' closed reason — they are
+Paid. Correction log."
+
+Both were cleared, each with a row in the correction log saying why and on
+whose ruling. One correction to the report that asked for it: only V1028168
+said "never billed". V1041336 carried a sentence about the client's services
+having ended. The contradiction was the same in both.
+
+Nothing had stopped it and nothing would have stopped the next one: the
+warrant reader moves a Closed authorization to Paid every time it finds one
+the state had paid, and nothing on that path had anything to say about a
+field that only means something while the record is closed. The reason a
+close happened is not lost by clearing it — `authorization_transition` writes
+it into `authorization_events` at the moment of closing, which is what makes
+the clearing safe.
+
+Closed if and only if there is a reason, in three places: leaving Closed
+clears it silently, writing one onto a record that is not closed is refused
+in a sentence, and a check constraint catches an insert. The two halves are a
+pair rather than two tries at the same thing, and the consequence is written
+into the migration: with the trigger off — `disable trigger user`, which a
+bulk migration does — moving a closed authorization is refused until the
+reason is cleared in the same statement.
+
+Three faults. The first one taught the test something: with the clearing
+gone, the constraint refuses the Closed-to-Paid move itself, so the case that
+asserted "it no longer says why it was closed" could never have fired. It now
+catches the refusal and reports it as what the warrant reader would hit. The
+second needed the message asserted as well as the failure, or deleting the
+sentence would have left the test passing on the constraint's error text.
+
+### One navigation on a phone
+
+"Hide the sidebar; the bottom bar carries the hubs. One place, not two."
+
+Below 760px both were on screen: a 64px rail of icons and a bar carrying the
+same hubs, which is the thing the bar's own comment argues against. The
+sidebar is hidden there now.
+
+Three things in the sidebar are not hubs, and each needed an answer:
+
+The two telephone numbers staff give out were nowhere else. They are in the
+avatar menu now, which is on every screen at every width.
+
+Team is in the sidebar and in no hub, so the bubble bottom-left is the only
+way to Team chat on a phone — and somebody who had turned the bubble off
+would have had no way to Team chat and no way to the screen that turns it
+back on. The bubble now stays on below 760px whatever the setting says, by
+the same `matchMedia` query the stylesheet uses, so the two cannot drift
+apart by a pixel. The setting turns off a second copy of the sidebar's Team
+link; where there is no sidebar there is no second copy.
+
+The Assistant is a link to a Microsoft product that has an app of its own on
+a phone.
+
+`check-bubble.mjs` grew the owner's rule and lost a shortcut. It reads each
+of the four widths the way a browser does — the top-level rule, then the
+1100px one, then the 760px one, last value wins — rather than reading one
+block and falling back to another, which was right by accident and would have
+gone on being right after the phone's own rule changed. At each width it
+asserts that exactly one of the sidebar and the bottom bar is on screen, and
+that the bubble clears whichever it is. Four faults, four failures.
+
+Measured at 375px in a real viewport before and after: five bar items fill
+the width exactly, with no sideways scroll either way, and the bubble sits at
+the content gutter clearing the bar. A sixth item on the bar was considered
+for Team and rejected on that measurement.
