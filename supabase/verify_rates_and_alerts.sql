@@ -84,14 +84,21 @@ begin
   insert into public.clients (name, stage, status) values ('ZZ Alert Client', 'Job Placement', 'Active')
   returning id into v_client;
 
-  -- Everything wrong at once: overdue to bill, ending within the fortnight,
-  -- and under a tenth of its hours left. Three alerts, once.
+  -- Everything wrong at once: delivered three weeks ago and not invoiced,
+  -- ending within the fortnight, and under a tenth of its hours left. Three
+  -- alerts, once.
+  --
+  -- The first of the three was "overdue to bill", from the bill-by date
+  -- alone, until the owner ruled on 9 November 2026 that "Due" is not "late"
+  -- (0325). A bill-by date that has gone by with nothing delivered is not a
+  -- bill anybody has missed. Work that was done and has not been invoiced for
+  -- a fortnight is, and it takes the same place at the top of the order.
   insert into public.authorizations
     (client_id, number, service_type, rate_type, rate, total_hours, carried_used,
-     start_date, end_date, status, bill_by)
+     start_date, end_date, status, bill_by, delivered_on)
   values (v_client, 'V0000980', 'Job Coaching', 'Hourly', 45, 20, 19,
           public.practice_today() - 60, public.practice_today() + 7, 'Due',
-          public.practice_today() - 10)
+          public.practice_today() - 10, public.practice_today() - 21)
   returning id into v_auth;
 
   select count(*) into v_n from public.authorization_attention(v_auth);
@@ -99,8 +106,9 @@ begin
     failures := failures || format('FAILED: the attention line came back %s times', v_n);
   end if;
   select attention, urgency into v_text, v_urgency from public.authorization_attention(v_auth);
-  if v_text not like 'Overdue%' then
-    failures := failures || format('FAILED: overdue should outrank ending soon and low hours (%s)', v_text);
+  if v_text not like 'Delivered %not invoiced after 14 days' then
+    failures := failures || format(
+      'FAILED: a fortnight delivered and not invoiced should outrank ending soon and low hours (%s)', v_text);
   else
     raise notice 'ok  three things wrong at once is one line, and it is the most pressing of them';
   end if;
@@ -113,7 +121,7 @@ begin
   end if;
   select text into v_text from public.notifications
    where dedupe_key like 'authorization:' || v_auth || ':%' and resolved_at is null;
-  if v_text is null or v_text not like '%Overdue%' then
+  if v_text is null or v_text not like '%not invoiced after 14 days%' then
     failures := failures || format('FAILED: the alert does not say what the record says (%s)', v_text);
   else
     raise notice 'ok  the alert carries the same sentence as the record and the list';

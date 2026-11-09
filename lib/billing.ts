@@ -130,3 +130,19 @@ export function authorizationNumberLabel(a: {
   const numbered = a.has_usor_number ?? /^V[0-9]+/i.test((a.number ?? "").trim());
   return numbered ? (a.number ?? "").trim() : "No number yet";
 }
+
+/**
+ * An invoice whose number this practice does not know (0327).
+ *
+ * Margaret's invoicing issued the numbers that went to USOR, and the CRM
+ * learnt two of them off a warrant stub. Three invoices in the ledger went
+ * out before any of this and nobody has read the number off her copy yet.
+ *
+ * The same wording as an authorization with no number, and for the same
+ * reason: a blank cell reads as a bug and an invented number reads as a fact.
+ * Both are decisions about what the practice calls a record it has not been
+ * given a number for, and that decision lives here rather than in a screen.
+ */
+export function invoiceNumberLabel(i: { number?: number | null }): string {
+  return i.number == null ? "No number yet" : String(i.number);
+}

@@ -7,7 +7,13 @@
 --   transactional, which is how a hundred and thirty-eight of the practice's
 --   numbers were spent on fixture invoices that never existed.
 --
---   The next number is one past the end of the ledger.
+--   The next number is one past the highest number anybody can point at:
+--   the ledger, or a warrant stub. A stub prints the invoice number it pays,
+--   so a number Margaret used and nobody entered is still not handed out
+--   twice (0327).
+--
+--   An invoice may have no number at all, because three in the ledger went
+--   out before the CRM numbered them and nobody has read Margaret's copy.
 --
 --   Two invoices written by one statement get two numbers.
 --
@@ -31,7 +37,9 @@ do $$
 declare
   v_admin uuid; v_admin_uid uuid := gen_random_uuid();
   v_client uuid; v_auth uuid;
-  v_top bigint; v_a bigint; v_b bigint; v_c bigint;
+  v_top bigint; v_ledger bigint; v_stubs bigint;
+  v_a bigint; v_b bigint; v_c bigint; v_d bigint;
+  v_doc uuid; v_page uuid;
   v_n integer;
   failures text[] := '{}';
 begin
@@ -55,7 +63,12 @@ begin
     raise exception '%', array_to_string(failures, E'\n');
   end if;
 
-  select coalesce(max(number), 0) into v_top from public.invoices;
+  -- The two places a number can already have been used, asked separately so
+  -- a rule that stopped reading one of them fails here.
+  select coalesce(max(number), 0) into v_ledger from public.invoices;
+  select coalesce(max(client_code::bigint), 0) into v_stubs
+    from public.warrant_lines where client_code ~ '^[0-9]{6}$';
+  v_top := greatest(v_ledger, v_stubs);
 
   insert into public.staff (name, email, role, active)
   values ('ZZ Numbering Admin', 'zz-numbering-admin@example.test', 'Admin', true) returning id into v_admin;
@@ -79,10 +92,11 @@ begin
   returning number into v_a;
 
   if v_a <> v_top + 1 then
-    failures := failures || format('FAILED: the ledger ends at %s and the next invoice was numbered %s',
-                                   v_top, v_a)::text;
+    failures := failures || format(
+      'FAILED: the ledger ends at %s, the warrant stubs at %s, and the next invoice was numbered %s',
+      v_ledger, v_stubs, v_a)::text;
   else
-    raise notice 'ok  an invoice takes the number after the last one in the ledger';
+    raise notice 'ok  an invoice takes the number after the highest one anybody can point at';
   end if;
 
   -- ── two in one statement get two numbers ───────────────────
@@ -126,6 +140,49 @@ begin
 
   if array_length(failures, 1) > 0 then
     raise exception '%', array_to_string(failures, E'\n');
+  end if;
+
+  -- ── a number on a stub is a number used ────────────────────
+  -- Margaret's invoicing issued the numbers that went to USOR, and the only
+  -- record of most of them in this practice is the warrant that paid them. A
+  -- number printed on a stub must not be handed out to a new invoice.
+  insert into public.warrant_documents (sha256, filename, relative_path, page_count)
+  values (repeat('b', 64), 'zz-numbering.pdf', 'zz-numbering.pdf', 1) returning id into v_doc;
+  insert into public.warrant_pages
+    (document_id, page_no, image_path, ocr_text, rotation, warrant_no, warrant_date, total, status)
+  values (v_doc, 1, '', 'ZZ stub', 0, 'F99000888', public.practice_today(), 500.00, 'Needs review')
+  returning id into v_page;
+  insert into public.warrant_lines
+    (page_id, line_no, raw, dept, voucher, invoice_ref, described_ref, client_code, client_name, amount, status)
+  values (v_page, 1, 'ZZ 999500- stub line', '6006', '99AW00000000009', 'V0000923', 'V0000923',
+          '999500', 'ZZ', 500.00, 'Needs review');
+
+  insert into public.invoices (client_id, auth_id, submitted_on, submitted_by, amount, source)
+  values (v_client, v_auth, public.practice_today(), v_admin, 140, 'Backfill')
+  returning number into v_d;
+
+  if v_d <> 999501 then
+    failures := failures || format(
+      'FAILED: invoice 999500 is printed on a warrant stub and the next number handed out was %s', v_d)::text;
+  else
+    raise notice 'ok  a number printed on a warrant stub is not handed out again';
+  end if;
+
+  -- ── and an invoice may have no number ──────────────────────
+  -- Three in the ledger have none: they went out before the CRM numbered
+  -- them, and saying nothing is more honest than saying a number USOR cannot
+  -- find. The column has to allow it.
+  update public.invoices set number = null where number = 700001;
+  select count(*) into v_n from public.invoices
+   where client_id = v_client and number is null;
+  if v_n < 1 then
+    failures := failures || 'FAILED: an invoice cannot be left without a number'::text;
+  else
+    raise notice 'ok  an invoice whose number nobody has read can say so';
+  end if;
+
+  if array_length(failures, 1) > 0 then
+    raise exception '%', array_to_string(failures, chr(10));
   end if;
 end $$;
 

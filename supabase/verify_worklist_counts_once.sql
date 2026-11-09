@@ -131,20 +131,31 @@ begin
     raise notice 'ok  out of hours reads as it did, at urgency 1';
   end if;
 
-  -- Overdue: a one-off authorization whose bill-by has passed.
+  /*
+   * Delivered and not invoiced, which is what this row used to be.
+   *
+   * It was "Overdue - meant to be billed by ..." at urgency 3, from the
+   * bill-by date alone. The owner ruled on 9 November 2026 that "Due" is not
+   * "late": an authorization past its bill-by date with nothing delivered is
+   * not a bill anybody has missed, because the report is not written yet.
+   * What is late is work that was done and has not been invoiced, which is
+   * what this row now is (0325).
+   */
   insert into public.authorizations (client_id, number, service_type, rate_type, rate,
-                                     start_date, end_date, received_on, status, bill_by)
+                                     start_date, end_date, received_on, status, bill_by,
+                                     delivered_on)
   values (v_client, 'ZZ-L-2', 'Job Placement', 'Flat Fee', 1200,
           public.practice_today() - 60, public.practice_today() + 60,
-          public.practice_today() - 60, 'Authorized', public.practice_today() - 5)
+          public.practice_today() - 60, 'Authorized', public.practice_today() - 5,
+          public.practice_today() - 20)
   returning id into v_one;
 
   select attention, urgency into v_text, v_urgency
     from public.authorization_attention_for(array[v_one]) f;
-  if v_text not like 'Overdue - meant to be billed by %' or v_urgency <> 3 then
-    failures := failures || format('FAILED: overdue says "%s" at urgency %s', v_text, v_urgency)::text;
+  if v_text not like 'Delivered %not invoiced after 14 days' or v_urgency <> 3 then
+    failures := failures || format('FAILED: delivered and not invoiced says "%s" at urgency %s', v_text, v_urgency)::text;
   else
-    raise notice 'ok  overdue reads as it did, at urgency 3';
+    raise notice 'ok  delivered and not invoiced for a fortnight is the one chase, at urgency 3';
   end if;
 
   -- ── one client's list is that client's rows from the whole list ──

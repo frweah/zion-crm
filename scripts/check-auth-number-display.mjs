@@ -22,6 +22,13 @@
  * fallback for a missing number is a decision about what the practice calls a
  * record it has not been given a number for, and that decision is not a
  * screen's to make on its own.
+ *
+ * It governs invoice numbers too, which it was not written for and caught
+ * anyway. Three invoices in the ledger have no number - they went out before
+ * the CRM numbered them and nobody has read Margaret's copy (0327) - and the
+ * invoices screen reached for `number ?? "No number yet"` on its own. The
+ * wording is the same, the reason is the same, and it lives in the same file:
+ * invoiceNumberLabel.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";

@@ -14,6 +14,7 @@ import {
   SubmitPacket,
   MarkDue,
   ServiceDates,
+  Delivered,
   MoveStale,
   CloseIt,
   ReopenIt,
@@ -177,10 +178,19 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
           <div className="card">
             <div className="stat">
               {money(Number(rec.amount ?? 0))}
+              {/* What the figure is evidence of, from the record rather than
+                  guessed from the rate type (0325, 0328). An hourly row with
+                  nothing logged used to read $0.00 and call itself
+                  "0 h × $45", which was true and useless: the hours are on
+                  the paper 95. */}
               <small>
-                {rec.rate_type === "Hourly"
-                  ? `${Number(rec.hours_logged ?? 0)} h × ${money(Number(rec.rate ?? 0))}`
-                  : "flat fee"}
+                {rec.amount_basis === "Invoiced"
+                  ? "invoiced"
+                  : rec.amount_basis === "Logged"
+                    ? `${Number(rec.hours_logged ?? 0)} h × ${money(Number(rec.rate ?? 0))}`
+                    : rec.amount_basis === "Flat fee"
+                      ? "flat fee"
+                      : "authorized — no work logged yet"}
               </small>
             </div>
           </div>
@@ -216,10 +226,22 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               </small>
             </div>
           </div>
+          {rec.has_months ? null : (
+            <div className="card">
+              <div className="stat" style={{ fontSize: "var(--text-md)" }}>
+                {(rec.delivered_on as string) ?? "not yet"}
+                <small>
+                  {rec.delivered_on
+                    ? `service delivered${rec.delivered_by_name ? ` · ${rec.delivered_by_name}` : ""}`
+                    : "service delivered"}
+                </small>
+              </div>
+            </div>
+          )}
           <div className="card">
             <div className="stat" style={{ fontSize: "var(--text-md)" }}>
               {rec.bill_by ?? "—"}
-              <small>meant to be billed by</small>
+              <small>the counselor asked for it by</small>
             </div>
           </div>
           <div className="card">
@@ -372,6 +394,23 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
             {rec.authorized_hours == null ? "—" : Number(rec.authorized_hours)} authorized hours used
             {rec.parent_id ? ", counted across every month of this authorization" : ""}.
           </p>
+        </section>
+      ) : null}
+
+      {/* ── the day the work was done ────────────────────────────
+          Outside the Billing guard on purpose. The owner's ruling of 9
+          November puts this in the hands of the person who did the work -
+          whoever wrote the report, made the placement or ran the month - and
+          most of them are not Billing. The database decides who may. */}
+      {(rec.status === "Authorized" || rec.status === "Due") && !rec.has_months ? (
+        <section className="page-section">
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+            <Delivered
+              authId={rec.id as string}
+              deliveredOn={(rec.delivered_on as string) ?? null}
+              deliveredBy={(rec.delivered_by_name as string) ?? null}
+            />
+          </div>
         </section>
       ) : null}
 

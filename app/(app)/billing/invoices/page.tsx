@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { invoiceNumberLabel } from "@/lib/billing";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { can } from "@/lib/roles";
@@ -26,6 +27,18 @@ import { RecordQuery } from "./query-form";
 export const dynamic = "force-dynamic";
 
 const STATUSES = ["Submitted", "Short-paid", "Paid", "Rejected"] as const;
+
+/**
+ * Sent and not paid, which is the question this screen is opened to answer
+ * (owner, 9 November 2026).
+ *
+ * It is not a status - the statuses are what came back - and it is not "all
+ * minus Paid" either, because a rejected invoice is not money owed, it is an
+ * invoice to raise again. Submitted and Short-paid are the two that mean
+ * somebody at USOR still owes this practice something.
+ */
+const OUTSTANDING = "Outstanding";
+const OUTSTANDING_STATUSES = ["Submitted", "Short-paid"];
 
 /** Which month, as the segmented control offers it. */
 function monthStart(when: string | undefined): string | null {
@@ -68,7 +81,8 @@ export default async function InvoicesPage({
     .order("number", { ascending: false })
     .limit(2000);
 
-  if (status && (STATUSES as readonly string[]).includes(status)) query = query.eq("status", status);
+  if (status === OUTSTANDING) query = query.in("status", OUTSTANDING_STATUSES);
+  else if (status && (STATUSES as readonly string[]).includes(status)) query = query.eq("status", status);
   if (client) query = query.eq("client_id", client);
   if (office) query = query.eq("office_id", office);
   if (from) {
@@ -84,7 +98,11 @@ export default async function InvoicesPage({
       supabase.from("clients").select("id, name").order("name"),
       supabase.from("billing_offices").select("id, name").order("name"),
       supabase.from("authorizations").select("id, number, service_type"),
-      supabase.from("invoices").select("submitted_on").not("submitted_on", "is", null),
+      // Every invoice's month and office, unfiltered: the chips offer what
+      // there is rather than every office on file, and they have to be the
+      // same whichever chip is on - a filter that disappears once you use it
+      // is a filter you cannot undo.
+      supabase.from("invoices").select("submitted_on, office_id"),
       // Which of them somebody has queried and settled, so the list says so
       // beside the status rather than only inside the record (0312).
       supabase.from("invoice_queries").select("invoice_id").eq("resolved", true),
@@ -133,6 +151,12 @@ export default async function InvoicesPage({
     .sort()
     .reverse()
     .slice(0, 13);
+  const officesWithInvoices = new Set(
+    ((months ?? []) as { office_id: string | null }[]).map((m) => m.office_id).filter(Boolean) as string[],
+  );
+  const officeChips = (offices ?? []).filter(
+    (o) => officesWithInvoices.has(o.id) || office === o.id,
+  );
 
   const total = invoices.reduce((n, i) => n + Number(i.amount ?? 0), 0);
   const received = invoices.reduce((n, i) => n + Number(i.amount_paid ?? 0), 0);
@@ -190,7 +214,7 @@ export default async function InvoicesPage({
         <section className="page-section" style={{ marginBottom: 18 }}>
           <div className="record-actions" style={{ marginBottom: 8 }}>
             <h2 className="h2" style={{ margin: 0, flex: 1 }}>
-              Invoice {opened.number}
+              Invoice {invoiceNumberLabel(opened)}
             </h2>
             <Link href={here({ invoice: undefined })} className="btn ghost" style={{ textDecoration: "none" }}>
               Done
@@ -284,6 +308,12 @@ export default async function InvoicesPage({
         <Link href={here({ status: undefined })} className={!status ? "on" : undefined}>
           All
         </Link>
+        <Link
+          href={here({ status: OUTSTANDING })}
+          className={status === OUTSTANDING ? "on" : undefined}
+        >
+          Outstanding
+        </Link>
         {STATUSES.map((s) => (
           <Link key={s} href={here({ status: s })} className={status === s ? "on" : undefined}>
             {s}
@@ -295,7 +325,7 @@ export default async function InvoicesPage({
         <Link href={here({ office: undefined })} className={!office ? "on" : undefined}>
           Every office
         </Link>
-        {(offices ?? []).map((o) => (
+        {officeChips.map((o) => (
           <Link key={o.id} href={here({ office: o.id })} className={office === o.id ? "on" : undefined}>
             {o.name}
           </Link>
@@ -334,6 +364,7 @@ export default async function InvoicesPage({
             { key: "client", label: "Client" },
             { key: "auth", label: "Authorization" },
             { key: "sent", label: "Sent" },
+            { key: "waiting", label: "Waiting", align: "right" },
             { key: "office", label: "Office" },
             { key: "amount", label: "Amount", align: "right" },
             { key: "status", label: "Status" },
@@ -345,8 +376,11 @@ export default async function InvoicesPage({
             const name = i.client_id ? (clientName.get(i.client_id) ?? "—") : "—";
             const short =
               i.status === "Short-paid" ? Number(i.amount ?? 0) - Number(i.amount_paid ?? 0) : 0;
+            // Days outstanding: how long the money has been owed, which is
+            // what a chase is sorted by (owner, 9 November 2026). A
+            // short-paid invoice is still waiting for the rest of it.
             const days =
-              i.status === "Submitted" && i.submitted_on
+              (i.status === "Submitted" || i.status === "Short-paid") && i.submitted_on
                 ? Math.floor((Date.now() - new Date(`${i.submitted_on}T00:00:00Z`).getTime()) / 86400000)
                 : null;
             return {
@@ -355,7 +389,8 @@ export default async function InvoicesPage({
                 .filter(Boolean)
                 .join(" "),
               sort: {
-                number: i.number,
+                number: i.number ?? 0,
+                waiting: days ?? -1,
                 client: name,
                 auth: a?.number ?? "",
                 sent: i.submitted_on,
@@ -369,7 +404,7 @@ export default async function InvoicesPage({
                 number: (
                   <>
                     <Link href={here({ invoice: i.id })} style={{ color: "var(--teal)", fontWeight: 600 }}>
-                      {i.number}
+                      {invoiceNumberLabel(i)}
                     </Link>
                     {i.source === "Backfill" && (
                       <span className="chip" style={{ marginLeft: 6 }}>
@@ -394,17 +429,23 @@ export default async function InvoicesPage({
                   <span className="lock">None</span>
                 ),
                 sent: i.submitted_on ? (
-                  <span style={{ whiteSpace: "nowrap" }}>
-                    {i.submitted_on}
-                    {days !== null && days >= 30 && (
-                      <span className="chip warn" style={{ marginLeft: 6 }}>
-                        {days} days
-                      </span>
-                    )}
-                  </span>
+                  <span style={{ whiteSpace: "nowrap" }}>{i.submitted_on}</span>
                 ) : (
                   <span className="lock">Not on file</span>
                 ),
+                // How long the money has been owed, in its own column so the
+                // list can be sorted by it. It was a chip on the sent date
+                // that appeared at thirty days, which could be read but not
+                // sorted - and sorting is the whole job when there are
+                // several to chase.
+                waiting:
+                  days === null ? (
+                    <span className="lock">—</span>
+                  ) : (
+                    <span className={days >= 30 ? "chip warn" : undefined} style={{ whiteSpace: "nowrap" }}>
+                      {days} {days === 1 ? "day" : "days"}
+                    </span>
+                  ),
                 office: i.office_id ? (officeName.get(i.office_id) ?? "—") : <span className="lock">—</span>,
                 amount: money(Number(i.amount ?? 0)),
                 status: (

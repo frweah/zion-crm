@@ -8591,3 +8591,133 @@ Measured at 375px in a real viewport before and after: five bar items fill
 the width exactly, with no sideways scroll either way, and the bubble sits at
 the content gutter clearing the bar. A sixth item on the bar was considered
 for Team and rejected on that measurement.
+
+## 9 Nov 2026 — the warrant, the invoice numbers, and what a row is worth
+
+Five rulings answered in five migrations. The order they were done in is the
+order the money forced: nothing about the warrant could be recorded until the
+Billing row knew what an authorization was worth.
+
+### Authorized is not delivered (0325)
+
+Two rulings that turn out to be one.
+
+**What the row is worth.** The amount came from the rate and the hours logged,
+and no hours have ever been logged in this practice — `service_entries` is
+empty, for every client, for all time. So every hourly row valued at $0.00,
+including two USOR had already been invoiced for and one it had already paid.
+The figure now comes from the strongest evidence there is, in order: what was
+invoiced, what has been logged, a flat fee, what was authorized. `basis` says
+which, and the screens say "no work logged yet" where it is the last of them.
+
+Measured over all 173 authorizations before anything was changed: 35 figures
+move, every one from $0.00 to a real number, and not one row begins to read
+"paid more than authorized". The 26 settled ones get the figure the state
+actually paid.
+
+**What it is waiting for.** `bill_by` is the day a counselor asked for the
+work by, and a row past it read "Overdue — meant to be billed by 12 October"
+in red. For seven flat-fee rows that was simply wrong: nobody is late, because
+the service has not been delivered. An authorization now carries the day its
+service was delivered, set by the person who did the work — which is why that
+one action does not go through `billingHands()`, since most of the people who
+finish a report are not Billing. Three sentences follow: "Waiting for service"
+with no colour, "Delivered 3 Nov, not invoiced" which is the Needs billing
+list, and after fourteen days the only chase there is.
+
+Four faults, four failures. One of them taught the test something: with the
+"say why" check deleted, the correction-log trigger refuses the change anyway,
+in its own words — so the case had to assert the message and not just the
+refusal, which is the lesson of 6 November applied again.
+
+### A warrant accounts for every dollar on it (0326)
+
+Warrant F15677921 arrived this morning: $2,610.00, two lines, read at 50%
+confidence. The reader found the second as an amount and nothing else, and did
+not find the first at all. The page said so and waited, which is the design
+working.
+
+What was missing is what a person can do about it. The review screen offers
+"record this line" and "set it aside", and both are about a line the reader
+found. Neither helps where it found half a stub: the $360 line had nowhere to
+be entered, and recording the $2,250 line alone would have turned the page
+green with $360 of a warrant nowhere in the books.
+
+So a person reading the page image can add a line the reader missed and
+correct the figures on one it read wrong. Both leave the line waiting for
+review, because supplying what the stub says is not deciding what it pays —
+the database still checks the V-number against the authorizations, the amount
+against what the authorization comes to, and the duplicate rule. `raw` is
+never touched: it is what the reader saw, and it is the evidence that a
+correction was a correction.
+
+And the gap that let the page go green is closed one level up. A page's lines
+adding up to the page total is the wrong question — a stub scanned twice gives
+two pages and either copy may be read in part, which is true of F15617525
+today. The real rule is about the warrant: the money recorded against a
+warrant number comes to that warrant's total. It holds for all 208 warrants
+this practice has read, and F15677921 is the first one it ever failed for.
+
+Both lines then reconciled on their own merits. The $2,250 recorded by hand on
+6 November found its warrant number, date and voucher, with a correction-log
+row for the date moving from the 6th to the 3rd; the $360 became a payment and
+V1037901 became Paid.
+
+### An invoice number is Margaret's, or it is nothing (0327)
+
+The same stub settled what the five numbers of 6 November actually are. Two of
+them are 955515 and 954423, read off the paper that went to the state. The
+other three have no number this practice knows, and the honest way to say that
+is to say nothing: `number` is nullable and those three are null, with the
+reason on the row.
+
+A made-up number is worse than a blank one twice over. USOR cannot find the
+claim it names, and the next number continues from it — so an invented 955666
+pushes every real number six places past where Margaret's numbering had got
+to. That is the gap this keeps closing.
+
+The floor is now read rather than written down. 0323 carried 955636 as a
+constant, and 955636 is exactly the highest invoice number printed on a
+warrant stub — there are 598 of them, in the description beside the V-number.
+The next number is one past the highest in the ledger or on any stub, so a
+number Margaret used and nobody entered cannot be handed out again. A constant
+goes stale the first time a warrant arrives and nobody notices.
+
+### A parent is not a bill (0329)
+
+Two things the verify suite found within the minute of 0325 landing, both of
+them right.
+
+A coaching parent came to nothing before and came to its whole ceiling after,
+and that ceiling is already counted on the months. Nothing on a screen showed
+it, because the working list leaves parents out — but `authorization_amount`
+is read in ten places and this is exactly how a total comes to be counted
+twice. A row with months now comes to nothing and says so: basis "Not a bill".
+
+And `authorization_economics.billed_from_payment` meant "the amount came out
+at zero, so this figure is the payment rather than the work". Zero was how an
+hourly row with no hours said it knew nothing, so that was every hourly row.
+With nothing coming out at zero any more the flag went quietly false, and
+Money would have shown a figure derived from what an authorization merely
+allows with nothing saying so. The question is now asked of the basis.
+
+Two verify scripts had to change with the rule rather than being argued with:
+`verify_rates_and_alerts` and `verify_worklist_counts_once` both asserted that
+a passed bill-by date reads as Overdue at urgency 3. The fixture keeps its
+place at the top of the order; what takes that place is a fortnight delivered
+and not invoiced.
+
+### The screens
+
+The Billing row says what its amount is evidence of. The authorization record
+carries the delivery date, who recorded it, and a form to set it — outside the
+Billing guard, because the ruling puts it in the hands of whoever did the
+work. Invoices gained an Outstanding filter (submitted and short-paid, which
+is not "everything but Paid" — a rejected invoice is not money owed), a
+sortable Waiting column in days, and office chips that offer only the offices
+with invoices on them.
+
+`check-auth-number-display` caught the invoices screen writing its own
+"No number yet", which it was not written for and was right about. The wording
+and the reason are the same as an unnumbered authorization, so it lives in the
+same file.

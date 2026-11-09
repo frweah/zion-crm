@@ -659,3 +659,43 @@ export async function correctPaymentDate(
   });
   return { error: null, ok: `Moved to ${moved}, with the reason on the record.` };
 }
+
+/**
+ * The day the service was delivered (0325).
+ *
+ * Set by the person who did the work, which is why this is the one action on
+ * an authorization that does not go through billingHands(): a WSA report is
+ * finished by whoever wrote it, a placement is a hire date the job coach
+ * knows, and a coaching month closes for the person who ran it. The database
+ * decides who may - any member of staff signed in - and refuses a day that
+ * has not happened, a day before the authorization began, and a coaching
+ * authorization whose months are the thing delivered.
+ *
+ * Nothing is billed by it. It moves the row from "Waiting for service" to
+ * "Delivered, not invoiced", which is the Needs billing list, and after
+ * fourteen days of that it is the one thing the practice chases.
+ */
+export async function markServiceDelivered(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireStaff();
+  const supabase = await createClient();
+  const id = String(formData.get("auth_id") ?? "");
+  const on = String(formData.get("delivered_on") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!id) return { error: "Which authorization?", ok: null };
+  if (on && !/^\d{4}-\d{2}-\d{2}$/.test(on)) return { error: "That date does not look right.", ok: null };
+
+  const { error } = await supabase.rpc("set_service_delivered", {
+    p_auth: id,
+    p_on: on || null,
+    p_reason: reason,
+  });
+  if (error) return refusal(error.message);
+  done(id);
+  return {
+    error: null,
+    ok: on ? "Recorded. It is ready to bill." : "Cleared. It is waiting for service again.",
+  };
+}

@@ -32,6 +32,10 @@ export type WorklistRow = {
   status: string;
   bill_by: string | null;
   amount: number | null;
+  /** What the amount is evidence of: Invoiced, Logged, Flat fee, Authorized. */
+  basis: string | null;
+  delivered_on: string | null;
+  invoiced: boolean | null;
   attention: string | null;
   urgency: number;
   /** Past the grace: it can no longer be submitted, only closed (0221). */
@@ -75,7 +79,16 @@ export function worklistRows(rows: WorklistRow[], withClient: boolean): DataRow[
         </>
       ),
       billBy: w.bill_by ?? <span className="lock">—</span>,
-      amount: money(Number(w.amount ?? 0)),
+      amount: (
+        <>
+          {money(Number(w.amount ?? 0))}
+          {/* An hourly row with nothing logged shows what the authorization
+              allows, and says so (0325). The figure used to be $0.00, which
+              read as "this work is worth nothing" on two rows USOR had
+              already been invoiced for. */}
+          {w.basis === "Authorized" ? <div className="lock">no work logged yet</div> : null}
+        </>
+      ),
       status: <span className="chip">{w.status}</span>,
       // §13.11: one line about this record, never four alerts.
       attention: w.attention ? (

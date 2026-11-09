@@ -75,6 +75,13 @@ const RPC_FUNCTIONS = [
   "authorization_attention",
   "authorization_hours_used",
   "authorization_amount_for",
+  "authorization_amount_basis",
+  // Authorized is not delivered (0325).
+  "set_service_delivered",
+  // A warrant accounts for every dollar on it (0326).
+  "add_warrant_line",
+  "correct_warrant_line",
+  "warrants_not_accounted_for",
   "claim_scheduled_text",
   "release_stale_text_claims",
   "authorization_attention_for",

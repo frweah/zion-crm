@@ -389,6 +389,9 @@ export type Database = {
           zero_hours_confirmed_at: string | null;
           is_placeholder: boolean;
           has_usor_number: boolean | null;
+          delivered_on: string | null;
+          delivered_by: string | null;
+          delivered_at: string | null;
         };
         Insert: {
           id?: string;
@@ -439,6 +442,9 @@ export type Database = {
           zero_hours_confirmed_at?: string | null;
           is_placeholder?: boolean;
           has_usor_number?: boolean | null;
+          delivered_on?: string | null;
+          delivered_by?: string | null;
+          delivered_at?: string | null;
         };
         Update: {
           id?: string;
@@ -489,6 +495,9 @@ export type Database = {
           zero_hours_confirmed_at?: string | null;
           is_placeholder?: boolean;
           has_usor_number?: boolean | null;
+          delivered_on?: string | null;
+          delivered_by?: string | null;
+          delivered_at?: string | null;
         };
         Relationships: [];
       };
@@ -2604,7 +2613,7 @@ export type Database = {
       invoices: {
         Row: {
           id: string;
-          number: number;
+          number: number | null;
           client_id: string;
           auth_id: string | null;
           claim: string | null;
@@ -2626,7 +2635,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          number?: number;
+          number?: number | null;
           client_id: string;
           auth_id?: string | null;
           claim?: string | null;
@@ -2648,7 +2657,7 @@ export type Database = {
         };
         Update: {
           id?: string;
-          number?: number;
+          number?: number | null;
           client_id?: string;
           auth_id?: string | null;
           claim?: string | null;
@@ -6868,6 +6877,10 @@ export type Database = {
           missing_forms: string | null;
           attention: string | null;
           urgency: number | null;
+          delivered_on: string | null;
+          delivered_by_name: string | null;
+          amount_basis: string | null;
+          has_months: boolean | null;
         };
         Relationships: [];
       };
@@ -7528,6 +7541,10 @@ export type Database = {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
       };
+      add_warrant_line: {
+        Args: { p_page: string | null; p_voucher: string | null; p_invoice_ref: string | null; p_client_code: string | null; p_client_name: string | null; p_service_date: string | null; p_amount: number | null };
+        Returns: string;
+      };
       answer_reminder: {
         Args: { p_task_id: string | null; p_status: string | null; p_outcome?: string | null };
         Returns: undefined;
@@ -7560,9 +7577,13 @@ export type Database = {
         Args: { p_auth: string | null };
         Returns: number;
       };
+      authorization_amount_basis: {
+        Args: { p_auth: string | null };
+        Returns: string;
+      };
       authorization_amount_for: {
         Args: { p_auths: string[] | null };
-        Returns: { auth_id: string | null; amount: number | null }[];
+        Returns: { auth_id: string | null; amount: number | null; basis: string | null }[];
       };
       authorization_attention: {
         Args: { p_auth: string | null; p_today?: string | null };
@@ -7634,7 +7655,7 @@ export type Database = {
       };
       billing_worklist: {
         Args: { p_today?: string | null; p_client?: string | null };
-        Returns: { id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; bill_by: string | null; stale_date: string | null; submitted_on: string | null; followup_due: string | null; amount: number | null; parent_id: string | null; attention: string | null; urgency: number | null; blocked: boolean | null }[];
+        Returns: { id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; bill_by: string | null; stale_date: string | null; submitted_on: string | null; followup_due: string | null; amount: number | null; basis: string | null; delivered_on: string | null; invoiced: boolean | null; parent_id: string | null; attention: string | null; urgency: number | null; blocked: boolean | null }[];
       };
       bills_due_by: {
         Args: { p_by: string | null };
@@ -7751,6 +7772,10 @@ export type Database = {
       correct_payment_date: {
         Args: { p_auth: string | null; p_on: string | null; p_reason: string | null };
         Returns: string;
+      };
+      correct_warrant_line: {
+        Args: { p_line: string | null; p_voucher: string | null; p_invoice_ref: string | null; p_client_code: string | null; p_client_name: string | null; p_service_date: string | null; p_amount: number | null };
+        Returns: undefined;
       };
       create_due_recurring_bills: {
         Args: { p_today?: string | null };
@@ -8604,6 +8629,10 @@ export type Database = {
         Args: { p_lines: Json | null };
         Returns: string;
       };
+      set_service_delivered: {
+        Args: { p_auth: string | null; p_on: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
       set_sms_consent: {
         Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note?: string | null };
         Returns: undefined;
@@ -8743,6 +8772,10 @@ export type Database = {
       verify_credential: {
         Args: { p_credential_id: string | null };
         Returns: undefined;
+      };
+      warrants_not_accounted_for: {
+        Args: Record<string, never>;
+        Returns: { warrant_no: string | null; warrant_date: string | null; total: number | null; recorded: number | null; gap: number | null; pages: number | null; lines: number | null }[];
       };
       web_chat_config: {
         Args: Record<string, never>;

@@ -10,6 +10,7 @@ import {
   reopenAuthorization,
   moveStaleDate,
   recordServiceDates,
+  markServiceDelivered,
   resolveZeroHours,
   recordPayment,
   correctPaymentDate,
@@ -123,6 +124,52 @@ export function ServiceDates({
       </div>
       <button className="btn" disabled={pending}>
         {pending ? "…" : "Record"}
+      </button>
+      <Said state={state} />
+    </form>
+  );
+}
+
+/**
+ * The day the service was delivered (0325).
+ *
+ * The owner's ruling of 9 November: "Due" is not "late". An authorization
+ * past its bill-by date with nothing delivered is not a bill anybody has
+ * missed - the report is not written yet, the client is not hired yet, the
+ * month is not closed yet. This is the day that changes, and the person who
+ * did the work is the one who knows it.
+ */
+export function Delivered({
+  authId,
+  deliveredOn,
+  deliveredBy,
+}: {
+  authId: string;
+  deliveredOn: string | null;
+  deliveredBy: string | null;
+}) {
+  const [state, action, pending] = useActionState(markServiceDelivered, EMPTY);
+  return (
+    <form action={action} className="card">
+      <input type="hidden" name="auth_id" value={authId} />
+      <h3 className="h2">Service delivered</h3>
+      <p className="lock">
+        {deliveredOn
+          ? `Recorded by ${deliveredBy || "a member of staff"}`
+          : "The day the report was finished, the client was hired, or the month closed"}
+      </p>
+      <label className="field">
+        <span>Delivered on</span>
+        <input type="date" name="delivered_on" defaultValue={deliveredOn ?? ""} />
+      </label>
+      {deliveredOn ? (
+        <label className="field">
+          <span>Why it is changing</span>
+          <input name="reason" placeholder="The hire date on the offer letter is the 14th" />
+        </label>
+      ) : null}
+      <button className="btn" disabled={pending}>
+        {pending ? "…" : deliveredOn ? "Change it" : "Record"}
       </button>
       <Said state={state} />
     </form>
