@@ -14,6 +14,7 @@ import {
 } from "./actions";
 import { familyOf } from "@/lib/filename-rules";
 import { DataTable } from "../../data-table";
+import { WhoseDocument, type Counselor } from "./whose-document";
 
 /** An imported "(workbook)" authorization with no USOR number yet. */
 export type Placeholder = {
@@ -535,11 +536,15 @@ function DocumentRow({
 export function InboxView({
   pending,
   clients,
+  counselors,
+  offices,
   canBill,
   placeholders,
 }: {
   pending: PendingRow[];
   clients: { id: string; name: string }[];
+  counselors: Counselor[];
+  offices: string[];
   canBill: boolean;
   placeholders: Placeholder[];
 }) {
@@ -562,8 +567,47 @@ export function InboxView({
           KIND_ORDER.indexOf(kindOf(b) as (typeof KIND_ORDER)[number]) || a.first_seen.localeCompare(b.first_seen),
     );
 
+  // Documents with nobody against them, which is most of the queue: they
+  // arrived by email into a folder named after a mailbox rather than a
+  // person, so mapping the folder would be mapping every client at once.
+  const waiting = pending.filter((d) => d.needs_a_client);
+
   return (
     <>
+      {waiting.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <h3 style={{ margin: 0 }}>Waiting for a client</h3>
+          <p className="sub" style={{ margin: "4px 0 8px" }}>
+            {waiting.length} document{waiting.length === 1 ? "" : "s"} with nobody against
+            {waiting.length === 1 ? " it" : " them"}. Nothing is filed or confirmed until somebody
+            says whose it is.
+          </p>
+          {waiting.slice(0, 40).map((doc) => (
+            <div key={doc.id} className="card" style={{ marginBottom: 10 }}>
+              <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <b>{doc.filename}</b>
+                  <div className="lock">
+                    {doc.folder_name || "(loose in the top folder)"} · seen {fmtStamp(doc.first_seen)}
+                  </div>
+                </div>
+                <span className={"chip " + (doc.kind === "Unreadable" ? "bad" : "")}>{doc.kind}</span>
+              </div>
+              <WhoseDocument
+                docId={doc.id}
+                parsed={(doc.parsed ?? {}) as Record<string, unknown>}
+                clients={clients}
+                counselors={counselors}
+                offices={offices}
+              />
+            </div>
+          ))}
+          {waiting.length > 40 && (
+            <p className="lock">The oldest 40 of {waiting.length}, newest first.</p>
+          )}
+        </div>
+      )}
+
       {unmatched.size > 0 && (
         <div style={{ marginBottom: 18 }}>
           <h3 style={{ margin: 0 }}>Folders without a client</h3>

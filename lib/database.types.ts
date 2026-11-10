@@ -7784,6 +7784,10 @@ export type Database = {
         Args: { p_conversation: string | null; p_staff: string | null };
         Returns: undefined;
       };
+      assign_document_to_client: {
+        Args: { p_doc: string | null; p_client: string | null };
+        Returns: undefined;
+      };
       authorization_amount: {
         Args: { p_auth: string | null };
         Returns: number;
@@ -7914,6 +7918,10 @@ export type Database = {
       };
       client_for_thread: {
         Args: { p_conversation: string | null };
+        Returns: string;
+      };
+      client_from_document: {
+        Args: { p_doc: string | null; p_name: string | null; p_counselor: string | null; p_office: string | null; p_agency_id: string | null; p_no_phone_reason: string | null };
         Returns: string;
       };
       client_last_activity_for: {

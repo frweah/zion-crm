@@ -36,7 +36,8 @@ export default async function InboxSection() {
 
   const supabase = await createClient();
 
-  const [pendingResult, clientsResult, doneResult, placeholderResult] = await Promise.all([
+  const [pendingResult, clientsResult, doneResult, placeholderResult, counselorResult, officeResult] =
+    await Promise.all([
     supabase.from("inbox_pending").select("*").order("first_seen", { ascending: false }),
     supabase.from("clients").select("id, name").order("name"),
     supabase.from("inbox_documents").select("state").neq("state", "Pending"),
@@ -46,6 +47,11 @@ export default async function InboxSection() {
       .from("authorizations")
       .select("id, client_id, number, service_type, carried_used, total_hours")
       .eq("has_usor_number", false),
+    // Who a new client from a document can be given to, and which office
+    // referred them. Both are on the PDF and both are chosen from the
+    // practice's own lists rather than typed (C3, 9 Nov 2026).
+    supabase.from("counselors").select("id, name").order("name"),
+    supabase.from("offices").select("name").order("name"),
   ]);
 
   const pending = (pendingResult.data ?? []) as unknown as PendingRow[];
@@ -93,6 +99,8 @@ export default async function InboxSection() {
       </div>
 
       <InboxView
+        counselors={counselorResult.data ?? []}
+        offices={(officeResult.data ?? []).map((o) => o.name)}
         pending={pending}
         clients={clientsResult.data ?? []}
         canBill={canBill}

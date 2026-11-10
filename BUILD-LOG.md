@@ -9005,3 +9005,52 @@ many jobs has this client applied for" to anybody with a session, a client in
 the portal included), and the records request (a text the practice wrote about
 a client, sent or not, with the reason it was not — and the facts it was
 assembled from, which are the answer to "where did that sentence come from").
+
+## 9 Nov 2026, the end of it — a document says whose it is
+
+C3, and the three smoke steps the owner's definition of done asks for.
+
+### Whose a document is (0341)
+
+A hundred and eight documents were waiting in the inbox with no client against
+them, and nothing in the practice could give them one. The inbox offered
+exactly one answer — map a whole *folder* to a client — which is right for a
+folder named after somebody and useless for the ninety-odd that arrived by
+email into a folder called "service@ mail". So they sat there, and `fileDocument`
+answered "Say whose folder it is first" to a question nobody could answer.
+
+Two answers per document now, and neither of them files anything: they say
+whose the document is, and then the doors that were already there do what they
+already do. A document with a client on it is one the inbox can file, and an
+authorization on it is one Billing can confirm through
+`confirm_authorization_document`, which is still the only way an authorization
+is created from a document.
+
+**The name is read, not trusted.** The parse gives a name from the PDF and it
+is wrong in a way that matters: the USOR form prints the name and the client
+number on one line, so the parser's suggestion can be a first name with
+"Client ID" stuck on the end. The screen offers the parse **and the line it
+came from**, and `client_from_document` refuses that wording by name — it is
+the one wrong answer the function can recognise, so it recognises it. A name
+already on file is refused too, with "assign the document to them instead":
+the practice has had two duplicate client records and does not need a third.
+
+Eight assertions, two faults, two failures — and the script had to be changed
+after the first injection, because with a refusal taken out the first case
+consumed the document and every later case raised about *that* instead of
+reporting its own answer. A verify script that stops has said less than it
+knew, so each refusal now gets a document of its own.
+
+### The three smoke steps
+
+"Smoke posts a contact, a draft approval, an Assign to client."
+
+`invokeActions` posts every form on a screen, which is right where every
+action refuses an empty submission and **wrong** on Weekly updates: Approve
+and Send all approved are both on it, and posting those blind on every deploy
+would send real texts to real people.
+
+So `invokeOne` picks one form by a field it carries and posts it with fields
+of our own — an empty name, an empty wording, no client chosen — so the deploy
+exercises the module and changes nothing. What is asserted is what the 19
+October outage taught: that the module loads and the action answers.

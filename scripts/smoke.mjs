@@ -753,6 +753,56 @@ function actionForms(html) {
   return forms;
 }
 
+/**
+ * One form on a page, chosen by a field it carries, posted with fields of our
+ * own (the owner's definition of done for parts A and B, 9 November 2026).
+ *
+ * `invokeActions` posts every form on a screen, which is right where every
+ * action refuses an empty submission and wrong where one of them sends a text
+ * to a client. Weekly updates has an Approve and a Send all approved on it;
+ * posting those blind on every deploy would send real texts to real people.
+ *
+ * So this picks the one action whose refusal proves the module loads - an
+ * empty name, an empty body, no client chosen - and posts nothing else. What
+ * is asserted is the same thing: the module loads and the action answers.
+ */
+async function invokeOne(path, role, what, pick, extra = []) {
+  const page = await open(path);
+  if (!page.ok) return { role, path: `${path} (${what})`, ok: false, why: page.why };
+
+  const forms = actionForms(page.body).filter((fields) => pick(fields.map(([n]) => n)));
+  if (forms.length === 0) {
+    return {
+      role,
+      path: `${path} (${what})`,
+      ok: false,
+      why: `no ${what} form on the page - either the screen lost it or it stopped working without JavaScript`,
+    };
+  }
+
+  const body = new FormData();
+  for (const [name, value] of forms[0]) body.append(name, value);
+  for (const [name, value] of extra) body.set(name, value);
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { cookie: cookie(), ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {}) },
+    body,
+  });
+  remember(res);
+  const text = res.status === 204 ? "" : await res.text();
+  if (res.status >= 500) {
+    return { role, path: `${path} (${what})`, ok: false, why: `HTTP ${res.status} - the action module did not load` };
+  }
+  const mark = ERROR_MARKS.find((m) => m.test(text));
+  return {
+    role,
+    path: `${path} (${what})`,
+    ok: !mark,
+    why: mark ? `a server error answering the action (${(text.match(mark) ?? [""])[0]})` : undefined,
+  };
+}
+
 async function invokeActions(path, role) {
   const page = await open(path);
   if (!page.ok) return [{ role, path, ok: false, why: page.why }];
@@ -960,6 +1010,59 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
   const myDay = await invokeActions("/my-day", "Reports");
   if (!myDay.some((r) => r.why?.includes("no server action on the page"))) {
     all.push(...myDay);
+  }
+
+  /**
+   * Three more actions, from the owner's definition of done for 9 November:
+   * a contact, a draft approval, and an Assign to client.
+   *
+   * Each is posted with the one field that makes it refuse - no name, no
+   * wording, no client - so the deploy exercises the module and changes
+   * nothing. Blind-posting the weekly-updates screen would send real texts,
+   * which is why `invokeOne` exists.
+   */
+  if (forJobs) {
+    all.push(
+      await invokeOne(
+        `/clients/${forJobs}?tab=profile`,
+        "Reports",
+        "add a contact",
+        (names) => names.includes("id"),
+        [["name", ""], ["relationship", ""]],
+      ),
+    );
+  }
+
+  const updates = await open("/messages/weekly-updates");
+  if (updates.ok && /name="body"/.test(updates.body)) {
+    all.push(
+      await invokeOne(
+        "/messages/weekly-updates",
+        "Reports",
+        "a draft, reworded",
+        (names) => names.includes("id"),
+        [["body", ""]],
+      ),
+    );
+  } else if (!updates.ok) {
+    all.push({ ...updates, role: "Reports" });
+  }
+  // Nothing drafted is the ordinary state on five days out of seven, so an
+  // empty screen is not a fault - but the screen itself has to open.
+
+  const inbox = await open("/admin/documents");
+  if (inbox.ok && /name="document_id"/.test(inbox.body)) {
+    all.push(
+      await invokeOne(
+        "/admin/documents",
+        "Reports",
+        "assign a document to a client",
+        (names) => names.includes("document_id"),
+        [["client_id", ""]],
+      ),
+    );
+  } else if (!inbox.ok) {
+    all.push({ ...inbox, role: "Reports" });
   }
 
   const reports = await pass("Reports");

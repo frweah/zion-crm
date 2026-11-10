@@ -175,6 +175,9 @@ const RPC_FUNCTIONS = [
   "inbox_seen",
   "file_document_as_note",
   "link_document_to_authorization",
+  // A document says whose it is (0341).
+  "assign_document_to_client",
+  "client_from_document",
   "correct_authorization",
   "replace_placeholder_authorization",
   "reconcile_warrant_line",
