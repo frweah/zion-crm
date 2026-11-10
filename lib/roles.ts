@@ -280,6 +280,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
       // What the practice tells everybody, and who it can reach
       // (Design language, §3).
+      // The Friday drafts, read and sent one at a time (owner, 9 Nov 2026).
+      // Not everybody's: approving a text to a client is a decision, and the
+      // three roles that keep client records are the ones who make it.
+      {
+        label: "Weekly updates",
+        href: "/messages/weekly-updates",
+        roles: ["Admin", "Job Search", "Reports"],
+        note: "A text each, drafted Friday, sent one at a time.",
+      },
       { label: "Updates", href: "/updates", roles: EVERYONE, note: "Posts from the practice, and what you have read." },
     ],
   },

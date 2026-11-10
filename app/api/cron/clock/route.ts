@@ -33,16 +33,30 @@ async function handle(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const [{ data: closed, error: closeError }, { data: reminded, error: remindError }] =
-    await Promise.all([
-      admin.rpc("close_forgotten_sessions"),
-      admin.rpc("remind_to_clock_in"),
-    ]);
+  const [
+    { data: closed, error: closeError },
+    { data: reminded, error: remindError },
+    { data: expired, error: expireError },
+  ] = await Promise.all([
+    admin.rpc("close_forgotten_sessions"),
+    admin.rpc("remind_to_clock_in"),
+    /*
+     * The week that ended on Sunday night (part B, 9 November 2026).
+     *
+     * Here because this is the only thing that runs every quarter of an hour,
+     * and "Sunday night" wants a sweep rather than a daily job: a draft still
+     * sendable at nine on Monday morning is a week-old update that reads as
+     * news. The function does nothing on the other 671 runs of the week, and
+     * the Friday route runs it too as a backstop.
+     */
+    admin.rpc("expire_weekly_updates"),
+  ]);
 
   return NextResponse.json({
     ran_at: new Date().toISOString(),
     sessions_closed: closed ?? 0,
     reminded_to_clock_in: reminded ?? 0,
-    errors: [closeError?.message, remindError?.message].filter(Boolean),
+    weekly_updates_closed: expired ?? 0,
+    errors: [closeError?.message, remindError?.message, expireError?.message].filter(Boolean),
   });
 }

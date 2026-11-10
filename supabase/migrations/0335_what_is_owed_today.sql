@@ -10,7 +10,9 @@
 --   "For open hourly authorizations only, Margaret enters hours from the
 --   paper 95s — one task. No backfill of closed ones."
 --
---   "Jonathan Gustamantes has no phone — task for Margaret."
+--   "<a client> has no phone — task for Margaret." (The owner named him; no
+--   client is named in this repository, and the question below finds him
+--   without being told who he is.)
 --
 --   "The seven flat-fee rows: no tasks to Margaret; instead ask the assigned
 --   staff member on each to set delivered or leave waiting."

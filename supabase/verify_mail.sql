@@ -55,7 +55,14 @@ begin
        -- for one to be copied from - `mail_log` has no body column, which is
        -- what the clause above this list asserts.
        ('client_weekly_reports', 'content'),
-       ('client_reports', 'content'));
+       ('client_reports', 'content'),
+       -- The weekly update, drafted for a client to read (0338). The
+       -- practice's own words again, and the same distinction: this is a text
+       -- the practice wrote and is about to send, kept so that what went out
+       -- can be read afterwards. Nothing arrives into it - the body is
+       -- assembled from counts and dates by weekly_update_body, which reads
+       -- no note, no contact log entry, no report and no mailbox.
+       ('weekly_updates', 'body'));
   if v_extra is not null then
     failures := failures || format('FAILED: somewhere a message body could be kept: %s', v_extra)::text;
   else

@@ -102,7 +102,11 @@ declare
     -- (0330). A contact's name, relationship and number are held because of
     -- this client, so they are as much the client's data as their own.
     'client_phones=other_numbers',
-    'client_contacts=contacts'
+    'client_contacts=contacts',
+    -- The weekly updates drafted about them, sent or not (0338). A text the
+    -- practice wrote about this client and sent to their phone is plainly
+    -- theirs; so is one it drafted and decided not to send, and the reason.
+    'weekly_updates=weekly_updates'
   ];
 
   -- Tables carrying a client_id that are deliberately not in a bundle, each

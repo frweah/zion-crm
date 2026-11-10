@@ -8917,3 +8917,91 @@ figure.
 Two faults, two failures: counting every uninvoiced row as work to bill, and
 counting a payment by the day somebody typed it rather than by the warrant's
 date.
+
+## 9 Nov 2026, the evening — the weekly update
+
+Part B of the owner's order. A text per active client and per contact who
+receives them, drafted on a Friday afternoon, approved by a person, sent one
+at a time.
+
+### What a draft is made of, and what it is not
+
+**Not the weekly report.** The practice already assembles a week per client
+for the counselor, and the first one looked at while writing this contained
+two other people's first names, an internal financial review, and a note
+marked as held back from the counselor. Quoting staff prose at a client cannot
+be made safe by rules about what not to write, because the rules would have to
+be applied by whoever wrote the note six days earlier.
+
+So a draft is assembled from **facts with a shape**: how many jobs were
+applied for, whether there was an interview, whether a job started, when the
+next appointment is. Counts and dates. There is no path from a note, a contact
+log entry, a report or an authorization into the body of a text, which is what
+makes "no health, benefits, legal or employer-internal detail" a property of
+the design rather than a promise somebody has to keep.
+
+`verify_weekly_updates` puts the same distinctive sentence in a note, a
+contact log entry and a weekly report, and asserts that none of them is in the
+body. Putting that fault back took two attempts and taught the lesson again:
+the first injection added the note to the body *after* the empty-week branch
+had already returned, so it never ran, and a fault that never applies looks
+exactly like a check that cannot fail.
+
+The employer is named in one sentence and nowhere else — the one about a job
+that started. The client works there, so it is not news to them, and it is the
+one fact worth a sentence of its own. An application is a count: which
+employer turned somebody down is between them and the employer.
+
+A week with nothing in it asks a question rather than reporting an absence.
+"No activity this week" reads as an accusation when it is the practice that
+has nothing to report.
+
+### And what happens to it
+
+Drafted, approved, sent, each by a click. Nothing in the database sends
+anything: the row in `sms_messages` is the send, and every rule about it —
+consent for that number, 8am to 9pm, STOP — is on that table where it has
+always been. A number with no consent is not a draft that fails on sending:
+the screen says it cannot be sent and why, before anybody clicks, and the
+reason is about the number rather than the person. A client whose own number
+has no consent may have a partner who has given it, and those are two rows
+with two different answers.
+
+"Send all approved" is one click and still one send per person: a batch that
+stopped at the first refusal would leave somebody guessing which of thirty
+went. What comes back says how many went and names the ones that did not.
+
+An unsent draft is logged as not sent once its week has ended, by the
+quarter-hourly sweep — because "Sunday night" wants a sweep rather than a
+daily job, and a draft still sendable at nine on Monday morning is a week-old
+update that reads as news.
+
+### One thing that would have gone wrong on the first send
+
+`sendClientSms` creates a contact at the provider when it does not recognise a
+number, under the client's name, and caches the id on `clients.ghl_id` so the
+next text is one call instead of three. Sending a weekly update to a client's
+partner would have created a provider contact with the partner's number under
+the *client's* name — and then pointed the client's own future texts at the
+partner's phone. Two optional arguments now: whose name the contact is made
+under, and whether to remember it on the client.
+
+### The language field, and what was not built
+
+The owner asked for the client's language if set. The field is there and the
+draft carries it; what is **not** there is a translation. This practice has no
+translations, and a machine translation of a sentence about somebody's job
+search is not a thing to send unread. A draft for a client whose language is
+set is drafted in English and the screen says so in a sentence, above a body
+that can be rewritten before it is approved. That is the one part of B that is
+a flag rather than a feature, and it is flagged rather than quietly English.
+
+### The three lists again
+
+The new table tripped all three, as it is meant to: the mail-body rule (a
+drafted text is the practice's own words and is on the list with the reason),
+the elevated-function rule (two definer functions would have answered "how
+many jobs has this client applied for" to anybody with a session, a client in
+the portal included), and the records request (a text the practice wrote about
+a client, sent or not, with the reason it was not — and the facts it was
+assembled from, which are the answer to "where did that sentence come from").

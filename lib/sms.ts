@@ -63,10 +63,25 @@ export async function sendClientSms(
     clientName: string;
     phone: string;
     body: string;
-    kind: "Reminder" | "Manual" | "System";
+    kind: "Reminder" | "Manual" | "System" | "Weekly update";
     eventId?: string | null;
     staffId?: string | null;
     ghlId?: string | null;
+    /**
+     * Whose number this is, where it is not the client's own (0332).
+     *
+     * A client's partner has their own number, and a text to it is still the
+     * client's record - but the provider needs a contact, and a contact
+     * created under the client's name with somebody else's number is a
+     * mislabelled person in a system this practice does not control.
+     *
+     * `rememberOnClient` is the half that matters more. The client's
+     * provider-contact id is cached on `clients.ghl_id` so the next text is
+     * one call instead of three; caching a *contact's* id there would send
+     * the client's own next text to their partner's phone.
+     */
+    recipientName?: string | null;
+    rememberOnClient?: boolean;
     /**
      * Written now, sent then (0105). The gate still decides: consent, the
      * right number, and a time inside 8am-9pm. Nothing is sent here - the
@@ -124,12 +139,20 @@ export async function sendClientSms(
   }
 
   if (!contactId) {
-    const made = await upsertContact({ phone: params.phone, name: params.clientName });
+    const made = await upsertContact({
+      phone: params.phone,
+      name: params.recipientName?.trim() || params.clientName,
+    });
     if (!made.ok) return fail(made.error);
     contactId = made.data;
 
-    // Remember it, so the next text is one call instead of three.
-    await supabase.from("clients").update({ ghl_id: contactId }).eq("id", params.clientId);
+    // Remember it, so the next text is one call instead of three - and only
+    // when the number is the client's own. See rememberOnClient above: this
+    // line with a contact's number in it would point the client's own
+    // messages at their partner's phone.
+    if (params.rememberOnClient !== false) {
+      await supabase.from("clients").update({ ghl_id: contactId }).eq("id", params.clientId);
+    }
   }
 
   const sent = await ghlSend({ contactId, message: params.body });

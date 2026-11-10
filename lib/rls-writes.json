@@ -738,6 +738,9 @@
     "web_chats": [
       "select"
     ],
+    "weekly_updates": [
+      "select"
+    ],
     "work_categories": [
       "delete",
       "insert",

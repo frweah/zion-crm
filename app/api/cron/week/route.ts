@@ -23,7 +23,11 @@ import { weekEmail, type Week } from "@/lib/week-report";
  * UTC-7 the other half, so a job fixed at one UTC hour drifts by an hour twice
  * a year. The job fires at 21:00 and 22:00 UTC on a Friday and this sends when
  * the hour in Utah is 15 - which is three in the afternoon in both halves of
- * the year, and once, because the other firing is not three o'clock there.
+ * the year, and once, because the other firings are not three o'clock there.
+ *
+ * Two hours are wanted now: the weekly updates are drafted at 14:00 Utah and
+ * this email goes at 15:00, so the job fires at 20:00, 21:00 and 22:00 UTC
+ * and each half asks for its own hour.
  *
  * One email each rather than one email with everybody in it. A week is a
  * person's own, and a list of five people's task counts in one message is a
@@ -108,13 +112,50 @@ async function handle(request: NextRequest) {
 
   const due = (isFriday && hour === 15) || forced;
 
+  /**
+   * And the weekly updates, drafted an hour before (part B, 9 Nov 2026).
+   *
+   * Here rather than in a route of its own because it is the same event: a
+   * Friday afternoon arriving. The job fires at 20:00, 21:00 and 22:00 UTC so
+   * that both 14:00 and 15:00 in Utah are reachable in both halves of the
+   * year, and each of the two things asks for its own hour.
+   *
+   * It drafts the week that is ending, not the one about to start, and it is
+   * safe to run twice: a draft that exists is left alone, edits and all.
+   *
+   * The expiry runs with it as a backstop. The quarter-hourly sweep is what
+   * normally closes a week on the Sunday night; this catches a week whose
+   * Sunday the sweep was down for, because a Friday that drafts a new week
+   * while last week's are still open would show two weeks at once.
+   */
+  const drafting = (isFriday && hour === 14) || forced;
+  let drafted: number | null = null;
+  let expired: number | null = null;
+  if (drafting && !dry) {
+    const monday = (() => {
+      const d = new Date(`${now}T00:00:00Z`);
+      const iso = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+      d.setUTCDate(d.getUTCDate() - (iso - 1));
+      return d.toISOString().slice(0, 10);
+    })();
+    const closed = await admin.rpc("expire_weekly_updates", {});
+    if (closed.error) return NextResponse.json({ error: closed.error.message }, { status: 500 });
+    expired = Number(closed.data ?? 0);
+
+    const made = await admin.rpc("draft_weekly_updates", { p_week_start: monday });
+    if (made.error) return NextResponse.json({ error: made.error.message }, { status: 500 });
+    drafted = Number(made.data ?? 0);
+  }
+
   if (dry || !due) {
     return NextResponse.json({
       dry,
       would_send: due,
+      would_draft: drafting,
       today: now,
       friday: isFriday,
       utah_hour: hour,
+      weekly_updates: { drafted, expired },
       letters,
     });
   }

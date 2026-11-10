@@ -139,6 +139,15 @@ const RPC_FUNCTIONS = [
   "practice_today",
   "timer_elapsed_hours",
   "set_sms_consent",
+  // The weekly update (0338, 0339).
+  "draft_weekly_updates",
+  "edit_weekly_update",
+  "approve_weekly_update",
+  "weekly_update_sent",
+  "discard_weekly_update",
+  "expire_weekly_updates",
+  "weekly_update_facts",
+  "weekly_update_body",
   // Several numbers, and the people around a client (0330, 0331).
   "add_client_phone",
   "remove_client_phone",

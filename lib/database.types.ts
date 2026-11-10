@@ -1485,6 +1485,7 @@ export type Database = {
           closed_at: string | null;
           no_phone_reason: string;
           phone_label: string;
+          language: string;
         };
         Insert: {
           id?: string;
@@ -1521,6 +1522,7 @@ export type Database = {
           closed_at?: string | null;
           no_phone_reason?: string;
           phone_label?: string;
+          language?: string;
         };
         Update: {
           id?: string;
@@ -1557,6 +1559,7 @@ export type Database = {
           closed_at?: string | null;
           no_phone_reason?: string;
           phone_label?: string;
+          language?: string;
         };
         Relationships: [];
       };
@@ -6720,6 +6723,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      weekly_updates: {
+        Row: {
+          id: string;
+          week_start: string;
+          client_id: string;
+          contact_id: string | null;
+          phone: string | null;
+          language: string;
+          body: string;
+          facts: Json;
+          state: string;
+          reason: string;
+          drafted_at: string;
+          edited_by: string | null;
+          edited_at: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          sent_at: string | null;
+          sms_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          week_start: string;
+          client_id: string;
+          contact_id?: string | null;
+          phone?: string | null;
+          language?: string;
+          body: string;
+          facts?: Json;
+          state?: string;
+          reason?: string;
+          drafted_at?: string;
+          edited_by?: string | null;
+          edited_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          sent_at?: string | null;
+          sms_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          week_start?: string;
+          client_id?: string;
+          contact_id?: string | null;
+          phone?: string | null;
+          language?: string;
+          body?: string;
+          facts?: Json;
+          state?: string;
+          reason?: string;
+          drafted_at?: string;
+          edited_by?: string | null;
+          edited_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          sent_at?: string | null;
+          sms_id?: string | null;
+        };
+        Relationships: [];
+      };
       work_categories: {
         Row: {
           key: string;
@@ -7697,6 +7760,10 @@ export type Database = {
         Args: { p_bill: string | null };
         Returns: undefined;
       };
+      approve_weekly_update: {
+        Args: { p_id: string | null; p_approved: boolean | null };
+        Returns: undefined;
+      };
       archive_conversation: {
         Args: { p_conversation: string | null; p_archived?: boolean | null };
         Returns: undefined;
@@ -7965,6 +8032,10 @@ export type Database = {
         Args: { p_id: string | null };
         Returns: undefined;
       };
+      discard_weekly_update: {
+        Args: { p_id: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
       dismiss_warrant_line: {
         Args: { p_line: string | null; p_reason: string | null };
         Returns: undefined;
@@ -7972,6 +8043,10 @@ export type Database = {
       dispose_asset: {
         Args: { p_asset: string | null; p_on: string | null; p_reason: string | null; p_proceeds?: number | null };
         Returns: string;
+      };
+      draft_weekly_updates: {
+        Args: { p_week_start: string | null };
+        Returns: number;
       };
       edit_authorization: {
         Args: { p_auth: string | null; p_fields: Json | null; p_reason?: string | null };
@@ -7985,6 +8060,10 @@ export type Database = {
         Args: { p_message: string | null; p_body: string | null };
         Returns: undefined;
       };
+      edit_weekly_update: {
+        Args: { p_id: string | null; p_body: string | null };
+        Returns: undefined;
+      };
       end_break: {
         Args: Record<string, never>;
         Returns: number;
@@ -7996,6 +8075,10 @@ export type Database = {
       exclude_mail_thread: {
         Args: { p_conversation_id: string | null; p_reason?: string | null };
         Returns: undefined;
+      };
+      expire_weekly_updates: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       file_chat_file_to_client: {
         Args: { p_file: string | null; p_client: string | null; p_path: string | null; p_category: string | null };
@@ -8972,6 +9055,18 @@ export type Database = {
       web_chat_thread: {
         Args: { p_conversation: string | null; p_since?: number | null };
         Returns: { seq: number | null; who: string | null; sender_label: string | null; body: string | null; created_at: string | null }[];
+      };
+      weekly_update_body: {
+        Args: { p_client: string | null; p_contact: string | null; p_facts: Json | null };
+        Returns: string;
+      };
+      weekly_update_facts: {
+        Args: { p_client: string | null; p_from: string | null; p_to: string | null };
+        Returns: Json;
+      };
+      weekly_update_sent: {
+        Args: { p_id: string | null; p_sms: string | null };
+        Returns: undefined;
       };
       work_categories_for: {
         Args: { p_role: string | null };

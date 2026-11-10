@@ -89,6 +89,9 @@ if (orphans.length) {
 // agent's status, the monthly export and the rate schedule are under Billing.
 // "My clients today" (20 Sept 2026) is for the two roles that carry a
 // caseload, and Admin, who sees everybody's of everything.
+// "/messages/weekly-updates" since 9 November 2026: the Friday drafts, read
+// and sent one at a time. The three roles that keep client records have it,
+// because approving a text to a client is a decision; Billing does not.
 const EXPECTED = {
   Admin: [
     // "/admin/hours" since 5 November 2026: everybody's clocked time, which
@@ -106,7 +109,7 @@ const EXPECTED = {
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
     "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
-    "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
+    "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   // Billing → Forms and Report & bill were theirs and are gone (Billing
@@ -115,7 +118,7 @@ const EXPECTED = {
   // have is a screen of blank forms and a second way to bill.
   "Job Search": [
     "/calendar", "/clients", "/counselors", "/dashboard",
-    "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
+    "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
@@ -124,7 +127,7 @@ const EXPECTED = {
     // number. The counselors themselves are still behind the Counselors area,
     // which this role does not have - the screen gates its own tabs.
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/hours",
-    "/leads", "/mail", "/messages/texts", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
+    "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
