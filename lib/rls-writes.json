@@ -99,6 +99,9 @@
       "select",
       "update"
     ],
+    "client_contacts": [
+      "select"
+    ],
     "client_corrections": [
       "insert",
       "select"
@@ -114,6 +117,9 @@
       "insert",
       "select",
       "update"
+    ],
+    "client_phones": [
+      "select"
     ],
     "client_private": [
       "delete",

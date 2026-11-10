@@ -41,6 +41,7 @@ declare
   v_with    uuid;
   v_without uuid;
   v_both    uuid;
+  v_both_phone text;
   v_fixture uuid;
   v_agent   uuid;
   v_gone    uuid;
@@ -98,14 +99,18 @@ begin
   end if;
 
   -- ── texting, which has three answers ──────────────────────
+  -- Consent is about a number (0331), and the number is read off the record
+  -- rather than repeated here: a fixture that names its own number is a
+  -- fixture that can disagree with the row it made.
+  select public.normalize_phone(phone) into v_both_phone from public.clients where id = v_both;
   begin
-    perform public.set_sms_consent(v_both, 'Granted', 'Verbal', '');
+    perform public.set_sms_consent(v_both, v_both_phone, 'Granted', 'Verbal', '');
     failures := failures || 'FAILED: consent was granted with nothing saying how'::text;
   exception when check_violation then
     raise notice 'ok  granting consent has to say how it was given';
   end;
 
-  perform public.set_sms_consent(v_both, 'Declined', 'Intake form', '');
+  perform public.set_sms_consent(v_both, v_both_phone, 'Declined', 'Intake form', '');
   if (select state from public.client_sms_consent where client_id = v_both) <> 'Declined' then
     failures := failures || 'FAILED: declining was not recorded as declining'::text;
   elsif (select can_text from public.client_sms_consent where client_id = v_both) then
@@ -114,7 +119,7 @@ begin
     raise notice 'ok  asked and declined is its own answer, and it blocks texting';
   end if;
 
-  perform public.set_sms_consent(v_both, 'Granted', 'Verbal', 'ZZ said yes at intake, 6 November');
+  perform public.set_sms_consent(v_both, v_both_phone, 'Granted', 'Verbal', 'ZZ said yes at intake, 6 November');
   if not (select can_text from public.client_sms_consent where client_id = v_both) then
     failures := failures || 'FAILED: a client who said yes may not be texted'::text;
   else
@@ -131,7 +136,7 @@ begin
   end if;
 
   begin
-    perform public.set_sms_consent(v_without, 'Granted', 'Verbal', 'ZZ trying it on');
+    perform public.set_sms_consent(v_without, '+18015550199', 'Granted', 'Verbal', 'ZZ trying it on');
     failures := failures || 'FAILED: consent was recorded for a client with no phone number'::text;
   exception when check_violation then
     raise notice 'ok  and there is nothing to consent to without a number';

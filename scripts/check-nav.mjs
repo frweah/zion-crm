@@ -93,6 +93,11 @@ const EXPECTED = {
   Admin: [
     // "/admin/hours" since 5 November 2026: everybody's clocked time, which
     // is what payroll is paid from, so it is Admin's rather than Insights'.
+    // "/admin/consent" since 9 November 2026: every number the practice holds
+    // and whether it may be texted, one at a time. Admin's because it is the
+    // whole practice at once; one client's numbers are on their own record,
+    // which the record-keeping roles reach.
+    "/admin/consent",
     "/admin/documents", "/admin/hours", "/admin/people", "/admin/settings-hub", "/admin/system", "/admin/templates",
     // "/billing/invoices" since 6 November 2026: Phase 3 gives the practice an
     // invoice ledger, so the screen §9 removed when there was no invoice to

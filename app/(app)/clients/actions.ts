@@ -129,6 +129,9 @@ export async function addClient(
   if (phone && texting !== "not_asked") {
     const { error: consentError } = await supabase.rpc("set_sms_consent", {
       p_client_id: client.id,
+      // Consent is about a number, and this is the number the record was
+      // made with (0331).
+      p_phone: phone,
       p_state: texting === "granted" ? "Granted" : "Declined",
       p_method: "Intake form",
       p_note: texting === "granted" ? `Said yes when the record was made, ${today()}` : "",

@@ -451,10 +451,28 @@ export async function setSmsConsent(
   const state = String(formData.get("state") ?? "");
   const method = String(formData.get("method") ?? "Verbal");
   const note = String(formData.get("note") ?? "").trim();
+  // Which number, because a client may have three and their contacts have
+  // their own (0331). The form carries it; where it does not, the number
+  // texts go to is the one being answered about.
+  const phone = String(formData.get("phone") ?? "").trim();
 
   const supabase = await createClient();
+  let number = phone;
+  if (!number) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("phone")
+      .eq("id", clientId)
+      .maybeSingle();
+    number = client?.phone ?? "";
+  }
+  if (!number) {
+    return { error: "There is no number on this client, so there is nothing to consent to.", ok: null };
+  }
+
   const { error } = await supabase.rpc("set_sms_consent", {
     p_client_id: clientId,
+    p_phone: number,
     p_state: state,
     p_method: state === "Granted" ? method : "Staff",
     p_note: note,

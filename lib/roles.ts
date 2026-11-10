@@ -373,6 +373,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // Insights': it is what payroll is paid from and it names what each
       // person worked.
       { label: "Hours", href: "/admin/hours", roles: ADMIN, note: "Everybody's clocked time, and corrections waiting." },
+      // Every number the practice holds, and whether it may be texted (0330).
+      // One number at a time with how consent was given: the owner's rule of
+      // 9 November 2026, and there is no control on it that touches two.
+      { label: "Texting consent", href: "/admin/consent", roles: ADMIN, note: "Numbers that cannot be texted yet, one at a time." },
       { label: "Money insights", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },

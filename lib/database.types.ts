@@ -996,6 +996,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_contacts: {
+        Row: {
+          id: string;
+          client_id: string;
+          name: string;
+          relationship: string;
+          phone: string | null;
+          phone_label: string;
+          email: string;
+          receives_updates: boolean;
+          may_speak_for: boolean;
+          note: string;
+          active: boolean;
+          added_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          name: string;
+          relationship: string;
+          phone?: string | null;
+          phone_label?: string;
+          email?: string;
+          receives_updates?: boolean;
+          may_speak_for?: boolean;
+          note?: string;
+          active?: boolean;
+          added_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          name?: string;
+          relationship?: string;
+          phone?: string | null;
+          phone_label?: string;
+          email?: string;
+          receives_updates?: boolean;
+          may_speak_for?: boolean;
+          note?: string;
+          active?: boolean;
+          added_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       client_corrections: {
         Row: {
           id: string;
@@ -1155,6 +1206,36 @@ export type Database = {
           restricted_by_default?: boolean;
           sort_order?: number;
           active?: boolean;
+        };
+        Relationships: [];
+      };
+      client_phones: {
+        Row: {
+          id: string;
+          client_id: string;
+          label: string;
+          phone: string;
+          note: string;
+          added_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          label?: string;
+          phone: string;
+          note?: string;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          label?: string;
+          phone?: string;
+          note?: string;
+          added_by?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -1403,6 +1484,7 @@ export type Database = {
           billing_staff_id: string | null;
           closed_at: string | null;
           no_phone_reason: string;
+          phone_label: string;
         };
         Insert: {
           id?: string;
@@ -1438,6 +1520,7 @@ export type Database = {
           billing_staff_id?: string | null;
           closed_at?: string | null;
           no_phone_reason?: string;
+          phone_label?: string;
         };
         Update: {
           id?: string;
@@ -1473,6 +1556,7 @@ export type Database = {
           billing_staff_id?: string | null;
           closed_at?: string | null;
           no_phone_reason?: string;
+          phone_label?: string;
         };
         Relationships: [];
       };
@@ -4865,6 +4949,7 @@ export type Database = {
           note: string;
           at: string;
           staff_id: string | null;
+          contact_id: string | null;
         };
         Insert: {
           id?: string;
@@ -4876,6 +4961,7 @@ export type Database = {
           note?: string;
           at?: string;
           staff_id?: string | null;
+          contact_id?: string | null;
         };
         Update: {
           id?: string;
@@ -4887,6 +4973,7 @@ export type Database = {
           note?: string;
           at?: string;
           staff_id?: string | null;
+          contact_id?: string | null;
         };
         Relationships: [];
       };
@@ -4911,6 +4998,7 @@ export type Database = {
           claimed_at: string | null;
           media_url: string | null;
           media_type: string | null;
+          contact_id: string | null;
         };
         Insert: {
           id?: string;
@@ -4932,6 +5020,7 @@ export type Database = {
           claimed_at?: string | null;
           media_url?: string | null;
           media_type?: string | null;
+          contact_id?: string | null;
         };
         Update: {
           id?: string;
@@ -4953,6 +5042,7 @@ export type Database = {
           claimed_at?: string | null;
           media_url?: string | null;
           media_type?: string | null;
+          contact_id?: string | null;
         };
         Relationships: [];
       };
@@ -7104,6 +7194,21 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_numbers: {
+        Row: {
+          client_id: string | null;
+          phone_id: string | null;
+          contact_id: string | null;
+          phone: string | null;
+          label: string | null;
+          texts_here: boolean | null;
+          whose: string | null;
+          whose_name: string | null;
+          relationship: string | null;
+          note: string | null;
+        };
+        Relationships: [];
+      };
       client_paperwork: {
         Row: {
           client_id: string | null;
@@ -7363,6 +7468,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      sms_consent_numbers: {
+        Row: {
+          client_id: string | null;
+          contact_id: string | null;
+          phone: string | null;
+          label: string | null;
+          whose: string | null;
+          whose_name: string | null;
+          relationship: string | null;
+          texts_here: boolean | null;
+          state: string | null;
+          since: string | null;
+          method: string | null;
+          note: string | null;
+          can_text: boolean | null;
+        };
+        Relationships: [];
+      };
       sms_due_reminders: {
         Row: {
           event_id: string | null;
@@ -7535,6 +7658,14 @@ export type Database = {
     Functions: {
       add_authorization: {
         Args: { p_client: string | null; p_number: string | null; p_service_type: string | null; p_rate_type: string | null; p_rate: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null; p_requires_forms?: string | null; p_funding_source?: string | null; p_note?: string | null; p_received_on?: string | null; p_paid_on?: string | null; p_paid_amount?: number | null; p_warrant?: string | null };
+        Returns: string;
+      };
+      add_client_contact: {
+        Args: { p_client: string | null; p_name: string | null; p_relationship: string | null; p_phone: string | null; p_label: string | null; p_email: string | null; p_receives_updates: boolean | null; p_may_speak_for: boolean | null };
+        Returns: string;
+      };
+      add_client_phone: {
+        Args: { p_client: string | null; p_label: string | null; p_phone: string | null; p_note: string | null };
         Returns: string;
       };
       add_conversation_participant: {
@@ -7820,6 +7951,10 @@ export type Database = {
       edit_authorization: {
         Args: { p_auth: string | null; p_fields: Json | null; p_reason?: string | null };
         Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
+      };
+      edit_client_contact: {
+        Args: { p_contact: string | null; p_name: string | null; p_relationship: string | null; p_phone: string | null; p_label: string | null; p_email: string | null; p_receives_updates: boolean | null; p_may_speak_for: boolean | null; p_note: string | null };
+        Returns: undefined;
       };
       edit_message: {
         Args: { p_message: string | null; p_body: string | null };
@@ -8451,7 +8586,7 @@ export type Database = {
       };
       record_incoming_sms: {
         Args: { p_phone: string | null; p_body: string | null; p_provider_id?: string | null; p_payload?: Json | null; p_media?: string | null; p_media_type?: string | null };
-        Returns: { client_id: string | null; action: string | null }[];
+        Returns: { client_id: string | null; contact_id: string | null; action: string | null }[];
       };
       record_invoice_query: {
         Args: { p_invoice: string | null; p_asked_of: string | null; p_said?: string | null; p_resolved?: boolean | null; p_asked_on?: string | null };
@@ -8512,6 +8647,14 @@ export type Database = {
       remind_to_clock_in: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      remove_client_contact: {
+        Args: { p_contact: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
+      remove_client_phone: {
+        Args: { p_phone: string | null };
+        Returns: undefined;
       };
       remove_message: {
         Args: { p_message: string | null };
@@ -8634,7 +8777,7 @@ export type Database = {
         Returns: undefined;
       };
       set_sms_consent: {
-        Args: { p_client_id: string | null; p_state: string | null; p_method: string | null; p_note?: string | null };
+        Args: { p_client_id: string | null; p_phone: string | null; p_state: string | null; p_method: string | null; p_note: string | null };
         Returns: undefined;
       };
       set_staff_change_note: {
@@ -8651,6 +8794,10 @@ export type Database = {
       };
       set_statement_adjustment: {
         Args: { p_statement_id: string | null; p_amount: number | null; p_note: string | null };
+        Returns: undefined;
+      };
+      set_texting_number: {
+        Args: { p_client: string | null; p_phone: string | null };
         Returns: undefined;
       };
       sign_staff_policy: {

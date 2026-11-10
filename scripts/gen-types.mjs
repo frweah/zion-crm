@@ -134,6 +134,13 @@ const RPC_FUNCTIONS = [
   "practice_today",
   "timer_elapsed_hours",
   "set_sms_consent",
+  // Several numbers, and the people around a client (0330, 0331).
+  "add_client_phone",
+  "remove_client_phone",
+  "set_texting_number",
+  "add_client_contact",
+  "edit_client_contact",
+  "remove_client_contact",
   "normalize_phone",
   // Called only by the inbound webhook, as the service role — typed here so
   // that call is checked like any other.

@@ -8721,3 +8721,117 @@ with invoices on them.
 "No number yet", which it was not written for and was right about. The wording
 and the reason are the same as an unnumbered authorization, so it lives in the
 same file.
+
+## 9 Nov 2026, later — several numbers, and the people around a client
+
+Part A of the owner's order, and the fourth of his rulings on it.
+
+### The numbers (0330)
+
+`clients.phone` stays what it has always been: the number texts go to. Every
+other number is a row in `client_phones`, labelled, and `client_numbers` reads
+the two as one list.
+
+That way round on purpose. The texting number is asked for in a dozen places
+and enforced in a trigger; making it a flag on a row in another table would
+have put the one fact the practice cannot get wrong behind a join, and left
+two places able to disagree about which number a text goes to. There is no
+such disagreement here — the texting number is a column, and the two triggers
+refuse a listed number that equals it.
+
+`set_texting_number` swaps rather than sets. The number that was being texted
+becomes an ordinary labelled number; a version that simply wrote
+`clients.phone` would have lost it, which is how a practice comes to ring a
+disconnected line because the good number was overwritten.
+
+### And the people around them (0330, 0331)
+
+A contact is never a client and never becomes one. The row has nowhere to put
+a caseload, a stage, a counselor, a status or an authorization, so there is
+nothing to promote — it is not a client record with a flag off, and
+`verify_client_contacts` asserts the column list rather than taking a promise.
+
+What made the rule worth writing down is that the practice had already broken
+it: a record in the client list called "Firstname (Somebody's Partner)",
+Inactive, stage Intake, with a phone number and a caseload. Somebody who is
+not a client, counted as one.
+
+A contact's number may not be one the client is reached on, in both
+directions. Not tidiness: an inbound text matches the client's own numbers
+first, so a number on both would always read as the client and a reply from
+the daughter-in-law would be filed as though the client had sent it.
+
+Every write goes through a function, which `check-writes` already enforces
+from the other end — the snapshot it reads says `select` and nothing else on
+both tables, so a screen reaching for `.insert()` fails the build. No new
+check was written for that, and none for "a contact is never a client" either:
+the structural rule is asserted where the structure is, and a grep for
+something merely near it is the kind of check CLAUDE.md warns about.
+
+### Consent, per number (0331)
+
+Consent has always been per number — `sms_consent_events` carries the phone it
+was given for — and only the client record had room for one number. So the
+events are unchanged; what is new is a `contact_id` so a contact's consent
+says whose it is, and `sms_consent_numbers`, which answers "may this number be
+texted" for every number the practice holds.
+
+`set_sms_consent` takes the number now. The four-argument version is dropped
+rather than left beside it: a defaulted parameter makes a second function, and
+a second function is a second door with its own rules.
+
+One thing that fell out of it, quietly bad and now fixed: `client_sms_consent`
+took the client's latest consent event whatever number it was for. Recording
+consent for a client's daughter-in-law would have been the client's latest
+event, its number would not have matched theirs, and **the client would have
+stopped being textable with nothing on screen saying why.** The lateral asks
+about the one number the view is about.
+
+### A text from a contact files on the client (0332)
+
+Labelled with who sent it. One thread per number, all of them on the client's
+record, so "what did we say to this family" is one screen and not three. The
+31 threads that existed carry the number they are with, so the new query finds
+them.
+
+The outgoing gate asks about the number the text is addressed to rather than
+about the client. An inbound text matches the client's own numbers first and
+their contacts' second — the owner's order, and the only one that cannot
+mislabel a client as their own daughter-in-law. A STOP applies to the number
+it came from: a daughter-in-law who stops hearing about appointments has not
+withdrawn the client's consent.
+
+Six faults, six failures, including two that each caught their own trigger
+rather than the same one twice.
+
+### The partner, and the duplicate (0334)
+
+The record that should have been a contact is one now: the partner, with the
+weekly update, carrying the text, the thread and the consent that were on the
+closed record. The consent was recorded again rather than moved — the events
+are append-only, and rightly, so the old one stays where it is and the new one
+says where it came from. The task and the contact-log line stayed on the
+closed record, because neither is about the client they would have moved to.
+
+**The other half of that ruling was already done.** The duplicate client
+carries `merged_into`, and a merged row is hidden from staff by a restrictive
+policy, so it is not in the client list and has not been. The morning's report
+said it was, and the report was wrong: the query behind it ran as the database
+owner, which no policy applies to. Worth writing down as a method error rather
+than a one-off — a report about what staff can see has to be read the way
+staff read it.
+
+### Where it is on screen
+
+The client's Profile tab carries one card: the numbers, which one texts go to,
+what each one is, whether it may be texted, and the people around them. On
+Profile rather than a tab of its own, because seven tabs is already one more
+than the consolidation allowed and this is the same question as the rest of
+the profile — how do we reach this person.
+
+Admin gained "Texting consent": every number the practice holds for a client
+who is not closed, which of them cannot be texted, and a form per row with how
+consent was given. There is no control on it that touches two numbers. The
+no-bulk-flip is the whole design: a button that marked thirty numbers as
+consented would be a record of nothing, and worse than no record because it
+would look like evidence.

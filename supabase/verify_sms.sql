@@ -61,13 +61,13 @@ begin
                      json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
 
   begin
-    perform public.set_sms_consent(v_client, 'Granted', 'Verbal', '');
+    perform public.set_sms_consent(v_client, public.client_texting_number(v_client), 'Granted', 'Verbal', '');
     failures := failures || 'FAILED: consent was granted with no note saying how'::text;
   exception when check_violation then
     raise notice 'ok  granting consent needs a note saying how it was given';
   end;
 
-  perform public.set_sms_consent(v_client, 'Granted', 'Verbal',
+  perform public.set_sms_consent(v_client, public.client_texting_number(v_client), 'Granted', 'Verbal',
                                  'ZZ asked at intake, said yes to reminders');
 
   select can_text, consented_phone into v_can, v_state
@@ -162,7 +162,7 @@ begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
-  perform public.set_sms_consent(v_client, 'Granted', 'Verbal', 'ZZ asked again');
+  perform public.set_sms_consent(v_client, public.client_texting_number(v_client), 'Granted', 'Verbal', 'ZZ asked again');
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
@@ -318,7 +318,7 @@ begin
 
   if (select role from public.staff where id = v_bill) = 'Billing' then
     begin
-      perform public.set_sms_consent(v_client, 'Withdrawn', 'Staff', 'ZZ');
+      perform public.set_sms_consent(v_client, public.client_texting_number(v_client), 'Withdrawn', 'Staff', 'ZZ');
       failures := failures || 'FAILED: Billing recorded a consent decision'::text;
     exception when insufficient_privilege then
       raise notice 'ok  a role that does not edit client records does not decide consent either';

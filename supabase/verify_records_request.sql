@@ -97,7 +97,12 @@ declare
     -- The five templates share one table since 0276, and the section says
     -- which of them each report is - a bundle that called a Job Coaching
     -- Update a monthly report would misdescribe what it hands over.
-    'client_reports=reports'
+    'client_reports=reports',
+    -- The numbers besides the one texts go to, and the people around them
+    -- (0330). A contact's name, relationship and number are held because of
+    -- this client, so they are as much the client's data as their own.
+    'client_phones=other_numbers',
+    'client_contacts=contacts'
   ];
 
   -- Tables carrying a client_id that are deliberately not in a bundle, each

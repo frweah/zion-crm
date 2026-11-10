@@ -49,6 +49,7 @@ import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
+import { NumbersAndContacts } from "./numbers-and-contacts";
 import { MailSection } from "./mail-section";
 import { LIVE_STATUSES, isLive } from "@/lib/billing";
 import { PortalRequests } from "./portal-requests";
@@ -981,6 +982,9 @@ export default async function ClientPage({
     textsResult,
     intakeResult,
     textThreadResult,
+    numbersResult,
+    contactsResult,
+    phoneIdsResult,
   ] = await Promise.all([
     // Restricted details come through the function that writes the access
     // log. It returns an "allowed" flag rather than a null, so the panel can
@@ -1017,9 +1021,53 @@ export default async function ClientPage({
       .eq("client_id", id)
       .eq("kind", "sms")
       .maybeSingle(),
+    // Every number the practice holds for them and what may be texted to it,
+    // their own and their contacts' (0330). One question, so one read.
+    supabase
+      .from("sms_consent_numbers")
+      .select("phone, label, texts_here, whose, whose_name, relationship, contact_id, state, since, method, can_text")
+      .eq("client_id", id),
+    supabase
+      .from("client_contacts")
+      .select("id, name, relationship, phone, phone_label, email, receives_updates, may_speak_for, note")
+      .eq("client_id", id)
+      .eq("active", true)
+      .order("created_at"),
+    supabase.from("client_phones").select("id, phone").eq("client_id", id),
   ]);
 
   const restricted = (privateResult.data ?? [])[0] ?? null;
+  // The row id of each of the client's own extra numbers, so the card can
+  // offer to take one off. The consent view answers about numbers rather than
+  // about rows, which is the right shape for the question it answers.
+  const phoneIdOf = new Map(
+    ((phoneIdsResult.data ?? []) as { id: string; phone: string }[]).map((p) => [p.phone, p.id]),
+  );
+  const clientNumbers = ((numbersResult.data ?? []) as Record<string, unknown>[]).map((n) => ({
+    phone: String(n.phone ?? ""),
+    label: String(n.label ?? ""),
+    texts_here: Boolean(n.texts_here),
+    whose: String(n.whose ?? ""),
+    whose_name: String(n.whose_name ?? ""),
+    relationship: String(n.relationship ?? ""),
+    contact_id: (n.contact_id as string | null) ?? null,
+    phone_id: phoneIdOf.get(String(n.phone ?? "")) ?? null,
+    state: (n.state as string | null) ?? null,
+    since: (n.since as string | null) ?? null,
+    method: (n.method as string | null) ?? null,
+    can_text: (n.can_text as boolean | null) ?? null,
+  }));
+  const clientContacts = (contactsResult.data ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    relationship: t.relationship,
+    phone: t.phone,
+    phone_label: t.phone_label,
+    email: t.email,
+    receives_updates: t.receives_updates,
+    may_speak_for: t.may_speak_for,
+    note: t.note,
+  }));
   const paperwork = paperworkResult.data ?? [];
   const blocking = paperwork.filter((p) => p.state === "Missing").length;
   const complete = paperwork.filter((p) => p.state === "Complete").length;
@@ -1051,6 +1099,17 @@ export default async function ClientPage({
             address={restricted?.address ?? ""}
             visible={canSeeRestricted}
             canEdit={canEdit}
+          />
+          {/* Every number, and the people around them (0330). On Profile
+              rather than a tab of its own: seven tabs is already one more
+              than the consolidation allowed, and this is the same question as
+              the rest of the profile - how do we reach this person. */}
+          <NumbersAndContacts
+            clientId={detail.id}
+            clientName={detail.name}
+            numbers={clientNumbers}
+            contacts={clientContacts}
+            canEdit={canEditDetails}
           />
           {/* ── what has changed on this record (0192) ──
               The database has logged every field change on a client since the
