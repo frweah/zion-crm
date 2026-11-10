@@ -174,3 +174,28 @@ export async function sendApprovedUpdates(
   if (failures.length === 0) return { error: null, ok: went };
   return { error: `${went} ${failures.join(" ")}`, ok: null };
 }
+
+/**
+ * Draft this week now.
+ *
+ * The sweep runs on a Friday afternoon, which is the right time and not the
+ * only one: a Friday the cron missed leaves a week with no drafts, and a
+ * person wanting to read the wording before Friday has nothing to read. It is
+ * the same function the sweep calls, it is safe to run twice - a draft that
+ * exists is left alone, edits and all - and it sends nothing.
+ */
+export async function draftThisWeek(_prev: UpdateState, formData: FormData): Promise<UpdateState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("draft_weekly_updates", {
+    p_week_start: String(formData.get("week") ?? ""),
+  });
+  if (error) return refusal(error.message);
+  done();
+  const made = Number(data ?? 0);
+  return {
+    error: null,
+    ok: made === 0 ? "They were all drafted already." : `${made} drafted. Nothing has been sent.`,
+  };
+}

@@ -3,7 +3,7 @@ import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../../page-head";
-import { SendAllApproved, UpdateCard, type UpdateRow } from "./update-card";
+import { DraftThisWeek, SendAllApproved, UpdateCard, type UpdateRow } from "./update-card";
 
 /**
  * Weekly updates (part B, owner 9 November 2026).
@@ -157,6 +157,7 @@ export default async function WeeklyUpdatesPage({
 
       <section className="page-section">
         {canSend && approved > 0 && <SendAllApproved week={week} approved={approved} />}
+        {canSend && rows.length === 0 && <DraftThisWeek week={week} />}
         {rows.length === 0 ? (
           <p className="empty">
             Nothing drafted for this week — the drafts are made on Friday afternoon.

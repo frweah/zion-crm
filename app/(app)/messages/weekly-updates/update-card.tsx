@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   approveUpdate,
+  draftThisWeek,
   discardUpdate,
   editUpdate,
   sendApprovedUpdates,
@@ -48,6 +49,20 @@ function cannotSend(row: UpdateRow): string | null {
     return `${row.to_name} ${row.consent === "Withdrawn" ? "has withdrawn" : "declined"} consent for ${row.phone}.`;
   }
   return null;
+}
+
+/** The sweep, on demand: the same function, and it sends nothing. */
+export function DraftThisWeek({ week }: { week: string }) {
+  const [state, action, pending] = useActionState(draftThisWeek, initial);
+  return (
+    <form action={action} style={{ marginBottom: 12 }}>
+      <input type="hidden" name="week" value={week} />
+      <Said state={state} />
+      <button className="btn ghost" disabled={pending}>
+        {pending ? "Drafting…" : "Draft this week now"}
+      </button>
+    </form>
+  );
 }
 
 export function SendAllApproved({ week, approved }: { week: string; approved: number }) {
