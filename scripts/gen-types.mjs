@@ -78,6 +78,11 @@ const RPC_FUNCTIONS = [
   "authorization_amount_basis",
   // Authorized is not delivered (0325).
   "set_service_delivered",
+  // What is owed today (0335), asked by the chase route.
+  "invoices_without_a_number",
+  "hourly_work_without_hours",
+  "clients_without_a_number",
+  "authorizations_waiting_for_delivery",
   // A warrant accounts for every dollar on it (0326).
   "add_warrant_line",
   "correct_warrant_line",
@@ -327,6 +332,8 @@ const RPC_FUNCTIONS = [
   "authorization_amount",
   "authorization_blocked_from",
   "billing_worklist",
+  // One view of the money this month (0337), read by Billing and by Home.
+  "billing_overview",
   "clients_board",
   "move_client",
   "close_client",

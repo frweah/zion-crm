@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/session";
 import { PersonalDetailsPanel } from "./personal-panel";
@@ -78,6 +79,7 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
     paymentResult,
     personalResult,
     signatureResult,
+    hoursResult,
   ] = await Promise.all([
       supabase
         .from("staff_pay")
@@ -137,6 +139,14 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
         .select("policy_key, policy_version, signer_name, signed_at")
         .eq("staff_id", id)
         .order("signed_at", { ascending: false }),
+      // What this person has worked, and when they last finished (0336). The
+      // same rows Admin > Hours counts, so the record and the roster cannot
+      // tell two stories about one person's hours.
+      supabase
+        .from("staff_hours_summary")
+        .select("this_period, period_start, period_end, this_month, all_time, last_clock_out, last_worked_on")
+        .eq("staff_id", id)
+        .maybeSingle(),
     ]);
 
   // Somebody who has left keeps a whole, readable record for retention and
@@ -152,6 +162,15 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
   const checklist = (checklistResult.data ?? []) as ChecklistRow[];
   const transports = Boolean((employmentResult.data ?? [])[0]?.transports_clients);
   const delivers = Boolean((employmentResult.data ?? [])[0]?.delivers_services);
+  const worked = hoursResult.data as {
+    this_period: number | null;
+    period_start: string | null;
+    period_end: string | null;
+    this_month: number | null;
+    all_time: number | null;
+    last_clock_out: string | null;
+    last_worked_on: string | null;
+  } | null;
   const onboarding = checklist.filter((r) => r.phase === "Onboarding");
   const offboarding = checklist.filter((r) => r.phase === "Offboarding");
 
@@ -195,6 +214,52 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           still be completed; to change anything else, reactivate them.
         </div>
       )}
+
+      {/* ── what they have worked (0336) ───────────────────────
+          Admin > Hours stays the roster - everybody, a period at a time.
+          This is the question somebody asks with one person's record open,
+          and it was not answered anywhere. */}
+      <section id="hours" className="page-section">
+        <h2 className="h2">Hours</h2>
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+          <div className="card">
+            <div className="stat">
+              {Number(worked?.this_period ?? 0).toFixed(2)}
+              <small>
+                hours this pay period
+                {worked?.period_start ? ` · from ${worked.period_start}` : ""}
+              </small>
+            </div>
+          </div>
+          <div className="card">
+            <div className="stat">
+              {Number(worked?.this_month ?? 0).toFixed(2)}
+              <small>hours this month</small>
+            </div>
+          </div>
+          <div className="card">
+            <div className="stat">
+              {Number(worked?.all_time ?? 0).toFixed(2)}
+              <small>hours, all time</small>
+            </div>
+          </div>
+          <div className="card">
+            <div className="stat" style={{ fontSize: "var(--text-md)" }}>
+              {worked?.last_clock_out ? fmtStamp(worked.last_clock_out) : "never"}
+              <small>
+                {worked?.last_clock_out
+                  ? "last clock-out"
+                  : worked?.last_worked_on
+                    ? `last clock-out · hours to ${worked.last_worked_on} were entered, not clocked`
+                    : "last clock-out"}
+              </small>
+            </div>
+          </div>
+        </div>
+        <p className="lock">
+          <Link href="/admin/hours">Everybody&rsquo;s hours, a period at a time</Link>
+        </p>
+      </section>
 
       <section id="access" className="page-section">
         <h2 className="h2">Extra access</h2>

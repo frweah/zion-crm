@@ -6,7 +6,7 @@ import { ensureFreshToken } from "@/lib/graph";
 import { sendEmail, emailConfigured } from "@/lib/email";
 import { sendReferralNudge } from "@/lib/intake-mail";
 import { INTAKE_MAILBOX } from "@/lib/intake-source";
-import { NO_REPLY_DAYS } from "@/lib/constants";
+import { NO_REPLY_DAYS, money } from "@/lib/constants";
 
 /**
  * Chasing what has not arrived.
@@ -309,12 +309,136 @@ async function handle(request: NextRequest) {
     }
   }
 
+  /**
+   * Four things the owner asked for on 9 November 2026, each a question the
+   * database answers rather than a task somebody typed once.
+   *
+   * The first three are one item each, addressed to the intake desk, carrying
+   * the list. One item rather than one per row because they are one job of
+   * data entry: a day spent with the paper invoices, a day with the paper 95s.
+   *
+   * The fourth is one item **per authorization**, addressed to whoever works
+   * that client, and that is the owner's ruling rather than an accident: a
+   * delivery date is something the person who did the work knows, and eight
+   * of them on the intake desk is a list nobody can answer.
+   */
+  const owed = { numbers: 0, hours: 0, phones: 0, delivery: 0 };
+  if (!dry) {
+    const desk = settings?.intake_staff_id ?? null;
+
+    // ── invoices whose number nobody has read ──────────────
+    const { data: unnumbered, error: unnumberedError } = await admin.rpc("invoices_without_a_number", {});
+    if (unnumberedError) return NextResponse.json({ error: unnumberedError.message }, { status: 500 });
+    const noNumber = (unnumbered ?? []) as {
+      invoice_id: string; client_name: string | null; auth_number: string | null; amount: number | null;
+    }[];
+    if (desk && noNumber.length) {
+      owed.numbers = noNumber.length;
+      const lines = noNumber
+        .map((i) => `  ${i.client_name ?? "unknown client"} · ${i.auth_number || "no authorization"} · ${money(i.amount)}`)
+        .join("\n");
+      await admin.rpc("notify_person", {
+        p_staff: desk,
+        p_kind: "invoice_number_missing",
+        p_text:
+          `${noNumber.length} ${noNumber.length === 1 ? "invoice" : "invoices"} went to USOR before the CRM numbered them. ` +
+          `The number on each is on your copy and nowhere here:\n\n${lines}`,
+        p_ref: `desk:${noNumber.length}`,
+        p_href: "/billing/invoices",
+        p_task_title: `Put the invoice numbers on ${noNumber.length} ${noNumber.length === 1 ? "invoice" : "invoices"}`,
+        p_level: "warn",
+        // One item for the job, named by a constant: the whole-practice case
+        // notify_person allows, because the thing it is about is the practice.
+        p_source: "00000000-0000-0000-0000-000000000001",
+      });
+    }
+
+    // ── hourly work whose hours are on paper ───────────────
+    const { data: noHoursRows, error: noHoursError } = await admin.rpc("hourly_work_without_hours", {});
+    if (noHoursError) return NextResponse.json({ error: noHoursError.message }, { status: 500 });
+    const noHours = (noHoursRows ?? []) as {
+      auth_id: string; client_name: string | null; number: string | null; service_type: string | null;
+    }[];
+    if (desk && noHours.length) {
+      owed.hours = noHours.length;
+      const lines = noHours
+        .map((a) => `  ${a.client_name ?? "unknown client"} · ${authorizationNumberLabel({ number: a.number })} · ${a.service_type ?? ""}`)
+        .join("\n");
+      await admin.rpc("notify_person", {
+        p_staff: desk,
+        p_kind: "service_hours_from_paper",
+        p_text:
+          `${noHours.length} open hourly ${noHours.length === 1 ? "authorization has" : "authorizations have"} no hours logged. ` +
+          `Until the hours are in, what the work comes to is a ceiling rather than a figure:\n\n${lines}`,
+        p_ref: `desk:${noHours.length}`,
+        p_href: "/billing?tab=hours",
+        p_task_title: `Enter the hours from the paper 95s for ${noHours.length} ${noHours.length === 1 ? "authorization" : "authorizations"}`,
+        p_level: "warn",
+        p_source: "00000000-0000-0000-0000-000000000002",
+      });
+    }
+
+    // ── a client nobody can ring ───────────────────────────
+    const { data: noPhoneRows, error: noPhoneError } = await admin.rpc("clients_without_a_number", {});
+    if (noPhoneError) return NextResponse.json({ error: noPhoneError.message }, { status: 500 });
+    const noPhone = (noPhoneRows ?? []) as { client_id: string; client_name: string | null }[];
+    for (const c of noPhone) {
+      owed.phones += 1;
+      if (!desk) break;
+      await admin.rpc("notify_person", {
+        p_staff: desk,
+        p_kind: "client_has_no_phone",
+        p_text:
+          `${c.client_name ?? "A client"} has no phone number on their record, no reason for having none, ` +
+          "and no contact who answers for them. Nothing can be texted to them and nobody can ring them.",
+        p_ref: c.client_id,
+        p_href: `/clients/${c.client_id}?tab=profile`,
+        p_client: c.client_id,
+        p_task_title: `Find a number for ${c.client_name ?? "a client"}, or say why there is none`,
+        p_level: "warn",
+        p_source: c.client_id,
+      });
+    }
+
+    // ── work that may or may not be done ───────────────────
+    const { data: waitingRows, error: waitingDeliveryError } = await admin.rpc(
+      "authorizations_waiting_for_delivery",
+      {},
+    );
+    if (waitingDeliveryError) {
+      return NextResponse.json({ error: waitingDeliveryError.message }, { status: 500 });
+    }
+    const undelivered = (waitingRows ?? []) as {
+      auth_id: string; client_id: string; client_name: string | null; number: string | null;
+      service_type: string | null; bill_by: string | null; owner_id: string | null;
+    }[];
+    for (const a of undelivered) {
+      if (!a.owner_id) continue;
+      owed.delivery += 1;
+      await admin.rpc("notify_person", {
+        p_staff: a.owner_id,
+        p_kind: "service_not_delivered",
+        p_text:
+          `${a.client_name ?? "A client"} · ${authorizationNumberLabel({ number: a.number })} · ` +
+          `${a.service_type ?? ""} was to be billed by ${a.bill_by ?? "now"} and nothing says the service has been ` +
+          "delivered. Record the day it was, or leave it waiting.",
+        p_ref: a.auth_id,
+        p_href: `/billing/authorizations/${a.auth_id}`,
+        p_client: a.client_id,
+        p_task_title: `Say whether the service is delivered — ${a.client_name ?? "a client"}, ${a.service_type ?? ""}`,
+        p_level: "warn",
+        p_source: a.auth_id,
+      });
+    }
+  }
+
   return NextResponse.json({
     dry,
     rule6: { waiting: waiting.length, would_send: waiting.filter((w) => w.send).length, nudged },
     rule7: { ending: ending.length, chased },
     applications: { days: NO_REPLY_DAYS, marked_no_response: noReply },
     invoices: { chase: invoiceChase, due: invoiceDue },
+    owed,
     emailed,
   });
 }

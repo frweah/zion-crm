@@ -293,9 +293,20 @@ export const NAV_GROUPS: NavGroup[] = [
       // the forms, the signed authorization, the submission checklist and
       // Report & bill are on the record itself now, and the money roll-ups
       // are Admin's (§9, §13.16).
+      // The landing page since 9 November 2026: the month in four figures and
+      // the four lists they come from. The figures come from the same
+      // function the Home tile reads, so the dashboard and the screen it
+      // opens cannot disagree.
+      {
+        label: "Overview",
+        href: "/billing",
+        roles: BILLS,
+        area: "billing",
+        note: "The month, and the four lists it comes from.",
+      },
       {
         label: "Authorizations",
-        href: "/billing",
+        href: "/billing?tab=authorizations",
         roles: BILLS,
         area: "billing",
         note: "Everything waiting to be billed, chased or paid.",

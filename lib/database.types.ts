@@ -7583,6 +7583,19 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_hours_summary: {
+        Row: {
+          staff_id: string | null;
+          this_period: number | null;
+          period_start: string | null;
+          period_end: string | null;
+          this_month: number | null;
+          all_time: number | null;
+          last_clock_out: string | null;
+          last_worked_on: string | null;
+        };
+        Relationships: [];
+      };
       texts_unanswered: {
         Row: {
           conversation_id: string | null;
@@ -7756,6 +7769,10 @@ export type Database = {
         Args: { p_today?: string | null };
         Returns: number;
       };
+      authorizations_waiting_for_delivery: {
+        Args: Record<string, never>;
+        Returns: { auth_id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; bill_by: string | null; owner_id: string | null; days_open: number | null }[];
+      };
       bank_reconciliation: {
         Args: { p_statement: string | null };
         Returns: { statement_total: number | null; statement_closing: number | null; ledger_closing: number | null; unsettled: number | null; difference: number | null }[];
@@ -7783,6 +7800,10 @@ export type Database = {
       billing_office_reconciliation: {
         Args: { p_billing_office: string | null; p_within_days?: number | null };
         Returns: { kind: string | null; client_id: string | null; client_name: string | null; counselor_id: string | null; counselor_name: string | null; counselor_email: string | null; auth_id: string | null; auth_number: string | null; service: string | null; amount: number | null; sent_on: string | null; days_outstanding: number | null; end_date: string | null; unbilled: number | null }[];
+      };
+      billing_overview: {
+        Args: { p_today?: string | null };
+        Returns: { month_start: string | null; submitted_this_month: number | null; submitted_count: number | null; paid_this_month: number | null; paid_count: number | null; to_bill: number | null; to_bill_count: number | null; overdue_count: number | null; outstanding: number | null; outstanding_count: number | null; needs_attention: number | null }[];
       };
       billing_worklist: {
         Args: { p_today?: string | null; p_client?: string | null };
@@ -7855,6 +7876,10 @@ export type Database = {
       clients_named_in: {
         Args: { p_text: string | null };
         Returns: { client_id: string | null; how: string | null }[];
+      };
+      clients_without_a_number: {
+        Args: Record<string, never>;
+        Returns: { client_id: string | null; client_name: string | null; status: string | null; stage: string | null; assigned_staff_id: string | null; reason: string | null }[];
       };
       clock_in: {
         Args: { p_note?: string | null; p_client?: string | null };
@@ -8040,6 +8065,10 @@ export type Database = {
         Args: { p_message: string | null; p_hidden: boolean | null; p_reason: string | null };
         Returns: undefined;
       };
+      hourly_work_without_hours: {
+        Args: Record<string, never>;
+        Returns: { auth_id: string | null; client_id: string | null; client_name: string | null; number: string | null; service_type: string | null; total_hours: number | null; rate: number | null; status: string | null }[];
+      };
       hours_correction_needs_approval: {
         Args: { p_staff: string | null; p_worked_on: string | null };
         Returns: boolean;
@@ -8103,6 +8132,10 @@ export type Database = {
       invoices_due: {
         Args: { p_today?: string | null };
         Returns: { staff_name: string | null; email: string | null; message: string | null; task_id: string | null }[];
+      };
+      invoices_without_a_number: {
+        Args: Record<string, never>;
+        Returns: { invoice_id: string | null; client_id: string | null; client_name: string | null; auth_number: string | null; amount: number | null; submitted_on: string | null }[];
       };
       is_active_staff: {
         Args: Record<string, never>;

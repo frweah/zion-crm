@@ -323,12 +323,19 @@ export default async function DashboardPage({
    *
    * "Authorizations needing action today, opening the working list." One
    * number, not four, and not money - money figures are Admin's (§13.16), and
-   * a count of work is not a money figure. The same function the working list
-   * counts itself with, so the tile and the list cannot disagree.
+   * a count of work is not a money figure.
+   *
+   * From billing_overview since 9 November 2026, which is the function the
+   * Billing landing page reads. The same answer as before - the overview asks
+   * billing_needs_action for this figure - but the owner's rule that the tile
+   * and the screen it opens read one view is now true of the code rather than
+   * of two functions that happen to agree.
    */
-  const billingNeedsAction = canBill
-    ? Number((await supabase.rpc("billing_needs_action")).data ?? 0)
-    : null;
+  const billingOverview = canBill ? (await supabase.rpc("billing_overview")).data : null;
+  const billingRow = (Array.isArray(billingOverview) ? billingOverview[0] : billingOverview) as
+    | { needs_attention: number | null; to_bill: number | null; to_bill_count: number | null; overdue_count: number | null }
+    | null;
+  const billingNeedsAction = canBill ? Number(billingRow?.needs_attention ?? 0) : null;
 
   // ── Admin's business counters ───────────────────────────────
   let business: {

@@ -1,6 +1,6 @@
 import { can } from "@/lib/roles";
 import Link from "next/link";
-import { authorizationNumberLabel } from "@/lib/billing";
+import { authorizationNumberLabel, invoiceNumberLabel } from "@/lib/billing";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -42,10 +42,13 @@ import { isLive } from "@/lib/billing";
  * Paid and Closed are not here at all - they are on the client's record under
  * History, and in Admin → Money.
  */
-const TABS = ["authorizations", "hours"];
+const TABS = ["overview", "authorizations", "hours"];
 
 /** Where the tabs that were cut now live. A bookmark should still land somewhere. */
-const GONE_TO_AUTHORIZATIONS = ["overview", "items", "invoices", "completions", "rates"];
+// "overview" came back on 9 November 2026 as the landing page, so it is no
+// longer one of the tabs that went. The rest still redirect: a bookmark from
+// before the consolidation should land somewhere.
+const GONE_TO_AUTHORIZATIONS = ["items", "invoices", "completions", "rates"];
 const GONE_TO_HOURS = ["log", "service-log", "service_log", "servicelog", "service"];
 
 /**
@@ -83,7 +86,7 @@ export default async function BillingPage({
 
   if (rawTab && GONE_TO_AUTHORIZATIONS.includes(rawTab)) redirect("/billing");
   if (rawTab && GONE_TO_HOURS.includes(rawTab)) redirect("/billing?tab=hours");
-  const tab = TABS.includes(rawTab ?? "") ? rawTab! : "authorizations";
+  const tab = TABS.includes(rawTab ?? "") ? rawTab! : "overview";
 
   const monthStart = logMonth(rawMonth);
   const monthEnd = `${shiftMonth(monthStart, 1)}-01`;
@@ -135,7 +138,9 @@ export default async function BillingPage({
       context={
         tab === "hours"
           ? "The service log: hours against coaching authorizations"
-          : "Every authorization waiting to be billed, chased or paid"
+          : tab === "overview"
+            ? "The month, and the four lists it comes from"
+            : "Every authorization waiting to be billed, chased or paid"
       }
       actions={
         canBill ? (
@@ -146,6 +151,223 @@ export default async function BillingPage({
       }
     />
   );
+
+  // ── Overview ──────────────────────────────────────────────
+  /**
+   * The Billing landing page (owner, 9 November 2026).
+   *
+   * Four figures about the month and the four lists they come from. The
+   * figures come from `billing_overview`, which the Home tile reads as well,
+   * so the number on the dashboard and the number on the screen it opens
+   * cannot disagree.
+   *
+   * The four lists are not four screens. Each is the shortest useful answer
+   * to "what now" and each row links to the record it is about - the same
+   * working-list row component the Authorizations tab uses, so a row reads
+   * the same whichever list it is in.
+   */
+  if (tab === "overview") {
+    const [{ data: overviewRows }, { data: openInvoices }, { data: paidRows }] = await Promise.all([
+      supabase.rpc("billing_overview"),
+      supabase
+        .from("invoices")
+        .select("id, number, client_id, auth_id, amount, amount_paid, status, submitted_on")
+        .in("status", ["Submitted", "Short-paid"])
+        .order("submitted_on", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("payments")
+        .select("id, auth_id, amount, warrant_no, warrant_date, voucher, created_at")
+        .gte("warrant_date", `${new Date().toISOString().slice(0, 7)}-01`)
+        .order("warrant_date", { ascending: false }),
+    ]);
+
+    const over = (Array.isArray(overviewRows) ? overviewRows[0] : overviewRows) as
+      | {
+          submitted_this_month: number | null;
+          paid_this_month: number | null;
+          to_bill: number | null;
+          to_bill_count: number | null;
+          overdue_count: number | null;
+          outstanding: number | null;
+          outstanding_count: number | null;
+          needs_attention: number | null;
+        }
+      | null;
+
+    const authNumber = new Map(auths.map((a) => [a.id, a]));
+    const needsBilling = worklist.filter((w) => w.delivered_on && !w.invoiced);
+    const needsAttention = worklist.filter((w) => (w.attention ?? "") !== "" && w.urgency <= 3);
+    const invoiceRows = (openInvoices ?? []) as {
+      id: string; number: number | null; client_id: string | null; auth_id: string | null;
+      amount: number | null; amount_paid: number | null; status: string; submitted_on: string | null;
+    }[];
+    const paid = (paidRows ?? []) as {
+      id: string; auth_id: string | null; amount: number | null;
+      warrant_no: string | null; warrant_date: string | null; voucher: string | null;
+    }[];
+
+    const dayCount = (from: string | null) =>
+      from ? Math.floor((Date.now() - new Date(`${from}T00:00:00Z`).getTime()) / 86400000) : null;
+
+    return (
+      <>
+        {header}
+
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+          <div className="card">
+            <div className="stat">
+              {money(Number(over?.submitted_this_month ?? 0))}
+              <small>invoiced this month</small>
+            </div>
+          </div>
+          <div className="card">
+            <div className="stat">
+              {money(Number(over?.paid_this_month ?? 0))}
+              <small>paid this month</small>
+            </div>
+          </div>
+          <div className="card">
+            <div className="stat">
+              {money(Number(over?.to_bill ?? 0))}
+              <small>
+                to bill
+                {Number(over?.to_bill_count ?? 0) > 0
+                  ? ` · ${Number(over?.to_bill_count)} delivered, not invoiced`
+                  : ""}
+              </small>
+            </div>
+          </div>
+          <div className="card">
+            <div
+              className="stat"
+              style={Number(over?.overdue_count ?? 0) > 0 ? { color: "var(--bad)" } : undefined}
+            >
+              {Number(over?.overdue_count ?? 0)}
+              <small>delivered and not invoiced for a fortnight</small>
+            </div>
+          </div>
+        </div>
+
+        <section className="page-section">
+          <h2 className="h2">Needs billing</h2>
+          <div className="card" style={{ padding: 0 }}>
+            <Worklist
+              rows={needsBilling}
+              withClient
+              empty="Nothing delivered is waiting for an invoice."
+            />
+          </div>
+        </section>
+
+        <section className="page-section">
+          <h2 className="h2">Waiting on USOR</h2>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="invoices waiting"
+              sortBy
+              columns={[
+                { key: "invoice", label: "Invoice" },
+                { key: "client", label: "Client" },
+                { key: "auth", label: "Authorization" },
+                { key: "sent", label: "Sent" },
+                { key: "waiting", label: "Waiting", align: "right" },
+                { key: "owed", label: "Owed", align: "right" },
+              ]}
+              rows={invoiceRows.map((i) => {
+                const days = dayCount(i.submitted_on);
+                const a = i.auth_id ? authNumber.get(i.auth_id) : undefined;
+                const owed = Number(i.amount ?? 0) - Number(i.amount_paid ?? 0);
+                return {
+                  key: i.id,
+                  text: [i.number, i.status].filter(Boolean).join(" "),
+                  sort: { invoice: i.number ?? 0, sent: i.submitted_on, waiting: days ?? -1, owed },
+                  cells: {
+                    invoice: (
+                      <Link href={`/billing/invoices?invoice=${i.id}`} style={{ color: "var(--teal)", fontWeight: 600 }}>
+                        {invoiceNumberLabel(i)}
+                      </Link>
+                    ),
+                    client: i.client_id ? (
+                      <Link href={`/clients/${i.client_id}?tab=billing`} style={{ color: "var(--teal)" }}>
+                        {clientName.get(i.client_id) ?? "—"}
+                      </Link>
+                    ) : (
+                      <span className="lock">—</span>
+                    ),
+                    auth: a ? (
+                      <Link href={`/billing/authorizations/${a.id}`} style={{ color: "var(--teal)" }}>
+                        {authorizationNumberLabel(a)}
+                      </Link>
+                    ) : (
+                      <span className="lock">None</span>
+                    ),
+                    sent: i.submitted_on ?? <span className="lock">not on file</span>,
+                    waiting:
+                      days === null ? (
+                        <span className="lock">—</span>
+                      ) : (
+                        <span className={days >= 30 ? "chip warn" : undefined}>{days} days</span>
+                      ),
+                    owed: money(owed),
+                  },
+                };
+              })}
+              empty="Nothing is waiting on USOR."
+            />
+          </div>
+        </section>
+
+        <section className="page-section">
+          <h2 className="h2">Paid this month</h2>
+          <div className="card" style={{ padding: 0 }}>
+            <DataTable
+              label="payments this month"
+              sortBy
+              columns={[
+                { key: "day", label: "Warrant date" },
+                { key: "auth", label: "Authorization" },
+                { key: "warrant", label: "Warrant" },
+                { key: "amount", label: "Amount", align: "right" },
+              ]}
+              rows={paid.map((y) => {
+                const a = y.auth_id ? authNumber.get(y.auth_id) : undefined;
+                return {
+                  key: y.id,
+                  text: [y.warrant_no, y.voucher].filter(Boolean).join(" "),
+                  sort: { day: y.warrant_date, amount: Number(y.amount ?? 0), warrant: y.warrant_no ?? "" },
+                  cells: {
+                    day: y.warrant_date ?? <span className="lock">—</span>,
+                    auth: a ? (
+                      <Link href={`/billing/authorizations/${a.id}`} style={{ color: "var(--teal)" }}>
+                        {authorizationNumberLabel(a)}
+                      </Link>
+                    ) : (
+                      <span className="lock">None</span>
+                    ),
+                    warrant: (
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {y.warrant_no || <span className="lock">none on the row</span>}
+                        {y.voucher ? <span className="lock"> · {y.voucher}</span> : null}
+                      </span>
+                    ),
+                    amount: money(Number(y.amount ?? 0)),
+                  },
+                };
+              })}
+              empty="Nothing has been paid this month yet."
+            />
+          </div>
+        </section>
+
+        <section className="page-section">
+          <h2 className="h2">Needs attention</h2>
+          <div className="card" style={{ padding: 0 }}>
+            <Worklist rows={needsAttention} withClient empty="Nothing needs attention today." />
+          </div>
+        </section>
+      </>
+    );
+  }
 
   // ── Hours ─────────────────────────────────────────────────
   // The log records hours and prices nothing (§10). There is no billing action

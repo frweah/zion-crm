@@ -863,7 +863,10 @@ const BACK_CASES = [
   ["Admin", "/dashboard", null, null],
   ["Admin", "/my-day", null, "/dashboard"],
   ["Billing", "/billing", null, null],
-  ["Billing", "/billing", "authorizations", null],
+  // Authorizations was the landing until 9 November 2026, when the overview
+  // became it. Both are /billing, so the tab decides: the overview is the way
+  // back and the other two point at it.
+  ["Billing", "/billing", "authorizations", "/billing"],
   ["Billing", "/billing", "hours", "/billing"],
   ["Billing", "/books", null, "/billing"],
   ["Admin", "/admin/documents", null, null],

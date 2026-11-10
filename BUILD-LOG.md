@@ -8835,3 +8835,85 @@ consent was given. There is no control on it that touches two numbers. The
 no-bulk-flip is the whole design: a button that marked thirty numbers as
 consented would be a record of nothing, and worse than no record because it
 would look like evidence.
+
+## 9 Nov 2026, later still — what is owed, what was worked, and the month
+
+Three more pieces of the order, and the parts of the rulings that are
+somebody's job rather than a rule.
+
+### What is owed today (0335)
+
+Four questions, each with an answer that changes by itself as the work is
+done, so each is a function rather than four tasks typed once:
+
+  * invoices whose number nobody has read off Margaret's copy
+  * open hourly authorizations with no hours logged anywhere
+  * active clients with no number, no reason for having none, and no contact
+    who answers for them
+  * authorizations whose bill-by date has come with no day recorded for the
+    service being delivered
+
+The chase route raises them daily, where the other rules about a day passing
+already live. The first three are one item each at the intake desk, carrying
+the list, because they are one job of data entry — a day with the paper
+invoices, a day with the paper 95s. The fourth is one item **per
+authorization**, addressed to whoever works that client, and that is the
+owner's ruling rather than an accident: a delivery date is something the
+person who did the work knows, and eight of them on Margaret's day is a list
+she cannot answer.
+
+**Two of the four found something the list of them did not say.** The owner's
+ruling named five hourly rows needing hours from the paper 95s — one
+authorization and four coaching rows. By the time this ran, three of those
+four coaching months had been closed this afternoon with the reason "no number
+yet, closed", and the fourth belongs to a client the practice has closed. So
+the question answers three rows, not five, and it will go on answering the
+rule rather than the roster.
+
+The second was a row that had no business on the list: a coaching
+authorization whose every month is settled is not waiting for hours, it is a
+parent nobody closed. That is a different thing, and not data entry.
+
+### A person's record says what they have worked (0336)
+
+Three totals and a time, from the same rows Admin → Hours counts, so the
+record and the roster cannot disagree about a person's hours. The roster stays
+what it was: everybody, a period at a time, which is the right screen for
+running a payroll and the wrong one for the question somebody asks with one
+person's record open.
+
+The last clock-out comes from `ended_at` rather than from the day a session is
+filed under, because a session that ran past midnight belongs to the day it
+started and ended on the next. A session still running has no clock-out, which
+is a different question and one the clock screen already answers. One person
+in the practice has 181 hours and has never clocked out of anything — their
+hours were entered rather than clocked — and the card says so rather than
+showing a blank.
+
+### One view of the money this month (0337)
+
+The Billing landing page is an overview: four figures about the month and the
+four lists they come from. Authorizations, the service log and Invoices are
+tabs under it.
+
+Every one of those figures was obtainable before and none of them was
+anywhere. Billing opened on a list of authorizations; Invoices had three
+totals at the foot of a filtered table; the money roll-ups were on Admin's
+Money screen, which asks a different question over a different period.
+
+What makes it a function rather than four queries on a page is the last
+sentence of the ruling: **the Home tile reads the same view.** The number on
+the dashboard and the number on the screen it opens cannot disagree now — not
+because two functions happen to agree, but because there is one. That is the
+fault that has cost this practice the most.
+
+"To bill" and "Overdue" are the morning's ruling carried through: delivered
+and not invoiced is the work to bill, a fortnight of that is the only thing
+the practice chases, and a bill-by date that has gone by with nothing
+delivered is neither. The verify script puts a row 40 days past its bill-by
+date on the books with nothing delivered and asserts that it moves neither
+figure.
+
+Two faults, two failures: counting every uninvoiced row as work to bill, and
+counting a payment by the day somebody typed it rather than by the warrant's
+date.
