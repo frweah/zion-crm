@@ -34,6 +34,8 @@ export type AttachmentRow = {
   created_at: string;
   document_date: string;
   can_open: boolean;
+  /** A phone photo the document agent has not read yet (0343). */
+  ocr_state?: string | null;
 };
 
 function fileSize(bytes: number): string {
@@ -179,6 +181,11 @@ export function FilesTab({
                   {f.restricted && (
                     <span className="chip warn" style={{ marginLeft: 6 }}>
                       restricted
+                    </span>
+                  )}
+                  {f.ocr_state === "not read yet" && (
+                    <span className="chip" style={{ marginLeft: 6 }}>
+                      not read yet
                     </span>
                   )}
                   {f.note && <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>{f.note}</div>}

@@ -844,7 +844,7 @@ export default async function ClientPage({
       supabase
         .from("client_documents")
         .select(
-          "id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by, uploaded_by_name, created_at, document_date, can_open",
+          "id, storage_path, filename, mime_type, size_bytes, category, restricted, note, uploaded_by, uploaded_by_name, created_at, document_date, can_open, ocr_state",
         )
         .eq("client_id", id)
         .order("document_date", { ascending: false })

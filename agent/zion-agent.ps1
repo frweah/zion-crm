@@ -39,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.2.1'
+$AgentVersion = '1.3.0'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -606,6 +606,49 @@ if ($Tesseract -and $OcrPerRun -gt 0) {
     }
 }
 
+# ── photos taken on a phone ──────────────────────────────────
+# A photo of a signed form taken in the CRM's phone app (owner, 11 Nov 2026).
+# This computer never had a copy, so the CRM sends a link that works for ten
+# minutes. Same rules as a scan: a reading - text or none - is sent; a
+# failure is not, so the CRM keeps asking, and one that keeps failing is left
+# for a week. The copy fetched here is deleted as soon as it is read.
+$photosRead = 0
+if ($Tesseract -and $ask -and $ask.photos) {
+    foreach ($p in @($ask.photos)) {
+        if (-not $p -or -not $p.id -or -not $p.url) { continue }
+        $tag = "photo:$($p.id)"
+        if ($failedOcr.ContainsKey($tag) -and $failedOcr[$tag] -gt (Get-Date).AddDays(-7)) {
+            Write-Log "Skipping a phone photo for now (failed $($failedOcr[$tag].ToString('s'))): $($p.id)"
+            continue
+        }
+        $ext = switch -Regex ([string]$p.mime) { 'png' { '.png' } 'webp' { '.webp' } 'tif' { '.tif' } default { '.jpg' } }
+        $work = Join-Path ([System.IO.Path]::GetTempPath()) ("zion-photo-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $work | Out-Null
+        $img = Join-Path $work ("photo" + $ext)
+        try {
+            Invoke-WebRequest -Uri $p.url -OutFile $img -UseBasicParsing -TimeoutSec 60
+            $read = Read-PngWithTesseract -Exe $Tesseract -Png $img
+            $failedOcr.Remove($tag)
+            $inv = [System.Globalization.CultureInfo]::InvariantCulture
+            $payload = @{
+                id             = [string]$p.id
+                ocr_text_b64   = ConvertTo-Base64Utf8 $read.Text
+                ocr_confidence = ([double]$read.Confidence).ToString($inv)
+                ocr_engine     = $OcrEngine
+            } | ConvertTo-Json -Compress
+            $answer = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/photo-ocr" `
+                -Headers $headers -ContentType 'application/json' -Body $payload -TimeoutSec 60
+            Write-Log "Phone photo read: $($p.id) -> $($answer.ocr)"
+            $photosRead++
+        } catch {
+            $failedOcr[$tag] = Get-Date
+            Write-Log "Phone photo not read, will try again later: $($p.id): $($_.Exception.Message)" 'warn'
+        } finally {
+            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 try {
     $keep = [ordered]@{}
     foreach ($k in $failedOcr.Keys) {
@@ -614,7 +657,7 @@ try {
     ($keep | ConvertTo-Json -Compress) | Set-Content -LiteralPath $FailedPath -Encoding utf8
 } catch { }
 
-Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request, $warrantPagesSent warrant page(s) read."
+Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request, $photosRead phone photo(s) read, $warrantPagesSent warrant page(s) read."
 Trim-Log
 
 # A run that could not send anything it meant to is a failed run, so the task

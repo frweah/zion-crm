@@ -200,6 +200,11 @@ export type Database = {
       };
       attachments: {
         Row: {
+          ocr_state: string | null;
+          ocr_text: string | null;
+          ocr_confidence: number | null;
+          ocr_kind: string | null;
+          ocr_at: string | null;
           id: string;
           client_id: string;
           storage_path: string;
@@ -222,6 +227,11 @@ export type Database = {
           review_status: string | null;
         };
         Insert: {
+          ocr_state?: string | null;
+          ocr_text?: string | null;
+          ocr_confidence?: number | null;
+          ocr_kind?: string | null;
+          ocr_at?: string | null;
           id?: string;
           client_id: string;
           storage_path: string;
@@ -244,6 +254,11 @@ export type Database = {
           review_status?: string | null;
         };
         Update: {
+          ocr_state?: string | null;
+          ocr_text?: string | null;
+          ocr_confidence?: number | null;
+          ocr_kind?: string | null;
+          ocr_at?: string | null;
           id?: string;
           client_id?: string;
           storage_path?: string;
@@ -7190,6 +7205,7 @@ export type Database = {
       };
       client_documents: {
         Row: {
+          ocr_state: string | null;
           id: string | null;
           client_id: string | null;
           document_date: string | null;

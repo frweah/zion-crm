@@ -46,7 +46,26 @@ export async function POST(request: NextRequest) {
   const waiting = await pick(true, limit);
   const decided = await pick(false, limit - waiting.length);
 
+  /**
+   * And the photos taken on a phone (0343), which this computer has never
+   * had a copy of. Each comes with a link that works for ten minutes - long
+   * enough to fetch it, too short to be worth keeping - and the agent sends
+   * its reading back to /api/agent/photo-ocr by the document's id.
+   */
+  const { data: waitingPhotos } = await supabase
+    .from("attachments")
+    .select("id, storage_path, mime_type")
+    .eq("ocr_state", "not read yet")
+    .order("created_at")
+    .limit(limit);
+  const photos: { id: string; url: string; mime: string }[] = [];
+  for (const p of waitingPhotos ?? []) {
+    const { data: signed } = await supabase.storage.from("client-files").createSignedUrl(p.storage_path, 600);
+    if (signed?.signedUrl) photos.push({ id: p.id, url: signed.signedUrl, mime: p.mime_type });
+  }
+
   return NextResponse.json({
     wanted: [...waiting, ...decided].map((d) => ({ hash: d.sha256, path: d.relative_path })),
+    photos,
   });
 }

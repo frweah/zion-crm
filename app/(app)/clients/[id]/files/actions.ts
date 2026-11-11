@@ -74,6 +74,9 @@ export async function recordAttachment(
     .from("attachments")
     .insert({
     ...(keyed ? { id: key } : {}),
+    // A photo from the phone waits to be read by the document agent (0343).
+    // Only those: a document added on a desk is not asked about.
+    ...(keyed && String(formData.get("mime_type") ?? "").startsWith("image/") ? { ocr_state: "not read yet" } : {}),
     client_id: clientId,
     storage_path: storagePath,
     filename,
