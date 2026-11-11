@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { can, ROLE_LABEL } from "@/lib/roles";
+import { can, ROLE_LABEL, tilesThatLand, BILLING_AUTHORIZATIONS } from "@/lib/roles";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { refreshAlertsIfStale, getAlerts } from "@/lib/alerts";
@@ -445,8 +445,11 @@ export default async function DashboardPage({
       {/* One number each, and a tap to the thing itself. What cannot be
           counted without being read is in the sections below, which is the
           "needs your attention" feed. */}
+      {/* No tile sends anybody back to Home (inventory, 11 Nov 2026): one
+          whose screen this person cannot open is not drawn, rather than drawn
+          and bounced by the layout's gate. check-nav holds both halves. */}
       <HomeTiles
-        tiles={[
+        tiles={tilesThatLand(me, [
           {
             key: "clock",
             label: timerResult.data ? "Clocked in" : "Work session",
@@ -490,10 +493,10 @@ export default async function DashboardPage({
             label: "Notifications",
             value: String(shownAlerts.length),
             note: "raised by the practice",
-            href: "/dashboard#alerts",
+            href: "/dashboard#day-alerts",
             bad: shownAlerts.some((a) => a.level === "bad"),
           },
-        ]}
+        ])}
       />
 
       {/* ── the work session ─────────────────────────────────── */}
@@ -753,7 +756,7 @@ export default async function DashboardPage({
             Billing
           </h2>
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-            <Link href="/billing" className="card" style={{ textDecoration: "none", color: "inherit" }}>
+            <Link href={BILLING_AUTHORIZATIONS} className="card" style={{ textDecoration: "none", color: "inherit" }}>
               <div className="stat" style={billingNeedsAction > 0 ? { color: "var(--bad)" } : undefined}>
                 {billingNeedsAction}
                 <small>

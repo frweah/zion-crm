@@ -19,7 +19,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { sourceFiles, withoutComments } from "./copy-text.mjs";
 import { NAV_GROUPS, navFor, navPath, hubBack, reachableFor, canReach, ROLE_NAMES, AREAS, AREA_LEVELS, ROLE_AREAS } from "../lib/roles.ts";
 import { CLIENT_TABS, MOVED_CLIENT_TABS } from "../lib/client-tabs.ts";
-import { SIDEBAR_SCREENS } from "../lib/roles.ts";
+import { SIDEBAR_SCREENS, BAR_GROUPS, MORE_PAGE, moreGroups, landsFor, ADD_AUTHORIZATION, BILLING_AUTHORIZATIONS } from "../lib/roles.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -63,7 +63,8 @@ const hubs = new Set(NAV_GROUPS.map((g) => g.hub).filter(Boolean));
 // And the screens about a person's own account, which are reached from the
 // avatar menu rather than from the sidebar. canReach lets everybody at them;
 // the assertion that it does is below.
-const PERSONAL = new Set(["/security/two-factor"]);
+// /more is the phone bar's More page (11 Nov 2026), reached from the bar.
+const PERSONAL = new Set(["/security/two-factor", "/more"]);
 // And the screens in the sidebar itself rather than in a hub (lib/roles.ts).
 // Being in no hub is a claim about where a screen is reached from, so it is
 // checked below rather than believed here.
@@ -135,6 +136,9 @@ const EXPECTED = {
     "/billing", "/billing/invoices", "/calendar", "/clients", "/counselors",
     "/dashboard",
     "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
+    // Since 11 Nov 2026: Home's "My clients" tile bounced Billing back to
+    // Home. The screen shows only the person's own clients.
+    "/my-clients",
   ],
 };
 
@@ -934,6 +938,116 @@ if (sidebarMissing.length) {
   fail("the phone's bottom bar has grown a sub-list; it is five destinations and was to be left alone");
 } else {
   ok(`a group opens its own screens beneath it, one group at a time, never in the rail`);
+}
+
+
+// ── the four navigation faults the inventory found (11 Nov 2026) ──
+//
+// Each is asserted as the rule it broke, for every role and for Margaret's
+// Reports-with-a-billing-grant, rather than as the one screen it broke on.
+const PEOPLE = [
+  ...ROLE_NAMES.map((role) => ({ role, grants: [], why: role })),
+  { role: "Reports", grants: [{ area: "billing", level: "edit" }], why: "Reports with a billing grant" },
+];
+
+// 1. More on a phone opens the person's own More page.
+{
+  const bar = await readFile(new URL("../app/(app)/bottom-bar.tsx", import.meta.url), "utf8");
+  const before = problems.length;
+  if (!/href=\{MORE_PAGE\}/.test(bar)) fail("the phone bar's More does not open the More page");
+  if (/rest\[0\]/.test(withoutComments(bar))) fail("the phone bar's More still opens the first screen of a leftover group");
+  if (!/moreGroups\(/.test(bar)) fail("the phone bar does not decide what is under More through moreGroups");
+  const morePage = await readFile(new URL("../app/(app)/more/page.tsx", import.meta.url), "utf8");
+  if (!/moreGroups\(navFor\(me\)\)/.test(morePage)) fail("the More page does not list moreGroups(navFor(me))");
+  for (const p of PEOPLE) {
+    if (!canReach(p, MORE_PAGE)) fail(`${p.why} cannot open ${MORE_PAGE}`);
+  }
+  if (problems.length === before) ok(`More on a phone opens ${MORE_PAGE}, which every role and grant can open`);
+}
+
+// 2. Everything a person can open on a desk is on the phone bar or on More.
+{
+  const before = problems.length;
+  for (const p of PEOPLE) {
+    const groups = navFor(p);
+    const onBar = groups.filter((g) => BAR_GROUPS.includes(g.group.key));
+    const onMore = moreGroups(groups);
+    const reached = new Set([...onBar, ...onMore].flatMap((g) => g.items.map((i) => i.href)));
+    const missing = groups.flatMap((g) => g.items).filter((i) => !reached.has(i.href));
+    if (missing.length) fail(`${p.why} cannot reach ${missing.map((i) => i.label).join(", ")} from the phone bar`);
+    for (const key of ["hr", "admin"]) {
+      const has = groups.some((g) => g.group.key === key);
+      const listed = onMore.some((g) => g.group.key === key);
+      if (has && !listed) fail(`${p.why} has ${key.toUpperCase()} and it is not under More`);
+    }
+  }
+  const adminMore = moreGroups(navFor("Admin")).map((g) => g.group.key);
+  if (!adminMore.includes("hr") || !adminMore.includes("admin")) fail(`Admin's More has ${adminMore.join(", ")}, not HR and Admin`);
+  if (problems.length === before) ok(`every screen each of ${PEOPLE.length} roles and grants can open is on the phone bar or under More, HR and Admin included`);
+}
+
+// 3. Billing -> Add authorization lands on the Authorizations tab, form open.
+{
+  const before = problems.length;
+  if (ADD_AUTHORIZATION !== "/billing?tab=authorizations#new-authorization") fail(`ADD_AUTHORIZATION is ${ADD_AUTHORIZATION}`);
+  const billing = withoutComments(await readFile(new URL("../app/(app)/billing/page.tsx", import.meta.url), "utf8"));
+  // The form has to be on the page that tab draws: after the Overview and
+  // the Service log have returned, and not folded away.
+  const overviewAt = billing.indexOf('if (tab === "overview")');
+  const hoursAt = billing.indexOf('if (tab === "hours")');
+  const formAt = billing.indexOf('id="new-authorization"');
+  if (formAt < 0) fail("the Billing page has no new-authorization section");
+  else if (formAt < overviewAt || formAt < hoursAt) fail("the Add authorization form is drawn before the Overview or Service log returns");
+  else if (/<details[^>]*>(?:(?!<\/details>)[\s\S])*id="new-authorization"/.test(billing)) fail("the Add authorization form is folded inside a <details>");
+  // And nothing in the app spells the way to it, or to the working list's
+  // sections, without the tab - which is the Overview, where none of them is.
+  const BARE = /["'`]\/billing(?:#(?:new-authorization|from-documents|warrant-review)|\?show=|["'`])/g;
+  for (const file of await sourceFiles(new URL("../app/", import.meta.url), [".tsx", ".ts"])) {
+    const src = withoutComments(await readFile(file, "utf8"));
+    for (const m of src.matchAll(BARE)) {
+      // revalidatePath("/billing") is a cache, not a link.
+      const lineStart = src.lastIndexOf("\n", m.index) + 1;
+      const line = src.slice(lineStart, src.indexOf("\n", m.index));
+      if (/revalidatePath|redirect\(\s*["']\/billing\?tab=hours/.test(line)) continue;
+      fail(`${rel(file)} links to ${m[0].slice(1)} - that is the Overview; use BILLING_AUTHORIZATIONS or ADD_AUTHORIZATION`);
+    }
+  }
+  const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
+  if (/:\s*"\/billing(?:#new-authorization)?"/.test(config)) fail("next.config.mjs redirects an old Billing address to the Overview");
+  if (!BILLING_AUTHORIZATIONS.includes("tab=authorizations")) fail("BILLING_AUTHORIZATIONS is not the Authorizations tab");
+  if (problems.length === before) ok("Add authorization, the document queue and every link into Billing's working list land on the Authorizations tab, form open");
+}
+
+// 4. No Home tile sends anybody back to Home.
+{
+  const before = problems.length;
+  const home = withoutComments(await readFile(new URL("../app/(app)/dashboard/page.tsx", import.meta.url), "utf8"));
+  if (!/tiles=\{tilesThatLand\(me,/.test(home)) fail("Home's tiles are not filtered through tilesThatLand");
+  const tilesSrc = home.slice(home.indexOf("<HomeTiles"), home.indexOf("/>", home.indexOf("<HomeTiles")));
+  const tileHrefs = [...tilesSrc.matchAll(/href:\s*"([^"]+)"/g)].map((m) => m[1]);
+  if (tileHrefs.length < 4) fail(`only ${tileHrefs.length} tile addresses could be read from Home`);
+  for (const href of tileHrefs) {
+    if (href.startsWith("/dashboard#")) {
+      const id = href.split("#")[1];
+      if (!new RegExp(`id="${id}"`).test(home)) fail(`the ${href} tile points at a section Home does not have`);
+      continue;
+    }
+    const roles = PEOPLE.filter((p) => !landsFor(p, href)).map((p) => p.why);
+    // Allowed only because tilesThatLand hides it from exactly these people;
+    // a tile everybody would be bounced from is a tile that should not exist.
+    if (roles.length === PEOPLE.length) fail(`the ${href} tile lands for nobody`);
+  }
+  // The same function must say no where the layout's gate would.
+  if (landsFor("Billing", "/tasks")) fail("landsFor says Billing lands on /tasks, which the gate refuses");
+  if (!landsFor("Job Coach", "/my-clients")) fail("a job coach's My clients tile does not land");
+  // And the plain links on Home that are drawn for everybody.
+  for (const m of home.matchAll(/<Link[^>]*href="(\/[^"#]+)[^"]*"/g)) {
+    const bounced = PEOPLE.filter((p) => !landsFor(p, m[1])).map((p) => p.why);
+    if (bounced.length && !/\/billing|\/insights|\/books|\/dashboard\/needs|\/tasks/.test(m[1])) {
+      fail(`Home links to ${m[1]}, which sends ${bounced.join(", ")} back to Home`);
+    }
+  }
+  if (problems.length === before) ok(`no Home tile sends anybody back to Home (${tileHrefs.length} tiles, ${PEOPLE.length} roles and grants)`);
 }
 
 // ── a link to Team asks Team something it answers ───────────

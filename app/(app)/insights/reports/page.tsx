@@ -272,7 +272,7 @@ export default async function ReportsPage({
           value={money(ar60)}
           label="A/R over 60 days · aging on Admin → Money insights"
           tone={ar60 > 0 ? "bad" : undefined}
-          href="/billing"
+          href="/insights/money"
         />
         <Stat value={placements.length} label="placements on record" />
         <Stat value={show(retention, "%")} label="90-day retention (of eligible)" />

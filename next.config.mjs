@@ -51,7 +51,7 @@ const nextConfig = {
   async redirects() {
     const moved = {
       "/needs": "/dashboard/needs",
-      "/forms": "/billing",
+      "/forms": "/billing?tab=authorizations",
       "/revenue": "/insights/money",
       "/reports": "/insights/reports",
       "/outcomes": "/insights/outcomes",
@@ -75,13 +75,13 @@ const nextConfig = {
       // signed authorization, the submission checklist and Report & bill are
       // on the authorization record, reached from the working list; the
       // month-end export and the rate schedule are Admin's.
-      "/billing/forms": "/billing",
-      "/billing/report": "/billing",
+      "/billing/forms": "/billing?tab=authorizations",
+      "/billing/report": "/billing?tab=authorizations",
       "/billing/export": "/insights/money#export",
       // §§11, 12.1: reading an authorization off its PDF is the primary Add
       // authorization, on Billing itself. A second screen showing the same
       // thing is the duplication §11 is about.
-      "/billing/import": "/billing#new-authorization",
+      "/billing/import": "/billing?tab=authorizations#new-authorization",
       /**
        * The billing item's own screen (§§9, 10).
        *
@@ -94,8 +94,8 @@ const nextConfig = {
        * redirect - so a bookmark, or a tab left open on the old Items table,
        * answered with a 404 rather than with the list.
        */
-      "/billing/items": "/billing",
-      "/billing/items/:id": "/billing",
+      "/billing/items": "/billing?tab=authorizations",
+      "/billing/items/:id": "/billing?tab=authorizations",
       "/admin/exports": "/billing/export",
       // Paths that never had a page but were typed or linked anyway (punch
       // list #14, 20 Sept 2026): Admin opens on People, and the documents

@@ -159,7 +159,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
   return (
     <>
       <RecordHeader
-        back={{ href: "/billing", label: "Authorizations" }}
+        back={{ href: "/billing?tab=authorizations", label: "Authorizations" }}
         title={`${rec.client_name} — ${rec.service_type}${monthName ? `, ${monthName}` : ""}`}
         standing={`${authorizationNumberLabel(rec)} · ${rec.status} — ${
           STATUS_MEANING[rec.status as AuthorizationStatus] ?? ""

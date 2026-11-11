@@ -68,7 +68,7 @@ export function FormsTab({
       {missingForBilling.length > 0 && (
         <p className="lock" style={{ margin: "0 0 14px" }}>
           Forms are produced from the authorization that needs them, on{" "}
-          <Link href="/billing" style={{ color: "var(--teal)" }}>
+          <Link href="/billing?tab=authorizations" style={{ color: "var(--teal)" }}>
             Billing
           </Link>
           , filled in from the record and the service log.

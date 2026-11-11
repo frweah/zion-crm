@@ -16,6 +16,7 @@ import { PageHead } from "../page-head";
 import { DataTable, type DataRow } from "../data-table";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
 import { BillingOfficeFilter, withBo } from "../billing-office-filter";
+import { ADD_AUTHORIZATION, BILLING_AUTHORIZATIONS } from "@/lib/roles";
 import PendingAuthorizations from "./pending-authorizations";
 import { ImportForm } from "./import/import-form";
 import { Worklist, type WorklistRow } from "./worklist";
@@ -84,7 +85,7 @@ export default async function BillingPage({
   const me = await requireStaff();
   const { tab: rawTab, show, bo: rawBo, doc: rawDoc, month: rawMonth, page: rawPage } = await searchParams;
 
-  if (rawTab && GONE_TO_AUTHORIZATIONS.includes(rawTab)) redirect("/billing");
+  if (rawTab && GONE_TO_AUTHORIZATIONS.includes(rawTab)) redirect(BILLING_AUTHORIZATIONS);
   if (rawTab && GONE_TO_HOURS.includes(rawTab)) redirect("/billing?tab=hours");
   const tab = TABS.includes(rawTab ?? "") ? rawTab! : "overview";
 
@@ -144,7 +145,7 @@ export default async function BillingPage({
       }
       actions={
         canBill ? (
-          <Link href="/billing#new-authorization" className="btn" style={{ textDecoration: "none" }}>
+          <Link href={ADD_AUTHORIZATION} className="btn" style={{ textDecoration: "none" }}>
             Add authorization
           </Link>
         ) : undefined
@@ -554,7 +555,10 @@ export default async function BillingPage({
            * filters where the separator is wrong.
            */
           hrefFor={(docId) => {
-            const params = new URLSearchParams();
+            // On the Authorizations tab, where the document opens; /billing
+            // alone is the Overview, which does not draw it (inventory, 11
+            // Nov 2026: every Open on the queue landed on the month's figures).
+            const params = new URLSearchParams({ tab: "authorizations" });
             if (showAll) params.set("show", "all");
             if (showStale) params.set("show", "stale");
             if (docId) params.set("doc", docId);
@@ -618,18 +622,18 @@ export default async function BillingPage({
       <BillingOfficeFilter
         billingOffices={billing.billingOffices}
         selected={bo}
-        href={(b) => withBo(showStale ? "/billing?show=stale" : showAll ? "/billing?show=all" : "/billing", b)}
+        href={(b) => withBo(showStale ? "/billing?tab=authorizations&show=stale" : showAll ? "/billing?tab=authorizations&show=all" : BILLING_AUTHORIZATIONS, b)}
       />
 
       <div style={{ marginBottom: 8 }}>
         <div className="segmented">
-          <Link href={withBo("/billing", bo)} className={showAll ? undefined : "on"}>
+          <Link href={withBo(BILLING_AUTHORIZATIONS, bo)} className={showAll ? undefined : "on"}>
             Needs action ({needingAction.length})
           </Link>
-          <Link href={withBo("/billing?show=all", bo)} className={showAll ? "on" : undefined}>
+          <Link href={withBo("/billing?tab=authorizations&show=all", bo)} className={showAll ? "on" : undefined}>
             Show all ({inOffice.length})
           </Link>
-          <Link href={withBo("/billing?show=stale", bo)} className={showStale ? "on" : undefined}>
+          <Link href={withBo("/billing?tab=authorizations&show=stale", bo)} className={showStale ? "on" : undefined}>
             Stale ({stale.length})
           </Link>
         </div>
@@ -657,7 +661,7 @@ export default async function BillingPage({
 
       {canBill && (
         <p className="lock" style={{ margin: "0 0 14px" }}>
-          Have the PDF USOR sent? <Link href="/billing#new-authorization">Read the authorization off it</Link>{" "}
+          Have the PDF USOR sent? <Link href={ADD_AUTHORIZATION}>Read the authorization off it</Link>{" "}
           instead of typing it — a rate keyed as 4.50 instead of 45.00 is not noticed until the
           payment is short.
         </p>

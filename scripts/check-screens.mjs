@@ -21,7 +21,7 @@
  *   than a list says so with data-layout="why".
  */
 import { readdir, readFile } from "node:fs/promises";
-import { NAV_GROUPS, navPath, SIDEBAR_SCREENS } from "../lib/roles.ts";
+import { NAV_GROUPS, navPath, SIDEBAR_SCREENS, MORE_PAGE } from "../lib/roles.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -204,7 +204,9 @@ const SENT_TO = new Set(["/security/two-factor"]);
  * sidebar really opens each of these, so this is not a way to excuse a screen
  * nothing reaches.
  */
-const FROM_THE_SIDEBAR = new Set(SIDEBAR_SCREENS);
+// And More, which is on the phone bar itself (11 Nov 2026): a destination
+// from the bar, like a hub, with nothing above it to go back to.
+const FROM_THE_SIDEBAR = new Set([...SIDEBAR_SCREENS, MORE_PAGE]);
 const noWayBack = [];
 const wrongWayBack = [];
 const twoWaysBack = [];

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ADD_AUTHORIZATION } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { can } from "@/lib/roles";
@@ -34,7 +35,7 @@ export default async function DocumentsPage() {
         title="Document inbox &amp; retention"
         context="What has arrived and is waiting, how long records are kept, and requests for a person's file"
         actions={
-          <Link className="btn ghost" href="/billing#new-authorization" style={{ textDecoration: "none" }}>
+          <Link className="btn ghost" href={ADD_AUTHORIZATION} style={{ textDecoration: "none" }}>
             Read an authorization PDF
           </Link>
         }

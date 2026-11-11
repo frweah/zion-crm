@@ -125,7 +125,7 @@ export default async function WarrantsPage() {
   return (
     <>
       <RecordHeader
-        back={{ href: "/billing", label: "Authorizations" }}
+        back={{ href: "/billing?tab=authorizations", label: "Authorizations" }}
         title="Warrants"
         standing="What USOR paid, read from the stubs in the _Warrants folder and reconciled against the authorizations and invoices on file"
         actions={

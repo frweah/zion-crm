@@ -228,7 +228,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Tasks", href: "/tasks", roles: CASEWORK, area: "tasks", note: "Everybody's, not only your own." },
       // Where somebody with a caseload starts the day: their own clients and
       // what is due against each (Workflow brief, 20 Sept 2026).
-      { label: "My clients — what is next", href: "/my-clients", roles: ["Admin", "Job Search", "Reports"], note: "Your caseload, and what is due on each." },
+      // Everybody's since 11 Nov 2026: the screen lists only the person's own
+      // clients, and Home's "My clients" tile sent a job coach, a case manager
+      // and Billing to a screen that bounced them back to Home.
+      { label: "My clients — what is next", href: "/my-clients", roles: EVERYONE, note: "Your caseload, and what is due on each." },
       { label: "Jobs", href: "/leads", roles: EVERYONE, note: "Openings, applications and the employers behind them." },
       // The counselors who refer them; the directory, the contact log and
       // hours requests are tabs on the Counselors screen itself.
@@ -408,6 +411,33 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+/**
+ * Billing's working list, and the form that adds to it (inventory, 11 Nov
+ * 2026). /billing on its own is the Overview, which draws neither - so every
+ * link that said "/billing#new-authorization" opened the month's figures and
+ * scrolled to nothing. Named once here, and check-nav asserts nothing in the
+ * app spells the old way again.
+ */
+export const BILLING_AUTHORIZATIONS = "/billing?tab=authorizations";
+export const ADD_AUTHORIZATION = "/billing?tab=authorizations#new-authorization";
+
+/**
+ * The phone bar (inventory, 11 Nov 2026).
+ *
+ * Four groups on the bar, in this order, and More for the rest. More used to
+ * open the first screen of the first group left over, which for most roles
+ * was Purchase requests and for Admin was Billing - so HR and Admin could not
+ * be reached from a phone at all. More is a page of its own now (/more),
+ * listing every group this person has that is not on the bar, and both the
+ * bar and that page read this one function.
+ */
+export const BAR_GROUPS = ["dashboard", "clients", "my-work", "inbox"];
+export const MORE_PAGE = "/more";
+
+export function moreGroups<T extends { group: NavGroup; items: NavItem[] }>(groups: T[]): T[] {
+  return groups.filter((g) => !BAR_GROUPS.includes(g.group.key) && g.items.length > 0);
+}
+
 /** The path part of an href, with any ?tab= or #section dropped. */
 export function navPath(href: string): string {
   return href.split(/[?#]/)[0];
@@ -546,7 +576,7 @@ export const ORG = {
  * refuses a path that is in no group, the layout sends them back to Home,
  * and the gate sends them here again.
  */
-const ALWAYS_REACHABLE = ["/security/two-factor"];
+const ALWAYS_REACHABLE = ["/security/two-factor", "/more"];
 
 /**
  * Screens in the sidebar itself rather than inside one of the hubs.
@@ -603,4 +633,20 @@ export function canReach(who: Role | Access, pathname: string): boolean {
   if (NAV_GROUPS.some((g) => g.items.some((i) => navPath(i.href) === pathname))) return false;
 
   return mine.some((p) => pathname.startsWith(p + "/"));
+}
+
+/**
+ * Whether a link on Home lands where it says for this person (inventory,
+ * 11 Nov 2026). A link to a section of Home itself lands; anything else
+ * lands if the layout's gate would let them in, which is the same question
+ * canReach answers for a typed address.
+ */
+export function landsFor(who: Role | Access, href: string): boolean {
+  if (href.startsWith("/dashboard#")) return true;
+  return canReach(who, navPath(href));
+}
+
+/** Home's tiles, less any that would send this person back to Home. */
+export function tilesThatLand<T extends { href: string }>(who: Role | Access, tiles: T[]): T[] {
+  return tiles.filter((t) => landsFor(who, t.href));
 }

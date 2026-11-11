@@ -672,7 +672,7 @@ export default async function RevenuePage({
         Hourly work earns by the hour; flat-fee work earns on completion, so a flat fee with no
         completion recorded has earned nothing however much time went into it. A closed
         authorization counts as settled.{" "}
-        <Link href="/billing">Billing</Link> shows each authorization&rsquo;s own status and what it
+        <Link href="/billing?tab=authorizations">Billing</Link> shows each authorization&rsquo;s own status and what it
         is waiting on; the totals are here.
       </p>
 

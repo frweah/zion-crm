@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavIcon } from "./nav-icons";
 import { useUnreadMessages } from "./live-messaging";
-import type { NavGroup, NavItem } from "@/lib/roles";
+import { BAR_GROUPS, MORE_PAGE, moreGroups, type NavGroup, type NavItem } from "@/lib/roles";
 
 /**
  * The hubs as a bar across the bottom, on a phone (Design language, §1).
@@ -31,11 +31,11 @@ export function BottomBar({ groups }: { groups: { group: NavGroup; items: NavIte
    * And one entry for My work, not two: Work merged into it later the same
    * day, so Clients takes the slot the old Work group had.
    */
-  const main = ["dashboard", "clients", "my-work", "inbox"];
+  const main = BAR_GROUPS;
   const shown = main
     .map((key) => groups.find((g) => g.group.key === key))
     .filter((g): g is { group: NavGroup; items: NavItem[] } => Boolean(g));
-  const rest = groups.filter((g) => !main.includes(g.group.key));
+  const rest = moreGroups(groups);
 
   const here = (g: { group: NavGroup; items: NavItem[] }) =>
     (g.group.hub && pathname === g.group.hub) ||
@@ -56,11 +56,14 @@ export function BottomBar({ groups }: { groups: { group: NavGroup; items: NavIte
         </Link>
       ))}
       {rest.length > 0 && (
+        // The person's own More page, never the first screen of whatever
+        // group happens to be left over (inventory, 11 Nov 2026).
         <Link
-          href={rest[0].group.hub ?? rest[0].items[0].href}
-          className={"bottom-item" + (rest.some(here) ? " on" : "")}
+          href={MORE_PAGE}
+          className={"bottom-item" + (pathname === MORE_PAGE || rest.some(here) ? " on" : "")}
+          aria-current={pathname === MORE_PAGE ? "page" : undefined}
         >
-          <NavIcon name={rest[0].group.key} />
+          <NavIcon name="more" />
           <span>More</span>
         </Link>
       )}

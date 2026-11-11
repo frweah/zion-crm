@@ -9137,3 +9137,32 @@ agent on the owner's machine, and only from that machine's own copy of the
 file, matched by hash. A photo taken on a phone is never on that machine, so
 the existing path cannot read it. The photo lands on the client's Documents
 with its category; reading it needs a decision (see the report).
+
+## 11 Nov 2026, later — four navigation faults, fixed as bugs
+
+The inventory found four ways the navigation sent people somewhere other
+than where it said. Each is now asserted in `check-nav` as the rule it broke,
+for every role and for Reports with a billing grant, and each fault was put
+back and seen to fail.
+
+1. **More on a phone** opened the first screen of whichever group was left
+   over: Purchase requests for most roles, Billing's Overview for Admin. It
+   opens `/more` now, the person's own list of every group not on the bar.
+   The bar and the page both read `moreGroups()` in `lib/roles.ts`.
+2. **HR and Admin from the phone.** They were not reachable at all. They are
+   sections of `/more` for whoever has them, and check-nav asserts that every
+   screen a person can open is on the bar or under More.
+3. **Add authorization** and the document queue's Open went to `/billing`,
+   which is the Overview and draws neither. They go to
+   `/billing?tab=authorizations` (named once: `BILLING_AUTHORIZATIONS`,
+   `ADD_AUTHORIZATION`). So do the working list's own filters, the
+   authorization's and warrants' back links, four explanatory links and three
+   old-address redirects, all of which had the same fault. The form on that
+   tab is open, not folded.
+4. **Home tiles.** Tasks bounced Billing back to Home, My clients bounced
+   Billing, Job Coach and Case Manager, and Notifications pointed at `#alerts`,
+   which Home does not have (the section is `day-alerts`). Tiles go through
+   `tilesThatLand()` now, which hides any this person cannot open. My clients
+   is everybody's, because the screen lists only the person's own clients and
+   the brief puts each role's own clients on their home. The Billing card on
+   Home goes to the working list it counts.

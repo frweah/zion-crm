@@ -281,7 +281,7 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       {
         ask: "Add an authorization from the PDF USOR sent",
         where: "Billing → Authorizations → Read an authorization",
-        href: "/billing#new-authorization",
+        href: "/billing?tab=authorizations#new-authorization",
         roles: ["Admin", "Billing"],
       },
       {
@@ -315,13 +315,13 @@ const ENTRIES: { group: string; items: Entry[] }[] = [
       {
         ask: "See why an invoice will not send",
         where: "Billing — a required USOR form is not complete yet",
-        href: "/billing",
+        href: "/billing?tab=authorizations",
         roles: ["Admin", "Billing"],
       },
       {
         ask: "Check authorized hours remaining",
         where: "Billing, or the client's Billing tab",
-        href: "/billing",
+        href: "/billing?tab=authorizations",
         roles: ["Admin", "Billing"],
       },
       {
