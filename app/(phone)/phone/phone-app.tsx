@@ -15,6 +15,7 @@ import {
   type OutboxKind,
 } from "@/lib/phone/store";
 import { retry, syncNow, unstick } from "@/lib/phone/sync";
+import { phoneLock, lockConfirmed, confirmLock, clearPhone, type LockAnswer } from "@/lib/phone/lock";
 import { readyDocument } from "../../(app)/paperwork/ready-for-upload";
 import { InstallPrompt } from "../../(app)/install-prompt";
 
@@ -168,7 +169,58 @@ function useRead<T>(me: string, url: string | null, cacheKey: string | null, bum
   return state;
 }
 
-export function PhoneApp({ me, canNote, installAnswered }: { me: Me; canNote: boolean; installAnswered: boolean }) {
+/**
+ * The lock comes first (owner, 11 Nov 2026): nothing about a client is read
+ * or kept on a phone that does not lock. lib/phone/lock.ts says what can and
+ * cannot be known about that, and why "cannot tell" is a notice rather than a
+ * refusal.
+ */
+export function PhoneApp(props: { me: Me; canNote: boolean; installAnswered: boolean }) {
+  const [lock, setLock] = useState<LockAnswer | "checking">("checking");
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => {
+    setConfirmed(lockConfirmed(props.me.id));
+    void phoneLock().then(setLock);
+  }, [props.me.id]);
+
+  if (lock === "checking") return <div className="phone-frame"><p className="phone-kept">Opening.</p></div>;
+
+  if (lock === "unlocked") {
+    return (
+      <div className="phone-frame">
+        <h1 className="phone-name">Set a screen lock first</h1>
+        <p>This phone has no passcode, PIN, fingerprint or face lock — add one in the phone&apos;s settings, then open Zion again.</p>
+        <SignOutHere me={props.me} unsent={0} />
+      </div>
+    );
+  }
+
+  if (lock === "unknown" && !confirmed) {
+    return (
+      <div className="phone-frame">
+        <h1 className="phone-name">Phone lock</h1>
+        <p>Zion keeps today&apos;s clients on this phone, so the phone must lock with a passcode, PIN, fingerprint or face.</p>
+        <div className="phone-actions stack">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              confirmLock(props.me.id);
+              setConfirmed(true);
+            }}
+          >
+            It locks
+          </button>
+        </div>
+        <SignOutHere me={props.me} unsent={0} />
+      </div>
+    );
+  }
+
+  return <PhoneScreens {...props} />;
+}
+
+function PhoneScreens({ me, canNote, installAnswered }: { me: Me; canNote: boolean; installAnswered: boolean }) {
   const [view, setView] = useState<View>({ v: "home" });
   const [online, setOnline] = useState(true);
   const [items, setItems] = useState<OutboxItem[]>([]);
@@ -1106,21 +1158,7 @@ function OutboxView({ me, items, refresh, sync, online }: Ctx & { refresh: () =>
 // ── More ─────────────────────────────────────────────────────
 
 function MoreView({ me, items }: Ctx) {
-  const [blocked, setBlocked] = useState<string | null>(null);
   const unsent = items.filter((i) => i.owner === me.id).length;
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const signOut = async () => {
-    if (unsent > 0 && blocked === null) {
-      setBlocked(`${unsent} not sent yet — signing out deletes ${unsent === 1 ? "it" : "them"} from this phone.`);
-      return;
-    }
-    // A client's notes on a phone after the person has signed out of it are
-    // notes on a phone anybody can pick up.
-    await forgetAll().catch(() => undefined);
-    navigator.serviceWorker?.controller?.postMessage("forget");
-    formRef.current?.submit();
-  };
 
   return (
     <>
@@ -1137,15 +1175,43 @@ function MoreView({ me, items }: Ctx) {
       <a className="phone-row" href="/time-clock"><span className="phone-row-main">Time clock</span></a>
       <a className="phone-row" href="/end-of-day"><span className="phone-row-main">My end of day</span></a>
       <a className="phone-row" href="/sops"><span className="phone-row-main">Knowledge base</span></a>
-      <a className="phone-row" href="/dashboard"><span className="phone-row-main">Everything else</span></a>
+      <a className="phone-row" href="/more"><span className="phone-row-main">Everything else</span></a>
 
       <p className="phone-row-sub">{me.name}</p>
+      <SignOutHere me={me} unsent={unsent} />
+    </>
+  );
+}
+
+/**
+ * Sign out on this phone (owner, 11 Nov 2026): signs out, and clears
+ * everything the app put on the phone - today's clients, Team, what is
+ * waiting to send, the saved screen, the lock answer. It says first if
+ * anything saved has not been sent, because clearing it is losing it.
+ */
+function SignOutHere({ me, unsent }: { me: Me; unsent: number }) {
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const signOut = async () => {
+    if (unsent > 0 && blocked === null) {
+      setBlocked(`${unsent} not sent yet — signing out on this phone deletes ${unsent === 1 ? "it" : "them"}.`);
+      return;
+    }
+    await forgetAll().catch(() => undefined);
+    await clearPhone();
+    formRef.current?.submit();
+  };
+
+  return (
+    <>
       {blocked && <p className="alert bad">{blocked}</p>}
       <form ref={formRef} action="/auth/signout" method="post">
-        <button type="button" className={blocked ? "btn danger" : "btn ghost"} onClick={signOut}>
-          {blocked ? "Sign out anyway" : "Sign out"}
+        <button type="button" className={blocked ? "btn danger" : "btn ghost"} onClick={signOut} aria-label={`Sign out ${me.name} on this phone`}>
+          {blocked ? "Delete and sign out" : "Sign out on this phone"}
         </button>
       </form>
     </>
   );
 }
+

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { dismissHint } from "./hint-actions";
+import { phoneLock } from "@/lib/phone/lock";
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -27,6 +28,9 @@ export function InstallPrompt({ answered }: { answered: boolean }) {
   const [offer, setOffer] = useState<InstallEvent | null>(null);
   const [iphone, setIphone] = useState(false);
   const [gone, setGone] = useState(answered);
+  // A phone that says it has no lock is not offered the install (owner,
+  // 11 Nov 2026): the app keeps today's clients on the phone.
+  const [noLock, setNoLock] = useState(false);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -42,6 +46,8 @@ export function InstallPrompt({ answered }: { answered: boolean }) {
       (navigator as Navigator & { standalone?: boolean }).standalone === true;
     if (installed) return;
 
+    void phoneLock().then((answer) => setNoLock(answer === "unlocked"));
+
     const small = window.matchMedia("(max-width: 760px)").matches;
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     if (ios && small) setIphone(true);
@@ -55,6 +61,14 @@ export function InstallPrompt({ answered }: { answered: boolean }) {
   }, [answered]);
 
   if (gone || (!offer && !iphone)) return null;
+
+  if (noLock) {
+    return (
+      <div className="install-bar no-print" role="region" aria-label="Add to home screen">
+        <span>Set a screen lock on this phone before adding Zion to it</span>
+      </div>
+    );
+  }
 
   const answer = async () => {
     setGone(true);

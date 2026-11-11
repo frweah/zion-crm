@@ -6,8 +6,12 @@
 Every person with a login to the Zion CRM signs this before their first use of
 the system. It is what a counselor, USOR, or an auditor will ask to see.
 
-*Version 2, 19 September 2026: rule 2, on AI tools, is new. The text people
-sign in the CRM is stored there (staff_policies); this file matches it.*
+*Version 3 — DRAFT, 11 November 2026: rule 10, on the Zion app on a phone, is
+new, and rule 1 now points to it. Not yet published: the text people sign in
+the CRM (staff_policies) is still version 2 until the owner publishes this one,
+at which point everybody is asked to sign it again on their next sign-in.*
+
+*Version 2, 19 September 2026: rule 2, on AI tools, is new.*
 
 ---
 
@@ -24,7 +28,8 @@ to disclose it in order to get help finding work. It is handled accordingly.
 1. **Client data lives in the CRM only.** Not on personal phones, not in
    personal text messages, not in personal email, not in spreadsheets on a
    laptop, not in a notes app. If you need it somewhere, that is a reason to
-   fix the CRM, not to copy the data out of it.
+   fix the CRM, not to copy the data out of it. The one exception is the Zion
+   app on a phone, which keeps a little for the day under the rules in rule 10.
 
 2. **Microsoft 365 Copilot Chat is the only AI tool client information may be
    entered into** - signed in with your Zion work account, from the Copilot
@@ -64,6 +69,25 @@ to disclose it in order to get help finding work. It is handled accordingly.
 9. **Do not discuss client information where it can be overheard**, and do not
    share it with family, friends, or on social media — including details you
    think are anonymous. In a caseload this size, they are not.
+
+10. **The Zion app on a phone.** The app keeps what you opened today - your
+    home screen, the clients you opened, Team - so it works without signal, and
+    anything you save with no signal waits on the phone until it can be sent.
+    So:
+
+    - **The phone must lock** with a passcode, PIN, fingerprint or face. Where
+      the phone can tell the app it has no lock, the app will not open; where
+      it cannot tell, the app asks you once to confirm it is locked. Confirming
+      that falsely is a breach of this policy.
+    - **Use "Sign out on this phone"** (More, then Sign out on this phone)
+      before the phone is lent, sold, repaired or handed in. It clears
+      everything the app kept on that phone. The app tells you first if
+      anything you saved has not been sent yet.
+    - What the app kept is thrown away at midnight anyway, and when somebody
+      else signs in on the phone. It never keeps documents, IDs or anything
+      restricted.
+    - **A lost or stolen phone with the app on it is an exposure** under rule 8:
+      report it the same day, so the owner can cut off the account's access.
 
 ## What happens if this is broken
 
