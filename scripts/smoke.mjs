@@ -584,6 +584,79 @@ const teamPage = await open("/team");
  */
 const colleaguesTab = await open("/counselors?tab=colleagues");
 
+/**
+ * The phone app (owner, 11 Nov 2026), as the system account.
+ *
+ * /phone is outside app/(app) - it has its own frame - so the sweep that
+ * walks the navigation never opens it, and it is asked for here: the page,
+ * and each address it reads from, which must answer with JSON rather than
+ * with a server error or a sign-in page.
+ *
+ * Then the question check-phone.mjs can only ask from the source: does each
+ * view fit 375px with no sideways scroll, with real data in it. That needs a
+ * browser, and the deploy job installs one; run by hand without one, the
+ * check says it did not measure rather than passing quietly.
+ */
+const phoneChecks = [];
+{
+  const page = await open("/phone");
+  phoneChecks.push({ ...page, path: "/phone", role: "Admin" });
+  for (const path of ["/api/phone/home", "/api/phone/clients", "/api/phone/team"]) {
+    const r = await open(path);
+    let json = null;
+    try {
+      json = r.ok ? JSON.parse(r.body ?? "") : null;
+    } catch {
+      json = null;
+    }
+    phoneChecks.push(
+      r.ok && json && !json.error
+        ? { path, ok: true, role: "Admin" }
+        : { path, ok: false, role: "Admin", why: r.ok ? `answered without its data (${(r.body ?? "").slice(0, 80)})` : r.why },
+    );
+  }
+
+  let chromium = null;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    chromium = null;
+  }
+  if (!chromium) {
+    console.log("  NOT MEASURED  /phone at 375px - no browser here; the deploy job installs one");
+  } else {
+    let browser = null;
+    try {
+      browser = await chromium.launch();
+      const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+      const host = new URL(BASE).hostname;
+      await ctx.addCookies([...jar].map(([name, value]) => ({ name, value, domain: host, path: "/", secure: true, sameSite: "Lax" })));
+      if (BYPASS) await ctx.setExtraHTTPHeaders({ "x-vercel-protection-bypass": BYPASS });
+      const tab = await ctx.newPage();
+      await tab.goto(`${BASE}/phone`, { waitUntil: "networkidle" });
+      for (const hash of ["#/", "#/clients", "#/add", "#/hours", "#/tofile", "#/reports", "#/team", "#/outbox", "#/more"]) {
+        await tab.evaluate((h) => {
+          window.location.hash = h;
+        }, hash);
+        await tab.waitForTimeout(1500);
+        const w = await tab.evaluate(() => document.documentElement.scrollWidth);
+        phoneChecks.push(
+          w <= 375
+            ? { path: `/phone${hash} at 375px`, ok: true, role: "Admin" }
+            : { path: `/phone${hash} at 375px`, ok: false, role: "Admin", why: `${w}px wide - it scrolls sideways on a phone` },
+        );
+      }
+    } catch (err) {
+      phoneChecks.push({ path: "/phone at 375px", ok: false, role: "Admin", why: `the browser could not open it: ${err instanceof Error ? err.message : err}` });
+    } finally {
+      await browser?.close().catch(() => {});
+    }
+  }
+  for (const c of phoneChecks) console.log(`  ${c.ok ? "ok    " : "FAILED"}  ${c.path}${c.ok ? "" : ` - ${c.why}`}`);
+  // Counted with every other screen, so a phone screen that fails fails the deploy.
+  all.push(...phoneChecks);
+}
+
 const jobSearch = await pass("Job Search");
 all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
 

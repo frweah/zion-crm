@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { Suspense } from "react";
 import { headers } from "next/headers";
@@ -22,6 +23,19 @@ import { TeamBubble } from "./team-bubble";
 import { chatSettings } from "@/lib/chat-prefs";
 import { ClientSearch } from "./client-search";
 import { createClient } from "@/lib/supabase/server";
+import { gateFor } from "@/lib/gates";
+import { InstallPrompt } from "./install-prompt";
+
+/**
+ * The installable phone app (owner, 11 Nov 2026), on the staff screens only -
+ * the client portal is somebody else's and must not offer to install the
+ * practice's app. The manifest names /phone as where it opens; appleWebApp is
+ * what makes an iPhone open it without the browser around it.
+ */
+export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Zion", statusBarStyle: "default" },
+};
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Who is signed in, and the screen hints, asked together. Each separate wait
@@ -77,49 +91,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/dashboard");
   }
 
-  // Somebody brought on through the walkthrough (0100) works through it before
-  // anything else: the data-handling policy is signed before first use of the
-  // system, and the rest comes with it. Paperwork stays open - the walkthrough
-  // lives under it, and so do their own forms and documents. It can be left
-  // and resumed; signing in again lands them back on it.
-  // A system account (0120) is not a person: it has no onboarding to do and
-  // no policy to sign, and the deploy check it runs has to reach every screen.
-  if (staff.onboardingOpen && !staff.isSystem && pathname && !pathname.startsWith("/paperwork")) {
-    redirect("/paperwork/onboarding");
-  }
-
-  // A new version of a staff policy is signed before anything else, on the
-  // next sign-in and every screen after until it is (owner, 19 Sept 2026).
-  // The onboarding walkthrough has its own policy step, so it goes first.
-  if (policyDue === true && !staff.onboardingOpen && !staff.isSystem && pathname && !pathname.startsWith("/paperwork")) {
-    redirect("/paperwork/policy");
-  }
-
-  /**
-   * A second factor, when the practice requires one (0217).
-   *
-   * After onboarding and the policy, because somebody on their first morning
-   * signs the data-handling policy before anything else, and before every
-   * other screen, because that is what requiring it means.
-   *
-   * Two cases arrive here and the screen tells them apart: no factor at all,
-   * and a factor this session has not used yet. The system account has
-   * neither a phone nor a person and is left alone, as it is by the
-   * walkthrough above.
-   *
-   * It does nothing at all while org_settings.require_two_factor is off,
-   * which is how it ships.
-   */
-  if (
-    !staff.isSystem &&
-    !staff.onboardingOpen &&
-    pathname &&
-    !pathname.startsWith("/security/two-factor") &&
-    twoFactor?.required &&
-    (!twoFactor.enrolled || authLevel !== "aal2")
-  ) {
-    redirect("/security/two-factor");
-  }
+  // The three gates - the onboarding walkthrough (0100), a policy version not
+  // yet signed, and a second factor when the practice requires one (0217) -
+  // in that order. They are in lib/gates.ts because the phone applies the
+  // same three, and the rule that requires a second factor must not be two
+  // rules. A system account (0120) is held by none of them: it has no
+  // onboarding, no policy and no phone, and the deploy check it runs has to
+  // reach every screen. Paperwork stays open past the first two, because the
+  // walkthrough and the policy live under it.
+  const gate = gateFor({
+    pathname,
+    isSystem: staff.isSystem,
+    onboardingOpen: staff.onboardingOpen,
+    policyDue: policyDue === true,
+    twoFactor: twoFactor ? { required: Boolean(twoFactor.required), enrolled: Boolean(twoFactor.enrolled) } : null,
+    authLevel,
+  });
+  if (gate) redirect(gate);
 
   // This person's Team chat settings, read once: the pop-up, the sound and
   // do-not-disturb are the live half's, and whether the bubble is shown is
@@ -247,6 +235,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <GroupTabs groups={nav} />
         </Suspense>
 
+        {/* Once per person, on a phone (owner, 11 Nov 2026). */}
+        <InstallPrompt answered={dismissed.has("hint:install-app")} />
         {hint && <HintBar hintKey={hint.key} title={hint.title} body={hint.body} />}
         {children}
       </main>

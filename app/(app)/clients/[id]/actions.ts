@@ -8,7 +8,7 @@ import { isOnlyTemplate } from "@/lib/note-template";
 import { noteCategoryFromForm } from "@/lib/report-shape";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, today } from "@/lib/constants";
+import { STAGES, CAN_EDIT_CLIENTS as CAN_EDIT, today, PRACTICE_TZ } from "@/lib/constants";
 import type { Update } from "@/lib/database.types";
 
 export type DetailState = { error: string | null; ok: string | null };
@@ -196,7 +196,35 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
     return { error: "That is still just the headings — say what happened.", ok: null };
   }
 
+  /**
+   * A note written on the phone with no signal (0342).
+   *
+   * The phone makes the note's id when the note is written and sends it with
+   * every attempt, so a second arrival is refused by the primary key and
+   * answered as already added - the phone can retry as often as the signal
+   * makes it, and the record gets one note. It also says when the note was
+   * written, which is not when it arrived: a note typed in a car park at
+   * 10:05 and sent at 11:40 happened at 10:05. Up to three days back, and
+   * never in the future; anything else is the time it arrived.
+   */
+  const key = String(formData.get("key") ?? "").trim();
+  const keyed = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
+  const writtenRaw = String(formData.get("written_at") ?? "").trim();
+  const written = writtenRaw ? new Date(writtenRaw) : null;
+  const writtenOk =
+    written &&
+    !Number.isNaN(written.getTime()) &&
+    written.getTime() <= Date.now() + 2 * 60_000 &&
+    written.getTime() >= Date.now() - 3 * 86_400_000;
+
   const { error } = await supabase.from("notes").insert({
+    ...(keyed ? { id: key } : {}),
+    ...(writtenOk && written
+      ? {
+          ts: written.toISOString(),
+          at: written.toLocaleDateString("en-CA", { timeZone: PRACTICE_TZ }),
+        }
+      : {}),
     client_id: clientId,
     staff_id: me.id,
     staff_name: me.name,
@@ -206,7 +234,12 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
     visible_roles: [...roles],
   });
 
-  if (error) return { error: error.message, ok: null };
+  if (error) {
+    if (keyed && error.code === "23505" && /notes_pkey/.test(error.message)) {
+      return { error: null, ok: "Already added." };
+    }
+    return { error: error.message, ok: null };
+  }
 
   revalidatePath(`/clients/${clientId}`);
   return { error: null, ok: "Note added." };

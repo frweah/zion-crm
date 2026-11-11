@@ -82,6 +82,10 @@ jobs:
           cache: npm
       - if: steps.ready.outputs.ready == 'true'
         run: npm ci --ignore-scripts
+      # The phone screens are measured at 375px in a real browser (owner,
+      # 11 Nov 2026); check-phone.mjs can only read the source before a build.
+      - if: steps.ready.outputs.ready == 'true'
+        run: npx playwright install --with-deps chromium
 
       # Vercel's per-deployment address is behind Deployment Protection, and
       # answers an automated caller with Vercel's own sign-in page - which the

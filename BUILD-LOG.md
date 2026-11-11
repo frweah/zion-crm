@@ -9054,3 +9054,86 @@ So `invokeOne` picks one form by a field it carries and posts it with fields
 of our own — an empty name, an empty wording, no client chosen — so the deploy
 exercises the module and changes nothing. What is asserted is what the 19
 October outage taught: that the module loads and the action answers.
+
+## 11 Nov 2026 — the phone app (Part 1 of the phone and simplification brief)
+
+"Make the CRM installable ... works without signal for the things done
+standing up ... a sync that fails is shown, never silent."
+
+### What there is
+
+**Installable.** `public/manifest.webmanifest` opens `/phone`, standalone,
+with 192 and 512 icons (plain and maskable) cut from the logo. The manifest is
+linked from the staff screens and the phone screens only, never from the
+client portal. `public/sw.js` is the service worker, registered by
+`app/(app)/install-prompt.tsx`, which also asks once per person to add Zion to
+the home screen: Android gets the browser's own install offer, an iPhone gets
+the line saying where it is (Share, then Add to Home Screen), and either answer
+is stored as `hint:install-app` in `staff_prefs`, so it follows the person
+rather than the device.
+
+**Same sign-in and 2FA.** The three gates (onboarding, an unsigned policy, a
+second factor) moved out of the app layout into `lib/gates.ts`, and the desk
+layout, the phone layout and every `/api/phone` address apply them through it.
+Two copies of the rule that requires a second factor would be one rule and one
+place the phone let somebody in.
+
+**The phone screens** are `app/(phone)/phone`, outside the desk's frame: Today
+(the clock, the next appointment, clients to see, To file, reports due), one
+Add button (note / photo / recording / hours), and Today · Clients · Team ·
+More along the bottom. The client card is name, Call, Text, stage, counselor,
+the last three notes, and a link to the full record. Text opens the
+practice's own texting on the record, never the staff member's own messages
+app, because consent and STOP live there.
+
+**Without signal.** Everything pressed is saved on the phone (IndexedDB,
+`lib/phone/store.ts`) and then sent (`lib/phone/sync.ts`) one at a time,
+oldest first, to `/api/phone/sync`, which hands each kind to the action or
+function the desk uses. Each item carries a key made when the button was
+pressed; a note and a document use it as their id, and the clock, a To file
+confirmation and a Team message claim it in `phone_receipts` (0342) in the
+same transaction as the work. So an answer lost on the way back means the
+retry is told "already done", and the record gets one note. The header always
+says "All sent", "n waiting to send" or "n not sent"; a refusal stays on the
+list in red with the practice's own sentence until somebody retries or
+discards it, and is never retried by itself.
+
+**The clock at the time it was pressed.** `phone_clock` takes the phone's
+time, bounded: no more than two minutes ahead, no more than a day back, no
+clock-in before the last session ended, breaks inside their session. Every
+receipt keeps both the claimed time and the arrival time, so Admin can see
+which sessions were clocked with no signal and by how much.
+
+**What the phone keeps.** Today's home, the clients actually opened today, and
+Team. Thrown away at midnight, when somebody else signs in, and on Sign out
+from the phone, which first says how many items are still unsent. Nothing
+restricted is cached: no documents, no IDs.
+
+**Recordings** needed audio types on the `client-files` bucket (0342).
+
+### Checks
+
+`scripts/check-phone.mjs`, in prebuild: nothing in the phone's CSS or markup
+can be wider than 343px; the manifest opens `/phone` with icons that exist at
+the sizes stated, in the tokens' colours; `gateFor` still sends a
+password-only session to the second factor; every `/api/phone` address calls
+`phoneStaff()`; the worker never keeps an API answer; and the sync address
+knows every kind the phone saves. Seven faults put back, seven failures.
+
+`scripts/smoke.mjs` now opens `/phone` and its JSON addresses as the system
+account, and measures each phone view at 375px in a real browser (the deploy
+job installs Chromium for it).
+
+`supabase/verify_phone_receipts.sql`: a late clock-in starts when it was
+pressed; the same key twice is "already"; a fifteen-minute break sent late is
+fifteen minutes; a clock-out sent twice is one session; future, two-day-old and
+overlapping times are refused and leave no receipt; somebody else's key is
+refused; receipts are their owner's; and the bucket takes a recording.
+
+### Not done, and why
+
+**OCR of a phone photo.** The existing document path reads scans with the
+agent on the owner's machine, and only from that machine's own copy of the
+file, matched by hash. A photo taken on a phone is never on that machine, so
+the existing path cannot read it. The photo lands on the client's Documents
+with its category; reading it needs a decision (see the report).

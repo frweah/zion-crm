@@ -49,9 +49,31 @@ export async function recordAttachment(
   if (dateProblem) return { error: dateProblem, ok: null };
 
   const supabase = await createClient();
+
+  /**
+   * A photo or a recording sent from the phone (0342).
+   *
+   * The phone names the row and the storage path with one key it made when
+   * the picture was taken, and sends the same key on every attempt. If the
+   * row is there, the first attempt arrived and its answer did not: say so,
+   * and above all do not take the "remove what was uploaded" path below,
+   * which on a retry would delete the file the first attempt recorded.
+   */
+  const key = String(formData.get("key") ?? "").trim();
+  const keyed = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
+  if (keyed) {
+    const { data: already } = await supabase
+      .from("attachments")
+      .select("id")
+      .eq("id", key)
+      .maybeSingle();
+    if (already) return { error: null, ok: "Already on the record.", id: key };
+  }
+
   const { data: added, error } = await supabase
     .from("attachments")
     .insert({
+    ...(keyed ? { id: key } : {}),
     client_id: clientId,
     storage_path: storagePath,
     filename,
@@ -69,6 +91,11 @@ export async function recordAttachment(
     })
     .select("id")
     .maybeSingle();
+
+  if (error && keyed && error.code === "23505" && /attachments_pkey/.test(error.message)) {
+    // Two attempts arriving together: the other one recorded it.
+    return { error: null, ok: "Already on the record.", id: key };
+  }
 
   if (error) {
     // The file is in storage but unrecorded, so it is invisible everywhere.

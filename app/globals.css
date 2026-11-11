@@ -3626,3 +3626,19 @@ button.attach-chip:hover {
     display: none;
   }
 }
+
+/* ── Add to home screen, once per person (owner, 11 Nov 2026) ─
+   A line and two buttons on a phone; never shown on a desk. */
+.install-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+.install-bar span { flex: 1 1 180px; min-width: 0; }

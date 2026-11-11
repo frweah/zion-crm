@@ -3996,6 +3996,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      phone_receipts: {
+        Row: {
+          key: string;
+          staff_id: string;
+          kind: string;
+          happened_at: string;
+          received_at: string;
+          result: string | null;
+        };
+        Insert: {
+          key: string;
+          staff_id: string;
+          kind: string;
+          happened_at: string;
+          received_at?: string;
+          result?: string | null;
+        };
+        Update: {
+          key?: string;
+          staff_id?: string;
+          kind?: string;
+          happened_at?: string;
+          received_at?: string;
+          result?: string | null;
+        };
+        Relationships: [];
+      };
       placements: {
         Row: {
           id: string;
@@ -8466,6 +8493,18 @@ export type Database = {
       };
       period_start: {
         Args: { d: string | null };
+        Returns: string;
+      };
+      phone_clock: {
+        Args: { p_key: string; p_kind: string; p_at: string };
+        Returns: string;
+      };
+      phone_post_message: {
+        Args: { p_key: string; p_at: string; p_conversation: string; p_body: string };
+        Returns: string;
+      };
+      phone_to_file_confirm: {
+        Args: { p_key: string; p_at: string; p_item: string; p_outcome: string; p_note?: string; p_category?: string };
         Returns: string;
       };
       placement_clock_started: {
