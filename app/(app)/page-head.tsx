@@ -22,7 +22,7 @@ export function PageHead({
       <header className="page-head">
         <div>
           <h1 className="h1">{title}</h1>
-          {context && <p className="sub">{context}</p>}
+          {context && <div className="sub">{context}</div>}
         </div>
         {actions && (
           <div className="row2 no-print" style={{ gap: 8 }}>

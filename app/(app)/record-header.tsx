@@ -55,9 +55,9 @@ export function RecordHeader({
             </p>
           )}
           {standing && (
-            <p className="sub" style={{ marginTop: 4 }}>
+            <div className="sub" style={{ marginTop: 4 }}>
               {standing}
-            </p>
+            </div>
           )}
         </div>
         {actions && <div className="row2 no-print record-actions">{actions}</div>}

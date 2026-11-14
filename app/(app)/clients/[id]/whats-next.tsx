@@ -81,7 +81,7 @@ export function StatusLine({
 }) {
   const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return (
-    <p className="sub status-line" style={{ marginTop: 4 }}>
+    <span className="status-line">
       <span className="chip gold">{stage}</span>{" "}
       <span>Job search {assignedName ?? "nobody"}</span>
       {" · "}
@@ -112,6 +112,6 @@ export function StatusLine({
           </Link>
         </>
       )}
-    </p>
+    </span>
   );
 }

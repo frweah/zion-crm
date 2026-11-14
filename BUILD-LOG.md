@@ -9316,3 +9316,18 @@ somebody can change in a console.
 And the message a person saw on a refusal still named "PDFs, images, Word,
 Excel and text files" — the list from before recordings existed, in two
 sentences. One sentence now, naming recordings.
+
+### A paragraph inside a paragraph
+
+Found with the browser open on the client record, in the console: the header
+was rendering `<p class="sub">` around a `standing` that was itself a `<p>`,
+which is invalid HTML. The parser closes the outer one early, so React's
+server and client trees disagreed and the whole page was thrown away and
+re-rendered on arrival. On the most-opened screen in the practice.
+
+Fixed in two places rather than one. The status line is content handed to a
+header that supplies the line it sits on, so it is a `<span>` now and no
+longer sets `.sub` and a margin the wrapper had already set. And both wrappers
+- `PageHead`'s context and `RecordHeader`'s standing - take a `ReactNode` from
+any caller, so they are a `<div>`: a caller cannot nest a block in them even
+by accident, which is better than fixing the one caller who did.
