@@ -9283,3 +9283,36 @@ it. `check-generated-types` now runs the generator and asserts it changes
 nothing, names any function that would be dropped, and puts the tree back the
 way it found it. It needs database credentials, so it is in `check-checks`'s
 list of checks that cannot run in prebuild, with that reason.
+
+### And what the live test found
+
+The first real recording was refused by storage: **"mime type audio/wav is not
+supported"**. It never reached the client's record, so nothing was queued and
+nothing was read.
+
+0342 widened the bucket for the phone, to exactly what a phone browser records
+in. Item F then added eight extensions to the client record's file picker,
+`.wav` and `.flac` among them, and did not widen the bucket with them. The form
+offered a file type the storage layer refused — and a handheld recorder, which
+is what a WAV comes from, is the obvious thing a staff member would carry to a
+meeting.
+
+The fix is the bucket rather than the form: Azure Speech reads WAV better than
+anything else, and nobody should have to convert a file to put it on a record.
+Three spellings of it are granted, not one, because the browser chooses the
+string and storage compares it exactly — a Windows desk reports a `.wav` as
+`audio/wav`, `audio/x-wav` or `audio/wave` depending on what is installed, and
+granting one of those is the same bug on a different desk.
+
+Two checks now ask the question, because the two lists had been kept in step by
+hand since 0009 and that worked right up until the day somebody changed one of
+them. `check-upload-types` reads the migrations and asks, for every file input
+that uploads straight from the browser, whether the bucket it names grants
+every mime type a browser sends for the extensions it offers; it needs no
+credentials, so it runs in `prebuild`. `verify_recordings` asks the live
+database, which is the thing that actually refuses an upload and the thing
+somebody can change in a console.
+
+And the message a person saw on a refusal still named "PDFs, images, Word,
+Excel and text files" — the list from before recordings existed, in two
+sentences. One sentence now, naming recordings.

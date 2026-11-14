@@ -360,6 +360,37 @@ begin
     raise notice 'ok  setting one aside says why';
   end if;
 
+
+  -- -- the bucket takes what the form offers (0349) ----------
+  --
+  -- The live test on 14 Nov found the client record offering a WAV and
+  -- storage refusing it, because the file picker had been widened and the
+  -- bucket had not. check-upload-types asks this of the migrations at every
+  -- build; this asks it of the database, which is the one that refuses the
+  -- upload and the one somebody can change in a console.
+  --
+  -- The audio types are the ones a recording actually arrives as: what a
+  -- phone browser records in, and what a handheld recorder writes.
+  for r in
+    select m from unnest(array[
+      'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/mp3', 'audio/ogg',
+      'audio/aac', 'audio/x-m4a', 'audio/m4a',
+      'audio/wav', 'audio/x-wav', 'audio/wave',
+      'audio/flac', 'audio/x-flac'
+    ]) as m
+  loop
+    if not exists (
+      select 1 from storage.buckets b
+       where b.id = 'client-files' and r.m = any (b.allowed_mime_types)
+    ) then
+      failures := failures || format(
+        'FAILED: the client-files bucket refuses %s, which the file picker offers', r.m)::text;
+    end if;
+  end loop;
+  if not exists (select 1 from unnest(failures) as f where f like '%bucket refuses%') then
+    raise notice 'ok  the bucket takes every recording type the file picker offers';
+  end if;
+
   perform set_config('request.jwt.claims', '', true);
 
   if array_length(failures, 1) > 0 then

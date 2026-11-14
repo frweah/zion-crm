@@ -131,7 +131,7 @@ export function AddFileForm({
           error:
             error.message.toLowerCase().includes("mime") ||
             error.message.toLowerCase().includes("type")
-              ? `${file.name} is not an accepted file type. PDFs, images, Word, Excel and text files are allowed.`
+              ? `${file.name} is not a file the record takes — PDFs, images, Word, Excel, text files and recordings are.`
               : `Upload failed: ${error.message}`,
         });
         setUploading(false);
