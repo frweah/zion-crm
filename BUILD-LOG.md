@@ -9370,8 +9370,10 @@ failures came out.
 
 ### About 120 words, and never a date
 
-The cap is on the whole draft rather than any line of it, and it is in
-`org_settings` so it can be changed without a deploy. Next steps carry a day
+The cap is on the whole draft rather than any line of it, and it sits in
+`org_settings` beside the hours allowance - 120, with no screen on it, because
+nobody has asked to move it. It is one field on Admin -> Money the day somebody
+does. Next steps carry a day
 when one was said, in words. `contact_log.follow_up` stays empty: it is a date
 somebody is chased on, and a machine reading of "Thursday" is not it.
 
@@ -9405,3 +9407,22 @@ failures: with the guard refusing everything, the first draft was kept, the
 recording went to Drafted, and the next `recording_drafted` call raised rather
 than returned. One exception, and the script stopped with less than it knew.
 Each draft case has its own recording now.
+
+### What the live test found
+
+A second test meeting was synthesised for exactly this: a job site visit at a
+warehouse in which the client mentions, alongside the shift and the pallet
+training, that their mother drives them, that a new medication makes mornings
+hard, and that their attorney says an SSDI review is open. All four kinds, in
+one conversation, which is what a real one sounds like.
+
+Azure read it, Azure OpenAI drafted it, and the draft carried **none of the
+four**. 58 words. It worked out that it was a job site visit from the fact
+that the meeting happened at the warehouse. It kept "next Tuesday" and "Monday
+the 23rd" in the words they were said in and invented no date, and the contact
+log's follow-up column stayed empty, which is the rule.
+
+So the door did not have to refuse anything. That is the result to want and
+not the one to design for: the door is there for the draft that does carry it,
+and `verify_recordings` is what proves the door works, because a live test can
+only ever show what the model did this time.

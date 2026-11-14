@@ -530,6 +530,17 @@ begin
     raise notice 'ok  and a staff member writes whatever they judge belongs on the record';
   end if;
 
+  -- ── and a recorded phone call is a phone call ──────────────
+  -- The note types are what somebody filters a client's notes by. v_rec3 was
+  -- confirmed as Phone just above; v_rec was a planning meeting.
+  select n.type into v_text from public.notes n
+   where n.id = (select g.note_id from public.recordings g where g.id = v_rec3);
+  if v_text <> 'Phone call' then
+    failures := failures || format('FAILED: a recorded phone call is a note of type %s', v_text)::text;
+  else
+    raise notice 'ok  a recorded phone call is filed as a phone call, a meeting as a meeting';
+  end if;
+
   -- ── and a confirmed one is not undone by setting it aside ──
   v_text := '';
   begin
