@@ -13,6 +13,7 @@ import {
   type DayState,
 } from "./actions";
 import { STATUSES } from "./day";
+import { openDayFile } from "./actions";
 import { PRACTICE_TZ } from "@/lib/constants";
 
 const initial: DayState = { error: null, ok: null };
@@ -25,6 +26,13 @@ export type DayLine = {
   client_id: string | null;
   carried_from: string | null;
   sort_order: number;
+  /** Written by a clock-out rather than typed here (0353). */
+  from_clock_out?: boolean;
+  /** The file that came with it, in the person's own staff file. */
+  staff_file_id?: string | null;
+  /** Or on a client's record, when it is a recording. */
+  attachment_id?: string | null;
+  file_name?: string | null;
 };
 
 type Client = { id: string; name: string };
@@ -308,12 +316,18 @@ export function DayForm({
                           carried
                         </span>
                       )}
+                      {l.from_clock_out && (
+                        <span className="chip" style={{ marginLeft: 4 }}>
+                          clocked out
+                        </span>
+                      )}
                     </>
                   ),
                   description: (
                     <>
                       <span className="kept">{l.description}</span>
                       {client && <span className="sub"> · {client.name}</span>}
+                      {l.file_name && <DayFile line={l} />}
                     </>
                   ),
                   notes: <span className="sub kept">{l.notes}</span>,
@@ -447,6 +461,47 @@ export function DayForm({
           </ul>
         </div>
       )}
+    </>
+  );
+}
+
+/**
+ * The file somebody attached when they clocked out.
+ *
+ * Opened through a signed link minted on the server, because the two buckets
+ * are private and neither the person's own staff file nor a client's record
+ * hands bytes to a browser without one. The link lasts two minutes, which is
+ * long enough to open and not long enough to pass on.
+ */
+function DayFile({ line }: { line: DayLine }) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  async function open() {
+    setBusy(true);
+    setProblem(null);
+    const answer = await openDayFile({
+      staffFileId: line.staff_file_id ?? null,
+      attachmentId: line.attachment_id ?? null,
+    });
+    setBusy(false);
+    if (answer.url) window.open(answer.url, "_blank", "noopener");
+    else setProblem(answer.error ?? "That file could not be opened.");
+  }
+
+  return (
+    <>
+      {" "}
+      <button
+        className="btn ghost"
+        type="button"
+        disabled={busy}
+        onClick={() => void open()}
+        style={{ padding: "0 8px" }}
+      >
+        {busy ? "…" : line.file_name}
+      </button>
+      {problem && <span className="lock"> {problem}</span>}
     </>
   );
 }

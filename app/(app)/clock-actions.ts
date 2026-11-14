@@ -56,11 +56,8 @@ export async function endBreak(_prev: ClockState): Promise<ClockState> {
 /**
  * Clock out.
  *
- * What the time was spent on is not asked for here: the button is in the
- * header and a person pressing it at the end of the day should not be stopped
- * by a form. The session is recorded with the clock on it and the description
- * can be added on the Time clock screen, which is where the fuller entry has
- * always lived.
+ * Kept for the forms that post to it - the Time clock screen's own entry -
+ * while the header asks for the day's account through `clockOutWith` below.
  */
 export async function clockOut(_prev: ClockState, formData?: FormData): Promise<ClockState> {
   const supabase = await createClient();
@@ -68,9 +65,78 @@ export async function clockOut(_prev: ClockState, formData?: FormData): Promise<
     p_description: String(formData?.get("description") ?? "").trim(),
     p_category: String(formData?.get("category") ?? "").trim() || null,
     p_at: null,
+    p_client: null,
+    p_staff_file: null,
+    p_attachment: null,
   });
   if (error) return { error: error.message, ok: null };
   touched();
+  return { error: null, ok: "Clocked out." };
+}
+
+/** What the clock-out panel offers: the person's own work categories, and who is on the board. */
+export type ClockChoices = {
+  categories: { key: string; label: string }[];
+  clients: { id: string; name: string }[];
+};
+
+/**
+ * The lists the panel fills its two dropdowns from.
+ *
+ * Fetched when the panel opens rather than carried by the header. The header
+ * is on every screen in the practice, and a query per page load to fill a
+ * dropdown nobody has opened is paid for on every screen all day.
+ */
+export async function summaryChoices(): Promise<ClockChoices> {
+  const me = await getCurrentStaff();
+  if (!me) return { categories: [], clients: [] };
+
+  const supabase = await createClient();
+  const [{ data: categories }, { data: clients }] = await Promise.all([
+    supabase.rpc("work_categories_for", { p_role: me.role }),
+    supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
+  ]);
+  return {
+    categories: (categories ?? [])
+      .filter((c) => c.key !== null)
+      .map((c) => ({ key: String(c.key), label: String(c.label ?? c.key) })),
+    clients: (clients ?? []).map((c) => ({ id: c.id, name: c.name })),
+  };
+}
+
+/**
+ * Clock out, with the day's account.
+ *
+ * The file is already up by the time this is called - the browser puts the
+ * bytes in storage itself, as every other upload in the practice does, so
+ * that a 20 MB scan does not go through a server action with a 4.5 MB
+ * ceiling on it (check-upload-limits).
+ *
+ * Nothing here is required. An empty account is a clock-out, and the day is
+ * flagged until somebody says what it was.
+ */
+export async function clockOutWith(said: {
+  description: string;
+  category: string;
+  client: string;
+  staffFile: string | null;
+  attachment: string | null;
+}): Promise<ClockState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in.", ok: null };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("clock_out", {
+    p_description: said.description.trim(),
+    p_category: said.category.trim() || null,
+    p_at: null,
+    p_client: said.client || null,
+    p_staff_file: said.staffFile,
+    p_attachment: said.attachment,
+  });
+  if (error) return { error: error.message, ok: null };
+  touched();
+  revalidatePath("/end-of-day");
   return { error: null, ok: "Clocked out." };
 }
 

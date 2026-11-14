@@ -73,7 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .from("work_session_timers")
       .select("started_at, break_started_at, break_seconds")
       .maybeSingle(),
-    supabase.from("my_hours_summary").select("today_hours").maybeSingle(),
+    supabase.from("my_hours_summary").select("today_hours, today_segments, days_to_account_for").maybeSingle(),
   ]);
   const twoFactor = Array.isArray(twoFactorRows) ? twoFactorRows[0] : null;
   const authLevel = (claims?.claims as { aal?: string } | undefined)?.aal;
@@ -211,10 +211,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 it is on every screen, which is what the brief asked for and
                 what check-clock-button holds. */}
             <ClockButton
+              staffId={staff.id}
               startedAt={openSession?.started_at ?? null}
               onBreakSince={openSession?.break_started_at ?? null}
               breakSeconds={Number(openSession?.break_seconds ?? 0)}
               todayHours={Number(hoursToday?.today_hours ?? 0)}
+              todaySegments={Number(hoursToday?.today_segments ?? 0)}
+              daysToAccountFor={Number(hoursToday?.days_to_account_for ?? 0)}
             />
             {/* What is waiting, and who you are (Design language, §1). */}
             <HeaderBar

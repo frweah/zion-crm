@@ -88,9 +88,44 @@ for (const [what, pattern] of [
   ["clock in", /clockIn\b/],
   ["start a break", /startBreak\b/],
   ["end a break", /endBreak\b/],
-  ["clock out", /clockOut\b/],
 ]) {
   if (!pattern.test(button)) fail(`${BUTTON} offers no way to ${what}`);
+}
+
+/*
+ * Clocking out, which since 0353 asks what the day was.
+ *
+ * The button no longer calls the action itself - it opens the panel that
+ * does - so looking for `clockOut` in this one file would be looking for the
+ * old arrangement rather than for the rule. The rule is that somebody can
+ * stop the clock from the header, and it now takes two files to be true: the
+ * button opens the panel, and the panel clocks out.
+ *
+ * Both halves are asserted, and so is the way past it. A button that opens
+ * nothing, a panel that asks the question and never stops the clock, and a
+ * panel with no way through without answering each fail here.
+ */
+const SUMMARY = join("app", "(app)", "clock-summary.tsx");
+let summary = "";
+try {
+  summary = readFileSync(SUMMARY, "utf8");
+} catch {
+  summary = "";
+}
+if (/clockOut\b/.test(button)) {
+  ok("the header clocks out directly");
+} else if (!/<ClockSummary\b/.test(button)) {
+  fail(`${BUTTON} offers no way to clock out: it neither calls clockOut nor opens <ClockSummary>`);
+} else if (summary === "") {
+  fail(`${BUTTON} opens <ClockSummary> and ${SUMMARY} is not there`);
+} else if (!/clockOutWith\b/.test(summary)) {
+  fail(`${SUMMARY} asks what the day was and never clocks anybody out`);
+} else if (!/without saying/i.test(summary)) {
+  fail(
+    `${SUMMARY} asks what the day was with no way past it - the account is not required (owner, 14 Nov 2026)`,
+  );
+} else {
+  ok("clocking out asks what the day was, and offers a way past it");
 }
 
 // Clocked out, clocked in, and on a break each have to look different, or the

@@ -3910,6 +3910,7 @@ export type Database = {
           mail_signature: string;
           recording_hours_per_person: number;
           recording_draft_words: number;
+          clock_accounts_from: string | null;
         };
         Insert: {
           id?: boolean;
@@ -3938,6 +3939,7 @@ export type Database = {
           mail_signature?: string;
           recording_hours_per_person?: number;
           recording_draft_words?: number;
+          clock_accounts_from?: string | null;
         };
         Update: {
           id?: boolean;
@@ -3966,6 +3968,7 @@ export type Database = {
           mail_signature?: string;
           recording_hours_per_person?: number;
           recording_draft_words?: number;
+          clock_accounts_from?: string | null;
         };
         Relationships: [];
       };
@@ -5490,6 +5493,9 @@ export type Database = {
           sort_order: number;
           contact_log_id: string | null;
           created_at: string;
+          staff_file_id: string | null;
+          attachment_id: string | null;
+          from_clock_out: boolean;
         };
         Insert: {
           id?: string;
@@ -5502,6 +5508,9 @@ export type Database = {
           sort_order?: number;
           contact_log_id?: string | null;
           created_at?: string;
+          staff_file_id?: string | null;
+          attachment_id?: string | null;
+          from_clock_out?: boolean;
         };
         Update: {
           id?: string;
@@ -5514,6 +5523,9 @@ export type Database = {
           sort_order?: number;
           contact_log_id?: string | null;
           created_at?: string;
+          staff_file_id?: string | null;
+          attachment_id?: string | null;
+          from_clock_out?: boolean;
         };
         Relationships: [];
       };
@@ -7588,13 +7600,18 @@ export type Database = {
           staff_id: string | null;
           today_hours: number | null;
           today_break_seconds: number | null;
+          today_segments: number | null;
           week_hours: number | null;
+          week_break_seconds: number | null;
+          week_segments: number | null;
           month_hours: number | null;
           period_hours: number | null;
           period_break_seconds: number | null;
+          period_segments: number | null;
           period_start: string | null;
           period_end: string | null;
           to_confirm: number | null;
+          days_to_account_for: number | null;
         };
         Relationships: [];
       };
@@ -7768,6 +7785,15 @@ export type Database = {
           all_time: number | null;
           last_clock_out: string | null;
           last_worked_on: string | null;
+          today_hours: number | null;
+          today_break_seconds: number | null;
+          today_segments: number | null;
+          week_hours: number | null;
+          week_break_seconds: number | null;
+          week_segments: number | null;
+          period_break_seconds: number | null;
+          period_segments: number | null;
+          days_to_account_for: number | null;
         };
         Relationships: [];
       };
@@ -7797,6 +7823,25 @@ export type Database = {
           posted_at: string | null;
           read_by_me: boolean | null;
           read_count: number | null;
+        };
+        Relationships: [];
+      };
+      work_days: {
+        Row: {
+          staff_id: string | null;
+          staff_name: string | null;
+          staff_role: string | null;
+          employment_type: string | null;
+          day: string | null;
+          segments: number | null;
+          worked_hours: number | null;
+          break_seconds: number | null;
+          first_in: string | null;
+          last_out: string | null;
+          from_the_clock: boolean | null;
+          waiting_to_be_confirmed: boolean | null;
+          accounted_for: boolean | null;
+          needs_an_account: boolean | null;
         };
         Relationships: [];
       };
@@ -8077,7 +8122,7 @@ export type Database = {
         Returns: { warn_after: number | null; close_after: number | null }[];
       };
       clock_out: {
-        Args: { p_description?: string | null; p_category?: string | null; p_at?: string | null };
+        Args: { p_description?: string | null; p_category?: string | null; p_at?: string | null; p_client?: string | null; p_staff_file?: string | null; p_attachment?: string | null };
         Returns: string;
       };
       close_client: {
@@ -8585,7 +8630,7 @@ export type Database = {
         Returns: string;
       };
       phone_clock: {
-        Args: { p_key: string | null; p_kind: string | null; p_at: string | null };
+        Args: { p_key: string | null; p_kind: string | null; p_at: string | null; p_said?: string | null; p_category?: string | null; p_client?: string | null };
         Returns: string;
       };
       phone_post_message: {

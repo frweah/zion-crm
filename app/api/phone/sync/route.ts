@@ -112,7 +112,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (item.kind === "clock") {
-    const { data, error } = await supabase.rpc("phone_clock", { p_key: item.key, p_kind: s("what"), p_at: at });
+    const { data, error } = await supabase.rpc("phone_clock", {
+      p_key: item.key,
+      p_kind: s("what"),
+      p_at: at,
+      // The day's account, when the phone asked for one. Empty on a clock
+      // in, a break and a back, where there is nothing to account for.
+      p_said: s("said"),
+      p_category: s("category") || null,
+      p_client: s("client_id") || null,
+    });
     if (error) return said(error.message, null);
     return fresh({ ok: data === "already" ? "Already sent." : "Sent." });
   }

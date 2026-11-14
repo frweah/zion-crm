@@ -51,7 +51,9 @@ export default async function EndOfDayPage({
     dayId
       ? supabase
           .from("staff_day_lines")
-          .select("id, status, description, notes, client_id, carried_from, sort_order")
+          .select(
+            "id, status, description, notes, client_id, carried_from, sort_order, from_clock_out, staff_file_id, attachment_id",
+          )
           .eq("day_id", dayId)
           .order("sort_order")
       : Promise.resolve({ data: [] as DayLine[] }),
@@ -69,25 +71,62 @@ export default async function EndOfDayPage({
           .eq("id", (existing?.manager_id ?? person?.manager_id)!)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    // What the clock says about today, so somebody writing their day is not
-    // asked to remember it (0293, item 7). Shown rather than filled into a
-    // field: End of day records what was done, not how long it took, and the
-    // hours themselves are already on the record from the clock.
+    /*
+     * What the clock says about **this** day, so somebody writing it up is
+     * not asked to remember it (0293, item 7). Shown rather than filled into
+     * a field: End of day records what was done, not how long it took.
+     *
+     * Read from `work_days` for the day on the screen rather than from the
+     * summary view, which only ever answered for today - so a person opening
+     * yesterday from the flag on My day was shown today's hours beside
+     * yesterday's work.
+     */
     supabase
-      .from("my_hours_summary")
-      .select("today_hours, today_break_seconds")
+      .from("work_days")
+      .select("worked_hours, break_seconds, segments")
+      .eq("staff_id", who)
+      .eq("day", day)
       .maybeSingle(),
   ]);
 
-  const lines = (lineRows ?? []) as DayLine[];
-  const clockedHours = Number(clocked?.today_hours ?? 0);
-  const clockedBreak = Number(clocked?.today_break_seconds ?? 0);
+  /*
+   * The names of the files attached at clock out.
+   *
+   * Looked up here rather than joined, because the two files live in two
+   * tables with two different access rules and a join would have to pick
+   * one. Read as the person asking: a name that does not come back is a file
+   * they may not open, and the line simply does not offer it.
+   */
+  const rawLines = (lineRows ?? []) as DayLine[];
+  const staffFileIds = rawLines.map((l) => l.staff_file_id).filter((id): id is string => Boolean(id));
+  const attachmentIds = rawLines.map((l) => l.attachment_id).filter((id): id is string => Boolean(id));
+  const [{ data: staffFileRows }, { data: attachmentRows }] = await Promise.all([
+    staffFileIds.length
+      ? supabase.from("staff_files").select("id, filename").in("id", staffFileIds)
+      : Promise.resolve({ data: [] as { id: string; filename: string }[] }),
+    attachmentIds.length
+      ? supabase.from("client_documents").select("id, filename").in("id", attachmentIds)
+      : Promise.resolve({ data: [] as { id: string; filename: string | null }[] }),
+  ]);
+  const fileNames = new Map<string, string>();
+  for (const f of staffFileRows ?? []) fileNames.set(f.id, f.filename);
+  for (const f of attachmentRows ?? []) if (f.id && f.filename) fileNames.set(f.id, f.filename);
+
+  const lines: DayLine[] = rawLines.map((l) => ({
+    ...l,
+    file_name: fileNames.get(l.staff_file_id ?? l.attachment_id ?? "") ?? null,
+  }));
+  const clockedHours = Number(clocked?.worked_hours ?? 0);
+  const clockedBreak = Number(clocked?.break_seconds ?? 0);
+  const clockedSegments = Number(clocked?.segments ?? 0);
 
   return (
     <>
-      {mine && clockedHours > 0 && (
+      {clockedHours > 0 && (
         <p className="lock" style={{ marginBottom: 10 }}>
-          The clock has {clockedHours.toFixed(2)} hours for you today
+          The clock has {clockedHours.toFixed(2)} hours {mine ? "for you" : `for ${person?.name ?? "them"}`} on this
+          day
+          {clockedSegments > 1 ? `, across ${clockedSegments} segments` : ""}
           {clockedBreak > 0 ? `, and ${Math.round(clockedBreak / 60)} minutes of break` : ""}.
         </p>
       )}

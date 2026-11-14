@@ -5,6 +5,7 @@ import { today , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { WorkTimer } from "../hours/work-timer";
 import { ConfirmClosed } from "./confirm-closed";
+import { ClockTotalsTiles, CLOCK_TOTALS_COLUMNS } from "../clock-totals";
 
 /**
  * The time clock (Design language, §3).
@@ -23,12 +24,12 @@ export default async function TimeClockPage() {
   const supabase = await createClient();
   const day = today();
 
-  const [{ data: timer }, { data: summary }, { data: categories }, { data: clients }, { data: closed }] = await Promise.all([
+  const [{ data: timer }, { data: summary }, { data: categories }, { data: clients }, { data: closed }, { data: segmentRows }] = await Promise.all([
     supabase
       .from("work_session_timers")
       .select("started_at, break_started_at, break_seconds")
       .maybeSingle(),
-    supabase.from("my_hours_summary").select("today_hours, today_break_seconds, period_hours, period_start, period_end").maybeSingle(),
+    supabase.from("my_hours_summary").select(CLOCK_TOTALS_COLUMNS).maybeSingle(),
     supabase.rpc("work_categories_for", { p_role: me.role }),
     supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
     // Sessions the fourteen-hour rule closed and nobody has looked at yet
@@ -40,11 +41,46 @@ export default async function TimeClockPage() {
       .eq("auto_closed", true)
       .is("confirmed_at", null)
       .order("worked_on", { ascending: false }),
+    /*
+     * Today's segments, in the order they were worked.
+     *
+     * A day is made of segments (owner, 14 Nov) and this is the screen where
+     * somebody checks one against their own memory of the day. Voided rows
+     * are left out: a segment somebody took back is not part of the day.
+     */
+    supabase
+      .from("work_sessions")
+      .select("id, hours, started_at, ended_at, break_seconds, description")
+      .eq("worked_on", day)
+      .eq("voided", false)
+      .order("started_at", { ascending: true, nullsFirst: false }),
   ]);
 
-  const todayHours = Number(summary?.today_hours ?? 0);
-  const breakToday = Number(summary?.today_break_seconds ?? 0);
-  const periodHours = Number(summary?.period_hours ?? 0);
+  const segments = ((segmentRows ?? []) as {
+    id: string;
+    hours: number | string;
+    started_at: string | null;
+    ended_at: string | null;
+    break_seconds: number | string;
+    description: string;
+  }[]).map((r) => ({
+    id: r.id,
+    hours: Number(r.hours),
+    started_at: r.started_at,
+    ended_at: r.ended_at,
+    break_seconds: Number(r.break_seconds ?? 0),
+    description: r.description ?? "",
+  }));
+
+  /** The time of day a segment started or finished, or a dash while it runs. */
+  const clockTime = (at: string | null) =>
+    at
+      ? new Date(at).toLocaleTimeString("en-US", {
+          timeZone: PRACTICE_TZ,
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "—";
 
   return (
     <>
@@ -52,31 +88,40 @@ export default async function TimeClockPage() {
 
       <ConfirmClosed sessions={(closed ?? []).map((c) => ({ ...c, hours: Number(c.hours) }))} />
 
-      <div className="tiles">
-        <div className="tile tile-lead">
-          <span className="tile-label">{timer ? "Clocked in" : "Not clocked in"}</span>
-          <span className="tile-value">
-            {timer ? new Date(timer.started_at).toLocaleTimeString("en-US", { timeZone: PRACTICE_TZ, hour: "numeric", minute: "2-digit" }) : "—"}
-          </span>
-          <span className="tile-note">
-            {timer?.break_started_at ? "on a break since" : timer ? "since" : "the clock is not running"}
-          </span>
-        </div>
-        <div className="tile">
-          <span className="tile-label">Today</span>
-          <span className="tile-value">{todayHours.toFixed(2)}</span>
-          <span className="tile-note">
-            {breakToday > 0 ? `hours, ${Math.round(breakToday / 60)} min of break` : "hours logged"}
-          </span>
-        </div>
-        <div className="tile">
-          <span className="tile-label">This period</span>
-          <span className="tile-value">{periodHours.toFixed(2)}</span>
-          <span className="tile-note">
-            {summary?.period_start ? `${summary.period_start} to ${summary.period_end}` : "hours logged"}
-          </span>
-        </div>
-      </div>
+      <p className="lock">
+        {timer
+          ? `${timer.break_started_at ? "On a break since" : "On the clock since"} ${new Date(
+              timer.break_started_at ?? timer.started_at,
+            ).toLocaleTimeString("en-US", { timeZone: PRACTICE_TZ, hour: "numeric", minute: "2-digit" })}`
+          : "The clock is not running"}
+      </p>
+
+      <ClockTotalsTiles totals={summary ?? null} />
+
+      {segments.length > 0 && (
+        <table className="t" data-layout="the day's segments: when each one ran, and what it came to">
+          <thead>
+            <tr>
+              <th>In</th>
+              <th>Out</th>
+              <th>Break</th>
+              <th>Worked</th>
+              <th>What it was</th>
+            </tr>
+          </thead>
+          <tbody>
+            {segments.map((seg) => (
+              <tr key={seg.id}>
+                <td>{clockTime(seg.started_at)}</td>
+                <td>{clockTime(seg.ended_at)}</td>
+                <td className="lock">{seg.break_seconds > 0 ? `${Math.round(seg.break_seconds / 60)} min` : "—"}</td>
+                <td>{seg.hours.toFixed(2)}</td>
+                <td>{seg.description || <span className="lock">Nothing said</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <WorkTimer
         running={timer ?? null}

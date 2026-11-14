@@ -7,33 +7,47 @@
  * again: what somebody exports should be what they are looking at, and a
  * second query is a second chance for the two to differ.
  *
- * One line per person per week, because the week is what the over-forty rule
- * is about and a payroll clerk adding weeks together can, while one who is
- * given a fortnight's total cannot take it apart.
+ * **One line per person per day** (owner, 14 November 2026), with the number
+ * of segments on it. A day is what somebody worked; the week is what the
+ * over-forty rule is about, so the week each day falls in is a column rather
+ * than a separate kind of line. A payroll clerk can add days into weeks and
+ * weeks into a period; nobody given a fortnight's total can take it apart.
  */
-type Row = {
+export type DayRow = {
   staff_name: string;
   employment_type: string;
+  day: string;
   week_start: string;
-  period_start: string;
-  period_end: string;
-  hours: number;
+  worked_hours: number;
   break_seconds: number;
-  sessions: number;
-  over_forty: boolean;
+  segments: number;
+  first_in: string | null;
+  last_out: string | null;
+  accounted_for: boolean;
 };
 
-function toCsv(rows: Row[]): string {
+const hm = (at: string | null) =>
+  at
+    ? new Date(at).toLocaleTimeString("en-US", {
+        timeZone: "America/Denver",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : "";
+
+function toCsv(rows: DayRow[]): string {
   const head = [
     "Name",
     "Engagement",
+    "Day",
     "Week starting",
-    "Pay period start",
-    "Pay period end",
-    "Hours",
+    "First in",
+    "Last out",
+    "Worked hours",
     "Break hours",
-    "Sessions",
-    "Over 40",
+    "Segments",
+    "Accounted for",
   ];
   // A field is quoted and its quotes doubled, which is the whole of CSV that
   // matters — a name with a comma in it is the usual way an export arrives
@@ -42,22 +56,26 @@ function toCsv(rows: Row[]): string {
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.split('"').join('""')}"` : s;
   };
-  return [head, ...rows.map((r) => [
-    r.staff_name,
-    r.employment_type,
-    r.week_start,
-    r.period_start,
-    r.period_end,
-    Number(r.hours).toFixed(2),
-    (Number(r.break_seconds) / 3600).toFixed(2),
-    r.sessions,
-    r.over_forty ? "yes" : "",
-  ])]
+  return [
+    head,
+    ...rows.map((r) => [
+      r.staff_name,
+      r.employment_type,
+      r.day,
+      r.week_start,
+      hm(r.first_in),
+      hm(r.last_out),
+      Number(r.worked_hours).toFixed(2),
+      (Number(r.break_seconds) / 3600).toFixed(2),
+      r.segments,
+      r.accounted_for ? "yes" : "no",
+    ]),
+  ]
     .map((line) => line.map(cell).join(","))
     .join("\n");
 }
 
-export function HoursExport({ rows, scope }: { rows: Row[]; scope: string }) {
+export function HoursExport({ rows, scope }: { rows: DayRow[]; scope: string }) {
   if (rows.length === 0) return null;
 
   const download = () => {

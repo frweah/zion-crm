@@ -5,6 +5,8 @@ import { today, fmtStamp , PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../page-head";
 import { ToFile, type FileItem, type ClientOption } from "./to-file";
 import { TaskActions } from "../tasks/task-actions";
+import { ClockTotalsLine, CLOCK_TOTALS_COLUMNS } from "../clock-totals";
+import { DaysToAccountFor } from "./days-to-account-for";
 
 /**
  * My day (Design language, §3).
@@ -41,7 +43,8 @@ export default async function MyDayPage() {
   const dayEnd = new Date(`${day}T23:59:59`);
 
   const [{ data: events }, { data: tasks }, { data: due }, { data: weeksDue }, { data: monthsDue },
-    { data: waiting }, { count: waitingCount }, { data: everybody }] = await Promise.all([
+    { data: waiting }, { count: waitingCount }, { data: everybody },
+    { data: clock }, { data: unaccountedRows }] = await Promise.all([
     supabase
       .from("calendar_events")
       .select("id, client_id, kind, title, starts_at, ends_at, location")
@@ -103,7 +106,28 @@ export default async function MyDayPage() {
       .eq("state", "Waiting"),
     // Every client, for the "whose was it" box. Names only.
     supabase.from("clients").select("id, name").is("merged_into", null).order("name").limit(2000),
+    // The three totals, the same figures the header shows.
+    supabase.from("my_hours_summary").select(CLOCK_TOTALS_COLUMNS).maybeSingle(),
+    /*
+     * Days behind them with time on the clock and nothing said about them.
+     *
+     * Read from `work_days` rather than counted in the summary view, because
+     * this screen names the days: a number alone tells somebody they are
+     * behind without telling them on what.
+     */
+    supabase
+      .from("work_days")
+      .select("day, segments, worked_hours")
+      .eq("staff_id", me.id)
+      .eq("needs_an_account", true)
+      .order("day", { ascending: false })
+      .limit(14),
   ]);
+
+  // `needs_an_account` is the whole rule, in the view: on the clock, not
+  // today, nothing said, and on or after the day the flag started (0352).
+  const unaccounted = ((unaccountedRows ?? []) as { day: string; segments: number | string; worked_hours: number | string }[])
+    .map((r) => ({ day: r.day, segments: Number(r.segments), hours: Number(r.worked_hours) }));
 
   const toFile = ((waiting ?? []) as unknown as {
     id: string;
@@ -219,6 +243,14 @@ export default async function MyDayPage() {
         })}`}
         context={me.name}
       />
+
+      <ClockTotalsLine totals={clock ?? null} />
+
+      {/* A day with time on the clock that nobody has said anything about
+          (owner, 14 Nov). It is here rather than in a notification because
+          this is the screen somebody opens in the morning, and the day it is
+          about was yesterday. */}
+      <DaysToAccountFor days={unaccounted} />
 
       <ToFile items={toFile} clients={clientOptions} waiting={waitingCount ?? toFile.length} />
 

@@ -9426,3 +9426,91 @@ So the door did not have to refuse anything. That is the result to want and
 not the one to design for: the door is there for the draft that does carry it,
 and `verify_recordings` is what proves the door works, because a live test can
 only ever show what the model did this time.
+
+## 14 Nov 2026 — a day is made of segments
+
+The owner's time clock order, extending the clock shipped on 5 November. It
+applies to everybody.
+
+### What was already true, which is most of it
+
+Reported before any migration ran, from the 104 session rows. A segment was
+already a row: `work_sessions` carries `started_at`, `ended_at` and
+`break_seconds` per clock-in, and a second clock-in on the same day already
+wrote a second row against the same `worked_on`. Four days already had two
+rows. `worked_on` was already taken from the **start** of the segment in
+Denver time, so a segment crossing midnight already belonged to the day it
+started. The break already sat inside the segment.
+
+So this is not about how a day is stored. It is about the day being a thing
+the practice can see and account for.
+
+### The decision this reverses
+
+0293 asked nothing at clock out, deliberately: *"somebody pressing it at six
+in the evening should not meet a form"*. That was right about the form and
+wrong about the outcome - **all nine sessions anybody had clocked since
+carried no description and no category at all**, because the fuller entry
+lived on another screen and nobody went there.
+
+The asking comes back and the thing that made it wrong does not. "Clock out
+without saying" is a button, not a trap door. What happens instead is that the
+day is flagged, on their My day and their manager's, until somebody says what
+it was - which is a different pressure from a form that will not let go of you
+at six o'clock. `check-clock-button` now asserts the way past it exists, so
+nobody can quietly make the account compulsory.
+
+### The flag starts today
+
+65 of the 96 worked days on file have no End of day at all - `staff_days` only
+begins on 19 October. A flag with no start date would have lit up all of them
+on the morning it shipped, on every person's My day and every manager's. So
+`clock_accounts_from` exists, it is today, and the days before it are what they
+always were.
+
+The whole rule is one column on `work_days`, `needs_an_account`, rather than
+four screens each deciding what counts: on the clock, not today, nothing said,
+and on or after the start date. Four screens asking the same question four
+ways is how a person and their manager end up looking at different days.
+
+### Where a file goes, and why there are two
+
+A PDF, a Word file or a photo of the day's work is the person's own and goes
+to their staff file, under the "End of day report" category the practice
+already had. A recording is of a conversation with a client: it goes on that
+client's record, where `attachments.client_id` is not null, the
+restricted-by-default rule applies and the recordings pipeline can read it.
+
+So the two uploads live in two files, `clock-summary.tsx` and
+`clock-recording.tsx`, one bucket each. That is also what lets
+`check-upload-types` do its job - it caught the first version offering `.wav`
+to the staff-files bucket, which takes no audio at all, and a module naming
+both buckets would have been asking it to guess which types went where.
+
+### The phone
+
+Half this practice clocks out in a car park after a job site visit, which is
+exactly when they remember what they did. So the phone asks too, and the
+answer goes in the outbox with the clock-out it belongs to: a phone with no
+signal keeps the two together, and neither can arrive without the other.
+
+No upload from the phone at clock out. The outbox puts its bytes under
+`clients/<id>/` in the client bucket, which is right for a recording and wrong
+for somebody's own account of their day - that belongs in their staff file,
+which the outbox has no path to. The phone takes the words; a file goes on
+from the End of day form, which is where the owner said editing lives.
+
+### What the fixtures found
+
+Five faults put back, five failures out - and two of the five failures were
+mine before they were the check's:
+
+The notification assertion read zero and meant "hidden": `notifications` is
+behind RLS and the twelve-hour notice is the *manager's*, so counting it
+through the worker's own session looked exactly like a notice that was never
+sent. It is asked as the database now.
+
+And `verify_view_grants` caught all three new views arriving writable.
+Supabase grants a new view everything to `authenticated`, so revoking from
+`public` and `anon` leaves it insertable - which is the fourth time this
+practice has met that and the reason the check exists.

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { today, fmtStamp } from "@/lib/constants";
 import { RecordHeader } from "../../../record-header";
+import { ClockTotalsTiles, type ClockTotals } from "../../../clock-totals";
 import { AccessPanel, type GrantRow } from "./access-panel";
 import { StaffRowActions } from "../../staff/staff-forms";
 import { Checklist, type ChecklistRow } from "../../staff/checklist-forms";
@@ -144,7 +145,9 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
       // tell two stories about one person's hours.
       supabase
         .from("staff_hours_summary")
-        .select("this_period, period_start, period_end, this_month, all_time, last_clock_out, last_worked_on")
+        .select(
+          "this_period, period_start, period_end, this_month, all_time, last_clock_out, last_worked_on, today_hours, today_break_seconds, today_segments, week_hours, week_break_seconds, week_segments, period_break_seconds, period_segments, days_to_account_for",
+        )
         .eq("staff_id", id)
         .maybeSingle(),
     ]);
@@ -162,15 +165,16 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
   const checklist = (checklistResult.data ?? []) as ChecklistRow[];
   const transports = Boolean((employmentResult.data ?? [])[0]?.transports_clients);
   const delivers = Boolean((employmentResult.data ?? [])[0]?.delivers_services);
-  const worked = hoursResult.data as {
-    this_period: number | null;
-    period_start: string | null;
-    period_end: string | null;
-    this_month: number | null;
-    all_time: number | null;
-    last_clock_out: string | null;
-    last_worked_on: string | null;
-  } | null;
+  const worked = hoursResult.data as
+    | (ClockTotals & {
+        this_period: number | null;
+        this_month: number | null;
+        all_time: number | null;
+        last_clock_out: string | null;
+        last_worked_on: string | null;
+        days_to_account_for: number | string | null;
+      })
+    | null;
   const onboarding = checklist.filter((r) => r.phase === "Onboarding");
   const offboarding = checklist.filter((r) => r.phase === "Offboarding");
 
@@ -221,6 +225,20 @@ export default async function StaffRecordPage({ params }: { params: Promise<{ id
           and it was not answered anywhere. */}
       <section id="hours" className="page-section">
         <h2 className="h2">Hours</h2>
+
+        {/* The same three figures the person sees on their own header and My
+            day (owner, 14 Nov 2026), from one view, so a manager and the
+            person they manage cannot be shown two different days. */}
+        <ClockTotalsTiles totals={worked ?? null} />
+
+        {Number(worked?.days_to_account_for ?? 0) > 0 && (
+          <p className="alert warn">
+            {Number(worked?.days_to_account_for) === 1
+              ? "A day on the clock with nothing said about it"
+              : `${Number(worked?.days_to_account_for)} days on the clock with nothing said about them`}
+          </p>
+        )}
+
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
           <div className="card">
             <div className="stat">

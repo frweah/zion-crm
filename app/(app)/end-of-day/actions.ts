@@ -251,3 +251,57 @@ export async function reopenDay(_prev: DayState, formData: FormData): Promise<Da
   revalidatePath("/end-of-day");
   return { error: null, ok: "Reopened. It can be submitted again when it is right." };
 }
+
+/**
+ * Open the file somebody attached when they clocked out.
+ *
+ * Two buckets, because there are two kinds of file and they live apart for a
+ * reason: a person's own account of their day is in their staff file, where
+ * only they and Admin can read it, and a recording is on a client's record,
+ * where the people who may open that client's restricted documents can.
+ *
+ * The row is read as the person asking, so the database decides whether they
+ * may see it before any link is minted. A link that exists is a link somebody
+ * was allowed to have.
+ */
+export async function openDayFile(which: {
+  staffFileId: string | null;
+  attachmentId: string | null;
+}): Promise<{ url?: string; error: string | null }> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "You are not signed in." };
+
+  const supabase = await createClient();
+
+  if (which.staffFileId) {
+    const { data: file } = await supabase
+      .from("staff_files")
+      .select("storage_path")
+      .eq("id", which.staffFileId)
+      .maybeSingle();
+    if (!file) return { error: "That file is not yours to open." };
+    const { data, error } = await supabase.storage
+      .from("staff-files")
+      .createSignedUrl(file.storage_path, 120);
+    if (error || !data?.signedUrl) return { error: "That file could not be opened." };
+    return { url: data.signedUrl, error: null };
+  }
+
+  if (which.attachmentId) {
+    const { data: file } = await supabase
+      .from("client_documents")
+      .select("storage_path, can_open")
+      .eq("id", which.attachmentId)
+      .maybeSingle();
+    if (!file?.can_open || !file.storage_path) {
+      return { error: "That recording is restricted to the people who may open this client's documents." };
+    }
+    const { data, error } = await supabase.storage
+      .from("client-files")
+      .createSignedUrl(file.storage_path, 120);
+    if (error || !data?.signedUrl) return { error: "That file could not be opened." };
+    return { url: data.signedUrl, error: null };
+  }
+
+  return { error: "There is no file on that line." };
+}

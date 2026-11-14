@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { today } from "@/lib/constants";
+import { today, PRACTICE_TZ } from "@/lib/constants";
 import { PageHead } from "../../page-head";
 import { DataTable } from "../../data-table";
-import { HoursExport } from "./export";
+import { HoursExport, type DayRow } from "./export";
 import { Decide } from "./decide";
 
 /**
@@ -50,7 +50,8 @@ export default async function AdminHoursPage({
   const show = PERIODS.some((p) => p.key === asked) ? asked! : "period";
 
   const supabase = await createClient();
-  const [{ data: weeks }, { data: waiting }, { data: period }] = await Promise.all([
+  const [{ data: weeks }, { data: waiting }, { data: period }, { data: dayRows }, { data: segmentRows }] =
+    await Promise.all([
     supabase.from("hours_by_week").select("*").order("week_start", { ascending: false }),
     // Corrections somebody has to decide. Here rather than on a screen of
     // their own: an Admin looking at the hours is the person who can settle
@@ -61,6 +62,24 @@ export default async function AdminHoursPage({
       .eq("approval", "Waiting")
       .order("created_at", { ascending: false }),
     supabase.from("work_session_totals").select("period_start, period_end").limit(1).maybeSingle(),
+    /*
+     * The day as a row, which is what the owner asked the export to be
+     * (14 Nov 2026). Everything, filtered below to whichever period is on
+     * screen - the same filtering the weeks already get, so the table and
+     * the export cannot end up describing different stretches of time.
+     */
+    supabase
+      .from("work_days")
+      .select(
+        "staff_id, staff_name, employment_type, day, segments, worked_hours, break_seconds, first_in, last_out, accounted_for, needs_an_account",
+      )
+      .order("day", { ascending: false }),
+    // And the segments themselves, for the day rows to open into.
+    supabase
+      .from("work_sessions")
+      .select("id, staff_id, worked_on, hours, break_seconds, started_at, ended_at, description, category, auto_closed")
+      .eq("voided", false)
+      .order("started_at", { ascending: true, nullsFirst: false }),
   ]);
 
   const rows = (weeks ?? []) as unknown as Week[];
@@ -96,6 +115,101 @@ export default async function AdminHoursPage({
     people.set(r.staff_id, p);
   }
 
+  /*
+   * The days in the same stretch of time as the weeks above.
+   *
+   * The week a day falls in is worked out here rather than asked of the
+   * database, because it is the same arithmetic the screen already does for
+   * "this week" and two answers to "which week is this" is how a payroll
+   * export and a payroll screen come to disagree.
+   */
+  const weekOf = (d: string) => {
+    const at = new Date(`${d}T00:00:00Z`);
+    const iso = at.getUTCDay() === 0 ? 7 : at.getUTCDay();
+    at.setUTCDate(at.getUTCDate() - (iso - 1));
+    return at.toISOString().slice(0, 10);
+  };
+  const allDays = ((dayRows ?? []) as {
+    staff_id: string;
+    staff_name: string;
+    employment_type: string;
+    day: string;
+    segments: number | string;
+    worked_hours: number | string;
+    break_seconds: number | string;
+    first_in: string | null;
+    last_out: string | null;
+    accounted_for: boolean;
+    needs_an_account: boolean;
+  }[]).filter((d) => {
+    if (show === "all") return true;
+    if (show === "week") return weekOf(d.day) === monday;
+    if (show === "month") return d.day >= monthStart;
+    return (
+      period?.period_start !== undefined &&
+      d.day >= String(period.period_start) &&
+      d.day <= String(period.period_end)
+    );
+  });
+
+  const days: (DayRow & { staff_id: string; needs_an_account: boolean })[] = allDays.map((d) => ({
+    staff_id: d.staff_id,
+    staff_name: d.staff_name,
+    employment_type: d.employment_type,
+    day: d.day,
+    week_start: weekOf(d.day),
+    worked_hours: Number(d.worked_hours),
+    break_seconds: Number(d.break_seconds),
+    segments: Number(d.segments),
+    first_in: d.first_in,
+    last_out: d.last_out,
+    accounted_for: d.accounted_for,
+    needs_an_account: d.needs_an_account,
+  }));
+
+  const segmentsOf = new Map<string, {
+    id: string;
+    hours: number;
+    break_seconds: number;
+    started_at: string | null;
+    ended_at: string | null;
+    description: string;
+    auto_closed: boolean;
+  }[]>();
+  for (const seg of (segmentRows ?? []) as {
+    id: string;
+    staff_id: string;
+    worked_on: string;
+    hours: number | string;
+    break_seconds: number | string;
+    started_at: string | null;
+    ended_at: string | null;
+    description: string | null;
+    auto_closed: boolean;
+  }[]) {
+    const key = `${seg.staff_id}:${seg.worked_on}`;
+    const list = segmentsOf.get(key) ?? [];
+    list.push({
+      id: seg.id,
+      hours: Number(seg.hours),
+      break_seconds: Number(seg.break_seconds ?? 0),
+      started_at: seg.started_at,
+      ended_at: seg.ended_at,
+      description: seg.description ?? "",
+      auto_closed: seg.auto_closed,
+    });
+    segmentsOf.set(key, list);
+  }
+
+  const clockTime = (at: string | null) =>
+    at
+      ? new Date(at).toLocaleTimeString("en-US", {
+          timeZone: PRACTICE_TZ,
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "—";
+
   const hhmm = (seconds: number) =>
     `${Math.floor(seconds / 3600)}h ${String(Math.floor((seconds % 3600) / 60)).padStart(2, "0")}m`;
 
@@ -107,7 +221,7 @@ export default async function AdminHoursPage({
       <PageHead
         title="Hours"
         context="Everybody's clocked time, a period at a time"
-        actions={<HoursExport rows={inScope} scope={show} />}
+        actions={<HoursExport rows={days} scope={show} />}
       />
 
       <div className="row2 no-print" style={{ marginBottom: 12 }}>
@@ -178,6 +292,86 @@ export default async function AdminHoursPage({
           empty="Nobody has clocked any time in this period."
         />
       </div>
+
+      <section className="page-section">
+        <h2 className="h2">Days</h2>
+        {days.length === 0 ? (
+          <p className="empty">Nobody has clocked a day in this period.</p>
+        ) : (
+          <div className="card" style={{ padding: 0 }}>
+            <table className="t" data-layout="one line per person per day, opening into the segments it was worked in">
+              <thead>
+                <tr>
+                  <th>Who</th>
+                  <th>Day</th>
+                  <th style={{ textAlign: "right" }}>Worked</th>
+                  <th style={{ textAlign: "right" }}>Break</th>
+                  <th style={{ textAlign: "right" }}>Segments</th>
+                  <th>Said what it was</th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((d) => {
+                  const segs = segmentsOf.get(`${d.staff_id}:${d.day}`) ?? [];
+                  return (
+                    <tr key={`${d.staff_id}:${d.day}`}>
+                      <td>
+                        <Link href={`/admin/people/${d.staff_id}`} style={{ color: "var(--teal)" }}>
+                          {d.staff_name}
+                        </Link>
+                      </td>
+                      <td>
+                        <Link href={`/end-of-day?who=${d.staff_id}&day=${d.day}`}>{d.day}</Link>
+                        {segs.length > 1 && (
+                          <details style={{ marginTop: 4 }}>
+                            <summary className="lock">
+                              {clockTime(d.first_in)} to {clockTime(d.last_out)}
+                            </summary>
+                            <ul className="day-list" style={{ marginTop: 4 }}>
+                              {segs.map((seg) => (
+                                <li key={seg.id}>
+                                  <span className="lock">
+                                    {clockTime(seg.started_at)}–{clockTime(seg.ended_at)} ·{" "}
+                                    {seg.hours.toFixed(2)}h
+                                    {seg.break_seconds > 0
+                                      ? ` · ${Math.round(seg.break_seconds / 60)} min break`
+                                      : ""}
+                                    {seg.auto_closed ? " · closed for them" : ""}
+                                  </span>{" "}
+                                  {seg.description || <span className="lock">nothing said</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                        {segs.length === 1 && (
+                          <div className="lock">
+                            {clockTime(d.first_in)} to {clockTime(d.last_out)}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: "right" }}>{d.worked_hours.toFixed(2)}</td>
+                      <td style={{ textAlign: "right" }} className="lock">
+                        {d.break_seconds > 0 ? hhmm(d.break_seconds) : "—"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>{d.segments}</td>
+                      <td>
+                        {d.accounted_for ? (
+                          <span className="chip ok">Yes</span>
+                        ) : d.needs_an_account ? (
+                          <span className="chip warn">Waiting</span>
+                        ) : (
+                          <span className="lock">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <p className="lock" style={{ marginTop: 12 }}>
         {total.toFixed(2)} hours across {people.size} {people.size === 1 ? "person" : "people"}

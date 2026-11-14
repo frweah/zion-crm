@@ -942,8 +942,33 @@ const categoryLabel = (card: Card, key: string) => card.fileCategories.find((c) 
 function HoursView({ me, items, save, bump }: Ctx) {
   const home = useRead<Home>(me.id, "/api/phone/home", "home", bump);
   const clock = clockNow(home.data?.clock, items, me.id);
-  const press = (what: "clock in" | "break" | "back" | "clock out", label: string) =>
+  const press = (what: "clock in" | "break" | "back", label: string) =>
     save("clock", label, { what });
+
+  /*
+   * Clock out asks what the day was (owner, 14 Nov 2026), on the phone as
+   * well as the desk - half this practice clocks out in a car park after a
+   * job site visit, which is exactly when they remember what they did.
+   *
+   * The answer goes in the outbox with the clock-out it belongs to, so a
+   * phone with no signal keeps the two together and neither can arrive
+   * without the other.
+   *
+   * Nothing is required: "Clock out without saying" is a button. A day with
+   * nothing said about it is flagged afterwards, on their My day and their
+   * manager’s, which is pressure that can wait until they are indoors.
+   */
+  const [asking, setAsking] = useState(false);
+  const [said, setSaidText] = useState("");
+
+  const clockOut = (withSummary: boolean) => {
+    void save("clock", "Clock out", {
+      what: "clock out",
+      said: withSummary ? said.trim() : "",
+    });
+    setAsking(false);
+    setSaidText("");
+  };
 
   return (
     <>
@@ -968,12 +993,39 @@ function HoursView({ me, items, save, bump }: Ctx) {
             End break
           </button>
         )}
-        {clock.on && (
-          <button type="button" className="btn ghost" onClick={() => press("clock out", "Clock out")}>
+        {clock.on && !asking && (
+          <button type="button" className="btn ghost" onClick={() => setAsking(true)}>
             Clock out
           </button>
         )}
       </div>
+
+      {asking && (
+        <div className="phone-card">
+          <label className="field">
+            <span>What did you work on?</span>
+            <textarea
+              id="phone-said"
+              rows={3}
+              value={said}
+              onChange={(e) => setSaidText(e.target.value)}
+              placeholder="Two job site visits and the coaching notes"
+            />
+          </label>
+          <div className="phone-actions stack">
+            <button type="button" className="btn" onClick={() => clockOut(true)}>
+              Clock out
+            </button>
+            <button type="button" className="btn ghost" onClick={() => clockOut(false)}>
+              Clock out without saying
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setAsking(false)}>
+              Stay on the clock
+            </button>
+          </div>
+        </div>
+      )}
+
       <p className="phone-row-sub">Recorded at the time you press it, signal or not.</p>
     </>
   );
