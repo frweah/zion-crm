@@ -96,6 +96,8 @@ const RPC_FUNCTIONS = [
   "submit_authorization_on_send",
   "escalate_unanswered_texts",
   "work_categories_for",
+  // The days a person, or their manager, is owed an account of (0356).
+  "days_to_account_for",
   "open_coaching_months_for",
   "current_staff_id",
   "current_staff_role",

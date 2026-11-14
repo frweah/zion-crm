@@ -49,8 +49,11 @@ declare
   r record;
   failures text[] := '{}';
 begin
+  -- Not an Admin. Margaret manages one person and her role is Reports, and
+  -- an Admin manager would have been shown her people's days by the Admin
+  -- branch while the manager branch stayed broken.
   insert into public.staff (name, email, role, active)
-  values ('ZZ Day Manager', 'zz-day-mgr@example.test', 'Admin', true) returning id into v_mgr;
+  values ('ZZ Day Manager', 'zz-day-mgr@example.test', 'Reports', true) returning id into v_mgr;
   insert into public.staff (name, email, role, active, manager_id)
   values ('ZZ Day Worker', 'zz-day-emp@example.test', 'Job Search', true, v_mgr) returning id into v_emp;
   insert into public.staff_employment (staff_id, employment_type) values (v_emp, 'Employee');
@@ -194,6 +197,34 @@ begin
     failures := failures || 'FAILED: a day with nothing said counts as accounted for'::text;
   else
     raise notice 'ok  a day nobody said anything about is flagged';
+  end if;
+
+  -- ── and the manager is told, without being given the hours ─
+  --
+  -- `work_sessions` is Admin-or-your-own, so a manager who is not an Admin
+  -- can read none of their people's. The flag the owner asked for on "their
+  -- manager's" screen therefore comes through a function that answers with
+  -- the days and nothing else (0356). Asked here as the manager, which is
+  -- the only way to find out whether she can actually see it.
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_mgr_uid, 'role', 'authenticated')::text, true);
+  select count(*) into v_n from public.days_to_account_for()
+   where staff_id = v_emp and day = v_day - 1;
+  if v_n <> 1 then
+    failures := failures ||
+      'FAILED: the manager cannot see the day her person has not accounted for'::text;
+  else
+    raise notice 'ok  and her manager sees it, through a function rather than the hours table';
+  end if;
+
+  -- And somebody who manages nobody sees nobody's but their own.
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_emp_uid, 'role', 'authenticated')::text, true);
+  if exists (select 1 from public.days_to_account_for() where staff_id <> v_emp) then
+    failures := failures ||
+      'FAILED: somebody who manages nobody was shown another person''s days'::text;
+  else
+    raise notice 'ok  and somebody who manages nobody sees only their own';
   end if;
 
   -- And writing it up on the End of day form clears it, because that form is

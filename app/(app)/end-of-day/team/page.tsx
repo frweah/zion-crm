@@ -32,7 +32,7 @@ export default async function EndOfDayTeamPage({
   const supabase = await createClient();
   const since = new Date(Date.now() - SINCE_DAYS * 86400000).toISOString().slice(0, 10);
 
-  const [{ data: days }, { data: staff }] = await Promise.all([
+  const [{ data: days }, { data: staff }, { data: waitingDays }] = await Promise.all([
     supabase
       .from("staff_days")
       .select("id, staff_id, day, submitted_at")
@@ -40,6 +40,16 @@ export default async function EndOfDayTeamPage({
       .order("day", { ascending: false })
       .range(page * PAGE, page * PAGE + PAGE - 1),
     supabase.from("staff").select("id, name").eq("is_system", false),
+    /*
+     * The days that are not here.
+     *
+     * This table lists `staff_days`, and a day nobody accounted for has no
+     * `staff_days` row at all - so the days a manager most needs to see were
+     * the exact days that could not appear. Read through a function (0356),
+     * because `work_sessions` is Admin-or-your-own and a manager who is not
+     * an Admin can read none of their people's.
+     */
+    supabase.rpc("days_to_account_for"),
   ]);
 
   const staffName = new Map((staff ?? []).map((s) => [s.id, s.name]));
@@ -72,6 +82,29 @@ export default async function EndOfDayTeamPage({
             : `The days of the people who report to you, the last ${SINCE_DAYS} days`
         }
       />
+
+      {(waitingDays ?? []).length > 0 && (
+        <div className="alert warn">
+          <b>
+            {(waitingDays ?? []).length === 1
+              ? "A day on the clock with nothing said about it"
+              : `${(waitingDays ?? []).length} days on the clock with nothing said about them`}
+          </b>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {(waitingDays ?? []).map((d) => (
+              <li key={`${d.staff_id}:${d.day}`}>
+                <Link href={`/end-of-day?day=${d.day}&who=${d.staff_id}`}>
+                  {d.staff_name} · {d.day}
+                </Link>{" "}
+                <span className="lock">
+                  {Number(d.worked_hours).toFixed(2)}h
+                  {Number(d.segments) > 1 ? ` across ${Number(d.segments)} segments` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card" style={{ padding: 0 }}>
         <DataTable

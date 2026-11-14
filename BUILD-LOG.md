@@ -9514,3 +9514,28 @@ And `verify_view_grants` caught all three new views arriving writable.
 Supabase grants a new view everything to `authenticated`, so revoking from
 `public` and `anon` leaves it insertable - which is the fourth time this
 practice has met that and the reason the check exists.
+
+### The half of the flag that could not have worked
+
+"Flagged on their My day and their manager's" was two rules, and the second
+one had nowhere to come from. `work_sessions_read` is **Admin, or the person
+whose hours they are** - so Margaret, who manages one person and whose role is
+Reports, can read none of her own people's sessions. `work_days` would have
+answered her with an empty table.
+
+The team roll-up made it worse rather than better: it lists `staff_days`, and
+a day nobody has accounted for has no `staff_days` row at all. The days she
+most needed to see were the exact days that could not appear on her screen.
+
+Fixed with a function rather than a policy. Widening `work_sessions_read` to
+managers would hand them every session, every correction and every description
+their people have ever logged, to answer a question about which days are
+missing an account. `days_to_account_for()` returns the days and nothing else:
+whose, which day, how many segments, what it came to - which is already what
+the twelve-hour notice tells a manager in a sentence, so it decides nothing
+new about what a manager may know.
+
+The fixture found its own mistake on the way: the test manager had been
+created as an Admin, so she was being shown her people's days by the Admin
+branch while the manager branch stayed broken. She is a Reports now, which is
+the case that was wrong.

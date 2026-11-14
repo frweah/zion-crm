@@ -8185,6 +8185,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      days_to_account_for: {
+        Args: Record<string, never>;
+        Returns: { staff_id: string | null; staff_name: string | null; day: string | null; segments: number | null; worked_hours: number | null }[];
+      };
       deactivate_client: {
         Args: { p_client: string | null; p_note: string | null };
         Returns: { name: string | null; was: string | null }[];
