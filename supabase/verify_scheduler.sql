@@ -37,7 +37,10 @@ declare
     -- that morning, before either job existed, and the second half of this
     -- check - a job running that no file accounts for - is precisely what
     -- that gap looks like.
-    'zion-friday-week', 'zion-to-file'
+    'zion-friday-week', 'zion-to-file',
+    -- Every quarter hour since 14 Nov 2026 (0346): the recordings waiting to
+    -- be sent to Azure, and the jobs waiting for an answer.
+    'zion-recordings'
   ];
   v_name text;
   v_n integer;

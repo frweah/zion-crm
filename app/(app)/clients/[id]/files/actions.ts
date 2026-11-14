@@ -118,8 +118,31 @@ export async function recordAttachment(
     };
   }
 
+  /**
+   * A recording joins the queue to be read (item F).
+   *
+   * Here rather than in a trigger because the queue is only worth joining
+   * when there is something to read it: `start_recording` is called whatever
+   * the switch says, and the route that reads them is what checks whether
+   * recordings are on. That way a recording uploaded while the feature is off
+   * is read when it is turned on, rather than being lost for having arrived
+   * on the wrong day.
+   *
+   * It is reported but never fatal. The file is on the client's record either
+   * way, and a recording nobody transcribed is still a recording somebody can
+   * listen to - which is more than can be said for an upload refused because
+   * a queue would not take it.
+   */
+  let reading = "";
+  if (added?.id && String(formData.get("mime_type") ?? "").startsWith("audio/")) {
+    const { error: queueError } = await supabase.rpc("start_recording", { p_attachment: added.id });
+    reading = queueError
+      ? ` It is on the record, but not queued to be read: ${queueError.message}`
+      : " It will be read, and the draft will wait for you here.";
+  }
+
   revalidatePath(`/clients/${clientId}`);
-  return { error: null, ok: `${filename} attached.`, id: added?.id };
+  return { error: null, ok: `${filename} attached.${reading}`, id: added?.id };
 }
 
 /**

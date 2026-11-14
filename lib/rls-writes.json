@@ -422,6 +422,9 @@
     "payments": [
       "select"
     ],
+    "phone_receipts": [
+      "select"
+    ],
     "placements": [
       "delete",
       "insert",
@@ -482,6 +485,9 @@
       "update"
     ],
     "read_receipts": [
+      "select"
+    ],
+    "recordings": [
       "select"
     ],
     "records_requests": [

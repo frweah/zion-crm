@@ -200,11 +200,6 @@ export type Database = {
       };
       attachments: {
         Row: {
-          ocr_state: string | null;
-          ocr_text: string | null;
-          ocr_confidence: number | null;
-          ocr_kind: string | null;
-          ocr_at: string | null;
           id: string;
           client_id: string;
           storage_path: string;
@@ -225,13 +220,13 @@ export type Database = {
           source: string;
           portal_account_id: string | null;
           review_status: string | null;
+          ocr_state: string | null;
+          ocr_text: string | null;
+          ocr_confidence: number | null;
+          ocr_kind: string | null;
+          ocr_at: string | null;
         };
         Insert: {
-          ocr_state?: string | null;
-          ocr_text?: string | null;
-          ocr_confidence?: number | null;
-          ocr_kind?: string | null;
-          ocr_at?: string | null;
           id?: string;
           client_id: string;
           storage_path: string;
@@ -252,13 +247,13 @@ export type Database = {
           source?: string;
           portal_account_id?: string | null;
           review_status?: string | null;
-        };
-        Update: {
           ocr_state?: string | null;
           ocr_text?: string | null;
           ocr_confidence?: number | null;
           ocr_kind?: string | null;
           ocr_at?: string | null;
+        };
+        Update: {
           id?: string;
           client_id?: string;
           storage_path?: string;
@@ -279,6 +274,11 @@ export type Database = {
           source?: string;
           portal_account_id?: string | null;
           review_status?: string | null;
+          ocr_state?: string | null;
+          ocr_text?: string | null;
+          ocr_confidence?: number | null;
+          ocr_kind?: string | null;
+          ocr_at?: string | null;
         };
         Relationships: [];
       };
@@ -3908,6 +3908,7 @@ export type Database = {
           require_two_factor: boolean;
           mail_notice_staff_id: string | null;
           mail_signature: string;
+          recording_hours_per_person: number;
         };
         Insert: {
           id?: boolean;
@@ -3934,6 +3935,7 @@ export type Database = {
           require_two_factor?: boolean;
           mail_notice_staff_id?: string | null;
           mail_signature?: string;
+          recording_hours_per_person?: number;
         };
         Update: {
           id?: boolean;
@@ -3960,6 +3962,7 @@ export type Database = {
           require_two_factor?: boolean;
           mail_notice_staff_id?: string | null;
           mail_signature?: string;
+          recording_hours_per_person?: number;
         };
         Relationships: [];
       };
@@ -4737,6 +4740,69 @@ export type Database = {
           last_read_seq?: number;
           read_at?: string;
           emailed_through_seq?: number;
+        };
+        Relationships: [];
+      };
+      recordings: {
+        Row: {
+          id: string;
+          attachment_id: string;
+          client_id: string;
+          staff_id: string | null;
+          state: string;
+          minutes: number | null;
+          job_url: string;
+          turns: Json | null;
+          transcript: string | null;
+          summary: Json | null;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+          contact_log_id: string | null;
+          note_id: string | null;
+          reason: string;
+          attempts: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          attachment_id: string;
+          client_id: string;
+          staff_id?: string | null;
+          state?: string;
+          minutes?: number | null;
+          job_url?: string;
+          turns?: Json | null;
+          transcript?: string | null;
+          summary?: Json | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          contact_log_id?: string | null;
+          note_id?: string | null;
+          reason?: string;
+          attempts?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          attachment_id?: string;
+          client_id?: string;
+          staff_id?: string | null;
+          state?: string;
+          minutes?: number | null;
+          job_url?: string;
+          turns?: Json | null;
+          transcript?: string | null;
+          summary?: Json | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          contact_log_id?: string | null;
+          note_id?: string | null;
+          reason?: string;
+          attempts?: number;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -7205,7 +7271,6 @@ export type Database = {
       };
       client_documents: {
         Row: {
-          ocr_state: string | null;
           id: string | null;
           client_id: string | null;
           document_date: string | null;
@@ -7222,6 +7287,7 @@ export type Database = {
           size_bytes: number | null;
           auth_id: string | null;
           form_id: string | null;
+          ocr_state: string | null;
         };
         Relationships: [];
       };
@@ -8039,6 +8105,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      confirm_recording: {
+        Args: { p_id: string | null; p_about: string | null; p_agreed: string | null; p_next: string | null; p_note: string | null; p_category: string | null };
+        Returns: Json;
+      };
       correct_authorization: {
         Args: { p_auth: string | null; p_reason: string | null; p_service_type?: string | null; p_client?: string | null };
         Returns: { field: string | null; was_value: string | null; new_value: string | null }[];
@@ -8512,15 +8582,15 @@ export type Database = {
         Returns: string;
       };
       phone_clock: {
-        Args: { p_key: string; p_kind: string; p_at: string };
+        Args: { p_key: string | null; p_kind: string | null; p_at: string | null };
         Returns: string;
       };
       phone_post_message: {
-        Args: { p_key: string; p_at: string; p_conversation: string; p_body: string };
+        Args: { p_key: string | null; p_at: string | null; p_conversation: string | null; p_body: string | null };
         Returns: string;
       };
       phone_to_file_confirm: {
-        Args: { p_key: string; p_at: string; p_item: string; p_outcome: string; p_note?: string; p_category?: string };
+        Args: { p_key: string | null; p_at: string | null; p_item: string | null; p_outcome: string | null; p_note?: string | null; p_category?: string | null };
         Returns: string;
       };
       placement_clock_started: {
@@ -8735,6 +8805,10 @@ export type Database = {
         Args: { p_client_id: string | null; p_purpose?: string | null };
         Returns: { dob: string | null; address: string | null; allowed: boolean | null }[];
       };
+      read_held_recording: {
+        Args: { p_id: string | null };
+        Returns: undefined;
+      };
       reconcile_bank_statement: {
         Args: { p_statement: string | null };
         Returns: undefined;
@@ -8794,6 +8868,34 @@ export type Database = {
       record_text_status: {
         Args: { p_provider_id: string | null; p_status: string | null; p_error?: string | null; p_payload?: Json | null };
         Returns: { matched: boolean | null; status: string | null }[];
+      };
+      recording_drafted: {
+        Args: { p_id: string | null; p_summary: Json | null };
+        Returns: undefined;
+      };
+      recording_failed: {
+        Args: { p_id: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
+      recording_hours_by_person: {
+        Args: { p_month: string | null };
+        Returns: { staff_id: string | null; staff_name: string | null; minutes: number | null; hours: number | null; allowed_hours: number | null; recordings: number | null; held: number | null }[];
+      };
+      recording_minutes_this_month: {
+        Args: { p_staff: string | null; p_month: string | null };
+        Returns: number;
+      };
+      recording_read: {
+        Args: { p_id: string | null; p_turns: Json | null; p_transcript: string | null; p_minutes: number | null };
+        Returns: undefined;
+      };
+      recording_reading: {
+        Args: { p_id: string | null; p_job_url: string | null };
+        Returns: undefined;
+      };
+      recordings_to_read: {
+        Args: Record<string, never>;
+        Returns: { id: string | null; attachment_id: string | null; client_id: string | null; storage_path: string | null; mime_type: string | null; state: string | null; job_url: string | null; minutes_left: number | null }[];
       };
       records_request_bundle: {
         Args: { p_client: string | null; p_purpose?: string | null };
@@ -8951,6 +9053,10 @@ export type Database = {
         Args: { p_lines: Json | null };
         Returns: string;
       };
+      set_recording_aside: {
+        Args: { p_id: string | null; p_reason: string | null };
+        Returns: undefined;
+      };
       set_service_delivered: {
         Args: { p_auth: string | null; p_on: string | null; p_reason: string | null };
         Returns: undefined;
@@ -9021,6 +9127,10 @@ export type Database = {
       };
       start_group_conversation: {
         Args: { p_title: string | null; p_staff: string[] | null; p_client?: string | null };
+        Returns: string;
+      };
+      start_recording: {
+        Args: { p_attachment: string | null };
         Returns: string;
       };
       start_web_chat: {

@@ -139,6 +139,18 @@ const RPC_FUNCTIONS = [
   "practice_today",
   "timer_elapsed_hours",
   "set_sms_consent",
+  // A recording is read, and then confirmed (0344, 0345).
+  "start_recording",
+  "recordings_to_read",
+  "recording_reading",
+  "recording_read",
+  "recording_drafted",
+  "recording_failed",
+  "confirm_recording",
+  "set_recording_aside",
+  "read_held_recording",
+  "recording_minutes_this_month",
+  "recording_hours_by_person",
   // The weekly update (0338, 0339).
   "draft_weekly_updates",
   "edit_weekly_update",
@@ -156,6 +168,18 @@ const RPC_FUNCTIONS = [
   "edit_client_contact",
   "remove_client_contact",
   "normalize_phone",
+  /*
+   * The phone app (0342).
+   *
+   * These three were in lib/database.types.ts and not in this list, so the
+   * next person to regenerate - 14 November, building item F - dropped them
+   * and broke the build. A generated file and its generator had drifted
+   * apart, and regenerating was destructive. check-generated-types asks the
+   * question that found it.
+   */
+  "phone_clock",
+  "phone_post_message",
+  "phone_to_file_confirm",
   // Called only by the inbound webhook, as the service role — typed here so
   // that call is checked like any other.
   "record_incoming_sms",

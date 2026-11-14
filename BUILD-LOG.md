@@ -9166,3 +9166,120 @@ back and seen to fail.
    is everybody's, because the screen lists only the person's own clients and
    the brief puts each role's own clients on their home. The Billing card on
    Home goes to the working list it counts.
+
+## 14 Nov 2026 — item F: a recording is read, and then confirmed
+
+Switched on once the Azure keys were in Vercel. A recording is uploaded from a
+client's record or from the phone, read by Azure Speech with diarization,
+drafted into a summary by Azure OpenAI, and **then a person confirms it before
+any of it is on the record.**
+
+### The thing the whole design is for
+
+Until somebody confirms, the transcript and the draft are a proposal sitting
+beside the audio: nothing in the contact log, nothing in the notes, nothing
+that reaches a counselor or a report. `verify_recordings` asserts it directly —
+a recording that has been read and drafted has no contact log entry and no
+note against its client — and the fault that proves it is `recording_drafted`
+writing a note by itself.
+
+That is the same design the document inbox and "To file" are built on, and it
+matters more here than in either. A machine reading of a conversation about
+somebody's disability, their benefits and their employer is the last thing
+that should write itself onto a client's record.
+
+### The fixed shape
+
+Four fields: what it was about, what was agreed, what happens next, and the
+note for the record. They are the four things the practice already keeps about
+a meeting — the contact log's topic and outcome, and a note — so confirming
+one writes records that already exist rather than a new kind of thing nobody
+reads.
+
+**The owner's 29 October wording for this is not in the repository.** Only
+references to item F are, in four reports, none of which says what the shape
+is. These four fields are the practice's own vocabulary and they are what was
+built; if the 29 October list said something else, the shape is one function
+and one form to change.
+
+`contact_log.follow_up` turned out to be a **date**, not a sentence — the day
+somebody is to be chased. So "what happens next" goes into the outcome as its
+own sentence and the follow-up date is left to whoever sets one: a machine
+reading of "ring on Thursday" is not a date this should pick. All four fields
+are kept on the recording whatever the contact log holds.
+
+### Restricted twice over
+
+Recordings are their own file category, restricted by default, which is what
+the phone already reads when it uploads one. A default can be turned off on a
+form, so there is a rule underneath it: an audio attachment is restricted
+whatever category somebody chose, and the transcript is readable only by the
+people who may open the client's restricted documents — the same
+`can_see_restricted` that guards the audio. Confirming is theirs too: anybody
+else would be confirming a machine reading of a conversation they are not
+allowed to listen to.
+
+### The cost guard
+
+Twenty hours a person a month, from `org_settings` so Admin can change it
+without a deploy, and read on Admin → Money because it is a bill.
+
+It is asked **where the money is spent** — as `recordings_to_read` answers,
+not at upload. A recording can sit waiting across the turn of a month, and
+several can pass a check at upload and then all be submitted at once; asking
+at the moment of submission also means the limit cannot be got round by
+calling the route twice.
+
+And it **holds** rather than refuses. The audio is already on the client's
+record; what the limit stops is paying to read it. Admin can let one through
+from the client's record, which is a different decision from raising the
+month's limit and is made in a different place.
+
+### Two Azure services, and their own words
+
+Every failure is reported in Azure's words, on the recording, where the person
+looking at it can read them. This practice has lost days to a wrapper that
+turned a precise refusal into "it could not be read".
+
+**Both diarization properties are sent on purpose.** Microsoft's own v3.2 docs
+disagree with each other: the how-to pages describe a boolean
+`diarizationEnabled` and the REST reference describes an object
+`diarization.speakers` with a minimum and a maximum. Whichever the service
+accepts ignores the other, and sending both means the first recording this
+practice submits is read rather than refused on a detail in a document.
+
+A failure is never recorded as a reading — the same rule a photo follows. An
+empty reading *is* a reading: the audio was read and there were no words in
+it, which is an answer, and nobody is asked to confirm a summary of silence.
+Three failures stop the asking, because unlike a photo, Azure has been paid
+for each attempt.
+
+### What the suite found, including two that were not mine
+
+Five of item F's own: a setting nobody could read (grants on `org_settings`
+are per column), an elevated function with no caller check, the recordings
+missing from the records-request bundle, the new file category missing from
+the restricted-by-default roster, and a scheduled job in no file.
+
+And two that had been failing since 11 November: `phone_receipts` has no
+policies refusing the system account's writes, and its read rule asks who you
+are once per row rather than once per query. Both are house rules with their
+own checks, and the suite was last reported green on 9 November — before that
+table existed. Fixed here, because reporting 149 of 151 and calling item F
+done would be the thing the definition of done exists to prevent.
+
+### And one that was waiting to go off
+
+`lib/database.types.ts` held three functions the phone app calls —
+`phone_clock`, `phone_post_message`, `phone_to_file_confirm` — that were
+**not** on the generator's curated list. Nobody had regenerated since they
+were added, so nothing had noticed. Regenerating for item F dropped all three
+and broke a build that had been green for three days, on files nobody had
+touched.
+
+A generated file that disagrees with its generator is a trap: it works until
+somebody regenerates, and then it is their change that appears to have broken
+it. `check-generated-types` now runs the generator and asserts it changes
+nothing, names any function that would be dropped, and puts the tree back the
+way it found it. It needs database credentials, so it is in `check-checks`'s
+list of checks that cannot run in prebuild, with that reason.

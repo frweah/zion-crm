@@ -106,7 +106,12 @@ declare
     -- The weekly updates drafted about them, sent or not (0338). A text the
     -- practice wrote about this client and sent to their phone is plainly
     -- theirs; so is one it drafted and decided not to send, and the reason.
-    'weekly_updates=weekly_updates'
+    'weekly_updates=weekly_updates',
+    -- The recordings of meetings with them, and what was made of them
+    -- (0344). A recording of a client talking about their own life is
+    -- theirs, and so is a machine's transcript of it - including one nobody
+    -- confirmed, because the practice holds it either way.
+    'recordings=recordings'
   ];
 
   -- Tables carrying a client_id that are deliberately not in a bundle, each

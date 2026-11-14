@@ -182,7 +182,7 @@ export function AddFileForm({
               <input
                 name="file"
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt,.csv,.m4a,.mp3,.mp4,.wav,.ogg,.webm,.aac,.flac"
                 required
               />
             </label>

@@ -13,6 +13,7 @@ import PositionSection from "./sections/position";
 import ExportsSection from "./sections/exports";
 import BaselineSection from "./sections/baseline";
 import RateSchedule from "./sections/rates";
+import RecordingsSection from "./sections/recordings";
 
 /**
  * Revenue.
@@ -691,6 +692,13 @@ export default async function RevenuePage({
 
       <section id="export" style={{ marginTop: 32 }}>
         <ExportsSection searchParams={searchParams} />
+      </section>
+
+      {/* The cost guard on the recordings (item F). Here because it is a
+          bill: Azure charges by the minute, and the person who decides
+          whether to raise the limit is the person reading what it cost. */}
+      <section id="recordings" style={{ marginTop: 32 }}>
+        <RecordingsSection isAdmin={me.role === "Admin"} />
       </section>
 
       {/* §13.13: what the pricing comes from, beside what it produced. */}

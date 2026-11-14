@@ -50,6 +50,7 @@ import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
 import { NumbersAndContacts } from "./numbers-and-contacts";
+import { RecordingsPanel, type RecordingRow } from "./recordings-panel";
 import { MailSection } from "./mail-section";
 import { LIVE_STATUSES, isLive } from "@/lib/billing";
 import { PortalRequests } from "./portal-requests";
@@ -839,7 +840,14 @@ export default async function ClientPage({
      * Newest document date first - the date on the paper, not the day
      * somebody got round to scanning it.
      */
-    const [{ data: files }, { data: fileCategories }, { data: formRows }, { data: authRows }, { data: reportRows }] =
+    const [
+      { data: files },
+      { data: fileCategories },
+      { data: formRows },
+      { data: authRows },
+      { data: reportRows },
+      { data: recordingRows },
+    ] =
       await Promise.all([
       supabase
         .from("client_documents")
@@ -869,6 +877,22 @@ export default async function ClientPage({
         .eq("method", "Report sent")
         .order("date", { ascending: false })
         .limit(50),
+      /*
+       * The recordings on this record (item F).
+       *
+       * Read from the table, which is restricted to the people who may open
+       * the client's restricted documents - a recording is one. Somebody
+       * without that access sees the audio file in the list above with its
+       * name blanked, and no transcript at all, which is the same answer the
+       * documents themselves give.
+       */
+      supabase
+        .from("recordings")
+        .select(
+          "id, attachment_id, state, minutes, reason, transcript, turns, summary, created_at, confirmed_at",
+        )
+        .eq("client_id", id)
+        .order("created_at", { ascending: false }),
     ]);
 
     const forms = (formRows ?? []) as FormRow[];
@@ -895,10 +919,33 @@ export default async function ClientPage({
       .filter((m) => m.usor.length > 0);
 
     const reports = reportRows ?? [];
+    // The recording's own filename comes from the document it is, so the card
+    // names the file a person can listen to rather than an id.
+    const fileNameOf = new Map((files ?? []).map((f) => [f.id, f.filename]));
+    const recordings: RecordingRow[] = ((recordingRows ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      attachment_id: String(r.attachment_id),
+      filename: fileNameOf.get(String(r.attachment_id)) ?? "",
+      state: String(r.state ?? ""),
+      minutes: r.minutes === null || r.minutes === undefined ? null : Number(r.minutes),
+      reason: String(r.reason ?? ""),
+      transcript: (r.transcript as string | null) ?? null,
+      turns: (r.turns as RecordingRow["turns"]) ?? null,
+      summary: (r.summary as RecordingRow["summary"]) ?? null,
+      created_at: String(r.created_at ?? ""),
+      confirmed_at: (r.confirmed_at as string | null) ?? null,
+    }));
 
     return (
       <>
         {header}
+
+        {/* ── the recordings, above the documents (item F) ────
+            A recording waiting for somebody is a job of work, and the
+            documents list below it is a filing cabinet. The card says where
+            each one is and carries the draft; nothing it says is on the
+            record until somebody confirms it. */}
+        <RecordingsPanel clientId={id} rows={recordings} isAdmin={isAdmin} />
 
         <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
           <div>
