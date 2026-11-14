@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { NOTE_CATEGORIES } from "@/lib/report-shape";
+import { CONTACT_KINDS } from "@/lib/recordings-shape";
 import { confirmRecording, readHeldRecording, setRecordingAside } from "./recording-actions";
 import type { DetailState } from "./actions";
 
@@ -16,7 +17,16 @@ export type RecordingRow = {
   reason: string;
   transcript: string | null;
   turns: { speaker: number; at: number; text: string }[] | null;
-  summary: { about?: string; agreed?: string; next?: string; note?: string } | null;
+  summary: {
+    kind?: string;
+    on?: string;
+    present?: string;
+    discussed?: string;
+    decisions?: string;
+    next?: string;
+    question?: string;
+  } | null;
+  document_date: string | null;
   created_at: string;
   confirmed_at: string | null;
 };
@@ -53,7 +63,9 @@ const at = (seconds: number) =>
  * read, waiting for a person, on the record, or held because the month's
  * hours are spent.
  *
- * The draft is four fields and all four can be changed before anything is
+ * The draft is the shape a meeting note takes - the day and type of contact,
+ * who was present, what was discussed, decisions, next steps and one
+ * follow-up question - and every part can be changed before anything is
  * confirmed, because that is the whole point of a draft. Confirming writes a
  * contact log entry and a note; nothing about the recording is on the record
  * until it does, which is why the transcript sits behind a disclosure rather
@@ -168,21 +180,47 @@ function RecordingCard({
           <form action={confirm} style={{ marginTop: 10 }}>
             <input type="hidden" name="id" value={row.id} />
             <input type="hidden" name="client_id" value={clientId} />
+            <div className="row2">
+              <label className="field" style={{ maxWidth: 260 }}>
+                <span>Type of contact</span>
+                <select name="kind" defaultValue={draft.kind ?? ""} required>
+                  <option value="">Choose one</option>
+                  {CONTACT_KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" style={{ maxWidth: 200 }}>
+                <span>Date</span>
+                <input
+                  type="date"
+                  name="on"
+                  defaultValue={row.document_date ?? row.created_at.slice(0, 10)}
+                  required
+                />
+              </label>
+            </div>
             <label className="field">
-              <span>What it was about</span>
-              <input name="about" defaultValue={draft.about ?? ""} required />
+              <span>Who was present</span>
+              <input name="present" defaultValue={draft.present ?? ""} required />
             </label>
             <label className="field">
-              <span>What was agreed</span>
-              <input name="agreed" defaultValue={draft.agreed ?? ""} />
+              <span>What was discussed</span>
+              <textarea name="discussed" rows={2} defaultValue={draft.discussed ?? ""} required />
             </label>
             <label className="field">
-              <span>What happens next</span>
-              <input name="next" defaultValue={draft.next ?? ""} />
+              <span>Decisions</span>
+              <textarea name="decisions" rows={2} defaultValue={draft.decisions ?? ""} />
             </label>
             <label className="field">
-              <span>The note for the record</span>
-              <textarea name="note" rows={4} defaultValue={draft.note ?? ""} required />
+              <span>Next steps</span>
+              <textarea name="next" rows={2} defaultValue={draft.next ?? ""} />
+            </label>
+            <label className="field">
+              <span>Follow-up question</span>
+              <input name="question" defaultValue={draft.question ?? ""} />
             </label>
             <label className="field" style={{ maxWidth: 260 }}>
               <span>What it is about</span>
@@ -228,10 +266,16 @@ function RecordingCard({
       {row.state === "Confirmed" && row.summary && (
         <div style={{ marginTop: 8 }}>
           <p>
-            <b>{row.summary.about}</b>
+            <b>
+              {row.summary.kind}
+              {row.summary.on ? `, ${row.summary.on}` : ""}
+            </b>
           </p>
-          {row.summary.agreed ? <p>{row.summary.agreed}</p> : null}
+          {row.summary.present ? <p className="lock">Present: {row.summary.present}</p> : null}
+          {row.summary.discussed ? <p>{row.summary.discussed}</p> : null}
+          {row.summary.decisions ? <p>{row.summary.decisions}</p> : null}
           {row.summary.next ? <p className="lock">Next: {row.summary.next}</p> : null}
+          {row.summary.question ? <p className="lock">Ask next time: {row.summary.question}</p> : null}
         </div>
       )}
     </div>

@@ -90,6 +90,7 @@ async function handle(request: NextRequest) {
     sent: 0,
     read: 0,
     drafted: 0,
+    refused: 0,
     failed: 0,
     still_running: 0,
     problems: [] as string[],
@@ -195,12 +196,29 @@ async function handle(request: NextRequest) {
       out.problems.push(`${row.id}: ${draft.error}`);
       continue;
     }
-    const { error: draftError } = await admin.rpc("recording_drafted", {
+    /*
+     * The database reads the draft before it keeps it, and a draft that
+     * carries health, legal, benefits or family detail, or runs past the
+     * cap, is not kept at all: the recording stays Read and the person
+     * writes the six parts from what was said.
+     *
+     * That is an answer, not a failure, so it does not go through
+     * recording_failed and does not count against the three attempts that
+     * stop the asking. Nothing is asked of Azure a second time - the same
+     * prompt on the same transcript would produce the same draft, and the
+     * practice would be paying to be refused twice.
+     */
+    const { data: notKept, error: draftError } = await admin.rpc("recording_drafted", {
       p_id: row.id,
       p_summary: draft.data as never,
     });
     if (draftError) {
       out.problems.push(`${row.id}: the draft did not save — ${draftError.message}`);
+      continue;
+    }
+    if (notKept) {
+      out.refused += 1;
+      out.problems.push(`${row.id}: the draft was not kept — ${notKept}`);
       continue;
     }
     out.drafted += 1;

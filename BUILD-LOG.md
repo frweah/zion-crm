@@ -9331,3 +9331,77 @@ longer sets `.sub` and a margin the wrapper had already set. And both wrappers
 - `PageHead`'s context and `RecordHeader`'s standing - take a `ReactNode` from
 any caller, so they are a `<div>`: a caller cannot nest a block in them even
 by accident, which is better than fixing the one caller who did.
+
+## 14 Nov 2026 — the shape a meeting note takes
+
+Item F was accepted and the real 29 October shape given with it, which is six
+parts rather than my four: the date and type of contact, who was present, what
+was discussed, decisions, next steps with dates where they were said, and one
+follow-up question. With three rules over it.
+
+### Minimum necessary
+
+No health, legal, benefits or family detail in a machine draft, unless the
+staff member puts it there. That is the rule the whole feature stands on: an
+hour of conversation about somebody's working life contains their diagnosis,
+their lawyer, what the state pays them and who drove them to the interview,
+and a machine will write all of it down if nothing stops it.
+
+The prompt asks. `recording_drafted` is the door that holds it, because a
+prompt is a request and a model is a thing that sometimes does not listen. A
+draft that carries any of the four is **not kept at all**: the recording stays
+Read with the reason on it, and the person writes the six parts themselves.
+Nothing is retried - the same prompt on the same transcript would produce the
+same draft and the practice would pay to be refused twice.
+
+The word list is deliberately narrow, and the test that matters most is the
+one that asserts it does *not* fire: this practice places people in hospitals
+and clinics, "disability" is its subject, "vocational rehab" is its name,
+"warrant" is how it gets paid and "benefits" is a thing an employer offers.
+None of those are in it. A guard that refuses ordinary work would be worse
+than no guard, because somebody would turn it off.
+
+`verify_recordings` asks all of it from a transcript that holds all four
+kinds, which is what the owner asked for: the same words produce a refusal
+when the draft repeats them and a kept draft when it does not. Each kind is
+asserted on its own, so a list that loses one is noticed rather than passing
+on the strength of the other three. Four faults were put back and four
+failures came out.
+
+### About 120 words, and never a date
+
+The cap is on the whole draft rather than any line of it, and it is in
+`org_settings` so it can be changed without a deploy. Next steps carry a day
+when one was said, in words. `contact_log.follow_up` stays empty: it is a date
+somebody is chased on, and a machine reading of "Thursday" is not it.
+
+### The transcript stays where it was read
+
+Confirming writes a note made of the six parts and a contact log entry made of
+two of them, and copies none of the words. `verify_recordings` asserts that
+from both ends - the note is in the shape, and it carries none of the four
+things the transcript said that the draft left out.
+
+The database half of that is RLS, which has been there since 0344. The other
+half no policy can reach: a report, an export, a message to a counselor and a
+mail body are all written by somebody with access, running as themselves, so
+the database would hand the transcript over without a word. The rule there is
+not about permission, it is about where the words may go, and
+`check-transcript-stays` holds it - the column may be read on the client
+record, by the route that writes it, and by the records-request bundle, and
+nowhere else.
+
+**One judgement left standing:** the records-request bundle still discloses
+the transcript. "Never leaves the recording" reads as absolute, but a records
+request is the client asking for what the practice holds about them, and the
+practice holds this. Taking it out would be deciding to withhold somebody's
+own words from them. It is one line in 0348 to remove if that reading is
+wrong.
+
+### And a fixture that had to be split
+
+The over-broad-guard fault injection failed in a way that hid two other
+failures: with the guard refusing everything, the first draft was kept, the
+recording went to Drafted, and the next `recording_drafted` call raised rather
+than returned. One exception, and the script stopped with less than it knew.
+Each draft case has its own recording now.

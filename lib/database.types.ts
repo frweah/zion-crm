@@ -3909,6 +3909,7 @@ export type Database = {
           mail_notice_staff_id: string | null;
           mail_signature: string;
           recording_hours_per_person: number;
+          recording_draft_words: number;
         };
         Insert: {
           id?: boolean;
@@ -3936,6 +3937,7 @@ export type Database = {
           mail_notice_staff_id?: string | null;
           mail_signature?: string;
           recording_hours_per_person?: number;
+          recording_draft_words?: number;
         };
         Update: {
           id?: boolean;
@@ -3963,6 +3965,7 @@ export type Database = {
           mail_notice_staff_id?: string | null;
           mail_signature?: string;
           recording_hours_per_person?: number;
+          recording_draft_words?: number;
         };
         Relationships: [];
       };
@@ -8106,7 +8109,7 @@ export type Database = {
         Returns: undefined;
       };
       confirm_recording: {
-        Args: { p_id: string | null; p_about: string | null; p_agreed: string | null; p_next: string | null; p_note: string | null; p_category: string | null };
+        Args: { p_id: string | null; p_kind: string | null; p_on: string | null; p_present: string | null; p_discussed: string | null; p_decisions: string | null; p_next: string | null; p_question: string | null; p_category: string | null };
         Returns: Json;
       };
       correct_authorization: {
@@ -8871,7 +8874,7 @@ export type Database = {
       };
       recording_drafted: {
         Args: { p_id: string | null; p_summary: Json | null };
-        Returns: undefined;
+        Returns: string;
       };
       recording_failed: {
         Args: { p_id: string | null; p_reason: string | null };

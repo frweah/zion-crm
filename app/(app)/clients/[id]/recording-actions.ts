@@ -10,8 +10,11 @@ import type { DetailState } from "./actions";
  *
  * Three actions, and the first of them is the only way anything a machine
  * made of a conversation reaches a client's record. Confirming writes a
- * contact log entry and a note; until somebody does, the transcript and the
- * draft are a proposal sitting beside the audio.
+ * contact log entry and a note, both made of the six parts the person has in
+ * front of them; until somebody does, the transcript and the draft are a
+ * proposal sitting beside the audio. The transcript is never copied into
+ * either: it stays on the recording, where only the people who may open the
+ * audio can read it.
  *
  * Every rule is the database's: who may read a restricted document, what
  * state a recording has to be in, that a note is required and a reason is
@@ -34,13 +37,19 @@ export async function confirmRecording(_prev: DetailState, formData: FormData): 
   const clientId = String(formData.get("client_id") ?? "");
 
   const supabase = await createClient();
+  const said = (name: string) => String(formData.get(name) ?? "").trim();
   const { error } = await supabase.rpc("confirm_recording", {
-    p_id: String(formData.get("id") ?? ""),
-    p_about: String(formData.get("about") ?? "").trim(),
-    p_agreed: String(formData.get("agreed") ?? "").trim(),
-    p_next: String(formData.get("next") ?? "").trim(),
-    p_note: String(formData.get("note") ?? "").trim(),
-    p_category: String(formData.get("category") ?? "").trim(),
+    p_id: said("id"),
+    p_kind: said("kind"),
+    // The day of the meeting, which is the day the note and the contact log
+    // carry. Empty means the database takes the date on the recording.
+    p_on: said("on") || null,
+    p_present: said("present"),
+    p_discussed: said("discussed"),
+    p_decisions: said("decisions"),
+    p_next: said("next"),
+    p_question: said("question"),
+    p_category: said("category"),
   });
   if (error) return refusal(error.message);
   done(clientId);

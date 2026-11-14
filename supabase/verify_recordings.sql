@@ -12,6 +12,16 @@
 --   who may open a client's restricted documents may read a transcript or
 --   confirm one.
 --
+--   **A machine draft carries no health, legal, benefits or family detail**,
+--   and is not kept at all when it does - from a transcript that is full of
+--   all four, which is what a real meeting sounds like. A staff member may
+--   write any of it: the judgement is theirs.
+--
+--   A draft runs to the cap or it is not kept.
+--
+--   **The transcript never leaves the recording.** What confirming writes is
+--   the six parts the person had in front of them, and none of the words.
+--
 --   The cost guard holds a recording before Azure is paid, says why, and
 --   holding one costs nothing. Letting a held one through is Admin's.
 --
@@ -30,10 +40,11 @@ declare
   v_admin uuid; v_admin_uid uuid := gen_random_uuid();
   v_coach uuid; v_coach_uid uuid := gen_random_uuid();
   v_client uuid;
-  v_att uuid; v_att2 uuid; v_pdf uuid;
-  v_rec uuid; v_rec2 uuid; v_rec3 uuid; v_again uuid;
+  v_att uuid; v_att2 uuid; v_pdf uuid; v_att4 uuid; v_att5 uuid;
+  v_rec uuid; v_rec2 uuid; v_rec3 uuid; v_again uuid; v_rec4 uuid; v_rec5 uuid;
   v_att3 uuid;
-  v_text text; v_n integer; v_state text; v_bool boolean;
+  v_text text; v_n integer; v_state text; v_bool boolean; v_note text;
+  v_case record;
   v_allowed integer;
   r record;
   failures text[] := '{}';
@@ -212,18 +223,140 @@ begin
     raise notice 'ok  three failures stop the asking, and the recording carries what Azure said';
   end if;
 
-  -- ── a reading, and a draft ─────────────────────────────────
-  perform public.recording_read(
-    v_rec,
-    jsonb_build_array(
-      jsonb_build_object('speaker', 1, 'at', 0, 'text', 'ZZ how did the week go'),
-      jsonb_build_object('speaker', 2, 'at', 6, 'text', 'ZZ I applied for two jobs')),
-    'ZZ how did the week go. ZZ I applied for two jobs.', 12.5);
-  perform public.recording_drafted(v_rec, jsonb_build_object(
-    'about', 'ZZ catch-up on the job search',
-    'agreed', 'ZZ two more applications this week',
+  -- ── a reading, with everything a meeting really holds ──────
+  --
+  -- The transcript is deliberately full of the four kinds the rule names:
+  -- her health, her family, the money the state pays her, and her lawyer.
+  -- That is what an hour of conversation with somebody about their working
+  -- life actually contains, and it is the case the rule exists for. The
+  -- practice keeps the words - they are what was said - and what it refuses
+  -- is a machine deciding they belong on a record.
+  --
+  -- Three recordings, one transcript. A draft that is refused leaves its
+  -- recording where it was, so a case that goes the wrong way would leave
+  -- the next one in a state it cannot be drafted from, and one exception
+  -- would hide two answers. A script that stops has said less than it knew.
+  insert into public.attachments
+    (client_id, storage_path, filename, mime_type, size_bytes, category, uploaded_by, uploaded_by_name)
+  values (v_client, 'zz/recording-four.m4a', 'ZZ a draft that says too much.m4a', 'audio/mp4', 700000,
+          'Recording', v_admin, 'ZZ Recording Admin')
+  returning id into v_att4;
+  insert into public.attachments
+    (client_id, storage_path, filename, mime_type, size_bytes, category, uploaded_by, uploaded_by_name)
+  values (v_client, 'zz/recording-five.m4a', 'ZZ a draft that runs on.m4a', 'audio/mp4', 700000,
+          'Recording', v_admin, 'ZZ Recording Admin')
+  returning id into v_att5;
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_admin_uid, 'role', 'authenticated')::text, true);
+  v_rec4 := public.start_recording(v_att4);
+  v_rec5 := public.start_recording(v_att5);
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  perform public.recording_reading(v_rec4, 'https://example.test/jobs/zz4');
+  perform public.recording_reading(v_rec5, 'https://example.test/jobs/zz5');
+
+  for v_case in select unnest(array[v_rec, v_rec4, v_rec5]) as id loop
+    perform public.recording_read(
+      v_case.id,
+      jsonb_build_array(
+        jsonb_build_object('speaker', 1, 'at', 0, 'text', 'ZZ how did the week go'),
+        jsonb_build_object('speaker', 2, 'at', 6,
+          'text', 'ZZ my mother drove me and the new medication made mornings hard'),
+        jsonb_build_object('speaker', 2, 'at', 14,
+          'text', 'ZZ my attorney says the SSDI review is still open'),
+        jsonb_build_object('speaker', 2, 'at', 20, 'text', 'ZZ I applied for two jobs')),
+      'ZZ how did the week go. ZZ my mother drove me and the new medication made mornings hard. '
+      || 'ZZ my attorney says the SSDI review is still open. ZZ I applied for two jobs.', 12.5);
+  end loop;
+
+  -- ── a draft that repeats it is not kept ────────────────────
+  v_text := public.recording_drafted(v_rec4, jsonb_build_object(
+    'kind', 'Planning meeting',
+    'present', 'ZZ and the job coach',
+    'discussed', 'ZZ her mother drove her and the new medication made mornings hard',
+    'decisions', 'ZZ two more applications this week',
     'next', 'ZZ ring on Thursday',
-    'note', 'ZZ applied for two jobs and will do two more.'));
+    'question', 'ZZ how is the SSDI review going'));
+  select g.state, g.summary, g.reason into v_case from public.recordings g where g.id = v_rec4;
+  if v_text = '' then
+    failures := failures ||
+      'FAILED: a machine draft carrying health, family and benefits detail was kept'::text;
+  elsif v_case.state <> 'Read' or v_case.summary is not null then
+    failures := failures || format(
+      'FAILED: a refused draft left the recording %s with a summary on it', v_case.state)::text;
+  elsif v_case.reason not like '%detail%' then
+    failures := failures || format(
+      'FAILED: the draft was refused and the recording does not say why: "%s"', v_case.reason)::text;
+  else
+    raise notice 'ok  a machine draft carrying health, legal, benefits or family detail is not kept';
+  end if;
+
+  -- Each of the four on its own, so a list that quietly loses one is noticed
+  -- rather than passing on the strength of the other three.
+  for v_case in
+    select * from (values
+      ('health',   'ZZ the new medication made mornings hard'),
+      ('legal',    'ZZ her attorney filed it last week'),
+      ('benefits', 'ZZ the SSDI review is still open'),
+      ('family',   'ZZ her mother drove her to the interview')
+    ) as t(kind, line)
+  loop
+    if public.machine_draft_problem(v_case.line) not like v_case.kind || '%' then
+      failures := failures || format(
+        'FAILED: %s detail is not caught: "%s"', v_case.kind, v_case.line)::text;
+    end if;
+  end loop;
+  raise notice 'ok  each of the four kinds is caught on its own';
+
+  -- And the other half of it. A guard that refuses everything is no guard:
+  -- this practice places people in hospitals and clinics, "disability" is
+  -- its subject and "benefits" is a thing an employer offers.
+  if public.machine_draft_problem(
+       'ZZ applied at the hospital and the clinic, and asked what benefits the employer offers'
+     ) <> '' then
+    failures := failures ||
+      'FAILED: an ordinary note about looking for work was refused as sensitive detail'::text;
+  else
+    raise notice 'ok  and ordinary work - hospitals, clinics, an employer''s benefits - is not refused';
+  end if;
+
+  -- ── and a draft that runs past the cap is not kept ─────────
+  v_text := public.recording_drafted(v_rec5, jsonb_build_object(
+    'kind', 'Planning meeting',
+    'present', 'ZZ and the job coach',
+    'discussed', btrim(repeat('ZZ applications ', 200)),
+    'decisions', '', 'next', '', 'question', ''));
+  select g.state, g.summary into v_case from public.recordings g where g.id = v_rec5;
+  if v_text = '' then
+    failures := failures || 'FAILED: a draft of 400 words was kept against a cap of 120'::text;
+  elsif v_case.state <> 'Read' or v_case.summary is not null then
+    failures := failures || format(
+      'FAILED: an over-long draft left the recording %s with a summary on it', v_case.state)::text;
+  elsif v_text not like '%words%' then
+    failures := failures || format('FAILED: refused, but not for its length: "%s"', v_text)::text;
+  else
+    raise notice 'ok  a draft past the cap is not kept, and says how long it ran';
+  end if;
+
+  -- ── the same transcript, drafted properly, is kept ─────────
+  --
+  -- Which is the point: the words are not the problem and the recording is
+  -- not refused for holding them. What is asked is of the draft.
+  v_text := public.recording_drafted(v_rec, jsonb_build_object(
+    'kind', 'Planning meeting',
+    'present', 'ZZ and the job coach',
+    'discussed', 'ZZ the week''s applications and the shift pattern at the warehouse',
+    'decisions', 'ZZ two more applications this week',
+    'next', 'ZZ the coach rings on Thursday morning',
+    'question', 'ZZ did the warehouse reply'));
+  select g.state, g.summary, g.reason into v_case from public.recordings g where g.id = v_rec;
+  if v_text <> '' then
+    failures := failures || format('FAILED: a clean draft was refused: %s', v_text)::text;
+  elsif v_case.state <> 'Drafted' or v_case.summary is null or v_case.reason <> '' then
+    failures := failures || format(
+      'FAILED: a clean draft left the recording %s', v_case.state)::text;
+  else
+    raise notice 'ok  a clean draft of the same transcript is kept, words and all';
+  end if;
 
   -- ── nothing is on the record yet ───────────────────────────
   select count(*) into v_n from public.contact_log where client_id = v_client;
@@ -257,7 +390,9 @@ begin
                      json_build_object('sub', v_coach_uid, 'role', 'authenticated')::text, true);
   v_text := '';
   begin
-    perform public.confirm_recording(v_rec3, 'ZZ about', '', '', 'ZZ note', 'General progress');
+    perform public.confirm_recording(
+      v_rec3, 'Planning meeting', null::date, 'ZZ and the coach', 'ZZ about',
+      '', '', '', 'General progress');
     v_text := 'allowed';
   exception when insufficient_privilege then
     v_text := sqlerrm;
@@ -273,24 +408,40 @@ begin
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_admin_uid, 'role', 'authenticated')::text, true);
 
-  -- ── the note is not optional ───────────────────────────────
-  v_text := '';
-  begin
-    perform public.confirm_recording(v_rec, 'ZZ about', '', '', '   ', 'General progress');
-    v_text := 'allowed';
-  exception when check_violation then
-    v_text := sqlerrm;
-  end;
-  if v_text = 'allowed' then
-    failures := failures || 'FAILED: a recording was confirmed with no note on the record'::text;
-  else
-    raise notice 'ok  the note is what goes on the record, so it is asked for';
-  end if;
+  -- ── what a record of a meeting has to say ──────────────────
+  --
+  -- Three of the six parts are not optional: what kind of contact it was,
+  -- who was there, and what was discussed. Without them it is not a record
+  -- of a meeting, it is a file with a date on it. Each is asked for
+  -- separately so that one of the three going missing is reported rather
+  -- than hidden behind the first.
+  for v_case in
+    select * from (values
+      ('a type of contact nobody uses', 'Catch-up', 'ZZ and the coach', 'ZZ the job search'),
+      ('nobody present',                'Phone',    '   ',              'ZZ the job search'),
+      ('nothing discussed',             'Phone',    'ZZ and the coach', '   ')
+    ) as t(what, kind, present, discussed)
+  loop
+    v_text := '';
+    begin
+      perform public.confirm_recording(
+        v_rec, v_case.kind, null::date, v_case.present, v_case.discussed, '', '', '', 'General progress');
+      v_text := 'allowed';
+    exception when check_violation then
+      v_text := sqlerrm;
+    end;
+    if v_text = 'allowed' then
+      failures := failures || format(
+        'FAILED: a recording was confirmed with %s', v_case.what)::text;
+    end if;
+  end loop;
+  raise notice 'ok  the type of contact, who was there and what was discussed are all asked for';
 
   -- ── confirming ─────────────────────────────────────────────
   perform public.confirm_recording(
-    v_rec, 'ZZ catch-up on the job search', 'ZZ two more applications this week',
-    'ZZ ring on Thursday', 'ZZ applied for two jobs and will do two more.', 'Job search');
+    v_rec, 'Planning meeting', null::date, 'ZZ and the job coach',
+    'ZZ catch-up on the job search', 'ZZ two more applications this week',
+    'ZZ the coach rings on Thursday morning', 'ZZ did the warehouse reply', 'Job search');
 
   select g.state, g.contact_log_id, g.note_id, g.confirmed_by into r
     from public.recordings g where g.id = v_rec;
@@ -310,15 +461,15 @@ begin
   select l.method, l.topic, l.outcome, l.staff_id into r
     from public.contact_log l
    where l.id = (select g.contact_log_id from public.recordings g where g.id = v_rec);
-  if r.method <> 'Meeting' or r.topic not like 'ZZ catch-up%' then
+  if r.method <> 'Planning meeting' or r.topic not like 'ZZ catch-up%' then
     failures := failures || format('FAILED: the contact log says %s / %s', r.method, r.topic)::text;
-  elsif r.outcome not like '%Next: ZZ ring on Thursday%' then
+  elsif r.outcome not like '%Next: ZZ the coach rings on Thursday morning%' then
     failures := failures || format(
       'FAILED: what happens next is not in the outcome: "%s"', r.outcome)::text;
   elsif r.staff_id is distinct from v_admin then
     failures := failures || 'FAILED: the contact log entry is not under the confirming person'::text;
   else
-    raise notice 'ok  and it is a Meeting, in the words the person confirmed';
+    raise notice 'ok  and it is the type of contact, in the words the person confirmed';
   end if;
 
   select n.type, n.category, n.attachment_id into r
@@ -330,6 +481,53 @@ begin
     failures := failures || 'FAILED: the note does not point at the recording it came from'::text;
   else
     raise notice 'ok  the note points at the recording, so anybody reading it can hear what it came from';
+  end if;
+
+  -- ── the note is the six parts, and the words stay behind ───
+  --
+  -- The transcript is a machine's record of a conversation about somebody's
+  -- life, and it is readable by the people who may open the audio and nobody
+  -- else. What goes on the record is what a person read and agreed to. So
+  -- the note is asserted both ways: it is in the shape, and it carries none
+  -- of the four things the transcript said that the draft left out.
+  select n.text into v_note from public.notes n
+   where n.id = (select g.note_id from public.recordings g where g.id = v_rec);
+  if v_note like '%mother%' or v_note like '%medication%'
+     or v_note like '%SSDI%' or v_note like '%attorney%' then
+    failures := failures || 'FAILED: the transcript reached the note'::text;
+  elsif v_note not like 'Planning meeting, %' or v_note not like '%Present: ZZ and the job coach%'
+     or v_note not like '%Discussed: ZZ catch-up%' or v_note not like '%Next steps: %'
+     or v_note not like '%Follow-up question: ZZ did the warehouse reply%' then
+    failures := failures || format('FAILED: the note is not in the shape: "%s"', v_note)::text;
+  else
+    raise notice 'ok  the note is the six parts, and none of the transcript';
+  end if;
+
+  select l.topic || ' ' || l.outcome into v_text from public.contact_log l
+   where l.id = (select g.contact_log_id from public.recordings g where g.id = v_rec);
+  if v_text like '%mother%' or v_text like '%medication%'
+     or v_text like '%SSDI%' or v_text like '%attorney%' then
+    failures := failures || 'FAILED: the transcript reached the contact log'::text;
+  else
+    raise notice 'ok  and none of it reached the contact log either';
+  end if;
+
+  -- ── but a staff member may write any of it ─────────────────
+  --
+  -- The rule is about a machine deciding what belongs on somebody's record,
+  -- not about what the practice may record. A member of staff who judges
+  -- that the attorney and the SSDI review are the reason this meeting
+  -- happened writes them, and nothing here argues.
+  perform public.confirm_recording(
+    v_rec3, 'Phone', null::date, 'ZZ and her mother', 'ZZ the SSDI review and her attorney',
+    'ZZ she will send the letter', '', '', 'General progress');
+  select n.text into v_note from public.notes n
+   where n.id = (select g.note_id from public.recordings g where g.id = v_rec3);
+  if v_note is null or v_note not like '%attorney%' or v_note not like '%mother%' then
+    failures := failures ||
+      'FAILED: a staff member could not put on the record what they judged belonged there'::text;
+  else
+    raise notice 'ok  and a staff member writes whatever they judge belongs on the record';
   end if;
 
   -- ── and a confirmed one is not undone by setting it aside ──

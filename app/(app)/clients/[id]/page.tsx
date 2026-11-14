@@ -922,10 +922,15 @@ export default async function ClientPage({
     // The recording's own filename comes from the document it is, so the card
     // names the file a person can listen to rather than an id.
     const fileNameOf = new Map((files ?? []).map((f) => [f.id, f.filename]));
+    // And the date on the recording, which is the day of the meeting and so
+    // the day the contact log and the note are dated. A person can change it
+    // on the form; nothing here guesses one.
+    const fileDateOf = new Map((files ?? []).map((f) => [f.id, f.document_date]));
     const recordings: RecordingRow[] = ((recordingRows ?? []) as Record<string, unknown>[]).map((r) => ({
       id: String(r.id),
       attachment_id: String(r.attachment_id),
       filename: fileNameOf.get(String(r.attachment_id)) ?? "",
+      document_date: fileDateOf.get(String(r.attachment_id)) ?? null,
       state: String(r.state ?? ""),
       minutes: r.minutes === null || r.minutes === undefined ? null : Number(r.minutes),
       reason: String(r.reason ?? ""),

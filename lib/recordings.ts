@@ -1,5 +1,7 @@
 import "server-only";
 
+import { CONTACT_KINDS, type Summary } from "@/lib/recordings-shape";
+
 /**
  * Reading a recording: Azure Speech for the words, Azure OpenAI for the draft.
  *
@@ -51,12 +53,7 @@ export type Reading = {
   minutes: number;
 };
 
-export type Summary = {
-  about: string;
-  agreed: string;
-  next: string;
-  note: string;
-};
+export type { Summary } from "@/lib/recordings-shape";
 
 type Fail = { ok: false; error: string };
 type Ok<T> = { ok: true; data: T };
@@ -263,16 +260,20 @@ export async function draftSummary(params: {
 
   const system = [
     "You summarise a recorded meeting between a vocational rehabilitation practice and a client.",
-    "Answer as JSON with exactly these keys: about, agreed, next, note.",
-    "about: one short line naming what the meeting was about.",
-    "agreed: what was decided or agreed, in one or two sentences. Empty if nothing was.",
-    "next: what happens next and who is doing it, in one sentence. Empty if nothing was arranged.",
-    "note: two or three sentences for the client's record, in plain English, written to be read by a colleague.",
-    "Write only what was said in the recording. Never infer, never advise, never add encouragement.",
-    "Leave out anything medical, any diagnosis, anything about benefits or money the client receives,",
-    "anything legal, and anything an employer said in confidence about their business or another employee.",
-    "Do not name anybody other than the client and the staff who were present.",
-    "No exclamation marks.",
+    "Answer as JSON with exactly these keys: kind, present, discussed, decisions, next, question.",
+    "kind: exactly one of \"Job site visit\", \"Planning meeting\", \"Phone\" — whichever the recording is of.",
+    "present: who was in the conversation, named as they were named in it.",
+    "discussed: what was discussed, in one or two sentences.",
+    "decisions: what was decided. Empty if nothing was.",
+    "next: the next steps and who is doing them, with a day only where one was said in those words.",
+    "Never work out a date and never guess one.",
+    "question: one thing worth asking at the next contact. Empty if nothing is.",
+    "The whole answer is 100 words or fewer across all six. It is read before a meeting, not instead of the recording.",
+    "Minimum necessary: nothing about the client's health, any diagnosis or medication, nothing legal,",
+    "nothing about benefits or money the state pays them, and nothing about their family.",
+    "Leave those out even when they were discussed — the staff member adds what belongs on the record.",
+    "Leave out anything an employer said in confidence about their business or another employee.",
+    "Write only what was said. Never infer, never advise, never add encouragement. No exclamation marks.",
   ].join(" ");
 
   let res: Response;
@@ -314,13 +315,19 @@ export async function draftSummary(params: {
   }
 
   const line = (k: string) => String(parsed[k] ?? "").replace(/\s+/g, " ").trim();
+  const kind = line("kind");
   const summary: Summary = {
-    about: line("about"),
-    agreed: line("agreed"),
+    // A type of contact that is not one of the three is no type of contact.
+    // The person chooses on the form either way; an answer off the list would
+    // only preselect something the database then refuses.
+    kind: (CONTACT_KINDS as readonly string[]).includes(kind) ? kind : "",
+    present: line("present"),
+    discussed: line("discussed"),
+    decisions: line("decisions"),
     next: line("next"),
-    note: String(parsed.note ?? "").trim(),
+    question: line("question"),
   };
-  if (!summary.about && !summary.note) {
+  if (!summary.discussed && !summary.decisions && !summary.next) {
     return fail("Azure OpenAI answered with no summary in it.");
   }
   return { ok: true, data: summary };
