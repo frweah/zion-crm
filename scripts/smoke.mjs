@@ -250,7 +250,7 @@ async function pass(role) {
     if (!r.body) continue;
     // A hub card, and nothing else: following every link on every page would
     // chase filters and anchors and report 404s that are not faults.
-    for (const tag of r.body.matchAll(/<a[^>]*class="hub-card"[^>]*>/g)) {
+    for (const tag of r.body.matchAll(/<a\b[^>]*class="hub-card"[^>]*>/g)) {
       const href = (tag[0].match(/href="([^"]+)"/) ?? [])[1];
       if (href && href.startsWith("/") && !href.includes("#") && !paths.includes(href)) {
         inside.add(href);
@@ -307,7 +307,7 @@ async function pass(role) {
       const href = m[1].replace(/&amp;/g, "&").split("#")[0];
       if (!href) continue;
       // Already opened, or a sign-out that would end the run.
-      if (followed.has(href) || /^\/(login|logout|api)/.test(href)) continue;
+      if (followed.has(href) || /^\/(login|logout|api)\b/.test(href)) continue;
       // The sidebar is in every page's HTML, so its own entries are not this
       // page's links: following them warned three times a run about hub roots
       // a role cannot open, which is a question about the sidebar and is
@@ -545,6 +545,37 @@ for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
   // Between them the two accounts must have opened both. Said per role, and
   // counted across roles at the end.
   backChecked.push(...hubTabs.map((r) => r.path));
+
+  /**
+   * No warrant on anybody's screen but Admin's.
+   *
+   * The owner's ruling, 14 November 2026: a warrant stub, a warrant line, a
+   * voucher number and a warrant total are Admin's, and Billing sees the
+   * outcome. The database holds that - the columns are closed and
+   * `verify_warrants_are_admins` asks a real Billing session for every one of
+   * them - but what the database refuses and what a page prints are two
+   * questions, and this is the one nothing else asks: the rendered HTML of
+   * every screen this role just opened, read for a number.
+   *
+   * Shapes rather than the word: "warrant" appears on these screens as
+   * provenance ("backfilled from the warrant that paid it"), which is not a
+   * warrant. A USOR warrant number is F followed by eight digits and a
+   * voucher is a V or a year-and-letter prefix followed by digits, so those
+   * are what is looked for.
+   */
+  if (role !== "Admin") {
+    const NUMBER = /\b(F\d{8}|V\d{7}|2[0-9][A-Z]{1,2}\d{5,})\b/;
+    for (const r of results) {
+      if (!r.ok || !r.body) continue;
+      const found = NUMBER.exec(r.body);
+      if (!found) continue;
+      results.push({
+        path: `${r.path} (a warrant number on the page)`,
+        ok: false,
+        why: `the page prints ${found[1]}, which looks like a warrant or voucher number - warrants are Admin's`,
+      });
+    }
+  }
 
   return { results, client, item, statement };
 }

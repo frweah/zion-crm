@@ -1911,6 +1911,21 @@ export type Database = {
         };
         Relationships: [];
       };
+      correction_is_admins: {
+        Row: {
+          correction_id: number;
+          recorded_at: string;
+        };
+        Insert: {
+          correction_id: number;
+          recorded_at?: string;
+        };
+        Update: {
+          correction_id?: number;
+          recorded_at?: string;
+        };
+        Relationships: [];
+      };
       counselors: {
         Row: {
           id: string;

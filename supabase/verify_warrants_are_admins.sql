@@ -128,6 +128,23 @@ begin
   values (v_auth, 'ZZ-WARRANT-1', 'Warrant', '', 'ZZ15000001', 'fixture',
           v_admin.id, 'ZQ Fixture');
 
+  /*
+   * And a correction on a different field whose *words* name the warrant.
+   *
+   * This is the one the smoke found and nothing else did: the reason on a
+   * 'Paid on' correction read "Warrant F15677921 is dated Nov 3, 2026 and the
+   * payment was recorded as Nov 6", and the field is not 'Warrant', so the
+   * field test let it through. The row is kept whole - it is somebody's
+   * account of a real correction - and the trigger from 0364 records that it
+   * is Admin's.
+   */
+  insert into public.authorization_corrections
+    (auth_id, auth_number, field, was_value, new_value, reason, staff_id, staff_name)
+  values (v_auth, 'ZZ-WARRANT-1', 'Paid on', '', public.practice_today()::text,
+          'Warrant ZZ15000001 is dated today and the payment was recorded yesterday.',
+          v_admin.id, 'ZQ Fixture');
+
+
   -- ── 1. the closed set is exactly the warrant columns ───────
   --
   -- Asked of the catalogue, not of a list of names: a column added to one of
@@ -267,6 +284,17 @@ begin
       failures := failures || format(
         'FAILED: %s reads %s logged warrant change(s), before and after', v_msg, v_n)::text;
     end if;
+
+    -- And the correction whose words name a warrant, on a field that is not
+    -- the warrant. Asked through the flag rather than by searching the text,
+    -- which is the same way the policy asks it.
+    select count(*) into v_n from public.authorization_corrections k
+     where exists (select 1 from public.correction_is_admins c where c.correction_id = k.id);
+    if v_n <> 0 then
+      failures := failures || format(
+        'FAILED: %s reads %s correction(s) whose reason names a warrant', v_msg, v_n)::text;
+    end if;
+
 
     -- and the five functions
     v_ok := false;
@@ -449,6 +477,19 @@ begin
   if v_n <> 1 then
     failures := failures || 'FAILED: Admin cannot read a logged warrant change'::text;
   end if;
+  select count(*) into v_n from public.authorization_corrections k
+   where k.auth_id = v_auth
+     and exists (select 1 from public.correction_is_admins c where c.correction_id = k.id);
+  -- One: the fixture's 'Paid on' correction, whose words name the warrant.
+  -- The 'Warrant' correction beside it is hidden by the field rather than by
+  -- the flag, and its own reason names nothing.
+  if v_n <> 1 then
+    failures := failures || format(
+      'FAILED: Admin reads %s of the 1 correction whose words name a warrant, so the account of a real correction has been lost to a permission',
+      v_n)::text;
+  else
+    raise notice 'ok  and Admin reads the correction whose words name a warrant, words intact';
+  end if;
 
   v_msg := null;
   begin
@@ -506,6 +547,41 @@ begin
       'FAILED: the records-request bundle still puts the warrant or the voucher in the invoice'::text;
   else
     raise notice 'ok  the bundle carries no warrant and no voucher';
+  end if;
+
+  /*
+   * The status history.
+   *
+   * `authorization_transition` wrote `new.warrant` as the note on every move
+   * to Paid - nothing else - so thirteen rows of a log that Billing reads were
+   * a bare warrant number. Found by rendering the authorization record as the
+   * Billing person and reading the HTML, which is the only thing that found
+   * it: no column grant covers a log, and no screen names a warrant column to
+   * put it there.
+   *
+   * Asked of the whole table, and of the trigger that writes it, because a
+   * row cleared without the writer being stopped comes straight back.
+   */
+  select count(*) into v_n
+    from public.authorization_events e
+   where exists (
+     select 1 from (
+       select warrant_no as n from public.payments where coalesce(warrant_no, '') <> ''
+       union select warrant from public.authorizations where coalesce(warrant, '') <> ''
+       union select warrant_no from public.warrant_pages where coalesce(warrant_no, '') <> ''
+     ) w
+      where e.note like '%' || w.n || '%');
+  if v_n <> 0 then
+    failures := failures || format(
+      'FAILED: %s status note(s) name a warrant, and Billing reads that log', v_n)::text;
+  elsif (select pg_get_functiondef(p.oid) from pg_proc p
+           join pg_namespace ns on ns.oid = p.pronamespace
+          where ns.nspname = 'public' and p.proname = 'authorization_transition')
+        like '%nullif(new.warrant%' then
+    failures := failures ||
+      'FAILED: the status trigger still writes the warrant number as the note'::text;
+  else
+    raise notice 'ok  no status note names a warrant, and the trigger no longer writes one';
   end if;
 
   -- And the ledger stops writing one into a journal memo, which Books shows.

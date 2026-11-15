@@ -185,6 +185,9 @@
     "conversations": [
       "select"
     ],
+    "correction_is_admins": [
+      "select"
+    ],
     "counselors": [
       "delete",
       "insert",

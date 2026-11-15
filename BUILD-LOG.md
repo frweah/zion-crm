@@ -9752,3 +9752,67 @@ fail, naming the rule they broke.
 
 The existing `verify_warrants.sql` stays what it is — warrant reconciliation —
 with its Billing assertions moved to Admin and the reader.
+
+### What the smoke found that nothing else did
+
+There is no Billing smoke account in `.env.local` — the credentials are CI
+secrets — so the browser leg was done the other way: the dev server rendering
+production's data as the Billing person, with the temporary auth stub, and the
+HTML read for a warrant-shaped number.
+
+`/admin/warrants` answered 307, which is the screen half of the ruling.
+`/billing`, Authorizations, the Service log, Invoices, Books, two
+authorization records, the client's Billing tab and both CSV exports printed
+no warrant number — except one, on the authorization record:
+
+> Submitted → Paid — F15677921
+
+Two places the ruling had not reached, and they want opposite treatment.
+
+**The status note was only ever the number.**
+`authorization_transition` writes an `authorization_events` row on every
+status move, and for a move to Paid the note it wrote was `new.warrant` and
+nothing else. Thirteen existed, and the table is read by Admin or anybody with
+a billing area grant. The number is on the payment, where Admin reads it, so
+the trigger stops writing it and the thirteen are blanked: there is no account
+of anything there to keep.
+
+**The correction reason is somebody's account of a real correction.** Seven
+`authorization_corrections` rows name a warrant in their reason, and they are
+not machine provenance like the notes in 0362 — they are the owner's own prose
+about money taken back twice over. Rewriting that would damage the record of a
+real correction to make a permission true, which is the wrong way round. So
+the row is kept whole and read by Admin.
+
+The flag that says so sits *beside* the log rather than in it. The first
+version of 0364 added a column and set it on the seven rows, and the
+append-only trigger refused — rightly: *"The correction log is a record; it is
+added to, never changed or removed."* A permissions flag is not a reason to
+weaken the one guarantee that log carries. `correction_is_admins` names the
+correction instead, and an AFTER INSERT trigger on the log puts a row there
+whenever a reason names a warrant number the practice holds — asked once where
+the row arrives, rather than in each of the three writers, because a flag set
+by each of them is a flag the fourth writer forgets. `remove_payment` also
+stops naming the warrant and the voucher in its own preamble, so what is left
+for the flag is prose a person wrote on purpose.
+
+Matched against the numbers the practice actually holds rather than against a
+shape: an authorization number and an invoice number are both numbers in a
+reason, and Billing may read those.
+
+Two more faults put back, making eight: the status trigger writing the warrant
+as the note, and the correction policy opened up again. Both fail.
+
+And what the stub render cannot answer: it reads with the service key, so RLS
+is bypassed and that page still prints the reason under the stub. The RLS half
+was asked separately, as each real identity through `set_config` — Admin sees
+the correction, both Billing accounts and the reports manager with the billing
+grant see none of it, and the status notes are empty for all of them.
+
+`scripts/smoke.mjs` gained the assertion for the day the Billing account
+exists: every page a non-Admin session renders is read for a warrant-shaped
+number. Writing it turned up two **pre-existing** backspace characters in that
+file where `\b` was meant — one in the hub-card scan, one in the login-link
+filter — so both regexes had been matching a character that never appears in
+HTML, which is to say matching nothing. An earlier session's Python edit put
+them there. All four are word boundaries again.
