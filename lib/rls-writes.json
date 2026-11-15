@@ -170,6 +170,7 @@
     "contractor_profiles": [
       "delete",
       "insert",
+      "select",
       "update"
     ],
     "contractor_statements": [
@@ -369,7 +370,8 @@
       "select"
     ],
     "microsoft_connections": [
-      "delete"
+      "delete",
+      "select"
     ],
     "microsoft_subscriptions": [
       "select"
@@ -417,6 +419,7 @@
     "org_settings": [
       "delete",
       "insert",
+      "select",
       "update"
     ],
     "payments": [
@@ -687,6 +690,7 @@
     "tax_form_submissions": [
       "delete",
       "insert",
+      "select",
       "update"
     ],
     "tax_years": [

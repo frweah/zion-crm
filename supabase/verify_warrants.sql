@@ -18,7 +18,9 @@
 --   Billing list, and the arriving stub matches that payment rather than
 --   paying it twice - which is what takes it off the list.
 --
---   By hand, only Admin and Billing record or set aside a line. Nobody writes
+--   By hand, only Admin records or sets aside a line (the owner's ruling of
+--   14 Nov 2026 took Billing off it; who may see a warrant at all is asserted
+--   in verify_warrants_are_admins). Nobody writes
 --   payments directly. An invoice marked Paid by hand records its payment, and
 --   un-paying it takes that payment back.
 --
@@ -32,6 +34,7 @@ begin;
 
 do $$
 declare
+  v_stub_named_it boolean;
   v_admin   uuid;
   v_adm_uid uuid;
   v_js      uuid;
@@ -120,7 +123,7 @@ begin
      set status = 'Submitted', submitted_on = date '2026-01-02', recipient = 'ZZ USOR'
    where id = v_auth1;
   update public.authorizations
-     set status = 'Paid', paid_on = date '2026-01-15', paid_amount = 560, warrant = 'ZW0000001'
+     set status = 'Paid', paid_on = date '2026-01-15', paid_amount = 560
    where id = v_auth1;
   insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name)
   values (v_auth1, 560, 'ZW0000001', date '2026-01-15', '26PR00000000001', 'Workbook', 'Workbook import')
@@ -320,7 +323,7 @@ begin
       perform public.reconcile_warrant_line(v_l32, true, v_auth2a, 30);
       failures := failures || 'FAILED: Job Search recorded a warrant line by hand'::text;
     exception when insufficient_privilege then
-      raise notice 'ok  only Admin and Billing read warrants and record a line by hand';
+      raise notice 'ok  only Admin reads warrants and records a line by hand';
     end;
   end if;
 
@@ -338,8 +341,14 @@ begin
   r := null;
   select public.reconcile_warrant_line(v_l32, true, v_auth2a, 30) as status into r;
   if r.status <> 'Resolved by hand'
-     or not exists (select 1 from public.payments where warrant_line_id = v_l32 and source = 'By hand'
-                      and auth_id = v_auth2a and amount = 30 and recorded_by = v_admin)
+     -- Asked from the line's side. `payments.warrant_line_id` is closed to
+     -- everybody signed in since 0360 - Admin included, because a column
+     -- grant is to the one database role they all share - and the link is on
+     -- `warrant_lines.payment_id` too, which is a warrant table Admin reads.
+     or not exists (select 1 from public.warrant_lines l
+                      join public.payments y on y.id = l.payment_id
+                     where l.id = v_l32 and y.source = 'By hand'
+                       and y.auth_id = v_auth2a and y.amount = 30 and y.recorded_by = v_admin)
      or (select decided_by from public.warrant_lines where id = v_l32) is distinct from v_admin then
     failures := failures || 'FAILED: a line recorded by hand was not paid onto the chosen authorization, or not attributed'::text;
   else
@@ -379,20 +388,36 @@ begin
   elsif exists (select 1 from public.payment_waiting_for_its_warrant w where w.payment_id = v_wb_pay) then
     failures := failures || 'FAILED: a payment that names its warrant is waiting for one'::text;
   else
-    raise notice 'ok  money recorded without its stub waits on the Billing list, and one with a stub does not';
+    raise notice 'ok  money recorded without its stub waits on the list, and one with a stub does not';
   end if;
 
   -- The stub is read.
   r := null;
   select public.reconcile_warrant_line(v_l5) as status into r;
+
+  /*
+   * What the stub wrote onto the payment, asked as the database.
+   *
+   * The number, the voucher and the link to the line are closed to everybody
+   * signed in since 0360 - Admin included, because a column grant is to the
+   * one database role every signed-in person shares - so this one question
+   * steps outside the session and the answer is held in a boolean. The
+   * assertions around it stay in the Admin session, because the waiting list
+   * is a question only Admin may ask.
+   */
+  perform set_config('role', 'postgres', true);
+  select exists (select 1 from public.payments p
+                  where p.id = v_pay5 and p.warrant_no = 'ZW0000005'
+                    and p.warrant_date = date '2026-05-15'
+                    and p.voucher = '26PR00000000005' and p.warrant_line_id = v_l5)
+    into v_stub_named_it;
+  perform set_config('role', 'authenticated', true);
+
   if r.status <> 'Already recorded' then
     failures := failures || format('FAILED: the arriving stub made the waiting payment %s', r.status)::text;
   elsif (select count(*) from public.payments where auth_id = v_auth5) <> 1 then
     failures := failures || 'FAILED: the arriving stub paid the same money a second time'::text;
-  elsif not exists (select 1 from public.payments p
-                     where p.id = v_pay5 and p.warrant_no = 'ZW0000005'
-                       and p.warrant_date = date '2026-05-15'
-                       and p.voucher = '26PR00000000005' and p.warrant_line_id = v_l5) then
+  elsif not v_stub_named_it then
     failures := failures || 'FAILED: the stub did not put its number, date and voucher on the payment'::text;
   elsif exists (select 1 from public.payment_waiting_for_its_warrant w where w.payment_id = v_pay5) then
     failures := failures || 'FAILED: the payment is still waiting for a warrant it now has'::text;
@@ -420,8 +445,11 @@ begin
   -- or Workbook row with no number would mean reconciliation had stopped
   -- doing that - and the list would fill with money that is not missing
   -- anything.
+  -- Asked as the database: `warrant_no` is closed to everybody signed in.
+  perform set_config('role', 'postgres', true);
   select count(*) into v_count from public.payments
    where coalesce(btrim(warrant_no), '') = '' and source in ('Warrant', 'Workbook');
+  perform set_config('role', 'authenticated', true);
   if v_count <> 0 then
     failures := failures || format('FAILED: %s payment(s) came off a warrant with no warrant number on them', v_count)::text;
   else

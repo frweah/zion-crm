@@ -9575,3 +9575,180 @@ with half an hour of break and 13:30-16:00, one with an account and a file
 and one with nothing said. Both are **voided** now, with the reason on them,
 so no hour of it counts; the End of day line it wrote says so in its own text
 and comes off in one click.
+
+## 15 Nov 2026 — warrants move to Admin
+
+The owner's ruling: everything warrant-related lives in Admin and nowhere
+else. Billing cannot see a warrant stub, a warrant line, a voucher number or a
+warrant total anywhere — not on the Billing page, the authorization record,
+the invoice or the client Billing tab — and neither can a reports manager
+holding a billing grant. Billing still sees the outcome: Paid or Short-paid,
+the day, the amount. Enforced in the database, not on the screens.
+
+### Report-first, and what it changed about the job
+
+Three tables were gated — `warrant_lines`, `warrant_pages`,
+`warrant_documents` — read by Admin, Billing, or anybody with a billing view
+grant. **Nothing else was.**
+
+The warrant and voucher numbers also live on `payments`, `invoices` and
+`authorizations`, whose read policy is `is_active_staff()`. Asked through RLS
+as each role that has a login, a Job Search session and a Case Manager session
+each read all 159 warrant numbers, all 159 vouchers, all 161 invoice warrants
+and all 146 authorization warrants. The screens never showed them. The
+database never refused them.
+
+So this was not a tab moving. The columns had to close, and closing a column
+closes it for Admin too, because a column grant is to the `authenticated`
+database role and that is who every signed-in person is. Admin reaches warrant
+data the way a manager reaches a day's hours: through a definer function that
+answers one question.
+
+Four more leaks the survey turned up that nobody had asked about:
+
+- **`warrants_not_accounted_for()` had no role guard at all.** Its filter is
+  `reader_may_answer()`, which means "somebody is signed in". A definer
+  function reading `warrant_lines` with no guard is the gate standing open
+  beside the locked door: every signed-in person could ask which warrants do
+  not add up and get the numbers. It was also on no screen — called only by
+  0326's own block and by `verify_warrant_lines` — so the practice could
+  answer "this stub says $2,610 and $2,250 is recorded against it" and nobody
+  could ask it. It is on Admin → Warrants now.
+- **`authorization_record` has no `security_invoker`**, so its `warrant`
+  column read as the view's owner. A definer view is a door a column grant
+  does not shut; the column had to come out of the view itself.
+- **`client_activity` wrote the warrant number and the voucher into the detail
+  of a payment on the client's own timeline** — "Warrant F15xxxxxx · voucher
+  26Axxxxx". Every role that can open a client could read it there.
+- **The invoices export carried Warrant and Voucher and was not Admin-only.**
+  It is offered on Admin → Money, which only Admin can open, but the route
+  itself only refuses the `adminOnly` kinds, so a Billing session that knew
+  the URL got the CSV.
+
+And the one no grant can close: **282 notes named a warrant in prose** — 124
+on authorizations, 158 on invoices — all of them machine-written provenance
+from the workbook import, in eight templates, carrying real warrant numbers
+into sentences that Billing reads on the record and the invoice.
+
+### What was built
+
+**0360 — the door.** `warrant_hands()`, the rule in one place: Admin by role,
+and no grant widens it. The three warrant tables and the `warrants` storage
+bucket name it. The table-level SELECT comes off `payments`, `invoices` and
+`authorizations` and every column but the warrant ones is granted by name —
+Postgres will not let a column be revoked back out of a table grant, so the
+grant has to be rebuilt column by column. `authorizations` loses its
+table-level UPDATE the same way, or the warrant would be a field Billing
+cannot read and can still set. The four views that carried a warrant are
+rebuilt without it. `payments_for_billing()` and `payments_paid_between()` are
+how Billing reads a payment now: the amount, the day, where it came from.
+
+**0361 — the guards.** Every warrant function is `SECURITY DEFINER`, so each
+was reading and writing warrant data past RLS for whoever could call it. The
+five line-and-page functions ask Admin (and the reader running as the service
+role, where they already did); `warrants_not_accounted_for` gets the guard it
+never had; `record_payment`, `add_authorization` and `edit_authorization`
+refuse a warrant number from anybody but Admin; `records_request_bundle`
+stops putting the warrant and the voucher in the bundle; the two ledger
+postings stop writing the warrant number into a journal memo, which Books
+shows Billing; and `bank_suggestions` stops saying "Warrants paid and not yet
+banked" about a figure that is an outcome.
+
+Each definition was dumped from the live database with the new
+`scripts/dump-function.mjs` and had its guard replaced — not retyped from the
+migration that last created it, because the database drifts and an
+out-of-order re-run of a create-or-replace reverts the newer version.
+
+**0362 — the prose.** The three rewrites, with the user triggers off for the
+statement so 282 notes changing did not write 282 correction-log rows, and an
+assertion in the same transaction that no note still carries a number. The
+numbers themselves are untouched on `payments.warrant_no`,
+`invoices.warrant` and `authorizations.warrant`, which is where Admin reads
+them, so nothing is lost: *"USOR authorization #xxxxx · warrant F15xxxxxx"*
+becomes *"USOR authorization #xxxxx"*, *"From the warrant index: warrant
+F15xxxxxx, voucher 26Axxxxx."* becomes *"From the warrant index."*, and
+*"Invoice number read off warrant F15xxxxxx (3 November 2026)"* becomes
+*"Invoice number read off the warrant (3 November 2026)"*.
+
+**0363 — the activity line.** It says how the payment came to be on record —
+read from the warrant, workbook import, or by hand — which is the same words
+the authorization record uses, and names no number.
+
+**The screens.** `/billing/warrants` moved whole to `/admin/warrants`, with a
+redirect for bookmarks, and became a sidebar entry under Admin with
+`roles: ADMIN` and no `area` — an area there would hand it back to the billing
+grant, which is the whole ruling. The warrant panel and the "Paid this month"
+warrant columns came off the Billing page; the Warrant and Voucher columns off
+Invoices; the warrant off the authorization record, its Record payment form,
+its edit panel, its payments list and the client Billing tab; the Warrant
+number field off Add authorization; and Warrant and Voucher out of both
+exports — they are in `RESTRICTED_COLUMNS` now, so `check-exports` holds them
+out of every CSV including Admin's, because a CSV on somebody's laptop has no
+roles attached to it. The screen also gained the list that never existed: the
+warrants whose dollars do not add up.
+
+### Two things that were wrong on the way, and what they cost
+
+**`payments.warrant_date` should never have closed.** It holds the day the
+money arrived — `record_payment` writes the received date into it — and "paid
+on" is on the owner's own list of what Billing still sees. Closing it took
+down `client_activity`, `client_last_activity`, `invoice_month` and
+`billing_overview`, and told Admin it could no longer read a client's
+activity. Thirteen verify scripts failed at once. It is open, and
+`verify_warrants_are_admins` asserts both directions: the closed set is
+exactly the warrant identifiers, and Billing can still read the day a payment
+arrived.
+
+**The logged field is a label, not a column name.** The first version of the
+`authorization_corrections` policy compared `field <> 'warrant'`, and the
+column holds `'Warrant'` — the name a person reads. It matched nothing and hid
+nothing, and the fixture written to test it had been written the same wrong
+way, so every assertion around it passed. The check constraint on the column,
+which is the list of labels, is what caught it.
+
+Also worth writing down: **`select *` and a `%rowtype` read need table-level
+SELECT**, whatever the column grants say, so four verify scripts had to name
+their columns. `count(*)` does not — a `count(*)` refusal is reported as
+"permission denied for table payments" even when the real refusal is one
+column in the where clause, which is what made the first reading of these
+failures wrong.
+
+### Checks
+
+`check-warrants-stay` (prebuild) is the half no grant can hold: a warrant
+column may be named under `app/(app)/admin/warrants/`, by the reader's own
+routes and libraries, and nowhere else. It exists because the way warrants
+became Billing's in the first place was that the tables said
+`staff_has_area('billing')` and so the screens did too, and nobody wrote down
+that they should not. Faults put back: a `warrant_no` column on the Billing
+page fails it; a stale entry on its own allow-list fails it.
+
+`check-nav` gained a `WITHHELD` list — screens a role must not reach, by any
+route — asserted as "cannot reach" rather than read off the item's own
+`roles`, because the fault it is written for is a screen reached through
+something else. Fault put back: giving the Warrants item `area: "billing"`
+fails it three ways.
+
+The `/billing/` exemption from the copy length rules did not move with the
+screen. The design-language brief exempts warrants by name, so
+`check-words` and `check-copy` now name `/admin/warrants/` as well — a screen
+the brief says to leave alone had started failing on copy nobody had touched.
+
+`gen-types` was asking `has_table_privilege` for the write snapshot, which
+answers false for a table a person can still write most of: it said an
+authorization could not be updated at all while five screens were updating
+one. It asks `has_any_column_privilege` now, except for DELETE, which has no
+column-level form in Postgres and raises if you ask.
+
+`supabase/verify_warrants_are_admins.sql` — 16 assertions, run by hand with
+the suite. The two that matter most are the ones that would make the rest
+hollow: the billing grant is asked for everything Billing is asked for, and
+the ordinary work still goes through — Billing records a payment, edits an
+authorization, and reads what was paid and when. Six faults put back, each
+rollback-wrapped: the column granted back, a view carrying it again, the
+billing grant opening it, `record_payment` taking any warrant, the policy
+comparing the column name, and a warrant number back in a sentence. All six
+fail, naming the rule they broke.
+
+The existing `verify_warrants.sql` stays what it is — warrant reconciliation —
+with its Billing assertions moved to Admin and the reader.

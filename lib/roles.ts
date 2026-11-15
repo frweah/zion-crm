@@ -400,6 +400,19 @@ export const NAV_GROUPS: NavGroup[] = [
       // One number at a time with how consent was given: the owner's rule of
       // 9 November 2026, and there is no control on it that touches two.
       { label: "Texting consent", href: "/admin/consent", roles: ADMIN, note: "Numbers that cannot be texted yet, one at a time." },
+      /*
+       * Warrants (owner, 14 November 2026). Everything a warrant is, on one
+       * screen: the stubs the reader has taken in, the lines it could not
+       * prove, the payments with no stub on file, and the warrants whose
+       * dollars do not add up.
+       *
+       * `roles: ADMIN` and no `area`, which is the whole ruling. A billing
+       * grant is how a CPA and a reports manager are let into the money, and
+       * it used to carry warrants with it - the screens were gated on
+       * `can(me, "billing")` and the tables on `staff_has_area('billing')`.
+       * An area here would put it straight back.
+       */
+      { label: "Warrants", href: "/admin/warrants", roles: ADMIN, note: "What USOR paid, read from the stubs." },
       { label: "Money insights", href: "/insights/money", roles: ADMIN, area: "insights" },
       { label: "Referrals", href: "/insights/referrals", roles: ADMIN, area: "insights" },
       { label: "Outcomes", href: "/insights/outcomes", roles: ADMIN, area: "insights" },

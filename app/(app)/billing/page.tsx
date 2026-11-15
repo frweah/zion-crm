@@ -11,7 +11,6 @@ import {
   type AuthOption,
 } from "./billing-forms";
 import { readRateSchedule } from "@/lib/rate-schedule";
-import { WarrantsToReview, loadWarrantsToReview } from "./warrants/review-section";
 import { PageHead } from "../page-head";
 import { DataTable, type DataRow } from "../data-table";
 import { readBillingOffices, readBoParam, matchesBo } from "@/lib/billing-offices";
@@ -175,11 +174,19 @@ export default async function BillingPage({
         .select("id, number, client_id, auth_id, amount, amount_paid, status, submitted_on")
         .in("status", ["Submitted", "Short-paid"])
         .order("submitted_on", { ascending: true, nullsFirst: false }),
-      supabase
-        .from("payments")
-        .select("id, auth_id, amount, warrant_no, warrant_date, voucher, created_at")
-        .gte("warrant_date", `${new Date().toISOString().slice(0, 7)}-01`)
-        .order("warrant_date", { ascending: false }),
+      /*
+       * The month's payments, through the function rather than the table: the
+       * warrant number, the warrant date and the voucher are closed to
+       * everybody signed in since 0360, and `payments_paid_between` answers
+       * with the amount and the day the money arrived. Which is the figure
+       * this list is for.
+       */
+      supabase.rpc("payments_paid_between", {
+        p_from: `${new Date().toISOString().slice(0, 7)}-01`,
+        p_to: `${new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1))
+          .toISOString()
+          .slice(0, 10)}`,
+      }),
     ]);
 
     const over = (Array.isArray(overviewRows) ? overviewRows[0] : overviewRows) as
@@ -203,8 +210,7 @@ export default async function BillingPage({
       amount: number | null; amount_paid: number | null; status: string; submitted_on: string | null;
     }[];
     const paid = (paidRows ?? []) as {
-      id: string; auth_id: string | null; amount: number | null;
-      warrant_no: string | null; warrant_date: string | null; voucher: string | null;
+      id: string; auth_id: string | null; amount: number | null; paid_on: string | null;
     }[];
 
     const dayCount = (from: string | null) =>
@@ -325,31 +331,24 @@ export default async function BillingPage({
               label="payments this month"
               sortBy
               columns={[
-                { key: "day", label: "Warrant date" },
+                { key: "day", label: "Paid on" },
                 { key: "auth", label: "Authorization" },
-                { key: "warrant", label: "Warrant" },
                 { key: "amount", label: "Amount", align: "right" },
               ]}
               rows={paid.map((y) => {
                 const a = y.auth_id ? authNumber.get(y.auth_id) : undefined;
                 return {
                   key: y.id,
-                  text: [y.warrant_no, y.voucher].filter(Boolean).join(" "),
-                  sort: { day: y.warrant_date, amount: Number(y.amount ?? 0), warrant: y.warrant_no ?? "" },
+                  text: a ? authorizationNumberLabel(a) : "",
+                  sort: { day: y.paid_on, amount: Number(y.amount ?? 0) },
                   cells: {
-                    day: y.warrant_date ?? <span className="lock">—</span>,
+                    day: y.paid_on ?? <span className="lock">—</span>,
                     auth: a ? (
                       <Link href={`/billing/authorizations/${a.id}`} style={{ color: "var(--teal)" }}>
                         {authorizationNumberLabel(a)}
                       </Link>
                     ) : (
                       <span className="lock">None</span>
-                    ),
-                    warrant: (
-                      <span style={{ whiteSpace: "nowrap" }}>
-                        {y.warrant_no || <span className="lock">none on the row</span>}
-                        {y.voucher ? <span className="lock"> · {y.voucher}</span> : null}
-                      </span>
                     ),
                     amount: money(Number(y.amount ?? 0)),
                   },
@@ -667,10 +666,6 @@ export default async function BillingPage({
         </p>
       )}
 
-      {/* §9: warrant matching stays here. One warrant at a time, no totals. */}
-      <section id="warrant-review" style={{ marginTop: 32 }}>
-        <WarrantsToReview data={loadWarrantsToReview()} />
-      </section>
     </>
   );
 }

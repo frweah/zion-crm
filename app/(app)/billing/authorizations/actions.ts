@@ -421,18 +421,19 @@ export async function generateForm(_prev: ActionState, formData: FormData): Prom
  *
  * The date defaults to today and the amount to what the authorization comes
  * to, both in the database rather than here, so the working list's bulk clear
- * and this form cannot disagree about what a default is. The warrant number is
- * optional because the common case - clearing something settled months ago -
- * is a remittance that says what arrived and when, with the stub still to
- * come. When the stub does arrive, the warrant reader recognises this payment
- * and claims it rather than paying the authorization twice (0191).
+ * and this form cannot disagree about what a default is.
+ *
+ * No warrant number. The common case - clearing something settled months ago -
+ * is a remittance that says what arrived and when with the stub still to come,
+ * and since the owner moved warrants to Admin (14 November 2026) that is the
+ * only case: the warrant goes on when the stub is read, and the reader claims
+ * this payment rather than paying the authorization twice (0191).
  */
 export async function recordPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { supabase } = await billingHands();
   const id = String(formData.get("auth_id") ?? "");
   const received = String(formData.get("received") ?? "").trim();
   const amount = String(formData.get("amount") ?? "").trim();
-  const warrant = String(formData.get("warrant") ?? "").trim();
 
   if (received && !/^\d{4}-\d{2}-\d{2}$/.test(received)) {
     return { error: "That date does not look right.", ok: null };
@@ -445,7 +446,7 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
     p_auth: id,
     p_received: received || null,
     p_amount: amount ? Number(amount) : null,
-    p_warrant: warrant || null,
+    p_warrant: null,
     p_voucher: null,
   });
   if (error) return refusal(error.message);
@@ -479,7 +480,6 @@ const EDITABLE = [
   "recipient",
   "paid_on",
   "paid_amount",
-  "warrant",
   "note",
 ] as const;
 

@@ -75,7 +75,7 @@ export default async function InvoicesPage({
   let query = supabase
     .from("invoices")
     .select(
-      "id, number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, warrant, voucher, office_id, sent_to, source, note",
+      "id, number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, office_id, sent_to, source, note",
     )
     .order("submitted_on", { ascending: false, nullsFirst: false })
     .order("number", { ascending: false })
@@ -115,7 +115,7 @@ export default async function InvoicesPage({
         ? supabase
             .from("invoices")
             .select(
-              "id, number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, warrant, voucher, office_id, sent_to, source, note",
+              "id, number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, office_id, sent_to, source, note",
             )
             .eq("id", invoice)
             .maybeSingle()
@@ -369,7 +369,7 @@ export default async function InvoicesPage({
             { key: "amount", label: "Amount", align: "right" },
             { key: "status", label: "Status" },
             { key: "paid", label: "Paid", align: "right" },
-            { key: "warrant", label: "Warrant" },
+            { key: "paidOn", label: "Paid on" },
           ]}
           rows={invoices.map((i) => {
             const a = i.auth_id ? authOf.get(i.auth_id) : undefined;
@@ -385,7 +385,7 @@ export default async function InvoicesPage({
                 : null;
             return {
               key: i.id,
-              text: [i.number, name, a?.number, a?.service_type, i.warrant, i.voucher, i.status]
+              text: [i.number, name, a?.number, a?.service_type, i.status]
                 .filter(Boolean)
                 .join(" "),
               sort: {
@@ -398,7 +398,7 @@ export default async function InvoicesPage({
                 amount: Number(i.amount ?? 0),
                 status: i.status,
                 paid: Number(i.amount_paid ?? 0),
-                warrant: i.warrant,
+                paidOn: i.paid_on,
               },
               cells: {
                 number: (
@@ -468,14 +468,7 @@ export default async function InvoicesPage({
                 ) : (
                   <span className="lock">—</span>
                 ),
-                warrant: i.warrant ? (
-                  <span style={{ whiteSpace: "nowrap" }}>
-                    {i.warrant}
-                    {i.paid_on && <div className="lock">{i.paid_on}</div>}
-                  </span>
-                ) : (
-                  <span className="lock">—</span>
-                ),
+                paidOn: i.paid_on ?? <span className="lock">—</span>,
               },
             };
           })}

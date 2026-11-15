@@ -1,7 +1,5 @@
 "use server";
 
-import { can } from "@/lib/roles";
-
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
@@ -20,8 +18,8 @@ export type WarrantState = { error: string | null; ok: string | null };
  */
 export async function resolveWarrantLine(_prev: WarrantState, formData: FormData): Promise<WarrantState> {
   const me = await getCurrentStaff();
-  if (!me || !can(me, "billing", "edit")) {
-    return { error: "Only Admin and Billing record a warrant line.", ok: null };
+  if (!me || me.role !== "Admin") {
+    return { error: "A warrant is read on Admin → Warrants.", ok: null };
   }
 
   const lineId = String(formData.get("line_id") ?? "");
@@ -40,8 +38,7 @@ export async function resolveWarrantLine(_prev: WarrantState, formData: FormData
   });
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/billing/warrants");
-  revalidatePath("/billing");
+  revalidatePath("/admin/warrants");
   revalidatePath("/billing");
   return {
     error: null,
@@ -52,8 +49,8 @@ export async function resolveWarrantLine(_prev: WarrantState, formData: FormData
 /** Set a line aside: not a payment to this practice, a duplicate, a misread. */
 export async function dismissWarrantLine(_prev: WarrantState, formData: FormData): Promise<WarrantState> {
   const me = await getCurrentStaff();
-  if (!me || !can(me, "billing", "edit")) {
-    return { error: "Only Admin and Billing set a warrant line aside.", ok: null };
+  if (!me || me.role !== "Admin") {
+    return { error: "A warrant is read on Admin → Warrants.", ok: null };
   }
 
   const lineId = String(formData.get("line_id") ?? "");
@@ -64,6 +61,6 @@ export async function dismissWarrantLine(_prev: WarrantState, formData: FormData
   const { error } = await supabase.rpc("dismiss_warrant_line", { p_line: lineId, p_reason: reason });
   if (error) return { error: error.message, ok: null };
 
-  revalidatePath("/billing/warrants");
+  revalidatePath("/admin/warrants");
   return { error: null, ok: "Set aside." };
 }

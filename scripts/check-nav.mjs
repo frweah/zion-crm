@@ -84,7 +84,7 @@ if (orphans.length) {
 // not supposed to change, plus the two screens that did not exist before it.
 // The consolidation (Sept 2026) put these on fewer sidebar entries, so the
 // paths listed here are the entries; screens under them (/dashboard/needs,
-// /billing/import, /billing/warrants, a records request) are reached through
+// /billing/import, a records request) are reached through
 // them. Insights, Referrals included, is Admin's alone (owner, 14 Sept 2026),
 // and so is the whole Admin group (19 Sept 2026): the document inbox, the
 // agent's status, the monthly export and the rate schedule are under Billing.
@@ -102,7 +102,11 @@ const EXPECTED = {
     // whole practice at once; one client's numbers are on their own record,
     // which the record-keeping roles reach.
     "/admin/consent",
-    "/admin/documents", "/admin/hours", "/admin/people", "/admin/settings-hub", "/admin/system", "/admin/templates",
+    // "/admin/warrants" since 14 November 2026: the warrants folder was under
+    // Billing and is a sidebar entry of its own here now, because the owner's
+    // ruling is that everything warrant-related lives in Admin and nowhere
+    // else. Billing lost it, which is what WITHHELD below asserts.
+    "/admin/documents", "/admin/hours", "/admin/people", "/admin/settings-hub", "/admin/system", "/admin/templates", "/admin/warrants",
     // "/billing/invoices" since 6 November 2026: Phase 3 gives the practice an
     // invoice ledger, so the screen §9 removed when there was no invoice to
     // look at comes back. Read-only - nothing on it raises one.
@@ -145,10 +149,28 @@ const EXPECTED = {
 // Screens a role must still reach, now that they sit under a sidebar entry
 // rather than on one of their own.
 const STILL_REACHED = {
-  Admin: ["/dashboard/needs", "/billing/warrants", "/admin/documents/records-request/x"],
-  Billing: ["/dashboard/needs", "/billing/warrants"],
+  Admin: ["/dashboard/needs", "/admin/warrants", "/admin/documents/records-request/x"],
+  Billing: ["/dashboard/needs"],
   "Job Search": ["/dashboard/needs"],
   Reports: ["/dashboard/needs"],
+};
+
+/*
+ * Screens a role must not reach, by any route.
+ *
+ * The owner's ruling of 14 November 2026: warrants are Admin's, and neither
+ * Billing nor a reports manager with a billing grant may open them. Asserted
+ * as "cannot reach" rather than read off the item's own `roles`, because the
+ * fault this is written for is a screen reached through something else - the
+ * billing area grant opened `/billing/warrants` without ever naming it, which
+ * is how the folder came to be Billing's in the first place.
+ */
+const WITHHELD = {
+  Billing: ["/admin/warrants"],
+  Reports: ["/admin/warrants"],
+  "Job Search": ["/admin/warrants"],
+  "Case Manager": ["/admin/warrants"],
+  "Job Coach": ["/admin/warrants"],
 };
 
 for (const [role, expected] of Object.entries(EXPECTED)) {
@@ -162,6 +184,12 @@ for (const [role, paths] of Object.entries(STILL_REACHED)) {
   for (const p of paths) {
     const inside = reachableFor(role).some((i) => p === navPath(i.href) || p.startsWith(navPath(i.href) + "/"));
     if (!inside) fail(`${role} can no longer reach ${p}`);
+  }
+}
+for (const [role, paths] of Object.entries(WITHHELD)) {
+  for (const p of paths) {
+    const inside = reachableFor(role).some((i) => p === navPath(i.href) || p.startsWith(navPath(i.href) + "/"));
+    if (inside) fail(`${role} can reach ${p}, which is Admin's alone`);
   }
 }
 if (!problems.length) ok("each role reaches exactly the screens it should, and the screens under them");
@@ -500,6 +528,8 @@ const rel = (url) => {
 // ── everything that moved still answers ──────────────────────
 const config = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
 const MOVED = [
+  // Moved to Admin on 14 November 2026 with the rest of the warrants.
+  "/billing/warrants",
   "/needs",
   "/forms",
   "/revenue",

@@ -7133,7 +7133,6 @@ export type Database = {
           recipient: string | null;
           paid_on: string | null;
           paid_amount: number | null;
-          warrant: string | null;
           correction_note: string | null;
           followup_due: string | null;
           closed_reason: string | null;
@@ -7172,7 +7171,6 @@ export type Database = {
           amount: number | null;
           paid_on: string | null;
           paid_amount: number | null;
-          warrant: string | null;
           outstanding: boolean | null;
           paid: boolean | null;
         };
@@ -7244,7 +7242,6 @@ export type Database = {
           received_on: string | null;
           paid_on: string | null;
           paid_amount: number | null;
-          warrant: string | null;
           closed_reason: string | null;
           rate_type: string | null;
           rate: number | null;
@@ -8627,6 +8624,14 @@ export type Database = {
       pay_rate_on: {
         Args: { p_staff_id: string | null; p_date: string | null };
         Returns: { pay_rate: number | null; rate_unit: string | null; effective_from: string | null }[];
+      };
+      payments_for_billing: {
+        Args: { p_auths: string[] | null };
+        Returns: { id: string | null; auth_id: string | null; amount: number | null; paid_on: string | null; source: string | null; recorded_by_name: string | null }[];
+      };
+      payments_paid_between: {
+        Args: { p_from: string | null; p_to: string | null };
+        Returns: { id: string | null; auth_id: string | null; amount: number | null; paid_on: string | null }[];
       };
       period_end: {
         Args: { d: string | null };

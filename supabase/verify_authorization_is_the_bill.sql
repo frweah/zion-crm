@@ -309,7 +309,9 @@ begin
 
   -- ── paid posts the cash ───────────────────────────────────
   update public.authorizations
-     set status = 'Paid', paid_on = date '2026-10-20', paid_amount = 200, warrant = 'ZZ-W-9'
+     -- No warrant: it is closed to writing as well as reading since 0360,
+     -- and the warrant a payment names is Admin's.
+     set status = 'Paid', paid_on = date '2026-10-20', paid_amount = 200
    where id = v_auth;
 
   select coalesce(sum(l.debit), 0) - coalesce(sum(l.credit), 0) into v_amount

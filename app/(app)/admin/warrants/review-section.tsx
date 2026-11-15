@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { money } from "@/lib/constants";
 import { WarrantLineReview, type AuthOption, type ReviewLine } from "./warrant-review";
@@ -20,16 +19,16 @@ type ReviewPage = {
 /**
  * Warrant lines waiting for a person, beside a picture of the page.
  *
- * One home: shown on Billing → Authorizations, where the money it settles is, and at
- * the top of the full warrants list. Every line the page proved is already a
- * payment; these are the ones it could not prove. The reason a line stopped is
- * almost always visible on the stub - a digit OCR misread, a smudged total.
- * The storage policy lets only Admin and Billing sign the image links.
+ * One home: Admin → Warrants, which is the only screen warrants appear on
+ * since the owner moved them there on 14 November 2026. Every line the page
+ * proved is already a payment; these are the ones it could not prove. The
+ * reason a line stopped is almost always visible on the stub - a digit OCR
+ * misread, a smudged total. The storage policy lets only Admin sign the image
+ * links.
  */
 /**
- * What the section shows, as a loader. Billing → Authorizations starts it with its
- * own queries and hands the result over, so the section does not begin its
- * two waits only after the invoices have arrived.
+ * What the section shows, as a loader. It stays a loader so the page can start
+ * these two waits beside its own rather than after them.
  */
 export async function loadWarrantsToReview() {
   const supabase = await createClient();
@@ -60,10 +59,8 @@ export async function loadWarrantsToReview() {
 }
 
 export async function WarrantsToReview({
-  showAllLink = true,
   data,
 }: {
-  showAllLink?: boolean;
   /** Already started by the page; otherwise the section loads for itself. */
   data?: ReturnType<typeof loadWarrantsToReview>;
 }) {
@@ -76,7 +73,6 @@ export async function WarrantsToReview({
           Warrant lines needing review
           <span className="lock" style={{ fontWeight: 400 }}> · {waitingLines}</span>
         </h2>
-        {showAllLink && <Link href="/billing/warrants">Every warrant received</Link>}
       </div>
 
       {review.length === 0 && (

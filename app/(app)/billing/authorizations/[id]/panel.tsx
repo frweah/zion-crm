@@ -336,7 +336,13 @@ export function Forms({
  *
  * Both defaults are filled in rather than described - today, and what the
  * authorization comes to - because the common act is to glance at them and
- * press the button. The warrant number is blank and says it may stay blank.
+ * press the button.
+ *
+ * No warrant field. It was here until the owner moved warrants to Admin on
+ * 14 November 2026: Billing records what arrived and when, and the warrant
+ * goes on afterwards from the stub, on Admin → Warrants. `record_payment`
+ * refuses a warrant number from anybody else, so a field here would be a box
+ * that threw the whole payment away.
  */
 export function RecordPayment({
   authId,
@@ -375,10 +381,6 @@ export function RecordPayment({
           />
         </label>
       </div>
-      <label className="field">
-        <span>Warrant or check number</span>
-        <input name="warrant" placeholder="If the stub has not arrived yet, leave this blank" />
-      </label>
       <button className="btn gold" disabled={pending}>
         {pending ? "Recording…" : "Record the payment"}
       </button>
@@ -421,7 +423,6 @@ export function EditEverything({
     recipient: string | null;
     paid_on: string | null;
     paid_amount: number | null;
-    warrant: string | null;
     note: string;
   };
 }) {
@@ -534,10 +535,6 @@ export function EditEverything({
             defaultValue={rec.paid_amount == null ? "" : Number(rec.paid_amount).toFixed(2)}
           />
         </label>
-        <label className="field">
-          <span>Warrant</span>
-          <input name="warrant" defaultValue={rec.warrant ?? ""} />
-        </label>
       </div>
 
       <label className="field">
@@ -637,7 +634,7 @@ export function CorrectPaidDate({
         </label>
         <label className="field">
           <span>Why</span>
-          <input name="reason" required placeholder="The warrant is dated the 3rd, not the 30th" />
+          <input name="reason" required placeholder="The remittance is dated the 3rd, not the 30th" />
         </label>
       </div>
       <button className="btn" disabled={pending}>

@@ -40,7 +40,6 @@ export type ClientAuthRow = {
   received_on: string | null;
   paid_on: string | null;
   paid_amount: number | null;
-  warrant: string | null;
   closed_reason: string | null;
   rate_type: string;
   rate: number | null;
@@ -220,7 +219,7 @@ export function ClientAuthorizations({
                 ) : r.status === "Paid" ? (
                   <>
                     <span className="chip ok">Paid</span>
-                    {r.warrant ? <span className="lock"> · {r.warrant}</span> : null}
+                    {r.paid_on ? <span className="lock"> · {r.paid_on}</span> : null}
                   </>
                 ) : (
                   <span className="chip">{r.status}</span>
@@ -276,7 +275,7 @@ export function ClientAuthorizations({
               status: r.status,
               attention: r.urgency ?? 99,
             },
-            text: [r.number, r.service_type, r.status, r.warrant, r.attention]
+            text: [r.number, r.service_type, r.status, r.attention]
               .filter(Boolean)
               .join(" "),
           }))}
@@ -330,7 +329,6 @@ export function ClientAuthorizations({
                 recipient: acting.recipient,
                 paid_on: acting.paid_on,
                 paid_amount: acting.paid_amount == null ? null : Number(acting.paid_amount),
-                warrant: acting.warrant,
                 note: acting.note ?? "",
               }}
             />

@@ -79,7 +79,9 @@ export async function addAuthorization(
     p_received_on: str("received_on") || null,
     p_paid_on: paid ? paidOn : null,
     p_paid_amount: paid && str("paid_amount") ? Number(str("paid_amount")) : null,
-    p_warrant: paid ? str("warrant") : "",
+    // No warrant: it goes on when the stub is read, on Admin → Warrants, and
+    // `add_authorization` refuses one from anybody but Admin.
+    p_warrant: "",
   });
 
   if (error) return { error: friendly(error), ok: null };

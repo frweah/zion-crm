@@ -1,4 +1,3 @@
-import { can } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getCurrentStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -10,12 +9,12 @@ import { createClient } from "@/lib/supabase/server";
  * that shows a payment read from a warrant, so the stub is one click from the
  * money.
  *
- * The storage policy lets only Admin and Billing sign the link; this checks the
- * same thing first so anyone else gets a plain "not found" rather than an error.
+ * The storage policy lets only Admin sign the link (0363); this checks the same
+ * thing first so anyone else gets a plain "not found" rather than an error.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ pageId: string }> }) {
   const me = await getCurrentStaff();
-  if (!me || !can(me, "billing", "view")) {
+  if (!me || me.role !== "Admin") {
     return new NextResponse("Not found.", { status: 404 });
   }
 

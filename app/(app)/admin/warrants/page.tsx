@@ -1,21 +1,37 @@
-import { can } from "@/lib/roles";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { requireStaff } from "@/lib/session";
+import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, fmtStamp } from "@/lib/constants";
 import { WarrantsToReview } from "./review-section";
-import { RecordHeader } from "../../record-header";
+import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 
 /**
- * Every warrant received.
+ * Admin → Warrants: everything a warrant is.
  *
  * What USOR actually paid, read by the agent from the stubs in the _Warrants
- * folder. The lines waiting for review are on Billing → Authorizations beside the
- * money they settle; they are repeated at the top here only as the same
- * section, not a second list.
+ * folder. Moved here whole on 14 November 2026: the owner's ruling is that
+ * warrants live in Admin and nowhere else, so this screen is the import, the
+ * list, the lines waiting for review, the payments with no stub on file, and
+ * the warrants whose dollars do not add up. There is no second warrant screen
+ * and no warrant panel anywhere on Billing.
+ *
+ * `requireAdmin`, not a billing view: the billing area grant is how a CPA and
+ * a reports manager are let into the money, and the whole point of the ruling
+ * is that it stops carrying warrants with it. The database says the same thing
+ * in `warrant_hands()`, which is what actually holds - this redirect only
+ * saves somebody a screen of nothing.
  */
+
+type GapRow = {
+  warrant_no: string;
+  warrant_date: string | null;
+  total: number;
+  recorded: number;
+  gap: number;
+  pages: number;
+  lines: number;
+};
 
 type WaitingRow = {
   payment_id: string;
@@ -43,11 +59,10 @@ type PageRow = {
 };
 
 export default async function WarrantsPage() {
-  const me = await requireStaff();
-  if (!can(me, "billing", "view")) redirect("/dashboard");
+  await requireAdmin();
 
   const supabase = await createClient();
-  const [{ data: pageData }, { data: waitingData }] = await Promise.all([
+  const [{ data: pageData }, { data: waitingData }, { data: gapData }] = await Promise.all([
     supabase
       .from("warrant_pages")
       .select("id, page_no, image_path, warrant_no, warrant_date, total, status, received_at, warrant_documents(filename, page_count), warrant_lines(status, amount)")
@@ -61,10 +76,22 @@ export default async function WarrantsPage() {
       .from("payment_waiting_for_its_warrant")
       .select("payment_id, client_id, client_name, about, amount, warrant_date, source, recorded_by_name, days")
       .order("warrant_date", { ascending: true }),
+    /*
+     * The warrants whose dollars do not add up.
+     *
+     * `warrants_not_accounted_for` has existed since 0326 and has never been
+     * on a screen: it was called by that migration's own block and by
+     * `verify_warrant_lines`, and nowhere else. So the practice could answer
+     * "this stub says $2,610 and $2,250 is recorded against it" and nobody
+     * could ask it. It is asked here.
+     */
+    supabase.rpc("warrants_not_accounted_for"),
   ]);
 
   const waiting = (waitingData ?? []) as WaitingRow[];
   const waitingTotal = waiting.reduce((n, w) => n + Number(w.amount ?? 0), 0);
+
+  const gaps = ((gapData ?? []) as GapRow[]).map((g) => ({ ...g, gap: Number(g.gap) }));
 
   const pages = (pageData ?? []) as unknown as PageRow[];
   const allLines = pages.flatMap((p) => p.warrant_lines ?? []);
@@ -87,7 +114,7 @@ export default async function WarrantsPage() {
               {p.image_path && (
                 <>
                   {" · "}
-                  <a href={`/billing/warrants/image/${p.id}`} target="_blank" rel="noopener" style={{ color: "var(--teal)" }}>
+                  <a href={`/admin/warrants/image/${p.id}`} target="_blank" rel="noopener" style={{ color: "var(--teal)" }}>
                     page image
                   </a>
                 </>
@@ -124,10 +151,9 @@ export default async function WarrantsPage() {
 
   return (
     <>
-      <RecordHeader
-        back={{ href: "/billing?tab=authorizations", label: "Authorizations" }}
+      <PageHead
         title="Warrants"
-        standing="What USOR paid, read from the stubs in the _Warrants folder and reconciled against the authorizations and invoices on file"
+        context="What USOR paid, read from the stubs in the _Warrants folder"
         actions={
           <Link href="/insights/money#paid-and-outstanding" className="btn ghost" style={{ textDecoration: "none" }}>
             Paid &amp; outstanding
@@ -162,7 +188,7 @@ export default async function WarrantsPage() {
         </div>
       </div>
 
-      {count("Needs review") > 0 && <WarrantsToReview showAllLink={false} />}
+      {count("Needs review") > 0 && <WarrantsToReview />}
 
       <h2 className="h2" style={{ margin: "32px 0 8px" }}>
         Warrant not on file
@@ -220,6 +246,51 @@ export default async function WarrantsPage() {
           {money(waitingTotal)} received with no stub on file — put the warrant in <b>_Warrants</b> and
           reconciliation matches these rather than paying them twice
         </p>
+      )}
+
+      <h2 className="h2" style={{ margin: "32px 0 8px" }}>
+        Does not add up
+      </h2>
+      <div className="card" style={{ padding: 0 }}>
+        <DataTable
+          label="warrants whose dollars do not add up"
+          columns={[
+            { key: "warrant", label: "Warrant" },
+            { key: "date", label: "Date" },
+            { key: "total", label: "On the stub", align: "right" },
+            { key: "recorded", label: "Recorded", align: "right" },
+            { key: "gap", label: "Difference", align: "right" },
+            { key: "lines", label: "Lines" },
+          ]}
+          rows={gaps.map((g) => ({
+            key: g.warrant_no,
+            cells: {
+              warrant: <b>{g.warrant_no}</b>,
+              date: g.warrant_date ?? <span className="lock">—</span>,
+              total: money(Number(g.total)),
+              recorded: money(Number(g.recorded)),
+              gap: <span className="chip warn">{money(g.gap)}</span>,
+              lines: (
+                <span className="lock">
+                  {g.lines} on {g.pages} {g.pages === 1 ? "page" : "pages"}
+                </span>
+              ),
+            },
+            sort: {
+              warrant: g.warrant_no,
+              date: g.warrant_date,
+              total: Number(g.total),
+              recorded: Number(g.recorded),
+              gap: Math.abs(g.gap),
+              lines: g.lines,
+            },
+            text: [g.warrant_no, g.warrant_date].filter(Boolean).join(" "),
+          }))}
+          empty="Every warrant read accounts for every dollar on it."
+        />
+      </div>
+      {gaps.length > 0 && (
+        <p className="lock">Open the page image and add the line the reader missed</p>
       )}
 
       <h2 className="h2" style={{ margin: "32px 0 8px" }}>

@@ -96,7 +96,7 @@ export async function GET(
     const [{ data: invoices }, { data: auths }, { data: clients }] = await Promise.all([
       supabase
         .from("billed_work")
-        .select("auth_id, number, billed_on, amount, status, paid_on, paid_amount, warrant, service_type")
+        .select("auth_id, number, billed_on, amount, status, paid_on, paid_amount, service_type")
         .or(`and(billed_on.gte.${start},billed_on.lte.${end}),and(paid_on.gte.${start},paid_on.lte.${end})`)
         .order("billed_on"),
       supabase.from("authorizations").select("id, number, client_id"),
@@ -108,7 +108,7 @@ export async function GET(
 
     headers = [
       "Billing office", "Authorization", "Billed", "Client", "Client no", "USOR ID", "Service",
-      "Amount", "Status", "Paid", "Paid amount", "Warrant", "In this month",
+      "Amount", "Status", "Paid", "Paid amount", "In this month",
     ];
     rows = (invoices ?? []).map((i) => {
       const a = i.auth_id ? authById.get(i.auth_id) : undefined;
@@ -124,7 +124,7 @@ export async function GET(
         billing.forClient(a?.client_id)?.name ?? "",
         i.number || a?.number || "", i.billed_on ?? "", c?.name ?? "", c?.client_no ?? "",
         c?.agency_id ?? "", i.service_type, i.amount, i.status,
-        i.paid_on ?? "", i.paid_amount ?? "", i.warrant ?? "", belongs,
+        i.paid_on ?? "", i.paid_amount ?? "", belongs,
       ];
     });
     rows = byOffice(rows);
@@ -170,7 +170,7 @@ export async function GET(
         supabase
           .from("invoices")
           .select(
-            "number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, warrant, voucher, office_id, sent_to, source",
+            "number, client_id, auth_id, claim, submitted_on, amount, status, paid_on, amount_paid, office_id, sent_to, source",
           )
           .or(`and(submitted_on.gte.${start},submitted_on.lte.${end}),status.in.(Submitted,Short-paid)`)
           .order("submitted_on", { ascending: true, nullsFirst: false }),
@@ -186,7 +186,7 @@ export async function GET(
     headers = [
       "Invoice", "Sent", "Client", "Client no", "USOR ID", "Authorization", "Claim",
       "Service", "Office", "Sent to", "Amount", "Status", "Paid on", "Amount paid",
-      "Still owed", "Warrant", "Voucher", "Entered",
+      "Still owed", "Entered",
     ];
     rows = (invoices ?? []).map((i) => {
       const c = i.client_id ? clientById.get(i.client_id) : undefined;
@@ -200,7 +200,7 @@ export async function GET(
         a?.number ?? "", i.claim ?? "", a?.service_type ?? "",
         i.office_id ? (officeById.get(i.office_id)?.name ?? "") : "", i.sent_to,
         i.amount ?? "", i.status, i.paid_on ?? "", i.amount_paid ?? "",
-        owed || "", i.warrant, i.voucher, i.source,
+        owed || "", i.source,
       ];
     });
   } else if (kind === "placements") {

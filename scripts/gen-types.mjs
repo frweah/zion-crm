@@ -87,6 +87,10 @@ const RPC_FUNCTIONS = [
   "add_warrant_line",
   "correct_warrant_line",
   "warrants_not_accounted_for",
+  // A warrant is Admin's alone (0360). The warrant columns on `payments` are
+  // granted to nobody signed in, so Billing reads a payment through these.
+  "payments_for_billing",
+  "payments_paid_between",
   "claim_scheduled_text",
   "release_stale_text_claims",
   "authorization_attention_for",
@@ -569,6 +573,16 @@ function argsType(args) {
 // are no database credentials - so the answer is written down here, where the
 // credentials are. The check re-derives this whenever it can, and says plainly
 // when it could not.
+//
+// The grant is asked column by column, not table-wide. 0360 took the
+// table-level SELECT and UPDATE off `payments`, `invoices` and
+// `authorizations` and granted every column but the warrant ones by name,
+// which is the only way to close one column - revoking a column out of a table
+// grant does nothing. `has_table_privilege` then answers false for a table a
+// person can still write most of, and this file said an authorization could
+// not be updated at all while five screens were updating one. The question the
+// check is for is whether a write can land, so the question here is whether
+// any column can take it.
 const { rows: policies } = await client.query(`
   select c.relname, x.cmd
     from pg_class c
@@ -579,7 +593,13 @@ const { rows: policies } = await client.query(`
         ('update','w','UPDATE'), ('delete','d','DELETE')) as t(cmd, letter, priv)
     ) x
    where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
-     and has_table_privilege('authenticated', c.oid, x.priv)
+     and case when x.cmd = 'delete'
+                -- DELETE has no column-level form in Postgres: a row is
+                -- deleted whole or not at all, so it is only ever a table
+                -- privilege. Asking has_any_column_privilege for it raises.
+                then has_table_privilege('authenticated', c.oid, x.priv)
+                else has_any_column_privilege('authenticated', c.oid, x.priv)
+           end
      and exists (select 1 from pg_policy p
                   where p.polrelid = c.oid and p.polpermissive
                     and p.polcmd in (x.letter, '*'))

@@ -97,6 +97,13 @@ const nextConfig = {
       "/billing/items": "/billing?tab=authorizations",
       "/billing/items/:id": "/billing?tab=authorizations",
       "/admin/exports": "/billing/export",
+      /*
+       * The warrants folder, which was under Billing until the owner moved
+       * every warrant to Admin (14 November 2026). Admin keeps its bookmarks;
+       * anybody else lands on a screen their role closes, which is the honest
+       * answer to an old link to a screen that is no longer theirs.
+       */
+      "/billing/warrants": "/admin/warrants",
       // Paths that never had a page but were typed or linked anyway (punch
       // list #14, 20 Sept 2026): Admin opens on People, and the documents
       // inbox is Admin -> Documents wherever somebody went looking for it.

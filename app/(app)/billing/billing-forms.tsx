@@ -228,10 +228,6 @@ export function AddAuthorizationForm({
             Amount paid ($)
             <input name="paid_amount" type="number" step="0.01" placeholder="what it is worth" />
           </label>
-          <label className="field" style={{ maxWidth: 200 }}>
-            Warrant number
-            <input name="warrant" placeholder="if the stub has arrived" autoComplete="off" />
-          </label>
         </div>
       )}
 

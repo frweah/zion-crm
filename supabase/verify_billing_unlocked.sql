@@ -22,7 +22,9 @@
 --   six of the practice's twenty-one open authorizations come to nothing.
 --
 --   A warrant line that turns up later for a payment recorded by hand with
---   no warrant number claims that payment instead of paying it twice.
+--   no warrant number claims that payment instead of paying it twice - which
+--   is every payment Billing records, since the owner moved the warrant
+--   number to Admin on 14 November 2026.
 --
 --   A payment lands on an authorization nobody marked as sent, dated the day
 --   the money came, with the correction log saying where the submission date
@@ -115,7 +117,10 @@ begin
     json_build_object('sub', v_bil_uid, 'role', 'authenticated')::text, true);
 
   -- ═══ 1. paying one changes only that one ═══════════════════
-  v_pay := public.record_payment(v_a1, v_when, null, 'ZW-UN-0001', null);
+  -- No warrant number. `record_payment` refuses one from anybody but Admin
+  -- since 0361, and this session is Billing's: the amount and the day are
+  -- what Billing records, and the warrant goes on from the stub.
+  v_pay := public.record_payment(v_a1, v_when, null, null, null);
 
   select status into v_text from public.authorizations where id = v_a1;
   if v_text <> 'Paid' then
@@ -125,16 +130,15 @@ begin
   end if;
 
   if (select paid_amount from public.authorizations where id = v_a1) <> 300
-     or (select paid_on from public.authorizations where id = v_a1) <> v_when
-     or (select warrant from public.authorizations where id = v_a1) <> 'ZW-UN-0001' then
-    failures := failures || 'FAILED: the amount, the date or the warrant did not land on the record'::text;
+     or (select paid_on from public.authorizations where id = v_a1) <> v_when then
+    failures := failures || 'FAILED: the amount or the date did not land on the record'::text;
   else
-    raise notice 'ok  with the amount it comes to, the date received, and the warrant number';
+    raise notice 'ok  with the amount it comes to and the date received';
   end if;
 
   select count(*) into v_n from public.authorizations
    where id in (v_a2, v_a3)
-     and (status <> 'Due' or paid_on is not null or paid_amount is not null or warrant is not null);
+     and (status <> 'Due' or paid_on is not null or paid_amount is not null);
   if v_n > 0 then
     failures := failures || format('FAILED: paying one authorization moved %s of the client''s others', v_n)::text;
   else
@@ -343,9 +347,19 @@ begin
   values (v_doc, 1, 'ZW-UN-0009', v_when, 500.00) returning id into v_page;
   insert into public.warrant_lines (page_id, line_no, voucher, invoice_ref, described_ref, amount)
   values (v_page, 1, '26PR0000UN0009', 'ZQ-UN-3', 'ZQ-UN-3', 500) returning id into v_line;
-  perform set_config('role', 'authenticated', true);
-  perform set_config('request.jwt.claims',
-    json_build_object('sub', v_bil_uid, 'role', 'authenticated')::text, true);
+  -- The reader's own move, so as Admin: reconciling a warrant stopped being
+  -- Billing's on 14 November 2026. What is being tested here is not who may
+  -- do it - verify_warrants_are_admins asks that - but that a line arriving
+  -- for money Billing already recorded claims that payment rather than
+  -- paying it twice.
+  -- As the reader, which is what actually reconciles a warrant every other
+  -- day of the week: it runs as the service role with nobody signed in.
+  -- Billing did this until 14 November 2026 and does not now - who may is
+  -- asked in verify_warrants_are_admins. What is being tested here is that a
+  -- line arriving for money Billing already recorded claims that payment
+  -- rather than paying it twice.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
   v_text := public.reconcile_warrant_line(v_line, false, null, null);
 
@@ -463,7 +477,7 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_bil_uid, 'role', 'authenticated')::text, true);
 
-  v_pay := public.record_payment(v_a4, v_when, 250, 'ZW-UN-0010', null);
+  v_pay := public.record_payment(v_a4, v_when, 250, null, null);
   if (select status from public.authorizations where id = v_a4) <> 'Paid' then
     failures := failures || 'FAILED: a payment on an authorization nobody had submitted was refused, or did not pay it'::text;
   elsif (select submitted_on from public.authorizations where id = v_a4) is distinct from v_when then

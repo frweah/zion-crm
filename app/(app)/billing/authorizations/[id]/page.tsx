@@ -99,7 +99,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
       .maybeSingle(),
     supabase
       .from("invoices")
-      .select("id, number, claim, submitted_on, amount, status, paid_on, amount_paid, warrant, sent_to")
+      .select("id, number, claim, submitted_on, amount, status, paid_on, amount_paid, sent_to")
       .eq("auth_id", id)
       .order("number"),
   ]);
@@ -279,7 +279,6 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
           <h2 className="h2">Paid</h2>
           <p className="lock">
             {money(Number(rec.paid_amount ?? rec.amount ?? 0))} on {rec.paid_on}
-            {rec.warrant ? ` · warrant ${rec.warrant}` : ""}
           </p>
         </section>
       ) : null}
@@ -496,7 +495,6 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               recipient: (rec.recipient as string) ?? null,
               paid_on: (rec.paid_on as string) ?? null,
               paid_amount: rec.paid_amount == null ? null : Number(rec.paid_amount),
-              warrant: (rec.warrant as string) ?? null,
               note: (rec.note as string) ?? "",
             }}
           />
@@ -525,7 +523,7 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
                       </td>
                       <td className="lock">
                         {i.amount_paid
-                          ? `${money(Number(i.amount_paid))}${i.warrant ? ` on ${i.warrant}` : ""}${i.paid_on ? `, ${i.paid_on}` : ""}`
+                          ? `${money(Number(i.amount_paid))}${i.paid_on ? ` on ${i.paid_on}` : ""}`
                           : i.sent_to || ""}
                       </td>
                     </tr>

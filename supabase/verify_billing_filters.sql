@@ -30,7 +30,9 @@ declare
   v_lapsed   uuid;
   v_last     date := (date_trunc('month', public.practice_today()::timestamp) - interval '1 day')::date;
   v_this     date := public.practice_today();
-  v_row      public.authorizations;
+  -- A record rather than the row type: a `%rowtype` read is a `select *`,
+  -- which 0360 closed on this table so that one column could be.
+  v_row      record;
   v_bucket   text;
   v_month    date;
   v_n        integer;
@@ -88,7 +90,8 @@ begin
   -- ── 3. correcting the date moves the month ────────────────
   perform public.correct_payment_date(v_paid, v_this, 'The warrant is dated the day it arrived.');
 
-  select * into v_row from public.authorizations where id = v_paid;
+  select status, paid_on, paid_amount into v_row
+    from public.authorizations where id = v_paid;
   select date_trunc('month', w.paid_on)::date into v_month
     from public.billed_work w where w.auth_id = v_paid;
 

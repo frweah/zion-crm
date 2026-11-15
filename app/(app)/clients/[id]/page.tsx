@@ -44,7 +44,6 @@ import { type WorklistRow } from "../../billing/worklist";
 import { ClientAuthorizations, type ClientAuthRow } from "../../billing/client-authorizations";
 import { AddAuthorizationForm } from "../../billing/billing-forms";
 import { readRateSchedule } from "@/lib/rate-schedule";
-import { WarrantLink } from "../../billing/warrants/warrant-link";
 import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
@@ -745,7 +744,7 @@ export default async function ClientPage({
       supabase
         .from("client_authorizations")
         .select(
-          "id, number, has_usor_number, service_type, status, bucket, period, start_date, end_date, received_on, paid_on, paid_amount, warrant, closed_reason, rate_type, rate, total_hours, funding_source, bill_by, service_start, service_end, recipient, note, amount",
+          "id, number, has_usor_number, service_type, status, bucket, period, start_date, end_date, received_on, paid_on, paid_amount, closed_reason, rate_type, rate, total_hours, funding_source, bill_by, service_start, service_end, recipient, note, amount",
         )
         .eq("client_id", id)
         .order("start_date", { ascending: false, nullsFirst: false })

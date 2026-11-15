@@ -38,7 +38,7 @@ export const EXPORTS: ExportKind[] = [
     key: "billed-work",
     label: "Billed work and payments",
     detail:
-      "Work submitted to USOR in the month, and separately what was paid in the month — a warrant often lands in a different month from the submission. Grouped by billing office.",
+      "Work submitted to USOR in the month, and separately what was paid in the month — money often lands in a different month from the submission. Grouped by billing office.",
   },
   {
     key: "authorizations",
@@ -50,7 +50,7 @@ export const EXPORTS: ExportKind[] = [
     key: "invoices",
     label: "Invoices",
     detail:
-      "Every invoice sent to USOR in the month, with the office it went to, what it came to, and what came back - the warrant, the voucher and the amount. Invoices still owed are included whenever they were sent, because what is owed is not a fact about one month.",
+      "Every invoice sent to USOR in the month, with the office it went to, what it came to, and what came back. Invoices still owed are included whenever they were sent, because what is owed is not a fact about one month.",
   },
   {
     key: "placements",
@@ -72,8 +72,18 @@ export const EXPORTS: ExportKind[] = [
   },
 ];
 
-/** Names that must never appear in a column list. */
+/**
+ * Names that must never appear in a column list.
+ *
+ * A CSV on somebody's laptop has no roles attached to it, so these are kept
+ * out of every export including Admin's. The warrant and the voucher joined
+ * the list on 14 November 2026, when the owner moved warrants to Admin: an
+ * invoice export that Billing downloads to chase USOR was carrying both
+ * numbers in its last two columns.
+ */
 export const RESTRICTED_COLUMNS = [
+  "warrant",
+  "voucher",
   "dob",
   "date_of_birth",
   "address",

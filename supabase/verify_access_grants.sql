@@ -77,11 +77,18 @@ begin
     failures := failures || 'FAILED: somebody without Billing added an authorization'::text;
   exception when insufficient_privilege then null;
   end;
+  -- `edit_authorization` rather than a warrant function: the warrant ones
+  -- stopped asking about billing grants on 14 Nov 2026 and ask for Admin now,
+  -- so they would refuse this person for a reason that has nothing to do with
+  -- the grant being tested.
   begin
-    perform public.dismiss_warrant_line(gen_random_uuid(), 'ZZ');
+    perform public.edit_authorization(gen_random_uuid(), jsonb_build_object('note', 'ZZ'), 'ZZ');
     failures := failures || 'FAILED: somebody without Billing got past a billing function''s check'::text;
-  exception when insufficient_privilege then
-    raise notice 'ok  without a grant, the rules and the billing functions refuse';
+  exception
+    when insufficient_privilege then
+      raise notice 'ok  without a grant, the rules and the billing functions refuse';
+    when others then
+      failures := failures || 'FAILED: somebody without Billing got past a billing function''s check'::text;
   end;
   begin
     perform public.grant_staff_access(v_rep, 'billing', 'edit', 'ZZ giving myself access');
@@ -132,11 +139,22 @@ begin
   if not public.staff_has_area('billing', 'view') or public.staff_has_area('billing', 'edit') then
     failures := failures || 'FAILED: a view grant did not give view, or gave edit'::text;
   end if;
-  begin
-    select count(*) into v_n from public.warrant_lines;
-  exception when insufficient_privilege then
-    failures := failures || 'FAILED: a Billing view grant cannot read warrants'::text;
-  end;
+  /*
+   * And a billing grant does not read warrants.
+   *
+   * It used to - `warrant_lines_read` named `staff_has_area('billing')`, so
+   * the grant that lets a CPA and a reports manager into the money let them
+   * into every warrant stub with it. The owner's ruling of 14 November 2026
+   * separated the two, and this is the assertion that keeps them separate:
+   * the grant opens the money and stops at the warrant.
+   */
+  select count(*) into v_n from public.warrant_lines;
+  if v_n <> 0 then
+    failures := failures || format(
+      'FAILED: a billing view grant reads %s warrant line(s); warrants are Admin''s', v_n)::text;
+  else
+    raise notice 'ok  a billing grant opens the money and stops at the warrant';
+  end if;
   begin
     perform public.add_authorization(v_client, 'ZQ-GRANT-1', 'ZZ Grant Service', 'Flat Fee', 100);
     failures := failures || 'FAILED: a view-only grant added an authorization'::text;
@@ -174,7 +192,7 @@ begin
   end;
   v_state := 'passed the check';
   begin
-    perform public.dismiss_warrant_line(gen_random_uuid(), 'ZZ');
+    perform public.edit_authorization(gen_random_uuid(), jsonb_build_object('note', 'ZZ'), 'ZZ');
   exception
     when insufficient_privilege then v_state := 'refused';
     when others then v_state := 'passed the check';
@@ -183,6 +201,22 @@ begin
     failures := failures || 'FAILED: an edit grant is still refused by the billing functions'::text;
   else
     raise notice 'ok  with edit, the rules and the billing functions let them work';
+  end if;
+
+  -- And the warrant functions refuse the same person, which is the half of
+  -- the ruling a grant must not be able to undo.
+  v_state := 'passed the check';
+  begin
+    perform public.dismiss_warrant_line(gen_random_uuid(), 'ZZ');
+  exception
+    when insufficient_privilege then v_state := 'refused';
+    when others then v_state := 'passed the check';
+  end;
+  if v_state <> 'refused' then
+    failures := failures ||
+      'FAILED: an edit grant got past a warrant function, which is Admin''s'::text;
+  else
+    raise notice 'ok  and the warrant functions refuse an edit grant';
   end if;
 
   -- ── a record, never rewritten ──────────────────────────────
@@ -252,12 +286,16 @@ begin
   end;
   perform set_config('role', 'postgres', true);
 
-  -- ── the six billing functions all ask ──────────────────────
+  -- ── the billing functions all ask ──────────────────────────
   select string_agg(p.proname, ', ') into v_text
     from pg_proc p
    where p.pronamespace = 'public'::regnamespace
-     and p.proname in ('confirm_authorization_document', 'dismiss_warrant_line', 'link_document_to_authorization',
-                       'reconcile_warrant_line', 'reconcile_warrant_page', 'replace_placeholder_authorization')
+     -- The three warrant functions were on this list and came off it on
+     -- 14 November 2026: they ask `warrant_hands()` now, which is Admin and
+     -- nothing else, so asserting they ask about billing grants would assert
+     -- the thing the ruling removed.
+     and p.proname in ('confirm_authorization_document', 'link_document_to_authorization',
+                       'replace_placeholder_authorization')
      and position('staff_has_area' in pg_get_functiondef(p.oid)) = 0;
   if v_text is not null then
     failures := failures || format('FAILED: billing functions that ignore grants: %s', v_text)::text;

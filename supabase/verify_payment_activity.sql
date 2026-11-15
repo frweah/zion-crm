@@ -3,7 +3,7 @@
 -- What has to hold, each tried from the direction that would break it:
 --
 --   A payment shows on its client's timeline as a Payment, dated by the
---   warrant, saying what was paid on which authorization and warrant, and
+--   warrant, saying what was paid on which authorization, where it came
 --   opening the client's Payments tab.
 --
 --   Every role sees it (owner's decision, 14 Sept 2026: the client's Billing
@@ -48,13 +48,17 @@ begin
   if not found then
     failures := failures || 'FAILED: Admin does not see a payment on the client timeline'::text;
   elsif r.title <> 'Paid $560.00 — ZQ9700001'
-     or r.detail <> 'Warrant ZW0000701 · voucher 26PR00000000701'
+     -- The detail said "Warrant ZW0000701 · voucher 26PR..." until the
+     -- owner moved warrants to Admin (0363). Every role that can open a
+     -- client could read the number there. It says how the payment came to be
+     -- on record now, which is the same words the authorization record uses.
+     or r.detail <> 'Workbook import'
      or r.tab <> 'payments'
      or r.ref_id <> v_pay
      or r.at::date <> date '2026-04-06' then
     failures := failures || format('FAILED: the timeline payment reads wrong: %s | %s | %s | %s', r.title, r.detail, r.tab, r.at)::text;
   else
-    raise notice 'ok  a payment is on the timeline, dated by its warrant, naming the amount, authorization and warrant';
+    raise notice 'ok  a payment is on the timeline with the amount, the authorization and where it came from';
   end if;
 
   -- ── and so does Job Search ─────────────────────────────────

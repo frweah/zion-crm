@@ -190,6 +190,13 @@ if (!problems.some((p) => p.includes("button labelled"))) {
 // owner asked to stay put.
 const EXPLAINERS = [
   "/billing/",
+  // Warrants. The brief exempts them by name - "Billing, authorizations, forms
+  // and warrants stay as they are for now" - and the exemption used to come
+  // free from the path, because the screen was /billing/warrants. The owner
+  // moved it to Admin on 14 November 2026 and the exemption did not move with
+  // it, so a screen the brief says to leave alone started failing on copy
+  // nobody had touched.
+  "/admin/warrants/",
   "pending-authorizations",
   "hint-bar.tsx",
   "/sops/",

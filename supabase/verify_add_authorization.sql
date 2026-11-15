@@ -1,7 +1,7 @@
 -- Zion Vocational Rehab CRM — adding an authorization, paid or not (0254)
 --
 -- The form can now say "this one arrived already paid" and hand over the
--- date, the amount and the warrant with the rest of it. What has to hold is
+-- date and the amount with the rest of it. What has to hold is
 -- that saying so produces the same record the long way round would have, and
 -- that the books agree:
 --
@@ -25,7 +25,10 @@ declare
   v_client  uuid;
   v_plain   uuid;
   v_paid    uuid;
-  v_row     public.authorizations;
+  -- Four named fields rather than the whole row: 0360 took the table-level
+  -- SELECT off `authorizations` so that one column could be closed, and a
+  -- `%rowtype` read is a `select *`.
+  v_row     record;
   v_debits  numeric;
   v_credits numeric;
   v_n       integer;
@@ -50,7 +53,11 @@ begin
     public.practice_today() - 30, public.practice_today() + 30, '', 'Utah VR', null,
     public.practice_today() - 31);
 
-  select * into v_row from public.authorizations where id = v_plain;
+  -- Named rather than `select *`: 0360 took the table-level SELECT off
+  -- `authorizations` to close the warrant column, and `*` is a read of the
+  -- whole table whatever the column grants say.
+  select status, received_on, paid_on, paid_amount into v_row
+    from public.authorizations where id = v_plain;
   if v_row.status <> 'Authorized' then
     failures := failures || format('FAILED: a plain authorization came out %s, not Authorized', v_row.status)::text;
   elsif v_row.received_on is distinct from public.practice_today() - 31 then
@@ -64,19 +71,21 @@ begin
     v_client, 'V0000742', 'Job Development', 'Flat Fee', 560, null,
     public.practice_today() - 90, public.practice_today() - 60, '', 'Utah VR', null,
     public.practice_today() - 91,
-    public.practice_today() - 40, 560, 'W-55512');
+    -- No warrant number: `add_authorization` refuses one from anybody but
+    -- Admin since 0361, and this runs as the database. The warrant goes on
+    -- when the stub is read, on Admin -> Warrants.
+    public.practice_today() - 40, 560, '');
 
-  select * into v_row from public.authorizations where id = v_paid;
+  select status, received_on, paid_on, paid_amount into v_row
+    from public.authorizations where id = v_paid;
   if v_row.status <> 'Paid' then
     failures := failures || format('FAILED: saved as paid, it came out %s', v_row.status)::text;
   elsif v_row.paid_on is distinct from public.practice_today() - 40 then
     failures := failures || format('FAILED: the payment date is %s, not the day given', v_row.paid_on)::text;
   elsif coalesce(v_row.paid_amount, 0) <> 560 then
     failures := failures || format('FAILED: the amount received is %s, not 560', v_row.paid_amount)::text;
-  elsif coalesce(v_row.warrant, '') <> 'W-55512' then
-    failures := failures || 'FAILED: the warrant number was not kept'::text;
   else
-    raise notice 'ok  saved with the switch on, it is Paid and carries the date, the amount and the warrant';
+    raise notice 'ok  saved with the switch on, it is Paid and carries the date and the amount';
   end if;
 
   -- ── 3. and Money counts it, in the month it was received ──
