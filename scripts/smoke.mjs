@@ -559,12 +559,32 @@ for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
    *
    * Shapes rather than the word: "warrant" appears on these screens as
    * provenance ("backfilled from the warrant that paid it"), which is not a
-   * warrant. A USOR warrant number is F followed by eight digits and a
-   * voucher is a V or a year-and-letter prefix followed by digits, so those
-   * are what is looked for.
+   * warrant.
+   *
+   * A USOR warrant number is F and eight digits; a voucher is a two-digit
+   * year, two letters and a run of digits (26AW00000051141, 26PR00000000701).
+   *
+   * What this must never match is an **authorization number**, which is V and
+   * seven digits - V1028166. The first version of this check matched those,
+   * and reported nineteen of the hundred and thirty screens on production for
+   * printing the number the practice bills under. An authorization number is
+   * on every Billing screen and every client record because that is what it
+   * is for. `KNOWN_GOOD` below is the guard against writing that twice.
    */
   if (role !== "Admin") {
-    const NUMBER = /\b(F\d{8}|V\d{7}|2[0-9][A-Z]{1,2}\d{5,})\b/;
+    const NUMBER = /\b(F\d{8}|2\d[A-Z]{2}\d{6,})\b/;
+    // The shapes a Billing screen is supposed to print: an authorization
+    // number, an invoice number, a claim, a client number. If the pattern
+    // above ever matches one of these, it is the pattern that is wrong.
+    const KNOWN_GOOD = ["V1028166", "V999066", "123456-C", "1070", "2026-11-03"];
+    const wrongly = KNOWN_GOOD.filter((g) => NUMBER.test(g));
+    if (wrongly.length) {
+      results.push({
+        path: "the warrant-number pattern in scripts/smoke.mjs",
+        ok: false,
+        why: `it matches ${wrongly.join(", ")}, which a Billing screen is supposed to print`,
+      });
+    }
     for (const r of results) {
       if (!r.ok || !r.body) continue;
       const found = NUMBER.exec(r.body);

@@ -9816,3 +9816,25 @@ file where `\b` was meant — one in the hub-card scan, one in the login-link
 filter — so both regexes had been matching a character that never appears in
 HTML, which is to say matching nothing. An earlier session's Python edit put
 them there. All four are word boundaries again.
+
+### The check that flagged the number Billing bills under
+
+The assertion added to `scripts/smoke.mjs` above failed on its first
+production run — nineteen of a hundred and thirty screens, across Job Search
+and Billing, for "printing a warrant or voucher number". Every one of them was
+`V1028166` or a sibling: a **USOR authorization number**, which is on every
+Billing screen and every client record because it is what the practice bills
+under. The pattern had `V\d{7}` in it on the theory that a voucher starts with
+a V. A voucher is a two-digit year, two letters and a run of digits; an
+authorization number is the V.
+
+Worth recording for the shape of the mistake rather than the typo: the check
+was written in the same commit as the rule it tests and ran green locally,
+because locally it never ran at all — there are no `SMOKE_*` credentials here.
+It took production to find it, and what it found was the check, not the code.
+Everything the rule is actually about held: no `F`-number and no voucher
+appeared on any of the hundred and thirty pages.
+
+The pattern now carries `KNOWN_GOOD` beside it — an authorization number, an
+invoice number, a claim, a client number, a date - and fails itself if it ever
+matches one of them.
