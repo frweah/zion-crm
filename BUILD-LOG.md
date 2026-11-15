@@ -9539,3 +9539,39 @@ The fixture found its own mistake on the way: the test manager had been
 created as an Admin, so she was being shown her people's days by the Admin
 branch while the manager branch stayed broken. She is a Reports now, which is
 the case that was wrong.
+
+### What running it found
+
+Four things, none of which the suite could have found, because each was about
+what a person sees rather than what the database holds.
+
+**Every hours figure read 0.00 while the segments below it read 5.50.** The
+screens asked `my_hours_summary` for one row and relied on RLS to make it one
+- `.maybeSingle()` with no `staff_id` filter. Where more than one row comes
+back, `maybeSingle()` returns **null**, and null renders as zero. A figure
+that silently becomes zero is the worst way for an hours screen to fail:
+nothing errors, nothing is empty, the number is just wrong. All six reads
+name the person now.
+
+**Admin -> Hours showed September days under "this pay period."** The weeks
+table filters on each row's own `period_start`, which `hours_by_week`
+carries. The days table had no such column and reached for one arbitrary row
+of a grouped view instead. The day carries its own period and week now
+(0359), which is how the weeks table has always done it.
+
+**The End of day said "documentation"** where the practice says "Notes and
+USOR forms". The category key is right on the session row - it is what the
+hours are grouped by - and wrong on a line a person reads and a manager is
+emailed.
+
+**A file attached at clock out did not know its day.** `staff_files.staff_day_id`
+has been on that table since 0212, for an end of day that arrived as an email
+attachment; a file attached at clock out is the same kind of thing and was
+linked only from the line. Two links to the same thing is how one of them
+goes stale, so both are set in the one place that attaches a file.
+
+The smoke itself ran as the owner on production - two segments, 09:00-12:30
+with half an hour of break and 13:30-16:00, one with an account and a file
+and one with nothing said. Both are **voided** now, with the reason on them,
+so no hour of it counts; the End of day line it wrote says so in its own text
+and comes off in one click.

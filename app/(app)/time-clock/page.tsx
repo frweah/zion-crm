@@ -29,7 +29,7 @@ export default async function TimeClockPage() {
       .from("work_session_timers")
       .select("started_at, break_started_at, break_seconds")
       .maybeSingle(),
-    supabase.from("my_hours_summary").select(CLOCK_TOTALS_COLUMNS).maybeSingle(),
+    supabase.from("my_hours_summary").select(CLOCK_TOTALS_COLUMNS).eq("staff_id", me.id).maybeSingle(),
     supabase.rpc("work_categories_for", { p_role: me.role }),
     supabase.from("clients").select("id, name").eq("status", "Active").order("name"),
     // Sessions the fourteen-hour rule closed and nobody has looked at yet

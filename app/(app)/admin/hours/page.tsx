@@ -71,7 +71,7 @@ export default async function AdminHoursPage({
     supabase
       .from("work_days")
       .select(
-        "staff_id, staff_name, employment_type, day, segments, worked_hours, break_seconds, first_in, last_out, accounted_for, needs_an_account",
+        "staff_id, staff_name, employment_type, day, segments, worked_hours, break_seconds, first_in, last_out, accounted_for, needs_an_account, period_start, period_end, week_start",
       )
       .order("day", { ascending: false }),
     // And the segments themselves, for the day rows to open into.
@@ -116,19 +116,11 @@ export default async function AdminHoursPage({
   }
 
   /*
-   * The days in the same stretch of time as the weeks above.
-   *
-   * The week a day falls in is worked out here rather than asked of the
-   * database, because it is the same arithmetic the screen already does for
-   * "this week" and two answers to "which week is this" is how a payroll
-   * export and a payroll screen come to disagree.
+   * The days in the same stretch of time as the weeks above, filtered on
+   * each day's own period and week (0359) rather than on arithmetic done
+   * here - two answers to "which week is this" is how a payroll screen and
+   * a payroll export come to disagree.
    */
-  const weekOf = (d: string) => {
-    const at = new Date(`${d}T00:00:00Z`);
-    const iso = at.getUTCDay() === 0 ? 7 : at.getUTCDay();
-    at.setUTCDate(at.getUTCDate() - (iso - 1));
-    return at.toISOString().slice(0, 10);
-  };
   const allDays = ((dayRows ?? []) as {
     staff_id: string;
     staff_name: string;
@@ -141,15 +133,16 @@ export default async function AdminHoursPage({
     last_out: string | null;
     accounted_for: boolean;
     needs_an_account: boolean;
+    period_start: string;
+    period_end: string;
+    week_start: string;
   }[]).filter((d) => {
     if (show === "all") return true;
-    if (show === "week") return weekOf(d.day) === monday;
+    if (show === "week") return d.week_start === monday;
     if (show === "month") return d.day >= monthStart;
-    return (
-      period?.period_start !== undefined &&
-      d.day >= String(period.period_start) &&
-      d.day <= String(period.period_end)
-    );
+    // Each day's own period, carried on the row (0359). Asking one arbitrary
+    // row of a grouped view which period it is showed September days here.
+    return day >= d.period_start && day <= d.period_end;
   });
 
   const days: (DayRow & { staff_id: string; needs_an_account: boolean })[] = allDays.map((d) => ({
@@ -157,7 +150,7 @@ export default async function AdminHoursPage({
     staff_name: d.staff_name,
     employment_type: d.employment_type,
     day: d.day,
-    week_start: weekOf(d.day),
+    week_start: d.week_start,
     worked_hours: Number(d.worked_hours),
     break_seconds: Number(d.break_seconds),
     segments: Number(d.segments),
@@ -325,7 +318,9 @@ export default async function AdminHoursPage({
                         {segs.length > 1 && (
                           <details style={{ marginTop: 4 }}>
                             <summary className="lock">
-                              {clockTime(d.first_in)} to {clockTime(d.last_out)}
+                              {d.first_in
+                                ? `${clockTime(d.first_in)} to ${clockTime(d.last_out)}`
+                                : `${segs.length} entries`}
                             </summary>
                             <ul className="day-list" style={{ marginTop: 4 }}>
                               {segs.map((seg) => (
@@ -344,7 +339,7 @@ export default async function AdminHoursPage({
                             </ul>
                           </details>
                         )}
-                        {segs.length === 1 && (
+                        {segs.length === 1 && d.first_in && (
                           <div className="lock">
                             {clockTime(d.first_in)} to {clockTime(d.last_out)}
                           </div>

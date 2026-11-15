@@ -7842,6 +7842,9 @@ export type Database = {
           waiting_to_be_confirmed: boolean | null;
           accounted_for: boolean | null;
           needs_an_account: boolean | null;
+          period_start: string | null;
+          period_end: string | null;
+          week_start: string | null;
         };
         Relationships: [];
       };

@@ -103,7 +103,7 @@ export default async function DashboardPage({
       .maybeSingle(),
     supabase.from("microsoft_sync_state").select("last_run_at, mail_logged, events_pulled, last_error").eq("staff_id", me.id).maybeSingle(),
     supabase.from("work_session_timers").select("started_at").maybeSingle(),
-    supabase.from("my_hours_summary").select("today_hours").maybeSingle(),
+    supabase.from("my_hours_summary").select("today_hours").eq("staff_id", me.id).maybeSingle(),
     supabase.rpc("my_unread"),
     supabase.rpc("message_inbox", { p_show: "open" }),
     mailWaiting(5),

@@ -107,7 +107,7 @@ export default async function MyDayPage() {
     // Every client, for the "whose was it" box. Names only.
     supabase.from("clients").select("id, name").is("merged_into", null).order("name").limit(2000),
     // The three totals, the same figures the header shows.
-    supabase.from("my_hours_summary").select(CLOCK_TOTALS_COLUMNS).maybeSingle(),
+    supabase.from("my_hours_summary").select(CLOCK_TOTALS_COLUMNS).eq("staff_id", me.id).maybeSingle(),
     /*
      * Days behind them with time on the clock and nothing said about them.
      *

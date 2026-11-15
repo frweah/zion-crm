@@ -70,7 +70,7 @@ export async function GET() {
       .eq("staff_id", me.id)
       .eq("state", "Waiting"),
     supabase.from("work_session_timers").select("started_at, break_started_at, break_seconds").maybeSingle(),
-    supabase.from("my_hours_summary").select("today_hours").maybeSingle(),
+    supabase.from("my_hours_summary").select("today_hours").eq("staff_id", me.id).maybeSingle(),
   ]);
 
   // A query that failed is not an empty day. Say so rather than draw one.

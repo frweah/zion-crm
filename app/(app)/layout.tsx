@@ -44,9 +44,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // rules already limit both to the person asking; somebody who is not staff
   // is redirected by requireStaff before either is used.
   const supabase = await createClient();
-  const [staff, { data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: chatPrefs }, { data: policyDue }, { data: twoFactorRows }, { data: claims }, { data: openSession }, { data: hoursToday }] =
+  /*
+   * Who is asking, before the rest, because two of the reads below name them.
+   *
+   * `getCurrentStaff` is cached for the request, so this costs nothing that
+   * the Promise.all did not already pay - and naming the person is what
+   * keeps a figure from silently becoming zero if a read ever comes back
+   * with more than one row (14 Nov 2026).
+   */
+  const staff = await requireStaff();
+  const [{ data: hints }, { data: seen }, { data: narrowPref }, { data: themePref }, { data: chatPrefs }, { data: policyDue }, { data: twoFactorRows }, { data: claims }, { data: openSession }, { data: hoursToday }] =
     await Promise.all([
-    requireStaff(),
     supabase.from("tour_hints").select("key, screen, title, body, roles").eq("active", true),
     supabase.from("staff_prefs").select("key").like("key", "hint:%"),
     // Kept to icons by choice (the width alone does it below 1100px).
@@ -73,7 +81,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .from("work_session_timers")
       .select("started_at, break_started_at, break_seconds")
       .maybeSingle(),
-    supabase.from("my_hours_summary").select("today_hours, today_segments, days_to_account_for").maybeSingle(),
+    supabase
+      .from("my_hours_summary")
+      .select("today_hours, today_segments, days_to_account_for")
+      .eq("staff_id", staff.id)
+      .maybeSingle(),
   ]);
   const twoFactor = Array.isArray(twoFactorRows) ? twoFactorRows[0] : null;
   const authLevel = (claims?.claims as { aal?: string } | undefined)?.aal;

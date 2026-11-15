@@ -263,6 +263,7 @@ export default async function HoursPage({
     supabase
       .from("my_hours_summary")
       .select("today_hours, period_hours, period_start, period_end")
+      .eq("staff_id", me.id)
       .maybeSingle(),
     // Their own rate. The function takes a staff id, but it is security
     // invoker over an own-row policy, so passing somebody else's returns
