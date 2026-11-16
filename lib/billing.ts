@@ -31,12 +31,20 @@ export const LIVE_STATUSES = ["Authorized", "Due", "Submitted"] as const;
 /** Off the working list: §9 puts these under History and in Admin → Money. */
 export const SETTLED_STATUSES = ["Paid", "Closed"] as const;
 
-/** What each status says to the person reading it. */
+/**
+ * What each status says to the person reading it.
+ *
+ * Paid says nothing, on the owner's ruling of 15 November 2026. It read
+ * "Warrant matched", which put a warrant on the one screen the ruling of the
+ * day before had just taken warrants off - and a gloss that restates the
+ * status it sits beside changes nothing anybody does next. The screen shows
+ * the status alone; whether a warrant was matched is read on Admin -> Warrants.
+ */
 export const STATUS_MEANING: Record<AuthorizationStatus, string> = {
   Authorized: "Entered, not yet due to be billed",
   Due: "Ready to bill",
   Submitted: "Sent to USOR, waiting on payment",
-  Paid: "Warrant matched",
+  Paid: "",
   Closed: "Ended without being billed",
 };
 

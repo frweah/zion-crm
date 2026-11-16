@@ -161,9 +161,14 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
       <RecordHeader
         back={{ href: "/billing?tab=authorizations", label: "Authorizations" }}
         title={`${rec.client_name} — ${rec.service_type}${monthName ? `, ${monthName}` : ""}`}
-        standing={`${authorizationNumberLabel(rec)} · ${rec.status} — ${
-          STATUS_MEANING[rec.status as AuthorizationStatus] ?? ""
-        }`}
+        standing={[
+          authorizationNumberLabel(rec),
+          // The dash goes with the gloss. Paid has none since 15 Nov 2026, and
+          // "Paid — " with nothing after it is a sentence that was cut off.
+          [rec.status, STATUS_MEANING[rec.status as AuthorizationStatus]]
+            .filter(Boolean)
+            .join(" — "),
+        ].join(" · ")}
       />
 
       {/* §13.11: one line, not four alerts. */}

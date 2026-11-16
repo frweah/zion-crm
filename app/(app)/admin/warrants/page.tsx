@@ -38,6 +38,7 @@ type WaitingRow = {
   client_id: string;
   client_name: string;
   about: string;
+  authorization_status: string;
   amount: number;
   warrant_date: string | null;
   source: string;
@@ -74,7 +75,7 @@ export default async function WarrantsPage() {
     // flag would need somebody to remember to clear it.
     supabase
       .from("payment_waiting_for_its_warrant")
-      .select("payment_id, client_id, client_name, about, amount, warrant_date, source, recorded_by_name, days")
+      .select("payment_id, client_id, client_name, about, authorization_status, amount, warrant_date, source, recorded_by_name, days")
       .order("warrant_date", { ascending: true }),
     /*
      * The warrants whose dollars do not add up.
@@ -200,6 +201,7 @@ export default async function WarrantsPage() {
           columns={[
             { key: "client", label: "Client" },
             { key: "about", label: "Authorization" },
+            { key: "matched", label: "Warrant" },
             { key: "amount", label: "Amount", align: "right" },
             { key: "when", label: "Received" },
             { key: "who", label: "Recorded by" },
@@ -214,6 +216,21 @@ export default async function WarrantsPage() {
                 </Link>
               ),
               about: w.about,
+              /*
+               * Matched or not, which is the detail the ruling of 15 November
+               * 2026 took off Billing's screens and kept here.
+               *
+               * Every row on this list is unmatched by definition - that is
+               * what the list is - so what the cell adds is what the record
+               * says about it beside that: an authorization reading Paid with
+               * no stub behind it is a different thing to chase from one
+               * still reading Submitted.
+               */
+              matched: (
+                <span className={w.authorization_status === "Paid" ? "chip warn" : "chip"}>
+                  not matched · {w.authorization_status.toLowerCase()}
+                </span>
+              ),
               amount: money(Number(w.amount ?? 0)),
               when: w.warrant_date ?? <span className="lock">—</span>,
               who: (
@@ -231,6 +248,7 @@ export default async function WarrantsPage() {
             sort: {
               client: w.client_name,
               about: w.about,
+              matched: w.authorization_status,
               amount: Number(w.amount ?? 0),
               when: w.warrant_date,
               who: w.recorded_by_name,

@@ -42,7 +42,9 @@ export const STATUS_MEANING: Record<string, string> = {
   Submitted: "sent to the billing office",
   Pending: "sent, waiting on USOR",
   "Correction needed": "came back; something has to change",
-  Paid: "the warrant arrived",
+  // Not "the warrant arrived": a warrant is Admin's (15 Nov 2026), and
+  // what this gloss is for is telling Paid apart from Closed below.
+  Paid: "the payment arrived",
   Closed: "ended without payment, with a reason",
 };
 

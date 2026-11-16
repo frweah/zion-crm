@@ -9838,3 +9838,36 @@ appeared on any of the hundred and thirty pages.
 The pattern now carries `KNOWN_GOOD` beside it — an authorization number, an
 invoice number, a claim, a client number, a date - and fails itself if it ever
 matches one of them.
+
+## 15 Nov 2026 — Paid stops naming the warrant
+
+The owner, on reading the report: the status label becomes "Paid" everywhere
+Billing can see it, and Admin → Warrants keeps the matched/unmatched detail.
+
+Two label maps named it. `lib/billing.ts` glossed Paid as **"Warrant
+matched"**, which the authorization record prints after the status —
+"V1037901 · Paid — Warrant matched" — so the ruling of the day before had
+taken warrants off that screen and left the word in its standing line.
+`lib/billing-items.ts` glossed it as "the warrant arrived", under a count on
+the overview.
+
+The first gloss is now empty rather than reworded. A gloss that restates the
+status it sits beside changes nothing anybody does next, which is the test the
+standard sets, and the instruction was the word "Paid" and not a synonym for
+it. The standing line drops the dash with it: it is built by filtering the
+empty parts out and joining, because "Paid — " with nothing after it is a
+sentence that was cut off. The second keeps a gloss, because there it does
+work — it tells Paid apart from Closed, "ended without payment, with a
+reason" — and says "the payment arrived".
+
+Admin → Money still says "Counted on the day the warrant arrived". That screen
+is Admin's by area and the ruling leaves it alone.
+
+**And the detail it kept.** Admin → Warrants had no authorization status on it
+anywhere, so "keeps the matched/unmatched detail" would have been true only by
+implication. The "Warrant not on file" list gains a Warrant column reading
+**not matched · paid** or **not matched · submitted**. Every row on that list
+is unmatched by definition — that is what the list is — so what the cell adds
+is the other half: an authorization reading Paid with no stub behind it is a
+different thing to chase from one still reading Submitted, and the first is
+warned.
