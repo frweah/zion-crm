@@ -31,6 +31,20 @@ tap the result — and the Clients board is three.
 | What is not on that screen | Nothing says what is *about* to be owed — "Left to bill" is a separate column and also per row. |
 | The other route | Billing → Authorizations, search the client. This **cannot** answer it: that list is the working list, its money column is "Amount" (what the row is worth), and `billing_worklist` leaves out everything Paid or Closed, so what has already been settled is not there to subtract. |
 
+**After the board** (live at `397285d`, 17 Nov 2026):
+
+| | Now |
+|---|---|
+| Shortest path | Billing → **Authorizations**, type the client in the search box |
+| Taps | **2** |
+| Where the answer is | The client's own row, column **Outstanding** |
+| What you still have to do | Nothing. The figure is the sum of every authorization that client has, settled ones included, worked out in the roll-up rather than by eye. The group the client sits in says why - Needs invoice, Waiting on payment, Too late to bill - and Next step says what to do about it in the practice's own words. |
+| And if you want the detail | ▸ beside the name opens their authorizations underneath, one row each, with Authorized, Invoiced, Outstanding, Received, Submitted on, Paid on and Bill by. |
+
+So: **3 taps and arithmetic became 2 taps and a figure.** The seconds are still
+for whoever runs the stopwatch - the tap count is a fact about the code, the
+time is a fact about a person.
+
 ### 2. What happened with client X this week?
 
 **Done when** you have read the week.
@@ -43,6 +57,9 @@ tap the result — and the Clients board is three.
 | What you still have to do | **Scan past the rest of the month.** The windows offered are Last 30 days, Last 90 days, Last year and Everything — there is no week. The stream opens on 30 days and you read down to where the week ends. |
 | Above it on the way | "Coming up" (tasks and calendar events) and the Mail section sit between the header and the stream, so the week starts below two cards. |
 | What is missing from it | There is no "Call" kind. A phone call is a **note of type "Phone call"**, so calls read as notes. |
+
+**After:** unchanged so far. This one is the client dashboard's question and
+the dashboard is Part 3; it will be recorded here when that is live.
 
 ## Record
 
