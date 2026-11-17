@@ -60,7 +60,7 @@ export function WorklistTable({
  * come to nothing - so the rows stay chosen, the ones that did not go through
  * are listed with what stopped them, and letting go is a button.
  */
-function BulkClear({
+export function BulkClear({
   chosen,
   clear,
   today,

@@ -26,7 +26,10 @@ const isAuthorization = (d: PendingRow) =>
 export default async function PendingAuthorizations({
   selected,
   hrefFor,
+  children,
 }: {
+  /** The read-it-off-the-PDF form, which lives inside this panel (A5). */
+  children?: React.ReactNode;
   selected: string | null;
   /** The Authorizations tab's own address with ?doc= set, keeping its filters. */
   hrefFor: (docId: string | null) => string;
@@ -60,8 +63,19 @@ export default async function PendingAuthorizations({
   }
 
   return (
-    <section id="from-documents" className="page-section" style={{ marginTop: 0, marginBottom: 24 }}>
-      <h2 className="h2">From the documents folder</h2>
+    /*
+     * One collapsible panel above the board (owner, 17 November 2026): the
+     * queue, the PDF beside what was read from it, and the form that reads an
+     * authorization off a PDF, which arrives as `children` from the page.
+     *
+     * Open by default, which is how it has always sat on this tab. The
+     * collapse is for somebody who has cleared the queue and wants the board
+     * at the top of the screen - not a reason to hide work that is waiting.
+     */
+    <details id="from-documents" className="page-section" open style={{ marginTop: 0, marginBottom: 24 }}>
+      <summary className="h2" style={{ cursor: "pointer" }}>
+        From the documents folder ({pending.length})
+      </summary>
       <p className="sub" style={{ margin: "0 0 10px" }}>
         {pending.length === 0
           ? "No authorization from the client folders is waiting to be confirmed."
@@ -150,12 +164,14 @@ export default async function PendingAuthorizations({
         </div>
       )}
 
+      {children}
+
       <details id="agent" style={{ marginTop: 12 }}>
         <summary style={{ cursor: "pointer" }}>Is the documents agent running?</summary>
         <div style={{ marginTop: 10 }}>
           <AgentStatus />
         </div>
       </details>
-    </section>
+    </details>
   );
 }

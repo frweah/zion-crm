@@ -9871,3 +9871,123 @@ is unmatched by definition — that is what the list is — so what the cell add
 is the other half: an authorization reading Paid with no stub behind it is a
 different thing to chase from one still reading Submitted, and the first is
 warned.
+
+## 17 Nov 2026 — Billing › Authorizations becomes a board
+
+The owner lifted the no-redesign rule for two screens. This is the first:
+one row per client, grouped by what is owed, with the client's authorizations
+opening underneath. The question it exists to answer is "what does this client
+owe us", which before this took three taps and then mental arithmetic across
+one row per authorization — there was no total anywhere on the client record.
+`docs/timing/billing.md` holds the before.
+
+### The group that was not in the ruling
+
+Five groups were named: Needs invoice · Too late to bill · Waiting on payment ·
+Paid · Closed. Counted against the practice's own records before anything was
+built, **two of them were empty and a sixth was needed**: nothing was delivered
+and uninvoiced, nothing was past the grace, and **11 authorizations across 8
+clients** were authorized with the service not yet delivered and nothing
+invoiced — none of the five. Leaving them out would have taken eight clients
+off the board.
+
+They are what the attention sentence already calls them: **Waiting for
+service**, after Waiting on payment because nothing is owed yet, and before
+Paid because the work is live. `verify_billing_board` asserts they still have
+somewhere to go.
+
+Blocked is tested before "delivered and not invoiced", so a row past the grace
+lands in Too late to bill rather than being told to raise an invoice the
+database would refuse.
+
+### What the board reads
+
+`billing_board(p_today, p_client)` — a function, not a view, for the same
+reason `billing_worklist` is one: the money and the attention sentence come
+from `authorization_amount_for` and `authorization_attention_for`, both of
+which take an array of ids, and a view has nowhere to build that array. It
+runs as the invoker, adds no table and no permission, and returns no warrant
+and no voucher.
+
+It exists because the worklist could not be stretched: `billing_worklist`
+stops at `status not in ('Paid', 'Closed')` and drops closed clients, so a
+board with Paid and Closed groups cannot be built on it.
+
+The client dashboard's card will read the same function filtered to one
+client, which is what makes "one component, not a second grid" true.
+
+### Three gates, and where they belong
+
+The ruling put three rules on the board's editable cells. Two of them were not
+true of the database, only of the screen the board was about to draw.
+
+**Submitted on** was not an editable field at all: `edit_authorization` took
+start, end, received, bill-by, paid-on and the service dates, and the
+submission date was written only by the submit flow and by `record_payment`.
+0366 adds it, with the invoice gate stated in the function rather than on the
+cell.
+
+**And the correction log did not know the field.** The ruling asked for it
+"with its correction-log entry", and I had assumed the log already carried it
+because it carries 'Paid on' and 'Received'. It is in neither the constraint
+nor the trigger's list. Without 0366 the date would have moved and nothing
+would have been written down — the ruling would have been quietly false.
+
+**Waiting on payment** was not gated either. Probed against a real row before
+0367 was written: a Due authorization with no invoice number moved to
+Submitted and `set_authorization_status` said "Now submitted." The gate is in
+the function now, so the rule holds from the authorization record as well as
+from the board.
+
+A third refusal was added for the opposite case. Clearing a submission date on
+a Submitted row is refused by `authorizations_submitted_has_a_date` — correctly,
+but in the words "new row for relation … violates check constraint". A person
+who has just emptied a cell gets a sentence instead: *"That is Submitted, so
+it keeps the day it went - move the status back first."*
+
+### Paid on, and why it records a payment
+
+The mock called the column "Received on". `authorizations.received_on` already
+means the day the authorization arrived from USOR, so the board shows both:
+**Received** on the sub-row, **Paid on** as the editable date. Typing it calls
+`record_payment` with the amount defaulting to what was invoiced, shown in the
+cell and confirmed before the click, and the row moves to Paid. There is no
+column that holds "money arrived" without a payment behind it, and inventing
+one would have been the second write path the brief forbids.
+
+### What stayed
+
+Nothing was dropped to make room. Stale became the group "Too late to bill";
+the bulk mark-paid and bulk-close bar is the same component, now on sub-row
+tick boxes; "Next step" is the existing attention sentence with its urgency
+colour, the client row showing its most pressing authorization's; Bill by is a
+sub-row column and the default sort inside every group; "no work logged yet"
+keeps its place under the amount; the billing-office filter stays; and the
+documents queue, the PDF reader and the read-it-off-the-PDF form sit above the
+board in one collapsible panel, "From the documents folder (N)".
+
+### Two faults of my own, caught by looking
+
+The board's group bar read **"3 clients · 13 authorizations"** over a group
+holding three. The board is one row per client and a client brings every
+authorization they have into the group their most pressing one puts them in,
+so the count was right and the sentence was not. It says "between them" now.
+
+And `readBoard` began life in `lib/billing-board.ts` with `server-only` at the
+top, which the grid imports — the build refused it. The shape and the roll-up
+are in `lib/billing-board-shape.ts`, the same split `lib/recordings-shape.ts`
+exists for.
+
+### Checks
+
+`supabase/verify_billing_board.sql` — ten assertions, run with the suite. Five
+faults put back, each rollback-wrapped: a warrant column on the board, Waiting
+for service losing its group, the submission gate removed, the pill's gate
+removed, and the log forgetting the field. All five fail naming the rule.
+
+Two of the ten assertions were wrong when first written and passed for the
+wrong reason until the faults were run: one forgot that a closed client takes
+their authorizations into Closed whatever state the work was in, and the other
+picked a row that was already Submitted — `set_authorization_status` answers
+"It was already submitted." and returns before any gate, so the assertion was
+testing nothing.

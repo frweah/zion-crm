@@ -91,6 +91,9 @@ const RPC_FUNCTIONS = [
   // granted to nobody signed in, so Billing reads a payment through these.
   "payments_for_billing",
   "payments_paid_between",
+  // The billing board's row, one per authorization (0365). Read by Billing's
+  // board and by the client dashboard's card, which is the same component.
+  "billing_board",
   "claim_scheduled_text",
   "release_stale_text_claims",
   "authorization_attention_for",

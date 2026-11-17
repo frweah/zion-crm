@@ -4,7 +4,7 @@ import { authorizationNumberLabel, invoiceNumberLabel } from "@/lib/billing";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import { money, CAN_LOG_HOURS , PRACTICE_TZ } from "@/lib/constants";
+import { money, CAN_LOG_HOURS, today, PRACTICE_TZ } from "@/lib/constants";
 import {
   AddAuthorizationForm,
   ServiceEntryForm,
@@ -19,6 +19,9 @@ import { ADD_AUTHORIZATION, BILLING_AUTHORIZATIONS } from "@/lib/roles";
 import PendingAuthorizations from "./pending-authorizations";
 import { ImportForm } from "./import/import-form";
 import { Worklist, type WorklistRow } from "./worklist";
+import { BoardGrid } from "./board-grid";
+import { readBoard } from "@/lib/billing-board";
+import { byClient } from "@/lib/billing-board-shape";
 import { isLive } from "@/lib/billing";
 
 /**
@@ -122,6 +125,19 @@ export default async function BillingPage({
     // and never from a constant in the code.
     readRateSchedule(supabase),
   ]);
+
+  /*
+   * The board's row, read on its own rather than inside the wait above.
+   *
+   * It was a seventh entry there with a ternary in it, and a conditional
+   * entry in a Promise.all widens the whole tuple: every other result lost
+   * its type and eleven unrelated lines of this file stopped compiling. One
+   * await, asked only on the tab that draws it.
+   *
+   * It carries Paid and Closed as well, which `billing_worklist` cannot by
+   * design, and the board has a group for each.
+   */
+  const boardRows = tab === "authorizations" ? await readBoard(supabase) : [];
 
   const worklist = (worklistResult.data ?? []) as WorklistRow[];
   const auths = authsResult.data ?? [];
@@ -564,9 +580,7 @@ export default async function BillingPage({
             const query = params.toString();
             return withBo(`/billing${query ? `?${query}` : ""}`, bo) + "#from-documents";
           }}
-        />
-      )}
-
+        >
 {      /*
         §§9, 12.1: Add authorization at the top of the page, two ways in.
 
@@ -617,46 +631,28 @@ export default async function BillingPage({
           </details>
         </section>
       )}
+        </PendingAuthorizations>
+      )}
 
       <BillingOfficeFilter
         billingOffices={billing.billingOffices}
         selected={bo}
-        href={(b) => withBo(showStale ? "/billing?tab=authorizations&show=stale" : showAll ? "/billing?tab=authorizations&show=all" : BILLING_AUTHORIZATIONS, b)}
+        href={(b) => withBo(BILLING_AUTHORIZATIONS, b)}
       />
 
-      <div style={{ marginBottom: 8 }}>
-        <div className="segmented">
-          <Link href={withBo(BILLING_AUTHORIZATIONS, bo)} className={showAll ? undefined : "on"}>
-            Needs action ({needingAction.length})
-          </Link>
-          <Link href={withBo("/billing?tab=authorizations&show=all", bo)} className={showAll ? "on" : undefined}>
-            Show all ({inOffice.length})
-          </Link>
-          <Link href={withBo("/billing?tab=authorizations&show=stale", bo)} className={showStale ? "on" : undefined}>
-            Stale ({stale.length})
-          </Link>
-        </div>
-      </div>
+      {/*
+        The board (owner, 17 November 2026).
 
-      <Worklist
-        canClear={canBill}
-        rows={shown}
-        withClient
-        empty={
-          showStale
-            ? "Nothing is past the grace - every authorization here can still be submitted."
-            : showAll
-              ? "Nothing is being worked. Paid and closed authorizations are on the client's record, under History."
-              : "Nothing needs attention today."
-        }
+        Needs action / Show all / Stale are gone: the groups say the same
+        thing in one list, and Stale is a group of its own - "Too late to
+        bill" - rather than a filter somebody has to remember to look at.
+      */}
+      <BoardGrid
+        clients={byClient(boardRows.filter((r) => matchesBo(bo, billing.forClient(r.client_id))))}
+        canBill={canBill}
+        canExport={me.role === "Admin"}
+        today={today()}
       />
-
-      {!showAll && !showStale && quiet > 0 && (
-        <p className="lock" style={{ margin: "0 0 14px" }}>
-          {quiet} more {quiet === 1 ? "authorization is" : "authorizations are"} being worked and need
-          nothing today.
-        </p>
-      )}
 
       {canBill && (
         <p className="lock" style={{ margin: "0 0 14px" }}>

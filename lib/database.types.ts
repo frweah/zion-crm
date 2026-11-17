@@ -8028,6 +8028,10 @@ export type Database = {
         Args: { p_service: string | null; p_received_on: string | null; p_period?: string | null; p_first_work_day?: string | null };
         Returns: string;
       };
+      billing_board: {
+        Args: { p_today?: string | null; p_client?: string | null };
+        Returns: { auth_id: string | null; client_id: string | null; client_name: string | null; client_status: string | null; office: string | null; counselor_name: string | null; number: string | null; service_type: string | null; period: string | null; status: string | null; invoice_number: string | null; invoice_count: number | null; authorized: number | null; invoiced: number | null; paid: number | null; outstanding: number | null; amount: number | null; basis: string | null; received_on: string | null; submitted_on: string | null; paid_on: string | null; delivered_on: string | null; bill_by: string | null; has_invoice: boolean | null; blocked: boolean | null; attention: string | null; urgency: number | null; grp: string | null; grp_rank: number | null }[];
+      };
       billing_followups_on: {
         Args: { p_today: string | null };
         Returns: number;

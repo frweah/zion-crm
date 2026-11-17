@@ -3642,3 +3642,213 @@ button.attach-chip:hover {
   border-radius: 10px;
 }
 .install-bar span { flex: 1 1 180px; min-width: 0; }
+
+/* ── the billing board (owner, 17 Nov 2026) ──────────────────
+   A grid that reads like a spreadsheet: gridlines both ways, a header that
+   stays while the rows move, the client column pinned to the left, row
+   numbers, and figures in tabular numerals so a column of money lines up.
+
+   No colour of its own. The group bars are the status colours the rest of
+   the practice already uses - bad, warn, accent, ok - so a person who knows
+   what a red chip means on the worklist knows what a red bar means here. */
+.board-wrap {
+  overflow: auto;
+  max-height: 72vh;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+}
+@media (max-width: 760px) {
+  /* The grid scrolls sideways inside its box rather than becoming cards
+     (brief: no card view in this pass). */
+  .board-wrap { max-height: none; }
+}
+
+table.board {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-base);
+  line-height: 22px;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+table.board th,
+table.board td {
+  padding: 7px 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+table.board th:last-child,
+table.board td:last-child { border-right: 0; }
+
+table.board thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bone);
+  border-bottom: 1px solid var(--line-strong);
+  font-size: var(--text-xs);
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The row number and the client name stay put while the rest scrolls. */
+table.board .pin-n,
+table.board .pin-client {
+  position: sticky;
+  z-index: 2;
+  background: var(--paper);
+}
+table.board .pin-n { left: 0; width: 44px; color: var(--muted); text-align: right; }
+table.board .pin-client { left: 44px; min-width: 190px; }
+table.board thead .pin-n,
+table.board thead .pin-client { z-index: 4; background: var(--bone); }
+table.board tbody tr:hover .pin-n,
+table.board tbody tr:hover .pin-client { background: var(--accent-soft-hover); }
+table.board tbody tr:hover td { background: var(--accent-soft-hover); }
+
+table.board .num { text-align: right; }
+
+/* ── a group, its bar and its totals ──────────────────────── */
+table.board tr.group th {
+  position: sticky;
+  top: 33px;
+  z-index: 3;
+  padding: 0;
+  border-bottom: 0;
+}
+.group-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.group-bar .name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.group-bar .totals {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.group-bar .toggle {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+.group-bar .toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.group-needs-invoice { background: var(--bad-soft); color: var(--bad); }
+.group-too-late { background: var(--warn-soft); color: var(--warn-ink); }
+.group-waiting-payment { background: var(--accent-soft); color: var(--accent-text); }
+.group-waiting-service { background: var(--bone); color: var(--ink-2); }
+.group-paid { background: var(--ok-soft); color: var(--ok-ink); }
+.group-closed { background: var(--bone); color: var(--muted); }
+
+/* ── a client's authorizations, opened under it ───────────── */
+table.board tr.sub td { background: var(--bone); }
+table.board tr.sub:hover td { background: var(--accent-soft-hover); }
+table.board tr.sub .pin-n,
+table.board tr.sub .pin-client { background: var(--bone); }
+table.board tr.sub:hover .pin-n,
+table.board tr.sub:hover .pin-client { background: var(--accent-soft-hover); }
+
+.row-toggle {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  color: var(--muted);
+  padding: 0 6px 0 0;
+}
+.row-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── a cell somebody may type in ──────────────────────────── */
+.board-cell {
+  all: unset;
+  display: block;
+  width: 100%;
+  min-width: 112px;
+  font: inherit;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink);
+  cursor: text;
+}
+.board-cell:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.board-cell:disabled { color: var(--muted); cursor: default; }
+
+.board-why {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* The pill, which opens a menu of the two statuses the board may set. */
+.pill-menu { position: relative; display: inline-block; }
+.pill-menu > .chip { cursor: pointer; }
+.pill-menu .menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  white-space: normal;
+}
+.pill-menu .menu button {
+  all: unset;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.pill-menu .menu button:hover { background: var(--accent-soft-hover); }
+.pill-menu .menu button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.pill-menu .menu p {
+  margin: 6px 4px 2px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* ── the toolbar above it ─────────────────────────────────── */
+.board-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 8px;
+}
+.board-toolbar input[type="search"],
+.board-toolbar select { max-width: 220px; }
+.board-toolbar .right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.board-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--text-sm);
+}
+.board-columns label { display: inline-flex; gap: 6px; align-items: center; }
