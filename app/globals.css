@@ -3022,166 +3022,13 @@ button.attach-chip:hover {
   border-color: var(--accent);
 }
 
-/* ── the clients board (0223, fitted 0231) ────────────────────
-   Seven columns, and at a laptop's width all seven are in the frame: equal
-   shares of it, nothing hidden off the right-hand edge. A board somebody has
-   to scroll sideways to see is a board that gets read three columns at a
-   time, which is the opposite of what a board is for.
-
-   minmax(0, 1fr) rather than 1fr, because a grid track's default minimum is
-   its content and one long client name would push the whole row wider than
-   the frame - which is exactly the horizontal scrollbar this is removing.
-
-   The accent is set per column in the markup from --stage-*: seven classes
-   differing only by a colour is seven chances to get one wrong. */
-.board {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  align-items: start;
-}
-
-.board-column {
-  background: var(--bone);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  min-width: 0;
-}
-.board-column.over {
-  border-color: var(--field-line);
-  background: var(--accent-soft-hover);
-}
-
-.board-head {
-  border-top: 3px solid var(--line);
-  border-radius: 10px 10px 0 0;
-  padding: 8px 8px 6px;
-  display: grid;
-  gap: 2px;
-}
-.board-title {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  overflow-wrap: break-word;
-}
-/* The count sits in the heading rather than under it: a chip of its own cost
-   a line in every column, seven times over. */
-.board-count {
-  font-weight: 400;
-  color: var(--muted);
-}
-
-.board-cards {
-  display: grid;
-  gap: 6px;
-  padding: 6px 8px 10px;
-  min-height: 50px;
-}
-
-.board-card {
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--line-strong);
-  border-radius: 8px;
-  padding: 7px 8px;
-  display: grid;
-  gap: 3px;
-  cursor: grab;
-  min-width: 0;
-}
-.board-card:active {
-  cursor: grabbing;
-}
-/* Everything on a card wraps. In a seventh of the frame a hyphenated
-   employer or a long surname would otherwise set the column's width. */
-.board-card,
-.board-card * {
-  overflow-wrap: break-word;
-  min-width: 0;
-}
-
-/* A goal can run to forty words - "Industries: Retail/Commercial,
-   Healthcare/Pharmacy, Library. Skills: ..." - and in a seventh of the frame
-   that is the whole card. Three lines here, all of it in the panel when the
-   card is opened. */
-.board-goal {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.board-card .chip {
-  justify-self: start;
-  white-space: normal;
-  text-align: left;
-}
-
-.board-open {
-  background: none;
-  border: 0;
-  padding: 0;
-  text-align: left;
-  display: grid;
-  gap: 2px;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-}
-.board-name {
-  font-weight: 600;
-}
-.board-who {
-  margin: 0;
-}
-.board-tags {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-.board-move {
-  display: grid;
-  gap: 2px;
-}
-.board-move select {
-  width: 100%;
-  max-width: 100%;
-}
-
-/* The phone's stage picker, which is only ever shown on a phone. */
-.board-picker {
-  display: none;
-  gap: 4px;
-  margin-bottom: 8px;
-  max-width: 320px;
-}
-
-.board-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(380px, 92vw);
-  overflow-y: auto;
-  background: var(--paper);
-  border-left: 1px solid var(--line);
-  padding: 16px;
-  z-index: 40;
-}
-.board-facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 10px;
-  margin: 12px 0;
-}
-.board-facts dt {
-  white-space: nowrap;
-}
-.board-facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
+/* The kanban that stood here - seven columns of cards - was replaced by the
+   stage board (clients board brief, Part 2), which is the same table the
+   billing board is. Its 150 lines of CSS went with it, and with them a
+   collision nobody had noticed: ".board" was the kanban's seven-column grid
+   and "table.board" is the spreadsheet, and they are the same class. The
+   table never set display, so it inherited the grid - and drew its seven
+   group bars side by side across one row. */
 
 .board-dialog {
   position: fixed;
@@ -3687,6 +3534,9 @@ button.attach-chip:hover {
 }
 
 table.board {
+  /* Said out loud: a class called "board" sat on a grid for two months, and
+     a table that does not set display inherits it. */
+  display: table;
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -3737,6 +3587,15 @@ table.board tbody tr:hover .pin-client { background: var(--accent-soft-hover); }
 table.board tbody tr:hover td { background: var(--accent-soft-hover); }
 
 table.board .num { text-align: right; }
+
+/* A figure that is late: days without contact, days in a stage, a task past
+   its date. "bad" on its own was doing nothing - it exists as .chip.bad and
+   .alert.bad and nowhere else - so three red rules on the stage board were
+   written and never showed. */
+.late {
+  color: var(--bad);
+  font-weight: 600;
+}
 
 /* ── a group, its bar and its totals ──────────────────────── */
 table.board tr.group th {

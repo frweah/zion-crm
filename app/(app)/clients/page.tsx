@@ -22,7 +22,8 @@ import { CaseloadSummary } from "../caseload-summary";
 import { LIVE_STATUSES } from "@/lib/billing";
 import { readRateSchedule } from "@/lib/rate-schedule";
 import { can } from "@/lib/roles";
-import { ClientsBoard, type Card, type FileCategory } from "./board";
+import { StageBoard } from "./stage-board";
+import { toClientBoardRows } from "@/lib/clients-board-shape";
 import { ClientRowActions } from "./row-actions";
 
 type Row = {
@@ -97,7 +98,7 @@ export default async function ClientsPage({
   if (filters.hasImportReview) query = query.neq("import_review", "");
   if (filters.since) query = query.gte("created_at", filters.since);
 
-  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult, categoriesResult, rates] =
+  const [billing, clientsResult, counselorsResult, staffResult, officesResult, viewsResult, totalResult, prefResult, boardResult, rates] =
     await Promise.all([
       readBillingOffices(supabase),
       query,
@@ -117,22 +118,21 @@ export default async function ClientsPage({
         .eq("staff_id", me.id)
         .eq("key", "last_view:clients")
         .maybeSingle(),
-      // The whole board in one call (0223): every active client with the
-      // stage, the goal, the counselor, who it is assigned to, the days, the
-      // services authorized and the one alert. Measured at 501 clients:
-      // ~103ms, against a one-second budget.
-      supabase.rpc("clients_board"),
-      // The document types, for a file attached to a move (0231). One small
-      // read rather than a list kept in the component, which is the rule
-      // 0203 set when this list stopped being hard-coded.
-      supabase.from("client_file_categories").select("key, label").order("key"),
+      // The whole board in one call (0223, 0371): every active client with
+      // the stage and the days in it, who it is assigned to, where the job
+      // search is, when somebody last reached them and how, the next open
+      // task, this month's report, the one alert, and the four things the
+      // tiles count.
+      supabase.rpc("clients_board_rows", { p_today: null }),
       // The rate schedule, for the authorization half of the referral form.
       // Read here rather than priced in the component (§13.13).
       readRateSchedule(supabase),
     ]);
 
-  const boardCards = (boardResult.data ?? []) as Card[];
-  const fileCategories = (categoriesResult.data ?? []) as FileCategory[];
+  const boardRows = toClientBoardRows(
+    boardResult.data,
+    (id) => billing.forClient(id)?.name ?? "",
+  );
   // Who may take a client off the board (owner, 22 Oct). Everybody who can
   // see Clients may move a card; this is the narrower one.
   const canClose = ["Admin", "Reports", "Billing"].includes(me.role);
@@ -413,7 +413,7 @@ export default async function ClientsPage({
       <div className="row2 no-print" style={{ marginBottom: 10 }}>
         <div className="segmented">
           <Link href="/clients" className={tab === "board" ? "on" : undefined}>
-            Board ({boardCards.length})
+            Board ({boardRows.length})
           </Link>
           <Link href="/clients?tab=all" className={tab === "all" ? "on" : undefined}>
             All clients ({totalResult.count ?? 0})
@@ -421,7 +421,27 @@ export default async function ClientsPage({
         </div>
       </div>
 
-      {tab === "board" && <ClientsBoard cards={boardCards} canClose={canClose} categories={fileCategories} />}
+      {tab === "board" && (
+        <>
+          <StageBoard
+            rows={boardRows}
+            staff={(staffResult.data ?? []) as { id: string; name: string }[]}
+            today={today()}
+            canEdit={canEdit}
+          />
+          {canEdit && (
+            <div id="new-client" style={{ marginTop: 14 }}>
+              <AddClientPanel
+                counselors={counselors}
+                staff={staff}
+                offices={(officesResult.data ?? []).map((o) => o.name)}
+                rates={rates}
+                canBill={can(me, "billing", "edit")}
+              />
+            </div>
+          )}
+        </>
+      )}
 
       {tab === "all" && (
       <>

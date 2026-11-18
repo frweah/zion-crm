@@ -380,6 +380,7 @@ const RPC_FUNCTIONS = [
   // One view of the money this month (0337), read by Billing and by Home.
   "billing_overview",
   "clients_board",
+  "clients_board_rows",
   "move_client",
   "close_client",
   "reactivate_client",

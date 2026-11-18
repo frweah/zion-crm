@@ -41,6 +41,32 @@ does not count. The header search box is two taps to a record.
 | What is not there | **No tile and no count anywhere says it.** The caseload strip counts every client, the active ones, the new ones this month and the active ones by stage — none of those is "nobody has touched these". So the question can only be answered by somebody who already knows the filter exists |
 | What the board says | Nothing. The board has no last-contact anywhere on a card; it carries the client, the stage, the goal, the counselor, who they are assigned to, days in stage, services, one alert chip, and the last note's text and date |
 
+**After the stage board** (live at HASH, 18 Nov 2026):
+
+### 1. Find client X and see where they are
+
+| | Now |
+|---|---|
+| Shortest path | Header search box → the client. Unchanged: the record's standing line says the stage |
+| Taps | **2** |
+| The other route | Clients, which opens on the board — and the board now has a **search box**. Type the name, read the stage off the row or off the group they are in |
+| Taps that way | **1** to Clients, then typing, which does not count. It was 1 tap and then reading seven columns by eye |
+| On a phone | The board is one table that scrolls sideways inside its own frame, with the row number and the client name pinned. There is no column picker to get past first |
+
+### 2. Which clients has nobody touched in two weeks?
+
+| | Now |
+|---|---|
+| Shortest path | Clients → the **No contact 14+ days** tile |
+| Taps | **2** |
+| Where the answer is | The board itself, filtered to exactly the rows the tile counted — across every stage, with the date and the channel of the last contact on each row |
+| What is not there any more | The guess. The number is on screen before anybody presses anything, and the filter behind it is the same sentence the tile counts: nobody has to know it exists |
+| The other route | All clients → filters → "Not touched in N days" → Apply, which still works and is still 4 taps |
+| What the row adds | Who it is assigned to, the next open task and whose it is, how long they have been in the stage, and this month's report — the four things somebody asks next |
+
+**4 taps and a filter nobody knew about became 2 taps and a number that was
+already on screen.** The seconds are still for whoever runs the stopwatch.
+
 ## Record
 
 | Person | Question | Seconds (before) | Seconds (after) | What made you stop |

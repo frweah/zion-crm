@@ -10177,3 +10177,102 @@ the stream rather than the permissions needs a role that may read a Personal
 note at all, and the two that may are Admin and Case Manager.
 `SMOKE_CASE_EMAIL` has never been set, so that assertion waits on an account
 only the owner can issue.
+
+## Clients becomes a stage board (18 November 2026)
+
+Part 2 of the clients-board brief. Seven columns of cards became seven groups
+of one table, for the reason Billing became one the day before: a column of
+cards cannot be searched, sorted or compared, and every question people
+actually bring to this screen is a question about a column of a table - who
+has nobody looking after them, who has not been contacted, whose
+authorization runs out this month.
+
+**The tiles are filters, not counts.** No contact 14+ days · Report overdue ·
+Authorization ends within 30 days · No assigned staff · Flagged for review.
+Each one is a sentence about a row, written once in
+`lib/clients-board-shape.ts`, so the number on the tile and the rows it
+filters to are the same arithmetic run twice and cannot disagree. Total and
+New this month went back to the All clients strip, where a count belongs.
+
+**One row per client, from one function** (0371), the same shape
+`billing_board` has: stage and days in it, who it is assigned to, where the
+job search is, when somebody last reached the client and how, the next open
+task and whose, this month's report, the alert chip, and the four things the
+tiles count. Eight more columns - goal, services, billing office, funding
+source, availability, applied in 7 days, next interview, last note - are in
+the Columns menu, off by default.
+
+**Last contact is not last activity.** It reads the four kinds of the stream
+that mean somebody was actually reached: a text, an email, a logged counselor
+contact, an appointment. Not a note - writing a meeting up a week later would
+otherwise move every client to today, which is exactly the lie this column
+would tell first. `verify_clients_board` asserts both halves: a note does not
+move it, and a counselor contact does.
+
+**Two cells take input**, as the brief said and no more: who the client is
+assigned to, and when the next task is due. Both go through paths that
+already exist - a narrow write to the client, which `clients_log` records in
+the directory log, and `setTaskDue`, the same function the task list calls.
+
+### One component, and what that came to mean
+
+The brief asked for "one component shared with the Billing board". The chrome
+is now shared - `app/(app)/board-chrome.tsx` holds the toolbar, the Columns
+menu, the sortable heading row and the sort rule, and both boards use them.
+The cells are not shared: a grid that could draw both an authorization and a
+client would be a configuration language, not a component. What is shared is
+exactly what would drift.
+
+### Three faults, two of them old
+
+**`.board` was two different screens.** The kanban's `.board { display: grid;
+grid-template-columns: repeat(7, ...) }` and the spreadsheet's `table.board`
+are the same class. The table never set `display`, so the new board inherited
+the kanban's seven columns and drew its seven group bars side by side across
+one row - which is what it looked like the first time it was rendered. The
+kanban's 150 lines of CSS went with the kanban, and `table.board` now says
+`display: table` out loud.
+
+**`className="bad"` colours nothing.** It exists as `.chip.bad` and
+`.alert.bad` and nowhere else, so all three of the brief's red rules - 14 days
+without contact, 45 days in a stage, a task past its date - were written and
+never showed. There is a `.late` now, and four figures on the test rows use
+it.
+
+**The empty state could not tell an empty board from an empty filter**, and
+said "Nothing matches" to a practice with no clients.
+
+### Checks
+
+`supabase/verify_clients_board.sql` - thirteen assertions, run with the
+suite: staff only in the body as well as in the grant, every active client on
+it exactly once and nobody else, each tile's fact true of its row, last
+contact is contact, the next task is the soonest open one, and no column
+whose name is money. Two faults put back, both rollback-wrapped: a
+`paid_amount` column on the function, and the `is_active_staff()` gate
+removed - the first fails the money assertion, the second hands a signed-in
+stranger all 18 clients.
+
+`scripts/check-clients-board.mjs` asks the screen the same question before the
+build, and one thing only a static read can ask: that every column the
+Columns menu offers has a case in the row's switch. A column that turns on and
+draws nothing is a column that lies, and nothing at run time would say so.
+Put back as a fault - an `Outstanding` column with no cell - it fails on both
+counts.
+
+### What Part 2 did not do
+
+The stage cell is read-only, which is what the brief says, and Part 3 is where
+a move gets its reason, its log and its Admin-only gate. Closing a client was
+on the kanban card's menu and the kanban is gone, so Close moved to the All
+clients row, beside Take off the board and Put back - it was always the odd
+one out there anyway. The move-with-a-document the card offered is parked
+until Part 3 rebuilds the move.
+
+### Looking at it
+
+The board renders empty under the local stub, because the row function is
+security definer gated on `is_active_staff()` and the stub reads with the
+service key, which carries no JWT. Six invented rows were pushed in locally to
+look at the grid - never committed, and the reason all three faults above were
+found rather than shipped.

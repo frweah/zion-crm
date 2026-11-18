@@ -20,6 +20,38 @@ export type BoardState = { error: string | null; ok: string | null };
 
 const field = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
+/**
+ * Who a client is assigned to, set from the board's own row.
+ *
+ * The board edits two cells, and this is one of them (clients board brief,
+ * Part 2). It is a write to the client like the one the record's own form
+ * makes - the same RLS policy decides whether this person may make it, and
+ * the same `clients_log` trigger records it in the directory log - narrowed
+ * to one column so that editing it from a grid cannot quietly blank the rest
+ * of the record, which a form posting every field would do.
+ */
+export async function setAssignedStaff(_prev: BoardState, formData: FormData): Promise<BoardState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "Sign in again to change who is assigned.", ok: null };
+
+  const id = field(formData, "client_id");
+  const staffId = field(formData, "assigned_staff_id");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clients")
+    .update({ assigned_staff_id: staffId || null })
+    .eq("id", id)
+    .select("id, name")
+    .maybeSingle();
+
+  if (error) return { error: error.message, ok: null };
+  if (!data) return { error: "That client is not yours to change.", ok: null };
+
+  revalidatePath("/clients");
+  return { error: null, ok: null };
+}
+
 /** Move one client to one stage, with the note the database insists on. */
 export async function moveClient(_prev: BoardState, formData: FormData): Promise<BoardState> {
   const me = await getCurrentStaff();

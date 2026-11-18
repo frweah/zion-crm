@@ -8120,6 +8120,10 @@ export type Database = {
         Args: { p_today?: string | null };
         Returns: { client_id: string | null; name: string | null; stage: string | null; goal: string | null; counselor: string | null; assigned_to: string | null; days_in_stage: number | null; services: string[] | null; chip: string | null; chip_urgency: number | null; last_note: string | null; last_note_on: string | null }[];
       };
+      clients_board_rows: {
+        Args: { p_today?: string | null };
+        Returns: { client_id: string | null; name: string | null; stage: string | null; counselor: string | null; office: string | null; assigned_staff_id: string | null; assigned_to: string | null; job_status: string | null; job_status_on: string | null; last_contact_at: string | null; last_contact_kind: string | null; next_task_id: string | null; next_task_title: string | null; next_task_owner: string | null; next_task_due: string | null; days_in_stage: number | null; report_status: string | null; report_due_on: string | null; attention: string | null; attention_urgency: number | null; goal: string | null; services: string[] | null; funding_source: string | null; availability: string | null; applied_7d: number | null; next_interview: string | null; last_note: string | null; last_note_on: string | null; authorization_ends_on: string | null; flagged_for_review: string | null }[];
+      };
       clients_i_can_restrict: {
         Args: Record<string, never>;
         Returns: string;

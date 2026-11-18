@@ -7,6 +7,7 @@ import { money, PRACTICE_TZ } from "@/lib/constants";
 import { authorizationNumberLabel } from "@/lib/billing";
 import { BOARD_GROUPS, COLLAPSED_GROUPS, type BoardClient, type BoardGroup } from "@/lib/billing-board-shape";
 import { setSubmittedOn, setPaidOn, setBoardStatus, type CellState } from "./board-actions";
+import { BoardHead, BoardToolbar, ColumnsPanel, nextSort, useColumns, type BoardColumn, type Sort } from "../board-chrome";
 import { BulkClear } from "./worklist-table";
 
 /**
@@ -45,9 +46,7 @@ const GROUP_MEANS: Record<BoardGroup, string> = {
   Closed: "ended without being billed",
 };
 
-type Column = { key: string; label: string; num?: boolean };
-
-const COLUMNS: Column[] = [
+const COLUMNS: BoardColumn[] = [
   { key: "client", label: "Client / Authorization" },
   { key: "office", label: "Office / Service" },
   { key: "counselor", label: "Counselor / Invoice #" },
@@ -105,10 +104,9 @@ export function BoardGrid({
   const [office, setOffice] = useState("");
   const [counselor, setCounselor] = useState("");
   const [period, setPeriod] = useState("");
-  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "", dir: 1 });
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [showColumns, setShowColumns] = useState(false);
+  const [sort, setSort] = useState<Sort>({ key: "", dir: 1 });
   const [chosen, setChosen] = useState<string[]>([]);
+  const { hidden, toggle, showColumns, setShowColumns, shown: shownColumns } = useColumns(COLUMNS);
   const grid = useRef<HTMLTableElement>(null);
 
   const offices = useMemo(
@@ -127,7 +125,6 @@ export function BoardGrid({
     [clients],
   );
 
-  const shownColumns = COLUMNS.filter((c) => !hidden.has(c.key));
 
   const matching = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -208,14 +205,29 @@ export function BoardGrid({
   return (
     <>
       {!compact && (
-      <div className="board-toolbar no-print">
-        <input
-          type="search"
-          aria-label="Search a client or an authorization number"
-          placeholder="Client or V-number"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+      <BoardToolbar
+        q={q}
+        onQ={setQ}
+        label="Search a client or an authorization number"
+        placeholder="Client or V-number"
+        right={
+          <>
+            <button type="button" className="btn ghost" onClick={() => setShowColumns((v) => !v)}>
+              Columns
+            </button>
+            {canExport && (
+              <Link className="btn ghost" href="/insights/money#export" style={{ textDecoration: "none" }}>
+                Export
+              </Link>
+            )}
+            {canBill && (
+              <Link className="btn" href="#new-authorization" style={{ textDecoration: "none" }}>
+                + Authorization
+              </Link>
+            )}
+          </>
+        }
+      >
         <select aria-label="Office" value={office} onChange={(e) => setOffice(e.target.value)}>
           <option value="">Every office</option>
           {offices.map((o) => (
@@ -235,45 +247,10 @@ export function BoardGrid({
           ))}
         </select>
         <span className="lock">Grouped by status</span>
-        <div className="right">
-          <button type="button" className="btn ghost" onClick={() => setShowColumns((v) => !v)}>
-            Columns
-          </button>
-          {canExport && (
-            <Link className="btn ghost" href="/insights/money#export" style={{ textDecoration: "none" }}>
-              Export
-            </Link>
-          )}
-          {canBill && (
-            <Link className="btn" href="#new-authorization" style={{ textDecoration: "none" }}>
-              + Authorization
-            </Link>
-          )}
-        </div>
-      </div>
+      </BoardToolbar>
       )}
 
-      {showColumns && (
-        <div className="board-columns no-print">
-          {COLUMNS.map((c) => (
-            <label key={c.key}>
-              <input
-                type="checkbox"
-                checked={!hidden.has(c.key)}
-                onChange={() =>
-                  setHidden((s) => {
-                    const n = new Set(s);
-                    if (n.has(c.key)) n.delete(c.key);
-                    else n.add(c.key);
-                    return n;
-                  })
-                }
-              />
-              {c.label}
-            </label>
-          ))}
-        </div>
-      )}
+      {showColumns && <ColumnsPanel columns={COLUMNS} hidden={hidden} toggle={toggle} />}
 
       {canBill && chosen.length > 0 && (
         <BulkClear chosen={chosen} clear={() => setChosen([])} today={today} />
@@ -281,29 +258,11 @@ export function BoardGrid({
 
       <div className="board-wrap">
         <table className="board" ref={grid} data-layout="every client, grouped by what is owed, with their authorizations underneath">
-          <thead>
-            <tr>
-              <th className="pin-n" scope="col">#</th>
-              {shownColumns.map((c, i) => (
-                <th
-                  key={c.key}
-                  scope="col"
-                  className={[i === 0 ? "pin-client" : "", c.num ? "num" : ""].filter(Boolean).join(" ")}
-                  aria-sort={sort.key === c.key ? (sort.dir === 1 ? "ascending" : "descending") : undefined}
-                >
-                  <button
-                    type="button"
-                    className="sort"
-                    onClick={() =>
-                      setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === 1 ? -1 : 1 }))
-                    }
-                  >
-                    {c.label}
-                  </button>
-                </th>
-              ))}
-            </tr>
-          </thead>
+          <BoardHead
+            columns={shownColumns}
+            sort={sort}
+            onSort={(k) => setSort((s) => nextSort(s, k))}
+          />
 
           {BOARD_GROUPS.map((g) => {
             const inGroup = sorted.filter((c) => c.grp === g);
@@ -398,7 +357,7 @@ function ClientRows({
 }: {
   n: number;
   client: BoardClient;
-  columns: Column[];
+  columns: BoardColumn[];
   isOpen: boolean;
   onToggle: () => void;
   canBill: boolean;
@@ -483,7 +442,7 @@ function SubRow({
   arrows,
 }: {
   row: import("@/lib/billing-board-shape").BoardAuthorization;
-  columns: Column[];
+  columns: BoardColumn[];
   canBill: boolean;
   chosen: string[];
   setChosen: (f: (c: string[]) => string[]) => void;
