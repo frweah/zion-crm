@@ -10317,3 +10317,125 @@ That last one is read by the line rather than by the href, because the board's
 href is composed and a regex for one spelling of a link passes every other
 spelling. Two faults put back: the parameter dropped from the constant, which
 fails two assertions, and the panel ignoring the prop, which fails the third.
+
+## A stage change is Admin's, and everybody else asks (18 November 2026)
+
+Part 3 of the clients-board brief, and ruling 6. Anybody who could see Clients
+could move a client between stages; now one person can, and the rest ask.
+
+**The gate is in `move_client`, not on the screen.** The screens are one
+caller; the import, the agent and a hand-written statement are others, and a
+rule that lives in a button is a rule the next caller has never heard of. The
+function keeps its signature, so every caller still works and every non-Admin
+caller is refused in a sentence that says what to do instead. `verify_stage_
+requests.sql` tries it as **every active account with a sign-in that is not
+Admin** - six of them, found by querying rather than by a list somebody would
+have to remember to add to - and then as the Admin, which is the control: if
+the Admin could not move either, the six refusals would prove only that the
+function was broken.
+
+**`client_stage_requests` is the ask**, in the shape the Part 2 report
+proposed and the owner approved: the target stage, the reason, who asked and
+when, the outcome, who decided and when, their reason, and the task the
+administrator was given. The stage and the reason cannot live on a task, which
+has a title and a due date and nothing else - that is the whole reason there
+is a table. `outcome` is one column rather than two booleans so that waiting
+is a state and not an absence, and both names are kept because the move's own
+history records who moved the client while this records who asked.
+
+**Nothing writes it.** No insert, update or delete policy and no grant for
+them: `request_stage_change` and `decide_stage_request` are security definer
+and are the only doors. The verify tries both by hand as the Admin and is
+refused.
+
+### What each door does
+
+`request_stage_change` refuses an administrator (they move; a request from
+the person who would decide it is a round trip to themselves), refuses an
+automated account (0120), refuses a stage the client is already in, and
+refuses a second ask for the same client and stage while one is waiting -
+naming who asked and when, so the refusal tells somebody what is happening
+rather than that something went wrong. A unique partial index says the same
+thing underneath, which is what makes two at once impossible rather than
+unlikely. Then it writes the row and calls `notify_person`: one bell, one My
+day item for the administrator, deduped on the request, with the asker's
+reason as a comment on the task.
+
+`decide_stage_request` is Admin's. **Approve** marks the request first and
+then calls `move_client` - as the administrator, which is what makes the move
+allowed at all - with a note carrying both lines and both names:
+
+    <who asked>: <why> — approved by <who decided>: <why>
+
+so the stage history and the client's own contact log each read as the whole
+conversation rather than half of it. **Decline** needs a reason, in the
+function and in a check constraint on the table, closes the administrator's
+task, and gives whoever asked a task of their own with the reason as its
+comment. A task rather than only a bell, because a decline is a thing to act
+on: the move did not happen and whatever was going to happen next has to
+change. If the asker has left the practice the decline still goes through and
+the row still carries the words - a decline that fails because nobody can be
+told would leave the request waiting forever.
+
+**A request the world has moved past closes itself.** If the administrator
+moves the client to the stage somebody asked for without opening the request,
+`move_client` closes it as approved with "already moved" and closes its task.
+That lives in `move_client` because it is the only door a stage can change
+through: the history trigger refuses a move with no note, and nothing but this
+function sets one. The same words are returned if the request is opened after
+the fact, because it is the same situation from the other side.
+
+### On the screen
+
+The Stage cell is where all of it happens. It shows the stage; a waiting
+request under it, with the stage asked for, who asked, when and why, drawn for
+everybody because a request nobody can see is a request somebody makes twice;
+and then one control - **Move** for Admin, **Request change** for everybody
+else who may edit a client, **Approve / Decline** where one is waiting. Admin
+gets a sixth tile, **Stage-change requests waiting**, which filters the board
+to the rows that carry one. It is the only tile whose work nobody else can do,
+which is why `tilesFor(isAdmin)` exists rather than a sixth entry in the list.
+
+Moving to Job Placement asks for the employer and the start date in the same
+form, as the kanban card did: that is the placement row the retention checks
+and the placement fee both hang off, and starting the clock a week late is
+worse than one more field.
+
+The record's own stage card was rebuilt the same way, and that fixed an older
+fault: it posted the stage and nothing else, and `setStage` has required a
+note since the move started writing history - so **Move stage** answered "Say
+why they are moving" every time it was pressed, with nowhere to say it.
+
+### Rendered before it was checked
+
+Six invented rows again, because the real board is empty locally. One fault,
+and it was the cell: the table sets `white-space: nowrap` so a row stays one
+line, a form inherits it, and the stage picker, the reason and both buttons
+were laid out along a single line running off the right-hand edge. All that
+could be seen of a move was the picker. Each control has its own line now.
+
+### Checks
+
+`supabase/verify_stage_requests.sql` - twenty-five assertions, run with the
+suite. Two faults put back, both rollback-wrapped: the Admin gate taken out of
+`move_client`, which lets all six accounts through and fails seven
+assertions, and the unique index dropped, which fails the one that says two
+asks cannot race.
+
+`scripts/check-clients-board.mjs` gained three questions and lost a bug. It
+named 0371 as the file that defines the row function, and 0372 added five
+columns to that signature the day after - so it was reading a definition the
+database no longer had. It finds the last migration that creates the function
+now. It also asks that every column the function returns is read by the row's
+shape, and that the sixth tile is Admin's: `tilesFor(false)` must not carry
+it, `tilesFor(true)` must, and the tile must tell a waiting request from a
+decided one. Three faults put back; all three fail.
+
+The whole suite - 156 scripts - was run, and one script failed that nobody had
+touched: `verify_records_request`, which asks that every table holding a
+client_id is either in the records-request bundle or on a written list of the
+ones that are deliberately not. The new table is on the list, with the
+argument both ways written out, and **this one is the owner's to rule on**: an
+approved request is already disclosed through the stage history, but a
+declined one carries a judgement about the person, written about them, which
+is the kind of thing a records request is for.

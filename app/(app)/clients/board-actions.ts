@@ -206,3 +206,84 @@ export async function deactivateClient(_prev: BoardState, formData: FormData): P
     return { error: err instanceof Error ? err.message : "That did not go through.", ok: null };
   }
 }
+
+/**
+ * Request change: what every role but Admin gets where Admin gets Move
+ * (clients board brief, Part 3).
+ *
+ * A thin wrapper again. Who may ask, who may not, one ask at a time per
+ * client and stage, the Admin task and the bell are all `request_stage_change`
+ * (0372) - so the screen cannot offer a shortcut round any of them, and
+ * neither can the next caller.
+ */
+export async function requestStageChange(_prev: BoardState, formData: FormData): Promise<BoardState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "Sign in again to ask for a change.", ok: null };
+
+  const id = field(formData, "client_id");
+  const stage = field(formData, "stage");
+  const reason = field(formData, "reason");
+
+  if (!(STAGES as readonly string[]).includes(stage)) {
+    return { error: "That is not one of the seven stages.", ok: null };
+  }
+  if (!reason) return { error: "Say why it should move.", ok: null };
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("request_stage_change", {
+      p_client: id,
+      p_stage: stage,
+      p_reason: reason,
+    });
+    if (error) return { error: error.message, ok: null };
+
+    revalidatePath("/clients");
+    revalidatePath(`/clients/${id}`);
+    const said = Array.isArray(data) ? (data[0]?.said ?? null) : null;
+    return { error: null, ok: said ?? `Asked to move them to ${stage}.` };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "That did not go through.", ok: null };
+  }
+}
+
+/**
+ * Approve or decline one, which only Admin may do.
+ *
+ * The approval performs the move itself, inside the database, as the
+ * administrator who pressed it - which is the only way a move can happen now.
+ * The reason field is always sent: on an approve it is a word to add to the
+ * note, on a decline it is the thing the person who asked will be told, and
+ * the database refuses a decline without one.
+ */
+export async function decideStageRequest(_prev: BoardState, formData: FormData): Promise<BoardState> {
+  const me = await getCurrentStaff();
+  if (!me) return { error: "Sign in again to decide this.", ok: null };
+
+  const request = field(formData, "request_id");
+  const approve = field(formData, "decision") === "approve";
+  const reason = field(formData, "reason");
+  const client = field(formData, "client_id");
+
+  if (!request) return { error: "That request is not there.", ok: null };
+  if (!approve && !reason) {
+    return { error: "Say why it is declined. Whoever asked needs to know what to do instead.", ok: null };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("decide_stage_request", {
+      p_request: request,
+      p_approve: approve,
+      p_reason: reason,
+    });
+    if (error) return { error: error.message, ok: null };
+
+    revalidatePath("/clients");
+    if (client) revalidatePath(`/clients/${client}`);
+    const said = Array.isArray(data) ? (data[0]?.said ?? null) : null;
+    return { error: null, ok: said ?? (approve ? "Moved." : "Declined.") };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "That did not go through.", ok: null };
+  }
+}

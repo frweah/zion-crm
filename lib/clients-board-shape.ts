@@ -43,6 +43,18 @@ export type ClientBoardRow = {
   last_note_on: string | null;
   authorization_ends_on: string | null;
   flagged_for_review: string | null;
+  /**
+   * The oldest stage change still waiting on Admin (Part 3), or nulls.
+   *
+   * The reason comes with it because the decision is made on this row: an
+   * Approve that sends somebody to another screen to read one sentence is an
+   * Approve pressed without reading it.
+   */
+  stage_request_id: string | null;
+  stage_request_to: string | null;
+  stage_request_by: string | null;
+  stage_request_at: string | null;
+  stage_request_reason: string | null;
   /** Merged in by the reader, which is where the billing offices live. */
   billing_office: string;
 };
@@ -94,6 +106,27 @@ export const TILES: Tile[] = [
   { key: "staff", label: "No assigned staff", holds: (r) => !r.assigned_staff_id },
   { key: "flagged", label: "Flagged for review", holds: (r) => Boolean(r.flagged_for_review) },
 ];
+
+/** A stage change is waiting on somebody. */
+export const requestWaiting = (r: ClientBoardRow) => Boolean(r.stage_request_id);
+
+/**
+ * The sixth tile, Admin's (brief, Part 3).
+ *
+ * It is the only tile whose work nobody else can do: a Job Coach looking at
+ * "requests waiting" would be reading a number they cannot act on, and a tile
+ * that is not a thing to do is a count, which belongs on the All clients
+ * strip. Same shape as the other five, so it filters the same way.
+ */
+export const REQUESTS_TILE: Tile = {
+  key: "requested",
+  label: "Stage-change requests waiting",
+  holds: requestWaiting,
+};
+
+/** The tiles this person gets, which is the five plus Admin's sixth. */
+export const tilesFor = (isAdmin: boolean): Tile[] =>
+  isAdmin ? [...TILES, REQUESTS_TILE] : TILES;
 
 /** What a group's footer says: the three things somebody is behind on. */
 export function groupFooter(rows: ClientBoardRow[], today: string) {
@@ -168,6 +201,11 @@ export function toClientBoardRows(
     last_note_on: (r.last_note_on as string | null) ?? null,
     authorization_ends_on: (r.authorization_ends_on as string | null) ?? null,
     flagged_for_review: (r.flagged_for_review as string | null) ?? null,
+    stage_request_id: (r.stage_request_id as string | null) ?? null,
+    stage_request_to: (r.stage_request_to as string | null) ?? null,
+    stage_request_by: (r.stage_request_by as string | null) ?? null,
+    stage_request_at: (r.stage_request_at as string | null) ?? null,
+    stage_request_reason: (r.stage_request_reason as string | null) ?? null,
     billing_office: officeOf(String(r.client_id)),
   }));
 }

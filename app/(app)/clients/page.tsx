@@ -428,6 +428,7 @@ export default async function ClientsPage({
             staff={(staffResult.data ?? []) as { id: string; name: string }[]}
             today={today()}
             canEdit={canEdit}
+            isAdmin={me.role === "Admin"}
           />
           {canEdit && (
             <div id="new-client" style={{ marginTop: 14 }}>

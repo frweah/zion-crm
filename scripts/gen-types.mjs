@@ -382,6 +382,9 @@ const RPC_FUNCTIONS = [
   "clients_board",
   "clients_board_rows",
   "move_client",
+  // Part 3 of the clients board: the ask and the decision (0372).
+  "request_stage_change",
+  "decide_stage_request",
   "close_client",
   "reactivate_client",
   "deactivate_client",

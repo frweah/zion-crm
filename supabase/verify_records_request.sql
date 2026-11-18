@@ -202,6 +202,32 @@ declare
     -- that the referral was received, which is in the contact log. Neither is
     -- this row.
     'intake_mail',
+    /**
+     * A stage change somebody asked an administrator for, and what came of it
+     * (0372).
+     *
+     * Here rather than in a section, and this one is on the line - the owner
+     * should read it rather than take it on trust.
+     *
+     * Against including it: an approved request has already been disclosed.
+     * The move it asked for is in stage_history above, and the note on that
+     * row carries both lines and both names, so the asking, the reason, the
+     * decision and the decider are all in the bundle in the one place a
+     * person would look for them. What is left over is a declined request -
+     * a move that did not happen - written in the practice's own workflow
+     * terms, which is the same argument that keeps client_corrections out.
+     *
+     * For including it: a decline's reason is a judgement about the person
+     * ("not ready for job search"), written about them, and that is not the
+     * practice's filing - it is the practice's opinion of the client, which
+     * is the kind of thing a records request is for.
+     *
+     * Skipped until the owner rules, because adding it later discloses more
+     * and taking it out again discloses less, and only one of those is
+     * reversible. If the ruling is to include it, this is the line to delete
+     * and `records_request_bundle` gains a section.
+     */
+    'client_stage_requests',
     -- How many times the counselor has been chased (0184). What the client is
     -- entitled to is that the practice asked, which is in contact_log and in
     -- the bundle above as counselor_contacts. This is the number beside it,

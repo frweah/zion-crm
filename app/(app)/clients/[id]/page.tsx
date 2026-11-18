@@ -1274,7 +1274,7 @@ export default async function ClientPage({
         </div>
 
         <div className="grid" style={{ alignContent: "start" }}>
-          <StageControl client={detail} canEdit={canEdit} />
+          <StageControl client={detail} canEdit={canEdit} isAdmin={me.role === "Admin"} />
 
           <div className="card">
             <h3>Stage history</h3>

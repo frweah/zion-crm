@@ -139,6 +139,9 @@
       "insert",
       "select"
     ],
+    "client_stage_requests": [
+      "select"
+    ],
     "client_weekly_reports": [
       "delete",
       "select",

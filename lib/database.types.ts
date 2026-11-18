@@ -1413,6 +1413,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      client_stage_requests: {
+        Row: {
+          id: string;
+          client_id: string;
+          to_stage: string;
+          reason: string;
+          requested_by: string;
+          requested_at: string;
+          outcome: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          task_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          to_stage: string;
+          reason: string;
+          requested_by: string;
+          requested_at?: string;
+          outcome?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          task_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          to_stage?: string;
+          reason?: string;
+          requested_by?: string;
+          requested_at?: string;
+          outcome?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          task_id?: string | null;
+        };
+        Relationships: [];
+      };
       client_weekly_reports: {
         Row: {
           id: string;
@@ -8122,7 +8164,7 @@ export type Database = {
       };
       clients_board_rows: {
         Args: { p_today?: string | null };
-        Returns: { client_id: string | null; name: string | null; stage: string | null; counselor: string | null; office: string | null; assigned_staff_id: string | null; assigned_to: string | null; job_status: string | null; job_status_on: string | null; last_contact_at: string | null; last_contact_kind: string | null; next_task_id: string | null; next_task_title: string | null; next_task_owner: string | null; next_task_due: string | null; days_in_stage: number | null; report_status: string | null; report_due_on: string | null; attention: string | null; attention_urgency: number | null; goal: string | null; services: string[] | null; funding_source: string | null; availability: string | null; applied_7d: number | null; next_interview: string | null; last_note: string | null; last_note_on: string | null; authorization_ends_on: string | null; flagged_for_review: string | null }[];
+        Returns: { client_id: string | null; name: string | null; stage: string | null; counselor: string | null; office: string | null; assigned_staff_id: string | null; assigned_to: string | null; job_status: string | null; job_status_on: string | null; last_contact_at: string | null; last_contact_kind: string | null; next_task_id: string | null; next_task_title: string | null; next_task_owner: string | null; next_task_due: string | null; days_in_stage: number | null; report_status: string | null; report_due_on: string | null; attention: string | null; attention_urgency: number | null; goal: string | null; services: string[] | null; funding_source: string | null; availability: string | null; applied_7d: number | null; next_interview: string | null; last_note: string | null; last_note_on: string | null; authorization_ends_on: string | null; flagged_for_review: string | null; stage_request_id: string | null; stage_request_to: string | null; stage_request_by: string | null; stage_request_at: string | null; stage_request_reason: string | null }[];
       };
       clients_i_can_restrict: {
         Args: Record<string, never>;
@@ -8219,6 +8261,10 @@ export type Database = {
       decide_hours_correction: {
         Args: { p_correction: string | null; p_approve: boolean | null; p_reason?: string | null };
         Returns: string;
+      };
+      decide_stage_request: {
+        Args: { p_request: string | null; p_approve: boolean | null; p_reason: string | null };
+        Returns: { outcome: string | null; said: string | null }[];
       };
       delete_client: {
         Args: { p_client: string | null; p_reason: string | null };
@@ -9051,6 +9097,10 @@ export type Database = {
       request_hours_correction: {
         Args: { p_session: string | null; p_hours: number | null; p_description: string | null; p_reason: string | null };
         Returns: string;
+      };
+      request_stage_change: {
+        Args: { p_client: string | null; p_stage: string | null; p_reason: string | null };
+        Returns: { request_id: string | null; task_id: string | null; said: string | null }[];
       };
       retry_text: {
         Args: { p_id: string | null };

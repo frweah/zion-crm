@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { deleteClient, setStage, updateClient, updateRestricted, type DetailState } from "./actions";
+import { requestStageChange } from "../board-actions";
 import { STAGES, CLIENT_STATUSES, FUNDING_SOURCES } from "@/lib/constants";
 
 const initial: DetailState = { error: null, ok: null };
@@ -59,35 +60,80 @@ function Message({ state }: { state: DetailState }) {
   return null;
 }
 
+/**
+ * Pipeline stage, on the record (brief, Part 3).
+ *
+ * Admin moves, with the reason the database insists on. Everybody else who
+ * may edit a client asks, and the ask becomes Admin's task. Nobody else sees
+ * a control at all, because there is nothing they could press.
+ *
+ * The reason field is new and the fault it fixes is old: this form posted the
+ * stage and nothing else, and `setStage` has required a note since the move
+ * started writing a history row - so "Move stage" answered "Say why they are
+ * moving" every time it was pressed, with nowhere to say it.
+ */
 export function StageControl({
   client,
   canEdit,
+  isAdmin,
 }: {
   client: ClientDetail;
   canEdit: boolean;
+  isAdmin: boolean;
 }) {
-  const [state, action, pending] = useActionState(setStage, initial);
+  const [moved, move, moving] = useActionState(setStage, initial);
+  const [asked, ask, asking] = useActionState(requestStageChange, initial);
+  const elsewhere = STAGES.filter((s) => s !== client.stage);
 
   return (
     <div className="card">
       <h3>Pipeline stage</h3>
-      <Message state={state} />
-      <form action={action} className="row2">
-        <input type="hidden" name="id" value={client.id} />
-        <label className="field">
-          Stage
-          <select name="stage" defaultValue={client.stage} disabled={!canEdit}>
-            {STAGES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-        {canEdit && (
-          <button className="btn" type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Move stage"}
+      <Message state={isAdmin ? moved : asked} />
+      {!canEdit && <p className="lock">{client.stage}</p>}
+
+      {canEdit && isAdmin && (
+        <form action={move} className="row2">
+          <input type="hidden" name="id" value={client.id} />
+          <label className="field">
+            Stage
+            <select name="stage" defaultValue={client.stage}>
+              {STAGES.map((st) => (
+                <option key={st}>{st}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Why
+            <input name="note" placeholder="Why they are moving" required />
+          </label>
+          <button className="btn" type="submit" disabled={moving}>
+            {moving ? "Moving…" : "Move stage"}
           </button>
-        )}
-      </form>
+        </form>
+      )}
+
+      {canEdit && !isAdmin && (
+        <form action={ask} className="row2">
+          <input type="hidden" name="client_id" value={client.id} />
+          <p className="lock">{client.stage}</p>
+          <label className="field">
+            Move to
+            <select name="stage" defaultValue="" required>
+              <option value="">which stage</option>
+              {elsewhere.map((st) => (
+                <option key={st}>{st}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Why
+            <input name="reason" placeholder="Why it should move" required />
+          </label>
+          <button className="btn" type="submit" disabled={asking}>
+            {asking ? "Asking…" : "Request change"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

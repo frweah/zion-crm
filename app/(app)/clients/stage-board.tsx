@@ -8,7 +8,7 @@ import {
   CHANNEL,
   LONG_IN_STAGE,
   OUT_OF_CONTACT,
-  TILES,
+  tilesFor,
   averageDays,
   daysSince,
   groupFooter,
@@ -26,7 +26,13 @@ import {
   type BoardColumn,
   type Sort,
 } from "../board-chrome";
-import { setAssignedStaff, type BoardState } from "./board-actions";
+import {
+  decideStageRequest,
+  moveClient,
+  requestStageChange,
+  setAssignedStaff,
+  type BoardState,
+} from "./board-actions";
 import { setTaskDue } from "../tasks/actions";
 
 /**
@@ -97,6 +103,24 @@ const day = (iso: string | null) =>
 
 const initial: BoardState = { error: null, ok: null };
 
+/**
+ * A form inside a cell of the board.
+ *
+ * The table sets `white-space: nowrap` so a row stays one line, and a form
+ * inherits it: the first time this was rendered, the stage picker, the reason
+ * and both buttons were laid out along a single line running off the right of
+ * the table, and all that could be seen of the move was the picker. Each
+ * control gets its own line, and the cell is allowed to wrap.
+ */
+const CELL_FORM: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+  justifyItems: "start",
+  whiteSpace: "normal",
+  marginTop: 4,
+  minWidth: 160,
+};
+
 /** Who the client is assigned to, changed on the row. */
 function AssignedCell({
   row,
@@ -164,6 +188,170 @@ function TaskCell({ row, today, canEdit }: { row: ClientBoardRow; today: string;
   );
 }
 
+/**
+ * The Stage cell: where they are, what has been asked, and the one control
+ * the person looking at it has (brief, Part 3).
+ *
+ * Admin moves. Everybody else who may edit a client asks, and the ask becomes
+ * a task for Admin. This cell decides what to offer; what is allowed is the
+ * database's (0372), which is why a Case Manager who reached the move some
+ * other way is still refused in a sentence rather than quietly obeyed.
+ *
+ * The waiting request is drawn for everybody, with the reason, because a
+ * request nobody can see is a request somebody makes twice.
+ */
+function StageCell({
+  row,
+  isAdmin,
+  canEdit,
+}: {
+  row: ClientBoardRow;
+  isAdmin: boolean;
+  canEdit: boolean;
+}) {
+  const [moved, move] = useActionState(moveClient, initial);
+  const [asked, ask] = useActionState(requestStageChange, initial);
+  const [decided, decide] = useActionState(decideStageRequest, initial);
+  const [open, setOpen] = useState<"" | "move" | "ask" | "decline">("");
+  const [stage, setStage] = useState("");
+  const waiting = row.stage_request_id;
+  const said = moved.error ?? asked.error ?? decided.error;
+  const elsewhere = STAGES.filter((s) => s !== row.stage);
+
+  const picker = (label: string) => (
+    <select
+      name="stage"
+      aria-label={label}
+      value={stage}
+      onChange={(e) => setStage(e.target.value)}
+      required
+    >
+      <option value="">which stage</option>
+      {elsewhere.map((s) => (
+        <option key={s} value={s}>
+          {stageLabel(s)}
+        </option>
+      ))}
+    </select>
+  );
+
+  return (
+    <>
+      <div>{stageLabel(row.stage)}</div>
+
+      {waiting && (
+        <div className="lock">
+          <span className="chip warn">to {stageLabel(row.stage_request_to ?? "")}</span>{" "}
+          {row.stage_request_by ?? "somebody"} asked {day(row.stage_request_at)}
+          {row.stage_request_reason && <div>{row.stage_request_reason}</div>}
+        </div>
+      )}
+
+      {isAdmin && waiting && open !== "decline" && (
+        <div className="row2" style={{ gap: 6, marginTop: 4 }}>
+          <form action={decide}>
+            <input type="hidden" name="request_id" value={waiting} />
+            <input type="hidden" name="client_id" value={row.client_id} />
+            <input type="hidden" name="decision" value="approve" />
+            <input type="hidden" name="reason" value="" />
+            <button className="btn" type="submit">
+              Approve
+            </button>
+          </form>
+          <button type="button" className="btn ghost" onClick={() => setOpen("decline")}>
+            Decline
+          </button>
+        </div>
+      )}
+
+      {isAdmin && waiting && open === "decline" && (
+        <form action={decide} style={CELL_FORM}>
+          <input type="hidden" name="request_id" value={waiting} />
+          <input type="hidden" name="client_id" value={row.client_id} />
+          <input type="hidden" name="decision" value="decline" />
+          <input
+            name="reason"
+            aria-label={`Why the move for ${row.name} is declined`}
+            placeholder="Why it is not moving"
+            required
+          />
+          <button className="btn" type="submit">
+            Decline
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setOpen("")}>
+            Leave it waiting
+          </button>
+        </form>
+      )}
+
+      {isAdmin && !waiting && open !== "move" && (
+        <button type="button" className="btn ghost" onClick={() => setOpen("move")}>
+          Move
+        </button>
+      )}
+
+      {isAdmin && !waiting && open === "move" && (
+        <form action={move} style={CELL_FORM}>
+          <input type="hidden" name="client_id" value={row.client_id} />
+          <input type="hidden" name="name" value={row.name} />
+          {picker(`Which stage ${row.name} moves to`)}
+          <input
+            name="note"
+            aria-label={`Why ${row.name} is moving`}
+            placeholder="Why they are moving"
+            required
+          />
+          {/*
+            Job Placement starts the placement clock, which the retention
+            checks and the placement fee both hang off - so the employer and
+            the start date are asked for with the move rather than a week
+            later. The kanban card asked the same two questions.
+          */}
+          {stage === "Job Placement" && (
+            <>
+              <input name="employer" aria-label={`Who is employing ${row.name}`} placeholder="Employer" />
+              <input type="date" name="hire_date" aria-label={`The day ${row.name} started`} />
+            </>
+          )}
+          <button className="btn" type="submit">
+            Move
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setOpen("")}>
+            Leave them here
+          </button>
+        </form>
+      )}
+
+      {!isAdmin && canEdit && !waiting && open !== "ask" && (
+        <button type="button" className="btn ghost" onClick={() => setOpen("ask")}>
+          Request change
+        </button>
+      )}
+
+      {!isAdmin && canEdit && !waiting && open === "ask" && (
+        <form action={ask} style={CELL_FORM}>
+          <input type="hidden" name="client_id" value={row.client_id} />
+          {picker(`Which stage ${row.name} should move to`)}
+          <input
+            name="reason"
+            aria-label={`Why ${row.name} should move`}
+            placeholder="Why it should move"
+            required
+          />
+          <button className="btn" type="submit">
+            Ask Admin
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setOpen("")}>
+            Leave it
+          </button>
+        </form>
+      )}
+
+      {said && <div className="late">{said}</div>}
+    </>
+  );
+}
+
 function ReportPill({ row, today }: { row: ClientBoardRow; today: string }) {
   if (!row.report_status) return <span className="lock">none yet</span>;
   const late = reportOverdue(row, today);
@@ -183,12 +371,18 @@ export function StageBoard({
   staff,
   today,
   canEdit,
+  isAdmin,
 }: {
   rows: ClientBoardRow[];
   staff: { id: string; name: string }[];
   today: string;
   canEdit: boolean;
+  /** Admin moves a client; everybody else asks (brief, Part 3). */
+  isAdmin: boolean;
 }) {
+  // Five tiles, and Admin's sixth. Asked once, in the shape file, so the
+  // number on a tile and the rows it filters to stay the same arithmetic.
+  const tiles = tilesFor(isAdmin);
   const [q, setQ] = useState("");
   const [office, setOffice] = useState("");
   const [assigned, setAssigned] = useState("");
@@ -213,7 +407,7 @@ export function StageBoard({
 
   const matching = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const chosen = TILES.find((t) => t.key === tile);
+    const chosen = tiles.find((t) => t.key === tile);
     return rows.filter((r) => {
       if (office && r.office !== office) return false;
       if (counselor && r.counselor !== counselor) return false;
@@ -226,7 +420,7 @@ export function StageBoard({
         (r.assigned_to ?? "").toLowerCase().includes(needle)
       );
     });
-  }, [rows, q, office, counselor, assigned, tile, today]);
+  }, [rows, q, office, counselor, assigned, tile, today, tiles]);
 
   const sorted = useMemo(() => {
     if (!sort.key) return matching;
@@ -316,7 +510,7 @@ export function StageBoard({
         ) : (
           ""
         );
-      case "stage": return stageLabel(r.stage);
+      case "stage": return <StageCell row={r} isAdmin={isAdmin} canEdit={canEdit} />;
       case "goal": return r.goal ?? "";
       case "services": return r.services.join(", ");
       case "billingOffice": return r.billing_office;
@@ -339,10 +533,10 @@ export function StageBoard({
 
   return (
     <>
-      {/* The tiles: five things somebody has to do something about. Clicking
-          one filters every stage to it; clicking it again clears. */}
+      {/* The tiles: things somebody has to do something about. Clicking one
+          filters every stage to it; clicking it again clears. */}
       <div className="tiles no-print">
-        {TILES.map((t) => {
+        {tiles.map((t) => {
           const n = rows.filter((r) => t.holds(r, today)).length;
           const on = tile === t.key;
           return (
