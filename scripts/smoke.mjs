@@ -475,6 +475,57 @@ for (const [role, emailKey, passwordKey] of CLIENT_ROLES) {
       } else if (record.ok) {
         console.log(`  ok      ${role.padEnd(12)} opened a client and read their Documents`);
       }
+
+      /**
+       * The dashboard is the record's front page now, so what it must never
+       * show is asked here as the role, against production, rather than read
+       * off a view definition.
+       *
+       * Two things: a Personal note, which is read on the Notes tab by the
+       * two roles that may read it at all, and a recording's words, which
+       * never leave the recording. Both are fetched as the practice - the
+       * service key - and then looked for in what this role was actually
+       * served.
+       */
+      const dash = await open(`/clients/${who}?tab=dashboard`);
+      all.push({ ...dash, role, path: `/clients/<id>?tab=dashboard` });
+      if (dash.ok && !/Where they are/.test(dash.body)) {
+        all.push({
+          role,
+          path: `/clients/<id>?tab=dashboard`,
+          ok: false,
+          why: "the dashboard opened without its sections on it",
+        });
+      } else if (dash.ok) {
+        const [{ data: personal }, { data: recorded }] = await Promise.all([
+          supabase.from("notes").select("text").eq("client_id", who).eq("category", "Personal").limit(5),
+          supabase.from("recordings").select("transcript").eq("client_id", who).not("transcript", "is", null).limit(5),
+        ]);
+        // A fragment long enough that matching it is not a coincidence.
+        const fragment = (s) => (typeof s === "string" && s.trim().length >= 24 ? s.trim().slice(0, 60) : null);
+        const mustNotBeThere = [
+          ...(personal ?? []).map((n) => ["a Personal note", fragment(n.text)]),
+          ...(recorded ?? []).map((r) => ["a recording's transcript", fragment(r.transcript)]),
+        ].filter(([, text]) => text);
+
+        const found = mustNotBeThere.filter(([, text]) => dash.body.includes(text));
+        if (found.length) {
+          all.push({
+            role,
+            path: `/clients/<id>?tab=dashboard`,
+            ok: false,
+            why: `the dashboard showed ${[...new Set(found.map(([what]) => what))].join(" and ")}`,
+          });
+        } else if (mustNotBeThere.length) {
+          console.log(
+            `  ok      ${role.padEnd(12)} opened the dashboard and neither the Personal notes nor the transcripts on that client were on it`,
+          );
+        } else {
+          console.log(
+            `  note  ${role} opened the dashboard, and that client has no Personal note and no transcript to leak`,
+          );
+        }
+      }
     }
   }
 

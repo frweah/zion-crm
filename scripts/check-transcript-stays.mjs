@@ -99,6 +99,57 @@ for (const file of walk(path.join(root, "app")).concat(walk(path.join(root, "lib
   );
 }
 
+/**
+ * And the same question of the database, which the scan above cannot see.
+ *
+ * The client's stream started reading `recordings` in SQL (0368) so that a
+ * recording shows on the dashboard by name and length. A view is exactly the
+ * place this rule gets broken quietly: `select r.*` would put an hour of
+ * somebody talking about their own life on the front page of their record,
+ * and nothing in the app would have changed.
+ *
+ * So: a view or a function that reads the recordings table may not name the
+ * transcript, the turns or the summary. The one that may is the
+ * records-request bundle, which answers a client asking for everything the
+ * practice holds about them.
+ */
+const SQL_MAY_READ = new Set(["records_request_bundle"]);
+
+const migrations = path.join(root, "supabase", "migrations");
+let sqlAsked = 0;
+for (const name of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
+  const raw = readFileSync(path.join(migrations, name), "utf8");
+  // Comments are never judged here either: a migration explains in prose what
+  // it is careful not to do, and those sentences name the transcript.
+  const sql = raw
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split(/\r?\n/)
+    .filter((l) => !l.trim().startsWith("--"))
+    .join("\n");
+
+  // Statement by statement, so a transcript read inside one function is not
+  // excused by a recording read inside another.
+  for (const statement of sql.split(/;\s*\r?\n/)) {
+    const made = /create\s+(or\s+replace\s+)?(view|function)\s+(public\.)?([a-z_0-9]+)/i.exec(statement);
+    if (!made) continue;
+    if (!/\brecordings\b/.test(statement)) continue;
+    sqlAsked += 1;
+    if (SQL_MAY_READ.has(made[4])) continue;
+    if (/\b(transcript|turns|summary)\b/.test(statement)) {
+      failures.push(
+        `supabase/migrations/${name}: ${made[4]} reads the recordings table and names the transcript, ` +
+          "the speaker turns or the summary. Those stay on the recording.",
+      );
+    }
+  }
+}
+
+if (sqlAsked === 0) {
+  failures.push(
+    "No view or function in the migrations reads the recordings table, which cannot be right — the client's stream shows them.",
+  );
+}
+
 // And the list itself cannot rot into naming files that are gone.
 for (const [where] of MAY_READ) {
   try {

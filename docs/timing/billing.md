@@ -58,8 +58,21 @@ time is a fact about a person.
 | Above it on the way | "Coming up" (tasks and calendar events) and the Mail section sit between the header and the stream, so the week starts below two cards. |
 | What is missing from it | There is no "Call" kind. A phone call is a **note of type "Phone call"**, so calls read as notes. |
 
-**After:** unchanged so far. This one is the client dashboard's question and
-the dashboard is Part 3; it will be recorded here when that is live.
+**After the dashboard** (live at 8a32efa, 17 Nov 2026):
+
+| | Now |
+|---|---|
+| Shortest path | Search box → the client (**Dashboard** is the landing tab) |
+| Taps | **2** |
+| Where the answer is | The activity stream, which opens on **This week** |
+| What you still have to do | Nothing to the window: the week is the window, so there is no reading down past the rest of the month. Last 30 days, Last 90 days, Last year and Everything are still there, one tap each |
+| What is above it now | More than before, and this is the one thing to watch: the stream used to sit under two cards and now sits under five - the contact line, the money strip, the authorizations and where the job search is. Four of those answer questions somebody used to open a tab for; none of them answers this one |
+| What is still missing from it | There is still no "Call" kind, because there is still nothing in the database that records a call. A phone call is written up as a note |
+| What is new in it | Recordings by name and length, reports that went to the counselor, and invoices that went out. A Personal note is no longer in it at all - it is read on the Notes tab, which is where the rule always said it was read |
+
+So: **the window stopped being wrong, and the page got longer.** If the
+seconds come out worse for this question, the thing to move is the stream, not
+the window.
 
 ## Record
 

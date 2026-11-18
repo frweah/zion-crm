@@ -42,6 +42,11 @@ export const ACTIVITY_KINDS = [
 ] as const;
 
 const WINDOWS = [
+  // This week first, and the one the stream opens on: the question the
+  // dashboard is asked most is "what happened with them this week", and
+  // thirty days meant reading past three weeks to answer it (owner, 17
+  // November 2026).
+  { days: 7, label: "This week" },
   { days: 30, label: "Last 30 days" },
   { days: 90, label: "Last 90 days" },
   { days: 365, label: "Last year" },
@@ -95,7 +100,7 @@ export function ActivityTab({
   extras: FeedExtras;
   colleagues: { id: string; name: string }[];
 }) {
-  const base = `/clients/${clientId}?tab=activity`;
+  const base = `/clients/${clientId}?tab=dashboard`;
   const keep = (k: string | null, d: number) =>
     `${base}${k ? `&kind=${encodeURIComponent(k)}` : ""}${d ? `&days=${d}` : "&days=0"}`;
 

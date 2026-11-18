@@ -22,6 +22,10 @@ declare
   v_marg_uid uuid;
   v_client   uuid;
   v_note     uuid;
+  v_attachment uuid;
+  v_recording  uuid;
+  v_report     uuid;
+  v_invoice    uuid;
   v_count    int;
   v_before   int;
   v_title    text;
@@ -102,6 +106,101 @@ begin
       raise notice 'ok  % reaches the feed', v_title;
     end if;
   end loop;
+
+  -- ── what the dashboard's stream shows (0368) ───────────────
+  --
+  -- The stream became the front page of the client record, so four rules
+  -- about it are asked here rather than read off the screen.
+
+  -- A Personal note is read on the Notes tab and nowhere else. The row is
+  -- still there and still readable; it is the feed it stays out of.
+  insert into public.notes (client_id, staff_id, staff_name, text, type, category, at, visible_roles)
+  values (v_client, v_admin, 'ZZ Verify', 'ZZ personal note body', 'General', 'Personal', now(),
+          array['Admin', 'Case Manager'])
+  returning id into v_note;
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+                     json_build_object('sub', v_adm_uid, 'role', 'authenticated')::text, true);
+  if not exists (select 1 from public.notes where id = v_note) then
+    failures := failures || 'FAILED: Admin cannot read a Personal note at all, which is not the rule'::text;
+  else
+    raise notice 'ok  a Personal note is still readable on the Notes tab';
+  end if;
+  if exists (select 1 from public.client_activity where ref_id = v_note) then
+    failures := failures || 'FAILED: a Personal note appeared in the stream'::text;
+  else
+    raise notice 'ok  a Personal note is not in the stream, for anybody';
+  end if;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  -- The control for the assertion above: the same note, the same reader, one
+  -- word changed. If this does not flip, the question being asked is not
+  -- about the category and the assertion above proves nothing.
+  update public.notes set category = 'General progress' where id = v_note;
+  if not exists (select 1 from public.client_activity where ref_id = v_note) then
+    failures := failures || 'FAILED: a note that is not Personal is missing from the stream too, so the check above asks the wrong question'::text;
+  else
+    raise notice 'ok  the same note, not Personal, is in the stream';
+  end if;
+  delete from public.notes where id = v_note;
+
+  -- A recording goes in with its name and its minutes. Its transcript does
+  -- not, and neither does its summary.
+  insert into public.attachments (client_id, storage_path, filename, mime_type, uploaded_by)
+  values (v_client, 'zz/verify/recording.m4a', 'ZZ coaching visit.m4a', 'audio/mp4', v_admin)
+  returning id into v_attachment;
+  insert into public.recordings (client_id, attachment_id, staff_id, state, minutes, transcript, summary, confirmed_at, confirmed_by)
+  values (v_client, v_attachment, v_admin, 'Confirmed', 18,
+          'ZZ TRANSCRIPT the client said something private',
+          '{"discussed": "ZZ SUMMARY nobody outside the Documents tab reads this"}'::jsonb,
+          now(), v_admin)
+  returning id into v_recording;
+
+  select coalesce(title, '') || ' ' || coalesce(detail, '') into v_title
+    from public.client_activity where ref_id = v_recording and kind = 'Recording';
+  if v_title is null then
+    failures := failures || 'FAILED: a recording does not reach the stream at all'::text;
+  elsif v_title like '%ZZ TRANSCRIPT%' or v_title like '%ZZ SUMMARY%' then
+    failures := failures || format('FAILED: the stream carried a recording''s words: %s', v_title);
+  elsif v_title not like '%18 min%' then
+    failures := failures || format('FAILED: a recording in the stream does not say how long it ran: %s', v_title);
+  else
+    raise notice 'ok  a recording is in the stream by name and length, with none of its words';
+  end if;
+
+  -- A report that went to the counselor is in it.
+  insert into public.client_reports (client_id, period, due_on, status, sent_at, sent_by, sent_to, pdf_attachment_id, signed_at, signed_by)
+  values (v_client, date_trunc('month', public.practice_today()::timestamptz)::date,
+          public.practice_today() + 5, 'Sent', now(), v_admin, 'zz-counselor@example.invalid', v_attachment, now(), v_admin)
+  returning id into v_report;
+  if not exists (select 1 from public.client_activity where ref_id = v_report and kind = 'Report') then
+    failures := failures || 'FAILED: a report that was sent is not in the stream'::text;
+  else
+    raise notice 'ok  a report that went out is in the stream';
+  end if;
+
+  -- An invoice that went out is in it, and says nothing about a warrant.
+  -- Read from an invoice that already exists: inserting one spends an
+  -- invoice number, and a rollback does not give it back.
+  select i.id into v_invoice
+    from public.invoices i
+   where i.submitted_on is not null and i.client_id is not null
+   order by i.submitted_on desc limit 1;
+  if v_invoice is null then
+    raise notice 'ok  (no invoice has been submitted yet, so there is nothing to ask about one)';
+  else
+    select coalesce(title, '') || ' ' || coalesce(detail, '') into v_title
+      from public.client_activity where ref_id = v_invoice and kind = 'Invoice';
+    if v_title is null then
+      failures := failures || 'FAILED: an invoice that went out is not in the stream'::text;
+    elsif v_title ~* 'warrant|voucher' then
+      failures := failures || format('FAILED: an invoice line in the stream names a warrant: %s', v_title);
+    else
+      raise notice 'ok  an invoice that went out is in the stream, with no warrant on it';
+    end if;
+  end if;
 
   -- ── it is ordered, and it is the client's own ──────────────
   if exists (

@@ -23,6 +23,11 @@ import { PlacementsTab, type PlacementRow, type HqiRow } from "./placements-tab"
 import { ReportTab } from "./report-tab";
 import { ComingUp, type EventRow } from "./calendar-tab";
 import { ActivityTab, ACTIVITY_KINDS, type ActivityRow } from "./activity-tab";
+import { ContactStrip, MoneyStrip, WhereTheyAre, AuthorizationsCard } from "./dashboard";
+import { BoardGrid } from "../../billing/board-grid";
+import { readBoard } from "@/lib/billing-board";
+import { byClient } from "@/lib/billing-board-shape";
+import { readHours, readJobs, readLastContact, readReport } from "@/lib/client-dashboard";
 import { JobsPanel, type JobRow, type StatusRow } from "./jobs-panel";
 import {
   DirectoryHistory,
@@ -248,7 +253,7 @@ export default async function ClientPage({
   // "Restricted client records" on Admin -> People (0232). The database asks
   // the same question (can_see_restricted) before it shows anything.
   const canSeeRestricted = can(me, "restricted") || client.assigned_staff_id === me.id;
-  const tab: ClientTab = isClientTab(sp.tab) ? sp.tab : "activity";
+  const tab: ClientTab = isClientTab(sp.tab) ? sp.tab : "dashboard";
 
   const counselor = counselorLink?.counselor ?? null;
   const staff = staffRows ?? [];
@@ -528,10 +533,11 @@ export default async function ClientPage({
   }
 
   // ── Activity ───────────────────────────────────────────────
-  if (tab === "activity") {
-    // Thirty days by default, because a timeline that opens on two years of
-    // history answers a question nobody asked.
-    const days = /^[0-9]+$/.test(sp.days ?? "") ? Number(sp.days) : 30;
+  if (tab === "dashboard") {
+    // This week by default, because a timeline that opens on two years of
+    // history answers a question nobody asked, and thirty days answers it
+    // three weeks late.
+    const days = /^[0-9]+$/.test(sp.days ?? "") ? Number(sp.days) : 7;
     const kind = ACTIVITY_KINDS.includes((sp.kind ?? "") as never) ? sp.kind! : null;
 
     let query = supabase
@@ -544,7 +550,14 @@ export default async function ClientPage({
       query = query.gte("at", new Date(Date.now() - days * 86400000).toISOString());
     }
 
-    const [{ data: activity }, { data: taskRows }, { data: eventRows }, { data: mailRows }] = await Promise.all([
+    const [
+      { data: activity },
+      { data: taskRows },
+      { data: eventRows },
+      { data: mailRows },
+      { data: numberRows },
+      { data: contactRows },
+    ] = await Promise.all([
       query,
       supabase
         .from("tasks")
@@ -565,6 +578,28 @@ export default async function ClientPage({
         .eq("client_id", id)
         .order("sent_at", { ascending: false })
         .limit(500),
+      supabase
+        .from("sms_consent_numbers")
+        .select("phone, label, whose, state, can_text")
+        .eq("client_id", id),
+      supabase
+        .from("client_contacts")
+        .select("name, relationship, phone, may_speak_for")
+        .eq("client_id", id)
+        .eq("active", true)
+        .order("created_at"),
+    ]);
+
+    // The four the dashboard added, in their own round: the money comes from
+    // the board's own reader, so the figure here and the figure on Billing ›
+    // Authorizations are the same arithmetic rather than two queries that
+    // agree today.
+    const [boardRows, hours, report, jobs, lastContact] = await Promise.all([
+      readBoard(supabase, id),
+      readHours(supabase, id),
+      readReport(supabase, id),
+      readJobs(supabase, id),
+      readLastContact(supabase, id),
     ]);
 
     const all = (activity ?? []) as ActivityRow[];
@@ -587,6 +622,36 @@ export default async function ClientPage({
     return (
       <>
         {header}
+
+        {/* Who they are to us, and how to reach them. The numbers and the
+            people are edited on Profile; this says what they are so that
+            ringing somebody is not a tab away. */}
+        <ContactStrip
+          clientId={id}
+          counselorName={counselor?.name ?? null}
+          office={billingOfficeRow?.billing_office ?? null}
+          numbers={(numberRows ?? []) as { phone: string; label: string; can_text: boolean | null; state: string | null; whose: string }[]}
+          contacts={(contactRows ?? []) as { name: string; relationship: string; phone: string | null; may_speak_for: boolean }[]}
+          lastContact={lastContact}
+        />
+
+        <MoneyStrip clientId={id} rows={boardRows} hours={hours} report={report} />
+
+        {/* The board's own grid, on one client. Not a second grid: the three
+            cells that take input here call the same functions the
+            authorization record calls. */}
+        <AuthorizationsCard rows={boardRows}>
+          <BoardGrid
+            clients={byClient(boardRows)}
+            canBill={canBill}
+            canExport={isAdmin}
+            today={today()}
+            compact
+          />
+        </AuthorizationsCard>
+
+        <WhereTheyAre clientId={id} jobs={jobs} />
+
         <ComingUp clientId={id} tasks={tasks} events={events} myId={me.id} now={new Date().toISOString()} />
         {/* The mail filed on this client, above the timeline rather than
             inside it: the timeline says a message arrived, and this says

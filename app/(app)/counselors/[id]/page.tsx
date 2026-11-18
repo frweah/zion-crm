@@ -255,7 +255,7 @@ export default async function CounselorCaseloadPage({
                       <div className="lock">{r.next.title}</div>
                     </>
                   ) : (
-                    <Link href={`/clients/${r.id}?tab=activity`} className="lock">
+                    <Link href={`/clients/${r.id}?tab=dashboard`} className="lock">
                       nothing booked
                     </Link>
                   ),

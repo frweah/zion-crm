@@ -177,7 +177,7 @@ export function ComingUp({
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
-      <h3 style={{ marginTop: 0 }}>Coming up</h3>
+      <h3 style={{ marginTop: 0 }}>Tasks &amp; coming up</h3>
 
       {tasks.length === 0 && upcoming.length === 0 && waitingForHours.length === 0 && (
         <p className="empty" style={{ margin: 0 }}>

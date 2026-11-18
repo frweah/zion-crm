@@ -2467,6 +2467,28 @@ button.attach-chip:hover {
   gap: 6px;
   justify-content: flex-end;
 }
+/* ── the client dashboard's contact line ────────────────────
+   Counselor, numbers, the people around the client and when somebody last
+   reached them: four blocks across a desk, stacked on a phone. It is a line
+   of facts rather than a row of cards, so it has no borders inside it. */
+.contact-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px 24px;
+  align-items: start;
+}
+
+.contact-strip > div > div {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 640px) {
+  .contact-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .status-line {
   line-height: 1.9;
 }

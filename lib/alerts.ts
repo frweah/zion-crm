@@ -72,10 +72,10 @@ const TAB_FOR_KIND: Record<string, string> = {
   invoice_overdue: "billing",
   monthly_forms: "billing",
   paperwork_missing: "billing",
-  task_overdue: "activity",
-  followup_due: "activity",
-  counselor_followup: "activity",
-  inactive: "activity",
+  task_overdue: "dashboard",
+  followup_due: "dashboard",
+  counselor_followup: "dashboard",
+  inactive: "dashboard",
 };
 
 /** Screens that moved, whose alerts were still pointing at the old place. */

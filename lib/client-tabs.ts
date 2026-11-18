@@ -11,7 +11,10 @@
  * no link in the code still points at an old one.
  */
 export const CLIENT_TABS = [
-  { key: "activity", label: "Activity" },
+  // Renamed from Activity when it stopped being a timeline and became the
+  // record's front page (client dashboard brief, Part 3). The old key still
+  // resolves, below, so every link written before the rename still lands.
+  { key: "dashboard", label: "Dashboard" },
   { key: "profile", label: "Profile" },
   { key: "notes", label: "Notes" },
   { key: "jobs", label: "Jobs" },
@@ -28,8 +31,9 @@ export type ClientTab = (typeof CLIENT_TABS)[number]["key"];
 export const MOVED_CLIENT_TABS: Record<string, { tab: ClientTab; hash?: string; report?: boolean }> = {
   overview: { tab: "profile" },
   intake: { tab: "profile", hash: "intake" },
-  tasks: { tab: "activity" },
-  calendar: { tab: "activity" },
+  activity: { tab: "dashboard" },
+  tasks: { tab: "dashboard" },
+  calendar: { tab: "dashboard" },
   placements: { tab: "jobs" },
   authorizations: { tab: "billing" },
   payments: { tab: "billing" },
@@ -47,5 +51,5 @@ export function isClientTab(key: string | null | undefined): key is ClientTab {
 export function clientTabFor(key: string | null | undefined): ClientTab {
   if (isClientTab(key)) return key;
   if (key && MOVED_CLIENT_TABS[key]) return MOVED_CLIENT_TABS[key].tab;
-  return "activity";
+  return "dashboard";
 }

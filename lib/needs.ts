@@ -68,7 +68,7 @@ export async function loadNeed(
       title: t.title,
       detail: t.due && t.due < now ? "overdue" : "due today",
       when: t.due,
-      href: t.client_id ? `/clients/${t.client_id}?tab=activity` : "/tasks",
+      href: t.client_id ? `/clients/${t.client_id}?tab=dashboard` : "/tasks",
     }));
   }
 
@@ -139,7 +139,7 @@ export async function loadNeed(
             ? `${c.stage} · nothing since ${last.slice(0, 10)}`
             : `${c.stage} · nothing recorded at all`,
           when: last ? last.slice(0, 10) : null,
-          href: `/clients/${c.id}?tab=activity&days=0`,
+          href: `/clients/${c.id}?tab=dashboard&days=0`,
         };
       })
       .sort((a, b) => (a.when ?? "").localeCompare(b.when ?? ""));

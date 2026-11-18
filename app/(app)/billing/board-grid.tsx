@@ -82,14 +82,25 @@ export function BoardGrid({
   canBill,
   canExport,
   today,
+  compact = false,
 }: {
   clients: BoardClient[];
   canBill: boolean;
   canExport: boolean;
   today: string;
+  /**
+   * The same grid on one client's record (client dashboard brief, Part 3:
+   * one component, not a second grid). It loses the toolbar - searching a
+   * board of one is nothing to offer - and it opens: the authorizations are
+   * what the card is for, and a settled one still has to be readable, so
+   * Paid and Closed do not start shut either.
+   */
+  compact?: boolean;
 }) {
-  const [open, setOpen] = useState<Set<string>>(new Set());
-  const [shut, setShut] = useState<Set<string>>(new Set(COLLAPSED_GROUPS));
+  const [open, setOpen] = useState<Set<string>>(
+    () => new Set(compact ? clients.map((c) => c.client_id) : []),
+  );
+  const [shut, setShut] = useState<Set<string>>(new Set(compact ? [] : COLLAPSED_GROUPS));
   const [q, setQ] = useState("");
   const [office, setOffice] = useState("");
   const [counselor, setCounselor] = useState("");
@@ -196,6 +207,7 @@ export function BoardGrid({
 
   return (
     <>
+      {!compact && (
       <div className="board-toolbar no-print">
         <input
           type="search"
@@ -239,6 +251,7 @@ export function BoardGrid({
           )}
         </div>
       </div>
+      )}
 
       {showColumns && (
         <div className="board-columns no-print">

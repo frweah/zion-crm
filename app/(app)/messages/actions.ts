@@ -50,7 +50,7 @@ export async function startClientThread(formData: FormData): Promise<void> {
     p_client: clientId,
   });
   if (error || !data) {
-    redirect(`/clients/${clientId}?tab=activity&error=${encodeURIComponent(error?.message ?? "It could not be started.")}`);
+    redirect(`/clients/${clientId}?tab=dashboard&error=${encodeURIComponent(error?.message ?? "It could not be started.")}`);
   }
   redirect(`/messages?c=${data}`);
 }
