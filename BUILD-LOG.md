@@ -9991,3 +9991,77 @@ their authorizations into Closed whatever state the work was in, and the other
 picked a row that was already Submitted — `set_authorization_status` answers
 "It was already submitted." and returns before any gate, so the assertion was
 testing nothing.
+
+## The client record opens on a dashboard (17 November 2026, `1a0472b`)
+
+Part 3 of the same brief. Activity was a timeline, and the five questions
+somebody actually opens a client to ask were on four other tabs: what they are
+owed and owe (Billing), where this month's report is (Documents), where the
+job search got to (Jobs), and how to reach them (Profile). The tab is now
+`dashboard`, it is still the landing tab, and those questions are on it.
+
+The order is the mock's: the contact line, the money strip, the
+authorizations, where they are, tasks and coming up, the mail, the stream.
+
+**The authorizations card is the billing board's own grid**, with a `compact`
+prop that drops the toolbar and opens the client. The brief asked for one
+component rather than two that drift, and `readBoard(supabase, clientId)` had
+been written for this in 0365, so the figure on the record and the figure on
+Billing › Authorizations are the same arithmetic rather than two queries that
+agree today.
+
+### What was already wrong in the stream
+
+**A Personal note was in it.** `client_activity` read `notes` whole, with no
+word about the category, so the practice's three Personal notes sat on the
+front page of the record for the two roles whose `visible_roles` let them read
+the row. The rule — Notes tab only — was written in a brief and in nothing a
+query could see. It is in the view now (0368), and `verify_activity` asks both
+halves: the note is still readable on the Notes tab, and **the same note with
+its category changed is back in the stream**. Without that control the first
+assertion proves nothing: a query that always returns no rows passes it.
+
+Three things were missing: **recordings** (by name and length — never the
+transcript, the turns or the summary), **reports sent**, and **invoices
+raised**. The money arriving was already in the stream; the invoice going out
+was not.
+
+Nothing was added for **Call**. There is no call anywhere in this database —
+no table, no contact-log method, no note type — so the chip the mock draws
+would be a filter that is always empty. Reported rather than invented.
+
+### What that moved, and what caught it
+
+`verify_last_activity` failed within the hour: *"read as Admin, 1 clients'
+last activity differs from their feed"*. Last activity is answered twice, by
+`client_last_activity` and by `client_last_activity_for`, and both read the
+tables rather than the stream because the stream costs 309ms for a page of
+clients and they cost 9.8. Two readings of one question have to be kept level
+by hand. 0369 makes the same four changes to both, so the Last activity column
+on the Clients list is still what somebody sees when they open the record.
+
+This is the fourth time the suite has caught a change to one half of a pair.
+It is the reason the assertion is phrased as "exactly max(at) over the feed"
+rather than "a recent date".
+
+### A check that could not see the database
+
+`check-transcript-stays` read TypeScript only. The stream started reading
+`recordings` in SQL, so a view could have put an hour of somebody talking
+about their own life on the front page of their record and no check would have
+moved. It now reads the migrations statement by statement as well: a view or
+function that reads `recordings` may not name the transcript, the turns or the
+summary, and the records-request bundle is the one exception. Put back as a
+fault — `r.transcript` in the view's recording branch — it fails naming the
+rule.
+
+The smoke run gains a dashboard step per role: it asks production for that
+client's Personal notes and transcripts with the service key, then looks for a
+fragment of each in the page that role was actually served.
+
+### What the owner still has to rule on
+
+The stream now sits under five cards where it sat under two, so the brief's
+second timed question — "what happened with client X this week" — may come out
+slower even though its window is now right. If it does, the thing to move is
+the stream, not the window. Recorded in `docs/timing/billing.md`.
