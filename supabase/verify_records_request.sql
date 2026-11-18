@@ -222,10 +222,17 @@ declare
      * practice's filing - it is the practice's opinion of the client, which
      * is the kind of thing a records request is for.
      *
-     * Skipped until the owner rules, because adding it later discloses more
-     * and taking it out again discloses less, and only one of those is
-     * reversible. If the ruling is to include it, this is the line to delete
-     * and `records_request_bundle` gains a section.
+     * Ruled by the owner on 18 November 2026: it stays out. A declined stage
+     * change is an internal deliberation - two members of staff working out
+     * what to do next - and not part of the client's record. What the client
+     * is entitled to is what happened, and what happened is in the stage
+     * history with both names on it.
+     *
+     * Which is the reversible half of the decision, deliberately: adding this
+     * to the bundle later discloses more, and taking it back out again does
+     * not undo a bundle already sent. If that ruling changes, this is the line
+     * to delete, `records_request_bundle` gains a section, and the decline
+     * form says above its reason box that this is part of the client's record.
      */
     'client_stage_requests',
     -- How many times the counselor has been chased (0184). What the client is

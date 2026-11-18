@@ -324,10 +324,21 @@ begin
   perform set_config('role', 'postgres', true);
 
   -- ── anon cannot touch any of it ───────────────────────────
+  -- By name rather than by signature, and every overload of each name. The
+  -- signature written out was a copy of the function's arguments on the day
+  -- this was written: 0373 added two to move_client and `has_function_privilege`
+  -- then failed on a function that does not exist, which is a verify script
+  -- breaking rather than a rule being broken. Asked this way it also catches
+  -- a second overload nobody meant to leave open.
   if has_function_privilege('anon', 'public.clients_board(date)', 'execute')
-     or has_function_privilege('anon', 'public.move_client(uuid, text, text, uuid)', 'execute')
-     or has_function_privilege('anon', 'public.close_client(uuid, text)', 'execute')
-     or has_function_privilege('anon', 'public.reactivate_client(uuid, text, text)', 'execute') then
+     or exists (
+       select 1
+         from pg_proc p
+         join pg_namespace ns on ns.oid = p.pronamespace
+        where ns.nspname = 'public'
+          and p.proname in ('move_client', 'close_client', 'reactivate_client')
+          and has_function_privilege('anon', p.oid, 'execute')
+     ) then
     failures := failures || 'FAILED: anon may read or move the board'::text;
   else
     raise notice 'ok  anon can neither read the board nor move anything on it';

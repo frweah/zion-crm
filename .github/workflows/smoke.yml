@@ -9,6 +9,16 @@
 # in an issue - a broken screen is live for the length of one check, not until
 # somebody notices.
 #
+# Three jobs rather than one, and the shape matters:
+#
+#   live   is there anything to check, and is production actually serving this
+#          commit? Its own job so that "nothing to check" shows as a *skipped*
+#          smoke job rather than a green one (owner, 18 Nov 2026). A green tick
+#          on a run that opened no screens is the one thing this must not show.
+#   smoke  opens every screen, and puts production back if one is broken.
+#   idle   times every screen, and never rolls anything back: a screen that is
+#          slow is not a screen that is broken.
+#
 # Secrets (Settings → Secrets and variables → Actions), held nowhere else:
 #   SMOKE_EMAIL, SMOKE_PASSWORD       the automated-check account
 #   SMOKE_BILLING_EMAIL,              the second one, which is Billing: a role
@@ -50,55 +60,61 @@ permissions:
   issues: write
 
 jobs:
-  smoke:
+  # ── is there anything to check? ────────────────────────────
+  # Everything that can answer "no screens were opened" lives here, so that
+  # the answer is one skipped job with a reason rather than a green tick on a
+  # job that stepped aside halfway through.
+  #
+  # Vercel's per-deployment address is behind Deployment Protection, and
+  # answers an automated caller with Vercel's own sign-in page - which the
+  # check read as "every screen is broken" (28 Sept 2026). So the check opens
+  # the address staff use, and that means waiting for production to be moved
+  # onto the commit that just went out before opening anything.
+  live:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
        github.event.deployment.environment == 'Production')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
+    outputs:
+      ready: ${{ steps.ask.outputs.ready }}
+      why: ${{ steps.ask.outputs.why }}
     steps:
       # Until the automated-check account exists and its secrets are set, the
       # check steps aside with a notice instead of failing every deploy
       # (owner, 21 Sept 2026). Once SMOKE_EMAIL is set it runs, and fails.
-      - name: Is the check set up?
-        id: ready
+      - name: Is there anything to check?
+        id: ask
         env:
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
-        run: |
-          if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then
-            echo "::notice title=Deploy check not set up::No SMOKE_EMAIL / SMOKE_PASSWORD secret yet, so no screens were opened. Run scripts/create-check-account.mjs and add the secrets to turn it on."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.ready.outputs.ready == 'true'
-        uses: actions/checkout@v4
-      - if: steps.ready.outputs.ready == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - if: steps.ready.outputs.ready == 'true'
-        run: npm ci --ignore-scripts
-      # The phone screens are measured at 375px in a real browser (owner,
-      # 11 Nov 2026); check-phone.mjs can only read the source before a build.
-      - if: steps.ready.outputs.ready == 'true'
-        run: npx playwright install --with-deps chromium
-
-      # Vercel's per-deployment address is behind Deployment Protection, and
-      # answers an automated caller with Vercel's own sign-in page - which the
-      # check read as "every screen is broken" (28 Sept 2026). So it opens the
-      # address staff use, and first waits for production to be moved onto the
-      # commit that just went out.
-      - name: Wait for production to be this commit
-        id: live
-        if: steps.ready.outputs.ready == 'true' && github.event_name == 'deployment_status'
-        env:
           SITE: https://crm.zionvocrehab.com
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
         run: |
-          want="$(echo "${{ github.sha }}" | cut -c1-7)"
+          nothing() {
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "why=$1" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Nothing was checked::$1"
+            {
+              echo "### Nothing was checked"
+              echo ""
+              echo "$1"
+              echo ""
+              echo "The deploy check and the timing are skipped, not passed."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+          if [ -z "$SMOKE_EMAIL" ] || [ -z "$SMOKE_PASSWORD" ]; then
+            nothing "No SMOKE_EMAIL / SMOKE_PASSWORD secret, so no screen was opened. Run scripts/create-check-account.mjs and add the secrets to turn it on."
+          fi
+          if [ "$EVENT" != "deployment_status" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "a hand-run check, so nothing to wait for"
+            exit 0
+          fi
+          want="$(echo "$SHA" | cut -c1-7)"
           for i in $(seq 1 30); do
             live="$(curl -fsS "$SITE/api/version" | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p' || true)"
             if [ "$live" = "$want" ]; then
@@ -108,12 +124,26 @@ jobs:
             fi
             sleep 10
           done
-          echo "::notice title=Nothing to check::Production never moved to $want within five minutes - a later deploy has probably taken its place. No screens were opened."
-          echo "ready=false" >> "$GITHUB_OUTPUT"
+          nothing "Production never moved to $want within five minutes - a later deploy has probably taken its place. No screens were opened."
+
+  smoke:
+    needs: live
+    if: needs.live.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # The phone screens are measured at 375px in a real browser (owner,
+      # 11 Nov 2026); check-phone.mjs can only read the source before a build.
+      - run: npx playwright install --with-deps chromium
 
       - name: Open every screen as the automated check
         id: screens
-        if: steps.ready.outputs.ready == 'true' && steps.live.outputs.ready != 'false'
         env:
           SMOKE_BASE_URL: ${{ github.event_name == 'deployment_status' && 'https://crm.zionvocrehab.com' || inputs.url }}
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
@@ -128,7 +158,7 @@ jobs:
           node --experimental-strip-types scripts/smoke.mjs 2>&1 | tee smoke.log
 
       - name: What the check saw
-        if: always() && steps.ready.outputs.ready == 'true' && steps.live.outputs.ready != 'false'
+        if: always()
         run: |
           {
             echo "### Deploy check"
@@ -139,7 +169,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # ── when a screen is broken ─────────────────────────────
-      # Production goes back to whatever was serving before this deployment.
+      # Production goes back to the deployment that was serving before this
+      # commit went out.
+      #
+      # Gated on the screens step itself having failed (owner, 18 Nov 2026).
+      # It used to fire on any failure in the job, so a runner that could not
+      # install Playwright rolled production back off a deployment nothing had
+      # found a single fault in - and said nothing, because the issue below
+      # has always been gated this way. Rolling production back is for a
+      # screen that threw, and nothing else.
+      #
       # Only for a real deploy: a hand-run check may be pointed at anything,
       # and pointing it at a preview is not a reason to move production.
       #
@@ -154,7 +193,7 @@ jobs:
       # rollback that reported success and left them on the broken one.
       - name: Put production back
         id: rollback
-        if: failure() && github.event_name == 'deployment_status'
+        if: failure() && steps.screens.outcome == 'failure' && github.event_name == 'deployment_status'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PROJECT: zion-crm
@@ -164,6 +203,7 @@ jobs:
           # back because of it).
           TEAM: team_oEki7sUFpleifVjGvPVMZNGq
           SITE: https://crm.zionvocrehab.com
+          SHA: ${{ github.sha }}
         run: |
           exec > >(tee -a rollback.log) 2>&1
           if [ -z "$VERCEL_TOKEN" ]; then
@@ -183,9 +223,22 @@ jobs:
           if [ -z "$now" ]; then echo "could not read the project: $(echo "$project" | head -c 300)"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
 
           list="$(api "https://api.vercel.com/v6/deployments?app=$PROJECT&target=production&state=READY&limit=10&teamId=$TEAM")"
-          prev="$(echo "$list" | jq -r --arg now "$now" '[.deployments[] | select(.uid != $now)] | first | .uid // empty')"
-          if [ -z "$prev" ]; then echo "nothing earlier to go back to: $(echo "$list" | head -c 300)"; echo "rolled=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
-          prevsha="$(echo "$list" | jq -r --arg p "$prev" '.deployments[] | select(.uid == $p) | .meta.githubCommitSha // empty' | cut -c1-7)"
+          # Which deployment to go back to is scripts/rollback-target.mjs, so
+          # that the answer can be asked of fixtures rather than only of
+          # production at four in the morning. It refuses - rather than
+          # guessing - when production has already moved past the commit under
+          # test, which is how the second rollback of 17 Nov went backwards off
+          # a deployment that was fine.
+          pick="$(echo "$list" | node scripts/rollback-target.mjs --production "$now" --sha "$SHA")"
+          echo "target: $pick"
+          prev="$(echo "$pick" | jq -r '.target // empty')"
+          prevsha="$(echo "$pick" | jq -r '.sha // empty')"
+          if [ -z "$prev" ]; then
+            echo "::error title=Did not roll back::$(echo "$pick" | jq -r '.why')"
+            echo "rolled=refused" >> "$GITHUB_OUTPUT"
+            echo "why=$(echo "$pick" | jq -r '.why')" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "production is $now; putting it back on $prev ($prevsha)"
 
           said="$(api -X POST "https://api.vercel.com/v10/projects/$pid/promote/$prev?teamId=$TEAM")"
@@ -207,13 +260,19 @@ jobs:
           echo "the promote was sent but $SITE is still serving $live"
           echo "rolled=failed" >> "$GITHUB_OUTPUT"
 
+      # Any failure, not only a broken screen. A job that fell over before it
+      # opened anything used to end here silently, which is how eight deploys
+      # in a row were reported as deployed (the lesson in CLAUDE.md). It now
+      # says which of the two happened, and whether production was touched.
       - name: Say so
-        if: failure() && steps.screens.outcome == 'failure'
+        if: failure()
         uses: actions/github-script@v7
         env:
           ROLLED: ${{ steps.rollback.outputs.rolled }}
           ROLLED_TO: ${{ steps.rollback.outputs.rolled_to }}
+          WHY: ${{ steps.rollback.outputs.why }}
           OUTCOME: ${{ steps.rollback.outcome }}
+          SCREENS: ${{ steps.screens.outcome }}
           CHECKED: ${{ github.event_name == 'deployment_status' && 'https://crm.zionvocrehab.com' || inputs.url }}
         with:
           script: |
@@ -226,24 +285,30 @@ jobs:
             // that fell over sets no output at all, and saying nothing about
             // production then would be the worst of the three (drill, 28 Sept).
             const rolled = process.env.OUTCOME === "skipped"
-              ? "This was a hand-run check, so production was left alone."
+              ? (process.env.SCREENS === "failure"
+                  ? "This was a hand-run check, so production was left alone."
+                  : "No screen was found broken, so production was left alone.")
               : ({
                   yes: `Production has been put back on ${process.env.ROLLED_TO}, the deployment that was serving before this one.`,
+                  refused: `**Production was left where it is** - ${process.env.WHY} Check by hand whether it is serving something broken.`,
                   "no-token": `**Production is still on the broken deployment** - there is no \`VERCEL_TOKEN\` secret to roll it back with. ${by_hand}`,
                   failed: `**Rolling back did not work**, so production is probably still on the broken deployment. ${by_hand}`,
                 }[process.env.ROLLED] ?? `**The rollback itself fell over**, so production is probably still on the broken deployment. ${by_hand}`);
             const sha = context.sha.slice(0, 7);
+            const broke = process.env.SCREENS === "failure";
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Deploy check failed on ${sha}`,
+              title: broke ? `Deploy check failed on ${sha}` : `Deploy check could not run on ${sha}`,
               assignees: ["frweah"],
               body: [
-                `A screen threw a server error on ${process.env.CHECKED} after ${sha} went out.`,
+                broke
+                  ? `A screen threw a server error on ${process.env.CHECKED} after ${sha} went out.`
+                  : `The deploy check for ${sha} fell over before it finished opening screens, so nothing is known about whether ${process.env.CHECKED} works.`,
                 "",
                 rolled,
                 "",
-                "What failed:",
+                broke ? "What failed:" : "What it got as far as:",
                 "```",
                 failed,
                 "```",
@@ -262,36 +327,18 @@ jobs:
   # production back on the previous deployment. Rolling back is for a screen
   # that is broken, and a screen that is slow is not broken.
   idle:
-    needs: smoke
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+    needs: [live, smoke]
+    if: needs.live.outputs.ready == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Is the check set up?
-        id: ready
-        env:
-          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
-        run: |
-          if [ -z "$SMOKE_EMAIL" ]; then
-            echo "::notice title=No timing::No SMOKE_EMAIL secret, so no screen was timed."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.ready.outputs.ready == 'true'
-        uses: actions/checkout@v4
-      - if: steps.ready.outputs.ready == 'true'
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - if: steps.ready.outputs.ready == 'true'
-        run: npm ci --ignore-scripts
-      - if: steps.ready.outputs.ready == 'true'
-        run: npx playwright install --with-deps chromium
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
       # Before the real walk, walk a stand-in shell whose shape is the shape
       # that broke it: groups opening one at a time, a pane with a shade over
       # the page, an address that changes a beat after the click. The walk
@@ -299,13 +346,11 @@ jobs:
       # and both faults made it quieter rather than louder - so the thing to
       # check is that it still finds screens at all.
       - name: Does the walk still walk?
-        if: steps.ready.outputs.ready == 'true'
         run: |
           set -o pipefail
           node scripts/check-idle-walk.mjs 2>&1 | tee walk.log
 
       - name: Time every screen from click to quiet
-        if: steps.ready.outputs.ready == 'true'
         env:
           SMOKE_BASE_URL: https://crm.zionvocrehab.com
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
@@ -327,7 +372,7 @@ jobs:
           # next regrouping.
           node --experimental-strip-types scripts/idle-check.mjs 2>&1 | tee idle.log
       - name: What it timed
-        if: always() && steps.ready.outputs.ready == 'true'
+        if: always()
         run: |
           {
             echo "### Click to quiet"

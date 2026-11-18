@@ -194,6 +194,43 @@ for (const [role, paths] of Object.entries(WITHHELD)) {
 }
 if (!problems.length) ok("each role reaches exactly the screens it should, and the screens under them");
 
+/*
+ * Part 4 of the clients board brief, and the owner's ruling 7: the two roles
+ * added in 0180 see neither Admin nor HR.
+ *
+ * Asked of the groups rather than of a list of paths. EXPECTED above names
+ * every screen four roles reach, and these two are not among them - so until
+ * now the only thing asserted about a Case Manager was that they could not
+ * open the warrants folder. Written this way, a screen moved into Admin next
+ * month is covered on the day it moves, which a roster of paths would not be.
+ *
+ * The hub where the group has one, and every screen listed under it either
+ * way: a group with no hub page is still a group whose screens are somebody
+ * else's.
+ */
+const NO_HUBS = {
+  "Case Manager": ["Admin", "HR"],
+  "Job Coach": ["Admin", "HR"],
+};
+for (const [role, labels] of Object.entries(NO_HUBS)) {
+  for (const label of labels) {
+    const group = NAV_GROUPS.find((g) => g.label === label);
+    if (!group) {
+      fail(`there is no ${label} group in the sidebar for ${role} to be kept out of`);
+      continue;
+    }
+    if (group.hub && canReach(role, group.hub)) {
+      fail(`${role} can open the ${label} hub at ${group.hub}`);
+    }
+    const inside = group.items.map((i) => navPath(i.href));
+    const reached = [...new Set(reachableFor(role).map((i) => navPath(i.href)))].filter((p) =>
+      inside.includes(p),
+    );
+    if (reached.length) fail(`${role} reaches ${reached.join(", ")}, which is under ${label}`);
+  }
+}
+if (!problems.length) ok("Case Manager and Job Coach reach neither Admin nor HR, nor anything under them");
+
 // ── the hubs (Design language, §1) ───────────────────────────
 // Home · Clients · Work · Communication · Billing · HR · Admin, in that
 // order, and nothing else.

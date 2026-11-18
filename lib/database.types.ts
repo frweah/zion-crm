@@ -8263,7 +8263,7 @@ export type Database = {
         Returns: string;
       };
       decide_stage_request: {
-        Args: { p_request: string | null; p_approve: boolean | null; p_reason: string | null };
+        Args: { p_request: string | null; p_approve: boolean | null; p_reason: string | null; p_employer: string | null; p_start: string | null };
         Returns: { outcome: string | null; said: string | null }[];
       };
       delete_client: {
@@ -8619,8 +8619,8 @@ export type Database = {
         Returns: number;
       };
       move_client: {
-        Args: { p_client: string | null; p_stage: string | null; p_note: string | null; p_document?: string | null };
-        Returns: { from_stage: string | null; to_stage: string | null; at_time: string | null }[];
+        Args: { p_client: string | null; p_stage: string | null; p_note: string | null; p_document?: string | null; p_employer?: string | null; p_start?: string | null };
+        Returns: { from_stage: string | null; to_stage: string | null; at_time: string | null; said: string | null }[];
       };
       move_counselor_office: {
         Args: { p_counselor: string | null; p_office: string | null; p_reason: string | null };

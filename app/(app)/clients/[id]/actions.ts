@@ -37,7 +37,7 @@ export async function setStage(_prev: DetailState, formData: FormData): Promise<
   if (!note) return { error: "Say why they are moving.", ok: null };
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("move_client", {
+  const { data, error } = await supabase.rpc("move_client", {
     p_client: id,
     p_stage: stage,
     p_note: note,
@@ -47,7 +47,12 @@ export async function setStage(_prev: DetailState, formData: FormData): Promise<
 
   revalidatePath(`/clients/${id}`);
   revalidatePath("/clients");
-  return { error: null, ok: `Moved to ${stage}.` };
+  // This screen does not ask for the employer the way the board's Move does,
+  // because Record a job start is on the same page - so what the move says
+  // about the placement is passed on, and a move into Job Placement with no
+  // placement says so instead of looking finished (0373).
+  const said = Array.isArray(data) ? (data[0]?.said ?? null) : null;
+  return { error: null, ok: `Moved to ${stage}${said ? ` — ${said}` : ""}.` };
 }
 
 /**

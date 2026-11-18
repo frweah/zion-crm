@@ -1456,6 +1456,24 @@ if (process.env.SMOKE_MOVE_EMAIL && process.env.SMOKE_MOVE_PASSWORD) {
 }
 
 /**
+ * And the half of the board no account can reach.
+ *
+ * Approve, Decline and the sixth tile on Clients › Board are Admin's, and no
+ * system account may be Admin (0295), so nothing here opens them on any
+ * deploy - the database half is covered by `verify_stage_requests.sql` and the
+ * screen half is the owner's to open by hand (owner, 18 Nov 2026, and it is in
+ * the definition of done in CLAUDE.md).
+ *
+ * A note rather than a warning. It is true of every run and will be until
+ * somebody decides an automated account may be Admin, and a warning that is
+ * always there is a warning nobody reads.
+ */
+console.log(
+  "  note  Approve, Decline and the requests tile on Clients › Board are Admin's, " +
+    "so no account here opens them - they are checked by hand",
+);
+
+/**
  * And the two screens the owner named were actually reached by somebody.
  *
  * Billing → Hours needs the Billing account and Communication → Texts does

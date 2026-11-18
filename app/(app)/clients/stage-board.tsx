@@ -212,9 +212,13 @@ function StageCell({
   const [moved, move] = useActionState(moveClient, initial);
   const [asked, ask] = useActionState(requestStageChange, initial);
   const [decided, decide] = useActionState(decideStageRequest, initial);
-  const [open, setOpen] = useState<"" | "move" | "ask" | "decline">("");
+  const [open, setOpen] = useState<"" | "move" | "ask" | "decline" | "approve">("");
   const [stage, setStage] = useState("");
   const waiting = row.stage_request_id;
+  // An approval into Job Placement starts the placement clock, so it asks the
+  // two questions Move asks rather than going through in one click (owner,
+  // 18 Nov 2026). Every other approval is still one click.
+  const placing = row.stage_request_to === "Job Placement";
   const said = moved.error ?? asked.error ?? decided.error;
   const elsewhere = STAGES.filter((s) => s !== row.stage);
 
@@ -247,21 +251,50 @@ function StageCell({
         </div>
       )}
 
-      {isAdmin && waiting && open !== "decline" && (
+      {isAdmin && waiting && open !== "decline" && open !== "approve" && (
         <div className="row2" style={{ gap: 6, marginTop: 4 }}>
-          <form action={decide}>
-            <input type="hidden" name="request_id" value={waiting} />
-            <input type="hidden" name="client_id" value={row.client_id} />
-            <input type="hidden" name="decision" value="approve" />
-            <input type="hidden" name="reason" value="" />
-            <button className="btn" type="submit">
+          {placing ? (
+            <button type="button" className="btn" onClick={() => setOpen("approve")}>
               Approve
             </button>
-          </form>
+          ) : (
+            <form action={decide}>
+              <input type="hidden" name="request_id" value={waiting} />
+              <input type="hidden" name="client_id" value={row.client_id} />
+              <input type="hidden" name="decision" value="approve" />
+              <input type="hidden" name="reason" value="" />
+              <button className="btn" type="submit">
+                Approve
+              </button>
+            </form>
+          )}
           <button type="button" className="btn ghost" onClick={() => setOpen("decline")}>
             Decline
           </button>
         </div>
+      )}
+
+      {/*
+        The same two fields the Move form asks for, in the same words. Neither
+        is required: an approval with the employer left blank goes through and
+        says that the clock has not started, which is what Move has always
+        done.
+      */}
+      {isAdmin && waiting && open === "approve" && (
+        <form action={decide} style={CELL_FORM}>
+          <input type="hidden" name="request_id" value={waiting} />
+          <input type="hidden" name="client_id" value={row.client_id} />
+          <input type="hidden" name="decision" value="approve" />
+          <input type="hidden" name="reason" value="" />
+          <input name="employer" aria-label={`Who is employing ${row.name}`} placeholder="Employer" />
+          <input type="date" name="hire_date" aria-label={`The day ${row.name} started`} />
+          <button className="btn" type="submit">
+            Approve
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setOpen("")}>
+            Leave it waiting
+          </button>
+        </form>
       )}
 
       {isAdmin && waiting && open === "decline" && (

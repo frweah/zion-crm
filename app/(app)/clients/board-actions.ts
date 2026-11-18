@@ -71,39 +71,34 @@ export async function moveClient(_prev: BoardState, formData: FormData): Promise
   // the browser before it got here (0231). What arrives is the row's id.
   const document = field(formData, "document_id") || null;
 
+  // Moving into Job Placement starts the placement clock, which is the
+  // placements row the retention checks and the fee both hang off. The
+  // employer and the hire date are asked for in the same dialog, so the clock
+  // starts with the move rather than a week later - and they are passed to
+  // `move_client` rather than written here, because an approval is the other
+  // door into that stage and this screen is not on that path (0373).
+  const employer = field(formData, "employer");
+  const hired = field(formData, "hire_date");
+
   try {
     const supabase = await createClient();
-    const { error } = await supabase.rpc("move_client", {
+    const { data, error } = await supabase.rpc("move_client", {
       p_client: id,
       p_stage: stage,
       p_note: note,
       p_document: document,
+      p_employer: employer || null,
+      p_start: hired || null,
     });
     if (error) return { error: error.message, ok: null };
 
-    // Moving into Job Placement starts the placement clock, which is the
-    // placements row the retention checks and the fee both hang off. The
-    // employer and the hire date are asked for in the same dialog, so the
-    // clock starts with the move rather than a week later.
-    const employer = field(formData, "employer");
-    const hired = field(formData, "hire_date");
-    if (stage === "Job Placement" && employer) {
-      const { error: placed } = await supabase.from("placements").insert({
-        client_id: id,
-        employer,
-        start_date: hired || null,
-      });
-      if (placed) {
-        return {
-          error: `Moved to ${stage}, but the placement was not recorded: ${placed.message}`,
-          ok: null,
-        };
-      }
-    }
-
     revalidatePath("/clients");
     revalidatePath(`/clients/${id}`);
-    return { error: null, ok: `${name} moved to ${stage}.` };
+    // What the move had to say about the placement, where there was anything
+    // to say: that it is recorded, or that the employer was left blank and so
+    // the clock has not started.
+    const said = Array.isArray(data) ? (data[0]?.said ?? null) : null;
+    return { error: null, ok: `${name} moved to ${stage}${said ? ` — ${said}` : ""}.` };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "That move did not go through.", ok: null };
   }
@@ -255,6 +250,11 @@ export async function requestStageChange(_prev: BoardState, formData: FormData):
  * The reason field is always sent: on an approve it is a word to add to the
  * note, on a decline it is the thing the person who asked will be told, and
  * the database refuses a decline without one.
+ *
+ * The employer and the start date are sent too, for an approval into Job
+ * Placement: the same two questions Move asks, because an approval is the
+ * other door into that stage and the placement clock starts at the door or
+ * not at all (0373).
  */
 export async function decideStageRequest(_prev: BoardState, formData: FormData): Promise<BoardState> {
   const me = await getCurrentStaff();
@@ -276,6 +276,8 @@ export async function decideStageRequest(_prev: BoardState, formData: FormData):
       p_request: request,
       p_approve: approve,
       p_reason: reason,
+      p_employer: field(formData, "employer") || null,
+      p_start: field(formData, "hire_date") || null,
     });
     if (error) return { error: error.message, ok: null };
 

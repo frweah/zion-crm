@@ -17,6 +17,9 @@
 --   a client moved to the stage that was asked for closes the ask as approved
 --     with "already moved", and closes its task.
 --   the board's row carries a waiting ask and stops carrying a decided one.
+--   an approval into Job Placement records the placement and its start date,
+--     the same employer twice is one placement, and an approval with the
+--     employer left blank says the clock has not started (0373).
 --   and nothing writes the table except those two functions.
 --
 -- Everything is rolled back.
@@ -44,6 +47,11 @@ declare
   v_task    uuid;
   v_their   uuid;
   v_text    text;
+  -- The placement fixture: one employer and one start date, named so that
+  -- a row that escaped the rollback would be obvious.
+  v_emp     text := 'ZZ Verify Employer';
+  v_rows    integer;
+  v_day     date := public.practice_today() - 7;
   n         integer;
   v_refused integer := 0;
   v_tried   integer := 0;
@@ -265,13 +273,13 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
   begin
-    perform 1 from public.decide_stage_request(v_req, false, '   ');
+    perform 1 from public.decide_stage_request(v_req, false, '   ', null, null);
     failures := failures || 'FAILED: a request was declined with nothing said about why'::text;
   exception when check_violation then
     raise notice 'ok  a decline with no reason is refused';
   end;
 
-  select d.said into v_text from public.decide_stage_request(v_req, false, 'ZZ verify: the authorization has not come back') d;
+  select d.said into v_text from public.decide_stage_request(v_req, false, 'ZZ verify: the authorization has not come back', null, null) d;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
@@ -333,7 +341,7 @@ begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
-  perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: agreed');
+  perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: agreed', null, null);
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
@@ -413,7 +421,107 @@ begin
     raise notice 'ok  and its task closes with it';
   end if;
 
-  -- ── 10. and anon cannot touch any of it ────────────────────
+  -- ── 10. an approval into Job Placement starts the clock ────
+  -- The gap the Part 3 report named, and the owner's answer to it (18 Nov
+  -- 2026). The board's Move dialog asked for the employer and the *screen*
+  -- wrote the placements row, so an approval - the other door into that stage
+  -- - wrote none, and the retention checks and the placement fee both hang off
+  -- that row. 0373 moved the writing into `move_client`, which is why this
+  -- asks the approve path and the move path for the same thing.
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_asker.user_id, 'role', 'authenticated')::text, true);
+  select q.request_id into v_req
+    from public.request_stage_change(v_client, 'Job Placement', 'ZZ verify: they start on the second') q;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
+  select d.said into v_text
+    from public.decide_stage_request(v_req, true, 'ZZ verify: agreed', v_emp, v_day) d;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  select count(*) into n from public.placements pl
+   where pl.client_id = v_client and pl.employer = v_emp and pl.start_date = v_day;
+  if n <> 1 then
+    failures := failures || 'FAILED: approving a move into Job Placement left no placement row'::text;
+  else
+    raise notice 'ok  an approval into Job Placement records the placement and its start date';
+  end if;
+
+  if v_text is null or v_text not like '%' || v_emp || '%' then
+    failures := failures || format('FAILED: the approval did not say the placement was recorded: %s', coalesce(v_text, '(nothing)'))::text;
+  else
+    raise notice 'ok  and says so, so nobody has to go and look';
+  end if;
+
+  -- Out and back in at the same employer. A second spell at the same place is
+  -- not a second placement, and a start date somebody typed is not replaced by
+  -- one inferred from a later move (0283 holds the same line on the hire path).
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
+  perform 1 from public.move_client(v_client, v_other, 'ZZ verify: out of placement for a moment');
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_asker.user_id, 'role', 'authenticated')::text, true);
+  select q.request_id into v_req
+    from public.request_stage_change(v_client, 'Job Placement', 'ZZ verify: back at the same employer') q;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
+  perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: agreed again', v_emp, v_day + 30);
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  select count(*) into n from public.placements pl
+   where pl.client_id = v_client and pl.employer = v_emp;
+  if n <> 1 then
+    failures := failures || format('FAILED: the same employer twice left %s placement rows', n)::text;
+  else
+    select count(*) into n from public.placements pl
+     where pl.client_id = v_client and pl.employer = v_emp and pl.start_date = v_day;
+    if n <> 1 then
+      failures := failures || 'FAILED: a later move overwrote the start date somebody typed'::text;
+    else
+      raise notice 'ok  the same employer again is the same placement, with the start date it already had';
+    end if;
+  end if;
+
+  -- And the employer left blank. It goes through - Move has never insisted on
+  -- it - and it says that the clock has not started, which is the whole point
+  -- of saying anything.
+  --
+  -- Counted before and after rather than against a number. The client this
+  -- script borrows is a real one and may already have placements of their own,
+  -- so "one row" was an assertion that held only while the table was empty.
+  select count(*) into v_rows from public.placements pl where pl.client_id = v_client;
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
+  perform 1 from public.move_client(v_client, v_other, 'ZZ verify: out again');
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_asker.user_id, 'role', 'authenticated')::text, true);
+  select q.request_id into v_req
+    from public.request_stage_change(v_client, 'Job Placement', 'ZZ verify: hired, employer to follow') q;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
+  select d.said into v_text
+    from public.decide_stage_request(v_req, true, 'ZZ verify: agreed, chase the employer', '   ', null) d;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  select count(*) into n from public.placements pl where pl.client_id = v_client;
+  if n <> v_rows then
+    failures := failures || format('FAILED: an approval with no employer wrote %s placement row(s)', n - v_rows)::text;
+  elsif v_text is null or v_text not like '%no employer%' or v_text not like '%has not started%' then
+    failures := failures || format('FAILED: an approval with no employer did not say the clock has not started: %s', coalesce(v_text, '(nothing)'))::text;
+  else
+    raise notice 'ok  with no employer it goes through and says the clock has not started';
+  end if;
+
+  -- ── 11. and anon cannot touch any of it ────────────────────
   perform set_config('role', 'anon', true);
   begin
     perform 1 from public.request_stage_change(v_client, v_to, 'ZZ verify: anon');
@@ -422,7 +530,7 @@ begin
     raise notice 'ok  anon cannot ask (%)', left(sqlerrm, 40);
   end;
   begin
-    perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: anon');
+    perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: anon', null, null);
     failures := failures || 'FAILED: anon can decide a stage request'::text;
   exception when others then
     raise notice 'ok  anon cannot decide either (%)', left(sqlerrm, 40);

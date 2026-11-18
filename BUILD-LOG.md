@@ -10439,3 +10439,168 @@ argument both ways written out, and **this one is the owner's to rule on**: an
 approved request is already disclosed through the stage history, but a
 declined one carries a judgement about the person, written about them, which
 is the kind of thing a records request is for.
+
+## An approval starts the placement clock, and the rollback stops guessing (18 November 2026)
+
+Six things the owner ruled on after the Part 3 report. Two of them are about a
+check nobody watches, which is why they are first.
+
+### The rollback only rolls back a broken screen
+
+The deploy check puts production back when a screen throws. Two faults in how
+it did that, both found by being asked about rather than by going wrong twice:
+
+**It fired on any failure in the job.** `if: failure() && github.event_name ==
+'deployment_status'` is true when `npm ci` fails, when Playwright cannot
+install, when the step that writes the run summary falls over - none of which
+is a broken screen, and all of which moved production off a deployment nothing
+had found a single fault in. Worse, the step that *opens the issue* has always
+been gated on the screens step specifically, so a runner-level failure rolled
+production back and said nothing at all. The gate is now the same question the
+issue asks: `steps.screens.outcome == 'failure'`.
+
+And the issue is no longer gated that way. It opens on **any** failure, with
+two bodies: a broken screen, or a check that could not run - which says that
+nothing is known about whether the site works and that production was left
+alone. A green tick and a red run that says nothing are the two ways this
+check has failed the practice before.
+
+**It rolled back to "the newest ready deployment that is not the current
+one".** That is the deployment before the one under test only while production
+is still serving the one under test. On the night of 17 November it was not - a
+later deploy had taken over - so the rollback stepped *backwards* off a good
+deployment onto the commit the check had just failed.
+
+The question is now `scripts/rollback-target.mjs`, which states it the other
+way round: find the commit under test in the list, refuse unless production is
+still serving it, and go back to the newest deployment before it that is a
+*different* commit. Everything it cannot answer it refuses in a sentence, and
+the refusal goes in the issue - a rollback that moves production somewhere
+nobody reasoned about is worse than a broken screen that is still broken,
+because the broken screen is at least known about.
+
+It is a module so that it can be asked questions on a laptop instead of only
+at four in the morning. `scripts/check-rollback.mjs` (in `prebuild`) asks it
+seven: the ordinary case, that night's case, a commit that is not in the
+window, nothing older to go back to, the same commit deployed twice, a
+deployment with no commit sha, and Vercel answering with nothing.
+
+**And the gate is evaluated, not grepped.** The check parses the `if:` out of
+the workflow and evaluates it under five worlds - a screen threw, the runner
+fell over, a later step failed, a hand-run check, everything passed - with a
+small evaluator that *throws* on any expression it has not been taught. A check
+that reads the line and looks for the words "steps.screens" would pass a gate
+with the condition inverted, which is the fault wearing the fix's clothes.
+
+Three faults put back, all three caught: the old gate (the runner-fell-over and
+later-step worlds both fail), the old target (four fixtures fail, and the 17
+November one rolls onto the commit under test exactly as it did), and the smoke
+job ungated from the live job's answer.
+
+### Nothing checked is not a green tick
+
+Owner, same day: the run that opens no screens shows as grey **skipped** with
+the reason, never as a passing job. It used to step aside mid-job with a
+notice - no SMOKE_EMAIL, or production never moved to this commit - and leave
+the job green, which is the same lie as a check that does not run.
+
+So the decision is a job of its own. `live` asks the two questions and nothing
+else; `smoke` and `idle` both carry `needs: live` and
+`if: needs.live.outputs.ready == 'true'`, so when there is nothing to check
+both show as skipped and the reason is in the run summary. A step that steps
+aside cannot do this - its job is still green - which is why this was a
+restructure rather than a line.
+
+### An approval starts the placement clock (0373)
+
+The gap the Part 3 report named. The board's Move dialog has asked for the
+employer and the start date since the kanban card did, and the *screen* wrote
+the `placements` row - so the other door into Job Placement, an administrator
+approving somebody else's request, wrote none. The retention checks and the
+placement fee both hang off that row, so the clock simply never started.
+
+The row is written in `move_client` now, for the reason the "already moved"
+tidying up is there: it is the only door a stage changes through. Both doors
+get it, one rule governs it, and `decide_stage_request` passes the two fields
+through rather than writing a second copy of the rule. Two signatures changed,
+so both functions were dropped and recreated - a defaulted parameter added to a
+live function is a *second* function with the old one's grants still on it, and
+a changed return type will not replace at all.
+
+`move_client` now returns `said`: one sentence about the placement, or nothing
+when the stage is not Job Placement. Which means the screens do not each decide
+what to say. An approval into Job Placement with the employer left blank reads
+"moved to Job Placement — no employer, so no placement is recorded and the fee
+clock has not started", on the board and on the record alike.
+
+Not a refusal, deliberately. Move has never insisted on an employer and this
+does not either: the ask is answered where it can be, and where it cannot the
+screen says what did not happen instead of looking finished. Making it a
+refusal is a line in `move_client` if the owner wants one.
+
+The same employer twice is the same placement, and a start date somebody typed
+is not replaced by one inferred from a later move - the same line `0283` holds
+on the hire path, so a spell out of placement and back does not leave two rows
+and two clocks.
+
+`verify_stage_requests.sql` is 29 assertions now: the placement and its start
+date after an approval, the sentence that says so, the second spell at the same
+employer, and the blank employer. Two faults put back, both rollback-wrapped -
+`move_client` writing nothing, and `decide_stage_request` dropping the two
+fields on the floor - and they fail differently, which is what proves the
+pass-through rather than the write.
+
+One assertion was wrong on the first run and right for the wrong reason: it
+counted the client's placements and expected one. The client this script
+borrows is a real one who may already have placements of their own, so "one
+row" held only while the table was empty. It counts before and after now.
+
+And `verify_the_clients_board.sql` had a signature written out by hand -
+`move_client(uuid, text, text, uuid)` - which `has_function_privilege` answers
+by raising on a function that does not exist. It asks by name over every
+overload instead, which also catches a second overload nobody meant to leave
+open.
+
+### A declined request stays out of the records bundle
+
+Ruled, 18 November. A declined stage change is an internal deliberation - two
+members of staff working out what to do next - and not part of the client's
+record. What the client is entitled to is what happened, and what happened is
+in the stage history with both names on it.
+
+The skip-list entry in `verify_records_request.sql` carries the ruling instead
+of the argument both ways, and says which half is reversible: adding it later
+discloses more, and taking it back out does not un-send a bundle. If that
+changes, the decline form says above its reason box that this is part of the
+client's record.
+
+### What only Admin can see, the owner checks by hand
+
+No automated account may be Admin (0295), so Approve, Decline and the
+Stage-change requests tile are outside the deploy check's reach by
+construction - as are the twelve HR and Admin screens nothing times. That is
+now in the definition of done in `CLAUDE.md`: such a change is not done when
+the deploy check is green, it is done when the owner has opened it as Admin.
+The deploy check says the same in its own output, as a note rather than a
+warning - it is true of every run, and a warning that is always there is a
+warning nobody reads.
+
+### Part 4, closed as far as it goes
+
+Case Manager and Job Coach see neither Admin nor HR. `check-nav` asserted
+almost none of this: its per-role screen lists cover four roles and these two
+are not among them, so the only thing asserted about a Case Manager was that
+they could not open the warrants folder. It now asks the groups - the hub where
+there is one, and every screen listed under it - so a screen moved into Admin
+next month is covered on the day it moves. The fault: `/admin/templates` opened
+to Case Manager, caught by name.
+
+The database half is `verify_job_coach_and_case_manager.sql`, which passes:
+Case Manager has Reports' areas, not Billing's or Insights', and logs no
+billable hours.
+
+What is still open is the one thing that needs an account: the signed-in Case
+Manager pass in the deploy check wants `SMOKE_CASE_EMAIL` and
+`SMOKE_CASE_PASSWORD`, which do not exist. Making an account and issuing its
+password is the owner's, so Part 4 is closed at the navigation and in the
+database, and the per-role walk is waiting on two secrets.

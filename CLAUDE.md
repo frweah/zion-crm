@@ -143,6 +143,15 @@ deploy failed is reported as failed, with the reason.
 **Every report states the live production hash.** Not the local one, not the
 one that was pushed — the one the site is actually serving.
 
+**What only Admin can see, the owner checks by hand.** No automated account
+may be Admin (0295), so every Admin-only control is outside the deploy check's
+reach by construction: today that is Approve, Decline and the Stage-change
+requests tile on Clients → Board, and the twelve HR and Admin screens nothing
+times. A change that touches one of them is not done when the deploy check is
+green — it is done when the owner has opened it as Admin and said so. The
+database half of such a rule is still a verify script, which is where the
+evidence lives; the hand check is about the screen.
+
 The question is one HTTP GET:
 
 ```
