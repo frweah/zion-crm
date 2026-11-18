@@ -10151,3 +10151,29 @@ Left as it is for now, and said out loud instead: making "nothing to check"
 fail the job would roll production back whenever two deploys race, which is a
 cure worse than the disease. What it needs is a third state, and that is the
 owner's call.
+
+### And a manifest is not a screen either (18 November 2026, `f11730e`)
+
+The same follower rolled a second deploy back an hour later, on
+`/manifest.webmanifest`: the filter judged the extension with `{2,5}` and
+"webmanifest" is eleven. It judges the path rather than the whole href now,
+because a filter value may carry a dot and is not a file name, and the
+self-test carries both links that got through.
+
+Both rollbacks were one fault wearing two coats. The follower had never been
+handed a client record's HTML before, and that is the HTML with the asset
+links in it.
+
+**What the check now says, on a run that really ran** (`f11730e`, production
+confirmed serving it, no failures):
+
+    ok      Job Search /clients/…?tab=dashboard
+    ok      Billing    /clients/…?tab=dashboard
+    note  Billing may read no Personal note on that client, so the dashboard
+          rule was answered by RLS rather than by the stream
+
+The dashboard opens for both accounts that exist. The half that would prove
+the stream rather than the permissions needs a role that may read a Personal
+note at all, and the two that may are Admin and Case Manager.
+`SMOKE_CASE_EMAIL` has never been set, so that assertion waits on an account
+only the owner can issue.
