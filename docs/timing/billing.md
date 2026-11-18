@@ -58,7 +58,7 @@ time is a fact about a person.
 | Above it on the way | "Coming up" (tasks and calendar events) and the Mail section sit between the header and the stream, so the week starts below two cards. |
 | What is missing from it | There is no "Call" kind. A phone call is a **note of type "Phone call"**, so calls read as notes. |
 
-**After the dashboard** (live at 8a32efa, 17 Nov 2026):
+**After the dashboard** (live at `4c9eb62`, 17 Nov 2026):
 
 | | Now |
 |---|---|
