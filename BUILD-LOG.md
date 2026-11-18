@@ -10065,3 +10065,89 @@ The stream now sits under five cards where it sat under two, so the brief's
 second timed question — "what happened with client X this week" — may come out
 slower even though its window is now right. If it does, the thing to move is
 the stream, not the window. Recorded in `docs/timing/billing.md`.
+
+### The chips, and a check that had stopped checking (18 November 2026)
+
+Three faults, found by being made to look rather than by looking.
+
+**The three new kinds had no chip.** Recording, Report and Invoice went into
+the stream and never into `ACTIVITY_KINDS`, which is both the chip row and the
+list that validates `?kind=`. They were in the feed, could not be filtered to,
+and the row said seventeen. Twenty now.
+
+**The per-role half of the smoke check had stopped running**, and said so in a
+note nobody read:
+
+    note  Billing opened /clients and it listed nobody, so no record was opened
+    note  no client record was listed, so no record tabs were opened
+
+The Clients list opens on **Mine**, and an automated-check account is on
+nobody's caseload. So the list linked to no record, and for as long as that
+has been true no client tab has been opened on any deploy by anybody. The list
+is still tried first; where it lists nobody the role asks the database as
+itself, preferring a client with a Personal note on it.
+
+**And the probe written the day before was wrong in the direction that reads as
+a pass.** It said it fetched the notes and transcripts "with the service key".
+`scripts/smoke.mjs` has no service key: `supabase` there is the anon client
+signed in as the role being checked. For a role that may not read a Personal
+note the query came back empty and the check congratulated itself on finding
+nothing. It now names which of the two answers it got, and where the role can
+read the note it asks the question that discriminates — the same note is on
+the Notes tab and **not** on the dashboard. Absent from both is a failure.
+
+**Then the fixed check rolled production back**, correctly and for the wrong
+reason: *"6 of 55 screens have no Team bubble, starting with
+/_next/static/css/7e45d8f7….css"*. The link follower matched every `href` in a
+page's HTML, and a page's own stylesheet link is an `href`. It had never
+mattered while no client record was ever opened. The filter is named now and
+tests itself against six links on the way in.
+
+### What the dashboard actually prints
+
+Rendered against production's data with the local stub, which is the only way
+to read a signed-in screen from here:
+
+- A **Personal note** on a client who has one is on the Notes tab and not in
+  the stream, with the window set to Everything and RLS bypassed by the
+  service key — so it is the view's filter doing the work, not permissions.
+- A **recording** is in the stream by name and length, and neither transcript
+  on that client appears anywhere in the page.
+- A short recording said **"0 min"**: `to_char(minutes, 'FM999990')` rounds,
+  and the two on the test client ran 27 and 40 seconds. Under a minute says so
+  now (0370).
+- The page is 2,729px at 1024 wide and **6,015px at 375**, with no sideways
+  scroll; the board scrolls inside its own container as it is meant to.
+
+### The stream's position, measured
+
+The brief's second timed question is "what happened with client X this week",
+and the dashboard puts four cards above the stream. Measured on one client:
+
+| | Desk, 1024×768 | Phone, 375×812 |
+|---|---|---|
+| First row of the stream, before | ≈855px | ≈1,375px |
+| First row of the stream, now | 1,786px | 3,676px |
+| The four new cards | 931px | 2,301px |
+
+So the stream went from about one screen down to two and a bit on a desk, and
+from under two screens to four and a half on a phone. The window is finally
+right — This week — and the page is longer. If the stopwatch comes out worse,
+the card to collapse first is Authorizations: 1,104px of the phone's 2,301.
+
+### A green tick that checked nothing
+
+The run for `032b295` is marked success and opened no screen at all:
+
+    Production never moved to 032b295 within five minutes - a later deploy
+    has probably taken its place. No screens were opened.
+
+Two deploys went out minutes apart, the older one failed its check and rolled
+production back off the newer one, and the newer one gave up waiting and
+passed. **A check that could not get an answer reported the answer "yes",**
+which is the fault this repository has a rule about, pointing the other way.
+
+Left as it is for now, and said out loud instead: making "nothing to check"
+fail the job would roll production back whenever two deploys race, which is a
+cure worse than the disease. What it needs is a third state, and that is the
+owner's call.
