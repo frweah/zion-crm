@@ -218,8 +218,12 @@ const firstLink = (results, path, re) => results.find((x) => x.path === path)?.b
  * first deploy that opened one followed the stylesheet, found no Team bubble
  * on it - correctly, it is a CSS file - and rolled production back.
  */
-const isScreenLink = (href) =>
-  !/^\/(login|logout|api|_next)\b/.test(href) && !/\.[a-z0-9]{2,5}(\?|$)/i.test(href);
+const isScreenLink = (href) => {
+  // The extension is judged on the path, not on the query: a filter value
+  // may contain a dot and is not a file name.
+  const path = href.split("?")[0];
+  return !/^\/(login|logout|api|_next)\b/.test(path) && !/\.[a-z0-9]{2,12}$/i.test(path);
+};
 
 // It tests itself, because the last regex in this file that nobody tested
 // matched every USOR authorization number and failed nineteen screens.
@@ -227,8 +231,13 @@ for (const [href, want] of [
   ["/clients/5f1c0a16-0000-0000-0000-000000000000", true],
   ["/billing?tab=hours", true],
   ["/clients?tab=all&q=ZZ", true],
+  ["/clients?tab=all&q=a.b", true],
   ["/_next/static/css/7e45d8f700681ac3.css?dpl=dpl_8wfpKEEER", false],
   ["/favicon.ico", false],
+  // Eleven characters, which is why the first version of this let it through
+  // and asked a web app manifest for the Team bubble.
+  ["/manifest.webmanifest", false],
+  ["/zion-logo.png", false],
   ["/logout", false],
 ]) {
   if (isScreenLink(href) !== want) {
