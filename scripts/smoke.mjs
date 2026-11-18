@@ -260,7 +260,14 @@ async function pass(role) {
   for (const p of inside) results.push(await open(p));
 
   // One of each record, found on the list that links to it.
-  const client = firstLink(results, "/clients", new RegExp(`/clients/${uuid}`));
+  // The same gap as in the per-role loop below: /clients opens on Mine, and
+  // this account is on nobody's caseload, so the list linked to no record and
+  // none of the seven tabs was opened on any deploy.
+  let client = firstLink(results, "/clients", new RegExp(`/clients/${uuid}`));
+  if (!client) {
+    const { data: anyone } = await supabase.from("clients").select("id").eq("status", "Active").limit(1);
+    if (anyone?.[0]) client = `/clients/${anyone[0].id}`;
+  }
   const job = firstLink(results, "/leads", new RegExp(`/leads/${uuid}`));
   const counselor = results.find((x) => x.path.startsWith("/counselors"))?.body?.match(new RegExp(`/counselors/${uuid}`))?.[0] ?? null;
   if (client) for (const t of CLIENT_TABS) results.push(await open(`${client}?tab=${t.key}`));
@@ -459,9 +466,38 @@ for (const [role, emailKey, passwordKey] of CLIENT_ROLES) {
   if (!list.ok) {
     all.push({ ...list, role, path: "/clients" });
   } else {
-    const who = (list.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1];
+    /**
+     * Which client to open.
+     *
+     * This read the first link on /clients, and for two deploys running that
+     * found nothing and said so in a note: the list opens on **Mine**, and
+     * an automated-check account is on nobody's caseload. So no record was
+     * opened as any role, and the per-role half of this check had quietly
+     * stopped running.
+     *
+     * The list is still the first try, because a client reachable by
+     * clicking is the thing being checked. Where it lists nobody, the role
+     * asks the database as itself - RLS still answers, so a role that may
+     * not read a client still gets nothing - and prefers a client with a
+     * Personal note on it, which is the one that makes the dashboard probe
+     * below say something.
+     */
+    let who = (list.body.match(/\/clients\/([0-9a-f-]{36})/) ?? [])[1];
     if (!who) {
-      console.log(`  note  ${role} opened /clients and it listed nobody, so no record was opened`);
+      const { data: noted } = await supabase
+        .from("notes")
+        .select("client_id")
+        .eq("category", "Personal")
+        .not("client_id", "is", null)
+        .limit(1);
+      who = noted?.[0]?.client_id;
+    }
+    if (!who) {
+      const { data: anyone } = await supabase.from("clients").select("id").eq("status", "Active").limit(1);
+      who = anyone?.[0]?.id;
+    }
+    if (!who) {
+      console.log(`  note  ${role} can read no client at all, so no record was opened`);
     } else {
       const record = await open(`/clients/${who}?tab=documents`);
       all.push({ ...record, role, path: `/clients/<id>?tab=documents` });
@@ -478,14 +514,19 @@ for (const [role, emailKey, passwordKey] of CLIENT_ROLES) {
 
       /**
        * The dashboard is the record's front page now, so what it must never
-       * show is asked here as the role, against production, rather than read
-       * off a view definition.
+       * show is asked here as the role, against production.
        *
-       * Two things: a Personal note, which is read on the Notes tab by the
-       * two roles that may read it at all, and a recording's words, which
-       * never leave the recording. Both are fetched as the practice - the
-       * service key - and then looked for in what this role was actually
-       * served.
+       * Two rules: a Personal note is read on the Notes tab and nowhere else,
+       * and a recording's words never leave the recording.
+       *
+       * The first version of this asked the database "with the service key",
+       * which this script does not have - `supabase` is the anon client
+       * signed in as this very role. So for a role that may not read a
+       * Personal note the query came back empty and the check congratulated
+       * itself on finding nothing. It now says which of the two answers it
+       * got, and where a role *can* read the note it asks the question that
+       * discriminates: **the same note is on the Notes tab and not on the
+       * dashboard.** Absent from both would mean the probe proves nothing.
        */
       const dash = await open(`/clients/${who}?tab=dashboard`);
       all.push({ ...dash, role, path: `/clients/<id>?tab=dashboard` });
@@ -497,33 +538,57 @@ for (const [role, emailKey, passwordKey] of CLIENT_ROLES) {
           why: "the dashboard opened without its sections on it",
         });
       } else if (dash.ok) {
+        const notes = await open(`/clients/${who}?tab=notes`);
         const [{ data: personal }, { data: recorded }] = await Promise.all([
           supabase.from("notes").select("text").eq("client_id", who).eq("category", "Personal").limit(5),
           supabase.from("recordings").select("transcript").eq("client_id", who).not("transcript", "is", null).limit(5),
         ]);
-        // A fragment long enough that matching it is not a coincidence.
-        const fragment = (s) => (typeof s === "string" && s.trim().length >= 24 ? s.trim().slice(0, 60) : null);
-        const mustNotBeThere = [
-          ...(personal ?? []).map((n) => ["a Personal note", fragment(n.text)]),
-          ...(recorded ?? []).map((r) => ["a recording's transcript", fragment(r.transcript)]),
-        ].filter(([, text]) => text);
+        // A fragment long enough that matching it is not a coincidence, and
+        // escaped the way the page would print it.
+        const fragment = (s) =>
+          typeof s === "string" && s.trim().length >= 24
+            ? s.trim().slice(0, 60).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/'/g, "&#x27;")
+            : null;
 
-        const found = mustNotBeThere.filter(([, text]) => dash.body.includes(text));
-        if (found.length) {
+        const personalText = (personal ?? []).map((n) => fragment(n.text)).filter(Boolean);
+        const transcripts = (recorded ?? []).map((r) => fragment(r.transcript)).filter(Boolean);
+
+        const onDashboard = [...personalText, ...transcripts].filter((t) => dash.body.includes(t));
+        if (onDashboard.length) {
           all.push({
             role,
             path: `/clients/<id>?tab=dashboard`,
             ok: false,
-            why: `the dashboard showed ${[...new Set(found.map(([what]) => what))].join(" and ")}`,
+            why: `the dashboard showed ${
+              personalText.some((t) => onDashboard.includes(t)) ? "a Personal note" : "a recording's transcript"
+            }`,
           });
-        } else if (mustNotBeThere.length) {
-          console.log(
-            `  ok      ${role.padEnd(12)} opened the dashboard and neither the Personal notes nor the transcripts on that client were on it`,
-          );
+        } else if (personalText.length) {
+          // The control: this role may read the note, so it has to be on the
+          // Notes tab. If it is on neither, the rule above was not tested.
+          const onNotes = notes.ok && personalText.some((t) => notes.body.includes(t));
+          if (!onNotes) {
+            all.push({
+              role,
+              path: `/clients/<id>?tab=notes`,
+              ok: false,
+              why: "a Personal note this role can read is on neither the dashboard nor the Notes tab, so the dashboard rule was not tested",
+            });
+          } else {
+            console.log(
+              `  ok      ${role.padEnd(12)} reads a Personal note on the Notes tab and not on the dashboard`,
+            );
+          }
         } else {
           console.log(
-            `  note  ${role} opened the dashboard, and that client has no Personal note and no transcript to leak`,
+            `  note  ${role} may read no Personal note on that client, so the dashboard rule was answered by RLS rather than by the stream`,
           );
+        }
+
+        if (transcripts.length) {
+          console.log(`  ok      ${role.padEnd(12)} opened the dashboard with no transcript on it`);
+        } else {
+          console.log(`  note  ${role} may read no transcript on that client, so none could have leaked to the dashboard`);
         }
       }
     }

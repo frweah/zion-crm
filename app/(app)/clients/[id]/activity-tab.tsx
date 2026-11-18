@@ -23,11 +23,13 @@ export type FeedExtras = {
 /** The kinds, in the order the chips are shown. */
 export const ACTIVITY_KINDS = [
   "Note",
+  "Recording",
   "Job",
   "Interview",
   "Follow-up",
   "Task",
   "Form",
+  "Report",
   "Counselor",
   "Stage",
   "Placement",
@@ -38,6 +40,7 @@ export const ACTIVITY_KINDS = [
   "Chat",
   "Website",
   "Hours",
+  "Invoice",
   "Payment",
 ] as const;
 
