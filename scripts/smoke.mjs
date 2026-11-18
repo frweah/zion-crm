@@ -209,6 +209,34 @@ const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const firstLink = (results, path, re) => results.find((x) => x.path === path)?.body?.match(re)?.[0] ?? null;
 
+/**
+ * Whether a followed href is a screen at all.
+ *
+ * A stylesheet is not. This followed every `href="/…"` in the HTML, and a
+ * page's own `<link rel="stylesheet" href="/_next/static/css/….css">` is one
+ * of those. It never mattered while the client record was never opened; the
+ * first deploy that opened one followed the stylesheet, found no Team bubble
+ * on it - correctly, it is a CSS file - and rolled production back.
+ */
+const isScreenLink = (href) =>
+  !/^\/(login|logout|api|_next)\b/.test(href) && !/\.[a-z0-9]{2,5}(\?|$)/i.test(href);
+
+// It tests itself, because the last regex in this file that nobody tested
+// matched every USOR authorization number and failed nineteen screens.
+for (const [href, want] of [
+  ["/clients/5f1c0a16-0000-0000-0000-000000000000", true],
+  ["/billing?tab=hours", true],
+  ["/clients?tab=all&q=ZZ", true],
+  ["/_next/static/css/7e45d8f700681ac3.css?dpl=dpl_8wfpKEEER", false],
+  ["/favicon.ico", false],
+  ["/logout", false],
+]) {
+  if (isScreenLink(href) !== want) {
+    console.error(`  FAILED  the link filter calls ${href} ${want ? "not a screen" : "a screen"}`);
+    process.exit(1);
+  }
+}
+
 /** Every hub tab either account found a way back on, across both passes. */
 const backChecked = [];
 
@@ -314,7 +342,7 @@ async function pass(role) {
       const href = m[1].replace(/&amp;/g, "&").split("#")[0];
       if (!href) continue;
       // Already opened, or a sign-out that would end the run.
-      if (followed.has(href) || /^\/(login|logout|api)\b/.test(href)) continue;
+      if (followed.has(href) || !isScreenLink(href)) continue;
       // The sidebar is in every page's HTML, so its own entries are not this
       // page's links: following them warned three times a run about hub roots
       // a role cannot open, which is a question about the sidebar and is
