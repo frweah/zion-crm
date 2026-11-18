@@ -82,10 +82,26 @@ function shiftMonth(first: string, by: number): string {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; show?: string; bo?: string; doc?: string; month?: string; page?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    show?: string;
+    bo?: string;
+    doc?: string;
+    month?: string;
+    page?: string;
+    add?: string;
+  }>;
 }) {
   const me = await requireStaff();
-  const { tab: rawTab, show, bo: rawBo, doc: rawDoc, month: rawMonth, page: rawPage } = await searchParams;
+  const {
+    tab: rawTab,
+    show,
+    bo: rawBo,
+    doc: rawDoc,
+    month: rawMonth,
+    page: rawPage,
+    add: rawAdd,
+  } = await searchParams;
 
   if (rawTab && GONE_TO_AUTHORIZATIONS.includes(rawTab)) redirect(BILLING_AUTHORIZATIONS);
   if (rawTab && GONE_TO_HOURS.includes(rawTab)) redirect("/billing?tab=hours");
@@ -551,10 +567,41 @@ export default async function BillingPage({
     <>
       {header}
 
+      <BillingOfficeFilter
+        billingOffices={billing.billingOffices}
+        selected={bo}
+        href={(b) => withBo(BILLING_AUTHORIZATIONS, b)}
+      />
+
+      {/*
+        The board (owner, 17 November 2026), and at the top of the page since
+        the 18th.
+
+        Needs action / Show all / Stale are gone: the groups say the same
+        thing in one list, and Stale is a group of its own - "Too late to
+        bill" - rather than a filter somebody has to remember to look at.
+
+        It is first because it is what the tab is for. The confirm queue sat
+        above it and pushed what a client owes below the fold on most days,
+        including the days when there was nothing in the queue at all.
+      */}
+      <BoardGrid
+        clients={byClient(boardRows.filter((r) => matchesBo(bo, billing.forClient(r.client_id))))}
+        canBill={canBill}
+        canExport={me.role === "Admin"}
+        today={today()}
+        // Keeps the office that is being looked at, which the bare fragment
+        // used to keep by being no navigation at all.
+        addHref={`${withBo("/billing?tab=authorizations&add=1", bo)}#new-authorization`}
+      />
+
       {/* §12.1: the authorizations the agent found, waiting for one click. */}
       {canBill && (
         <PendingAuthorizations
           selected={rawDoc && /^[0-9a-f-]{36}$/.test(rawDoc) ? rawDoc : null}
+          // Somebody who came here to add an authorization: the panel opens
+          // whether or not the queue has anything in it.
+          openAdd={rawAdd === "1"}
           /**
            * Where Open on a row of the confirm queue goes: this page, with the
            * document chosen, which is the view with its PDF and the
@@ -633,26 +680,6 @@ export default async function BillingPage({
       )}
         </PendingAuthorizations>
       )}
-
-      <BillingOfficeFilter
-        billingOffices={billing.billingOffices}
-        selected={bo}
-        href={(b) => withBo(BILLING_AUTHORIZATIONS, b)}
-      />
-
-      {/*
-        The board (owner, 17 November 2026).
-
-        Needs action / Show all / Stale are gone: the groups say the same
-        thing in one list, and Stale is a group of its own - "Too late to
-        bill" - rather than a filter somebody has to remember to look at.
-      */}
-      <BoardGrid
-        clients={byClient(boardRows.filter((r) => matchesBo(bo, billing.forClient(r.client_id))))}
-        canBill={canBill}
-        canExport={me.role === "Admin"}
-        today={today()}
-      />
 
       {canBill && (
         <p className="lock" style={{ margin: "0 0 14px" }}>

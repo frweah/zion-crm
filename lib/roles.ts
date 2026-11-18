@@ -432,7 +432,14 @@ export const NAV_GROUPS: NavGroup[] = [
  * app spells the old way again.
  */
 export const BILLING_AUTHORIZATIONS = "/billing?tab=authorizations";
-export const ADD_AUTHORIZATION = "/billing?tab=authorizations#new-authorization";
+/**
+ * `add=1` because the form lives in the documents-folder panel and that panel
+ * is served collapsed when the confirm queue is empty (18 Nov 2026). A
+ * fragment is not sent to the server, so a link that carried only
+ * "#new-authorization" would scroll to a form the page had folded away. The
+ * parameter says what the fragment cannot.
+ */
+export const ADD_AUTHORIZATION = "/billing?tab=authorizations&add=1#new-authorization";
 
 /**
  * The phone bar (inventory, 11 Nov 2026).

@@ -81,12 +81,22 @@ export function BoardGrid({
   canBill,
   canExport,
   today,
+  addHref,
   compact = false,
 }: {
   clients: BoardClient[];
   canBill: boolean;
   canExport: boolean;
   today: string;
+  /**
+   * Where + Authorization goes. It was the bare fragment, which was enough
+   * while the form was always on screen; the form is in the documents-folder
+   * panel and that panel is collapsed when the queue is empty, so the link has
+   * to be one the server can answer by opening it (18 November 2026). No
+   * default: a board drawn without one does not offer the button at all,
+   * rather than offering a fragment that scrolls to a folded form.
+   */
+  addHref?: string;
   /**
    * The same grid on one client's record (client dashboard brief, Part 3:
    * one component, not a second grid). It loses the toolbar - searching a
@@ -220,8 +230,8 @@ export function BoardGrid({
                 Export
               </Link>
             )}
-            {canBill && (
-              <Link className="btn" href="#new-authorization" style={{ textDecoration: "none" }}>
+            {canBill && addHref && (
+              <Link className="btn" href={addHref} style={{ textDecoration: "none" }}>
                 + Authorization
               </Link>
             )}

@@ -10276,3 +10276,44 @@ security definer gated on `is_active_staff()` and the stub reads with the
 service key, which carries no JWT. Six invented rows were pushed in locally to
 look at the grid - never committed, and the reason all three faults above were
 found rather than shipped.
+
+## The board goes to the top of Authorizations (18 November 2026)
+
+Owner, on the day after the board landed. Billing > Authorizations now draws
+the header, the office filter and then the board; "From the documents folder
+(N)" - the confirm queue, the PDF reader and the two ways of adding an
+authorization - is the same single collapsible panel, moved below it. Nothing
+was removed.
+
+The panel is served **open when the queue has something in it and collapsed
+when it does not**. It had been open always, which meant that on the days
+there was nothing to confirm - most days - the first thing on the screen was
+an empty queue and a sentence saying so, and what a client owes started below
+the fold.
+
+### The parameter the fragment could not carry
+
+Folding the panel put the Add authorization form behind a `<details>`, and
+every way in to that form was a fragment: `#new-authorization` from the page
+header, from Admin > Documents, from the SOP list, from the `/billing/import`
+redirect, and a bare `#new-authorization` from the board's own + Authorization
+button. A fragment is never sent to the server, so each of those would have
+scrolled to a form the page had just folded away.
+
+`ADD_AUTHORIZATION` carries `add=1` now, the page reads it, and the panel
+opens on it as well as on a queue with work in it. The board's + Authorization
+takes the address as a prop - composed, so it keeps the office being looked at
+- and a board drawn without one does not offer the button at all rather than
+offering a fragment that goes nowhere. The client record's compact board is
+the one that draws without it.
+
+`check-nav` used to assert that the form was **not** inside a `<details>`.
+That rule is the owner's to change and he changed it, so the check now asks
+the rule that replaced it: `ADD_AUTHORIZATION` carries exactly one parameter
+besides the tab, the page reads that parameter into `openAdd`, the panel's
+`open` is `pending.length > 0 || openAdd`, and no line anywhere in the app or
+in the redirects names `#new-authorization` without naming the parameter too.
+That last one is read by the line rather than by the href, because the board's
+href is composed and a regex for one spelling of a link passes every other
+spelling. Two faults put back: the parameter dropped from the constant, which
+fails two assertions, and the panel ignoring the prop, which fails the third.

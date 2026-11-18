@@ -81,7 +81,7 @@ const nextConfig = {
       // §§11, 12.1: reading an authorization off its PDF is the primary Add
       // authorization, on Billing itself. A second screen showing the same
       // thing is the duplication §11 is about.
-      "/billing/import": "/billing?tab=authorizations#new-authorization",
+      "/billing/import": "/billing?tab=authorizations&add=1#new-authorization",
       /**
        * The billing item's own screen (§§9, 10).
        *

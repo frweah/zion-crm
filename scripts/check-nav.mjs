@@ -1019,8 +1019,58 @@ const PEOPLE = [
 // 3. Billing -> Add authorization lands on the Authorizations tab, form open.
 {
   const before = problems.length;
-  if (ADD_AUTHORIZATION !== "/billing?tab=authorizations#new-authorization") fail(`ADD_AUTHORIZATION is ${ADD_AUTHORIZATION}`);
+  if (!/^\/billing\?tab=authorizations(?:&|$)/.test(ADD_AUTHORIZATION)) fail(`ADD_AUTHORIZATION is ${ADD_AUTHORIZATION}`);
+  if (!ADD_AUTHORIZATION.endsWith("#new-authorization")) fail(`ADD_AUTHORIZATION does not end at the form: ${ADD_AUTHORIZATION}`);
   const billing = withoutComments(await readFile(new URL("../app/(app)/billing/page.tsx", import.meta.url), "utf8"));
+  /**
+   * The parameter that opens the panel the form is folded into, read off
+   * ADD_AUTHORIZATION rather than written here twice.
+   *
+   * The form is inside "From the documents folder" and that panel is served
+   * collapsed when the confirm queue is empty (owner, 18 Nov 2026), so a
+   * fragment alone would scroll to a form the page had folded away. What has
+   * to hold is: the link carries a parameter, the page reads that parameter,
+   * and the panel opens on it.
+   */
+  const addParams = [...new URLSearchParams(ADD_AUTHORIZATION.split("?")[1].split("#")[0])].filter(
+    ([k]) => k !== "tab",
+  );
+  if (addParams.length !== 1) fail(`ADD_AUTHORIZATION carries ${addParams.length} parameters besides the tab`);
+  else {
+    const [[key, value]] = addParams;
+    const panel = withoutComments(
+      await readFile(new URL("../app/(app)/billing/pending-authorizations.tsx", import.meta.url), "utf8"),
+    );
+    // The page turns the parameter into the prop ...
+    if (!new RegExp(`openAdd=\\{raw${key[0].toUpperCase()}${key.slice(1)} === "${value}"\\}`).test(billing))
+      fail(`the Billing page does not read ${key}=${value} into openAdd`);
+    // ... and the panel opens on the prop as well as on a queue with work in it.
+    if (!/<details[^>]*\bid="from-documents"[\s\S]{0,400}?open=\{pending\.length > 0 \|\| openAdd\}/.test(panel))
+      fail("the documents-folder panel does not open on openAdd");
+    /*
+     * ... and nothing points at the form without saying it.
+     *
+     * By the line rather than by the href, because the href is sometimes
+     * composed - the board's + Authorization keeps the office that is being
+     * looked at - and a regex for one spelling of a link would pass every
+     * other spelling. Any line that names the fragment, in the app or in the
+     * redirects, has to name the parameter too. The section's own id and the
+     * constant in roles.ts are the two that define it.
+     */
+    const pointers = [
+      ...(await sourceFiles(new URL("../app/", import.meta.url), [".tsx", ".ts"])),
+      new URL("../next.config.mjs", import.meta.url),
+    ];
+    for (const file of pointers) {
+      const src = withoutComments(await readFile(file, "utf8"));
+      for (const line of src.split("\n")) {
+        if (!line.includes("#new-authorization")) continue;
+        if (/id="new-authorization"/.test(line)) continue;
+        if (line.includes(`${key}=${value}`)) continue;
+        fail(`${rel(file)} points at the form without ${key}=${value}: ${line.trim()}`);
+      }
+    }
+  }
   // The form has to be on the page that tab draws: after the Overview and
   // the Service log have returned, and not folded away.
   const overviewAt = billing.indexOf('if (tab === "overview")');
@@ -1028,7 +1078,13 @@ const PEOPLE = [
   const formAt = billing.indexOf('id="new-authorization"');
   if (formAt < 0) fail("the Billing page has no new-authorization section");
   else if (formAt < overviewAt || formAt < hoursAt) fail("the Add authorization form is drawn before the Overview or Service log returns");
-  else if (/<details[^>]*>(?:(?!<\/details>)[\s\S])*id="new-authorization"/.test(billing)) fail("the Add authorization form is folded inside a <details>");
+  /*
+   * There used to be a third assertion here: that the form was not inside a
+   * <details> at all. The owner put it inside one on 18 Nov 2026 - the
+   * documents-folder panel, below the board - so the rule is no longer "never
+   * folded" but "folded, and every link to it unfolds it", which is what the
+   * three assertions above ask.
+   */
   // And nothing in the app spells the way to it, or to the working list's
   // sections, without the tab - which is the Overview, where none of them is.
   const BARE = /["'`]\/billing(?:#(?:new-authorization|from-documents|warrant-review)|\?show=|["'`])/g;

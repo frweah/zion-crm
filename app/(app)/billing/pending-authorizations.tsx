@@ -26,11 +26,14 @@ const isAuthorization = (d: PendingRow) =>
 export default async function PendingAuthorizations({
   selected,
   hrefFor,
+  openAdd = false,
   children,
 }: {
   /** The read-it-off-the-PDF form, which lives inside this panel (A5). */
   children?: React.ReactNode;
   selected: string | null;
+  /** Add authorization was followed, so the panel opens on an empty queue. */
+  openAdd?: boolean;
   /** The Authorizations tab's own address with ?doc= set, keeping its filters. */
   hrefFor: (docId: string | null) => string;
 }) {
@@ -64,15 +67,25 @@ export default async function PendingAuthorizations({
 
   return (
     /*
-     * One collapsible panel above the board (owner, 17 November 2026): the
-     * queue, the PDF beside what was read from it, and the form that reads an
-     * authorization off a PDF, which arrives as `children` from the page.
+     * One collapsible panel, below the board since 18 November 2026 (owner):
+     * the queue, the PDF beside what was read from it, and the form that reads
+     * an authorization off a PDF, which arrives as `children` from the page.
      *
-     * Open by default, which is how it has always sat on this tab. The
-     * collapse is for somebody who has cleared the queue and wants the board
-     * at the top of the screen - not a reason to hide work that is waiting.
+     * Open when the queue has something in it, collapsed when it does not.
+     * Work that is waiting is never hidden; an empty queue is not work, and it
+     * was taking the top of the screen on the days there was nothing in it.
+     *
+     * `open` rather than `defaultOpen`: this is a server component, the panel
+     * is plain HTML, and the attribute is the state the page is served in.
+     * Somebody who opens or closes it keeps that until the page is loaded
+     * again, which is the whole of what a `details` remembers.
      */
-    <details id="from-documents" className="page-section" open style={{ marginTop: 0, marginBottom: 24 }}>
+    <details
+      id="from-documents"
+      className="page-section"
+      open={pending.length > 0 || openAdd}
+      style={{ marginBottom: 24 }}
+    >
       <summary className="h2" style={{ cursor: "pointer" }}>
         From the documents folder ({pending.length})
       </summary>
