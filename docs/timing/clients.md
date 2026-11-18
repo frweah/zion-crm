@@ -41,7 +41,7 @@ does not count. The header search box is two taps to a record.
 | What is not there | **No tile and no count anywhere says it.** The caseload strip counts every client, the active ones, the new ones this month and the active ones by stage — none of those is "nobody has touched these". So the question can only be answered by somebody who already knows the filter exists |
 | What the board says | Nothing. The board has no last-contact anywhere on a card; it carries the client, the stage, the goal, the counselor, who they are assigned to, days in stage, services, one alert chip, and the last note's text and date |
 
-**After the stage board** (live at HASH, 18 Nov 2026):
+**After the stage board** (live at `cbc3363`, 18 Nov 2026):
 
 ### 1. Find client X and see where they are
 
