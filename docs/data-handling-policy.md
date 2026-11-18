@@ -89,6 +89,34 @@ to disclose it in order to get help finding work. It is handled accordingly.
     - **A lost or stolen phone with the app on it is an exposure** under rule 8:
       report it the same day, so the owner can cut off the account's access.
 
+## The first restriction to make
+
+Access was measured on 17 November 2026 by asking the database as each real
+role, rather than by reading the screens. Three things a Case Manager can see
+today are wider than the job needs, and they are written down here so that the
+next tightening starts with them rather than with whatever is noticed first.
+
+1. **Every authorization and every payment.** A Case Manager reads all 173
+   authorizations and all 159 payments, because both tables open to any active
+   member of staff. This stands for now: the client dashboard shows a money
+   strip to the whole team by the owner's ruling, and it reads these two
+   tables. **This is the first restriction to make when roles are tightened.**
+   Closing it means the dashboard strip becomes a function that returns one
+   client's figures, not a direct read of the tables.
+
+2. **Every task in the practice**, 471 of them. By design — work is handed
+   round — and it stays.
+
+3. **The staff list**, all ten people. Names, roles, email, phone, who reports
+   to whom, and whether the account is active. Nothing else: pay, bank
+   details, immigration paperwork and employment records live in other tables,
+   and a Case Manager reads none of them except their own. Checked column by
+   column on 17 November 2026; there was nothing to close.
+
+Admin and HR are already shut to a Case Manager at the navigation and at the
+database, with their own staff record, hours and certifications reached from
+their profile.
+
 ## What happens if this is broken
 
 Depending on what happened: retraining, removal of access, or dismissal, and
