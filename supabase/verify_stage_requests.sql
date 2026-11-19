@@ -18,8 +18,11 @@
 --     with "already moved", and closes its task.
 --   the board's row carries a waiting ask and stops carrying a decided one.
 --   an approval into Job Placement records the placement and its start date,
---     the same employer twice is one placement, and an approval with the
---     employer left blank says the clock has not started (0373).
+--     and the same employer twice is one placement (0373).
+--   Job Placement without an employer or without a start date is refused, on
+--     the Approve path and the Move path alike, in a sentence naming what is
+--     missing and nothing else - and the refusal leaves the client where they
+--     were with the request still waiting (0374).
 --   and nothing writes the table except those two functions.
 --
 -- Everything is rolled back.
@@ -73,14 +76,21 @@ begin
     raise exception 'This needs an Admin and one other signed-in member of staff to ask as.';
   end if;
 
-  -- A client who is in neither of the two stages this script moves between.
+  -- A client who is in none of the stages this script moves between, and not
+  -- in Job Placement either.
+  --
+  -- Job Placement is on that list for a reason worth keeping: the script puts
+  -- the client back where it found them, and since 0374 a move into Job
+  -- Placement without an employer and a start date is refused - so a client
+  -- who started there could not be put back without this script inventing an
+  -- employer for a real person. It borrows the next one instead.
   select c.id, c.name, c.stage into v_client, v_name, v_from
     from public.clients c
    where c.status = 'Active' and c.merged_into is null
-     and c.stage not in ('Life Skills', 'Job Development', 'Job Search')
+     and c.stage not in ('Life Skills', 'Job Development', 'Job Search', 'Job Placement')
    order by c.created_at limit 1;
   if v_client is null then
-    raise exception 'This needs one active client who is not already in Life Skills or Job Development.';
+    raise exception 'This needs one active client who is not already in Life Skills, Job Development or Job Placement.';
   end if;
 
   -- ── 1. the move is Admin's, for every other account ────────
@@ -489,9 +499,16 @@ begin
     end if;
   end if;
 
-  -- And the employer left blank. It goes through - Move has never insisted on
-  -- it - and it says that the clock has not started, which is the whole point
-  -- of saying anything.
+  -- And Job Placement without the two things the stage means (owner, 19 Nov
+  -- 2026). 0373 asked for the employer and insisted on neither, so a client
+  -- could reach the stage with no placement, no retention milestone and no fee
+  -- to claim - and a sentence saying so. It is a refusal now.
+  --
+  -- Asked of the approve path three times, because "what is missing" is three
+  -- different facts and a person who typed the employer should not be told to
+  -- add the employer. The refusal lives in `move_client`, which is how the
+  -- approve path gets it without `decide_stage_request` knowing anything about
+  -- placements.
   --
   -- Counted before and after rather than against a number. The client this
   -- script borrows is a real one and may already have placements of their own,
@@ -507,19 +524,91 @@ begin
     from public.request_stage_change(v_client, 'Job Placement', 'ZZ verify: hired, employer to follow') q;
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_admin.user_id, 'role', 'authenticated')::text, true);
-  select d.said into v_text
-    from public.decide_stage_request(v_req, true, 'ZZ verify: agreed, chase the employer', '   ', null) d;
-  perform set_config('role', 'postgres', true);
-  perform set_config('request.jwt.claims', '', true);
+
+  v_text := null;
+  begin
+    perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: agreed', '   ', null);
+    failures := failures || 'FAILED: an approval into Job Placement with neither the employer nor the start date went through'::text;
+  exception when others then
+    v_text := sqlerrm;
+  end;
+  if v_text is not null then
+    if v_text not like '%employer%' or v_text not like '%started%' then
+      failures := failures || format('FAILED: the refusal did not name both the employer and the day: %s', v_text)::text;
+    else
+      raise notice 'ok  an approval into Job Placement with neither is refused, naming both';
+    end if;
+  end if;
+
+  v_text := null;
+  begin
+    perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: agreed', '   ', v_day);
+    failures := failures || 'FAILED: an approval into Job Placement with no employer went through'::text;
+  exception when others then
+    v_text := sqlerrm;
+  end;
+  if v_text is not null then
+    if v_text not like '%employer%' or v_text like '%started%' then
+      failures := failures || format('FAILED: the refusal for a missing employer named the wrong thing: %s', v_text)::text;
+    else
+      raise notice 'ok  with the start date and no employer it names the employer, and only that';
+    end if;
+  end if;
+
+  v_text := null;
+  begin
+    perform 1 from public.decide_stage_request(v_req, true, 'ZZ verify: agreed', v_emp, null);
+    failures := failures || 'FAILED: an approval into Job Placement with no start date went through'::text;
+  exception when others then
+    v_text := sqlerrm;
+  end;
+  if v_text is not null then
+    if v_text not like '%started%' or v_text like '%employer%' then
+      failures := failures || format('FAILED: the refusal for a missing start date named the wrong thing: %s', v_text)::text;
+    else
+      raise notice 'ok  with the employer and no start date it names the day, and only that';
+    end if;
+  end if;
+
+  -- And a refusal leaves nothing behind. `decide_stage_request` marks the
+  -- request approved before it calls the move, so a refusal that did not undo
+  -- itself would close the request and leave the client where they were -
+  -- which is the request lost rather than the move refused.
+  select c.stage into v_from from public.clients c where c.id = v_client;
+  select count(*) into n from public.client_stage_requests q
+   where q.id = v_req and q.outcome = 'Waiting';
+  if v_from = 'Job Placement' or n <> 1 then
+    failures := failures || format('FAILED: a refused approval left them in %s and the request %s', v_from,
+                                   case when n = 1 then 'waiting' else 'decided' end)::text;
+  else
+    raise notice 'ok  and a refused approval leaves them where they were, with the request still waiting';
+  end if;
 
   select count(*) into n from public.placements pl where pl.client_id = v_client;
   if n <> v_rows then
-    failures := failures || format('FAILED: an approval with no employer wrote %s placement row(s)', n - v_rows)::text;
-  elsif v_text is null or v_text not like '%no employer%' or v_text not like '%has not started%' then
-    failures := failures || format('FAILED: an approval with no employer did not say the clock has not started: %s', coalesce(v_text, '(nothing)'))::text;
-  else
-    raise notice 'ok  with no employer it goes through and says the clock has not started';
+    failures := failures || format('FAILED: a refused approval wrote %s placement row(s)', n - v_rows)::text;
   end if;
+
+  -- The other door, asked the same question. Move is where the two fields were
+  -- first asked for and never insisted on, so this is the half of the ruling
+  -- that changes an existing screen rather than adding to a new one.
+  v_text := null;
+  begin
+    perform 1 from public.move_client(v_client, 'Job Placement', 'ZZ verify: hired, nothing else known');
+    failures := failures || 'FAILED: a move into Job Placement with neither the employer nor the start date went through'::text;
+  exception when others then
+    v_text := sqlerrm;
+  end;
+  if v_text is not null then
+    if v_text not like '%employer%' or v_text not like '%started%' then
+      failures := failures || format('FAILED: the move refusal did not name both: %s', v_text)::text;
+    else
+      raise notice 'ok  and the Move path is refused in the same words';
+    end if;
+  end if;
+
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
 
   -- ── 11. and anon cannot touch any of it ────────────────────
   perform set_config('role', 'anon', true);

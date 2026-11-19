@@ -77,6 +77,10 @@ export async function moveClient(_prev: BoardState, formData: FormData): Promise
   // starts with the move rather than a week later - and they are passed to
   // `move_client` rather than written here, because an approval is the other
   // door into that stage and this screen is not on that path (0373).
+  //
+  // Both are required of the move since 0374, and the refusal is the
+  // database's: this action does not repeat it, so the one sentence a person
+  // reads is the one sentence the rule is written in.
   const employer = field(formData, "employer");
   const hired = field(formData, "hire_date");
 
@@ -254,7 +258,8 @@ export async function requestStageChange(_prev: BoardState, formData: FormData):
  * The employer and the start date are sent too, for an approval into Job
  * Placement: the same two questions Move asks, because an approval is the
  * other door into that stage and the placement clock starts at the door or
- * not at all (0373).
+ * not at all (0373). Since 0374 an approval into that stage without both is
+ * refused, which is why the form asks before it is pressed.
  */
 export async function decideStageRequest(_prev: BoardState, formData: FormData): Promise<BoardState> {
   const me = await getCurrentStaff();

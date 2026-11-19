@@ -37,20 +37,25 @@ export async function setStage(_prev: DetailState, formData: FormData): Promise<
   if (!note) return { error: "Say why they are moving.", ok: null };
 
   const supabase = await createClient();
+  // The two things Job Placement means, asked for by the form when that is
+  // the stage picked and refused by `move_client` when they are missing
+  // (0374). They are sent on every move because an empty string is not an
+  // employer and the database is the one deciding which stage needs them.
   const { data, error } = await supabase.rpc("move_client", {
     p_client: id,
     p_stage: stage,
     p_note: note,
     p_document: null,
+    p_employer: String(formData.get("employer") ?? "").trim() || null,
+    p_start: String(formData.get("hire_date") ?? "").trim() || null,
   });
   if (error) return { error: error.message, ok: null };
 
   revalidatePath(`/clients/${id}`);
   revalidatePath("/clients");
-  // This screen does not ask for the employer the way the board's Move does,
-  // because Record a job start is on the same page - so what the move says
-  // about the placement is passed on, and a move into Job Placement with no
-  // placement says so instead of looking finished (0373).
+  // What the move had to say about the placement, where there was anything to
+  // say. Record a job start is on this page too, and the two meet at the same
+  // row: the same employer is the same placement, not a second one (0373).
   const said = Array.isArray(data) ? (data[0]?.said ?? null) : null;
   return { error: null, ok: `Moved to ${stage}${said ? ` — ${said}` : ""}.` };
 }

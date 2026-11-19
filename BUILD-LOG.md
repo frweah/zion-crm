@@ -10604,3 +10604,109 @@ Manager pass in the deploy check wants `SMOKE_CASE_EMAIL` and
 `SMOKE_CASE_PASSWORD`, which do not exist. Making an account and issuing its
 password is the owner's, so Part 4 is closed at the navigation and in the
 database, and the per-role walk is waiting on two secrets.
+
+## Job Placement needs an employer and a start date (19 November 2026)
+
+Owner, the day after 0373: "Job Placement requires an employer and a start
+date - `move_client` refuses without them, on both the Move and the Approve
+path, with a sentence saying what is missing."
+
+0373 asked for both and insisted on neither, on the grounds that Move had
+never insisted either, and said so in the report. That was the smaller half of
+the argument. The bigger half is what the stage means: a job, at an employer,
+on a day. A move that cannot name either is not a move into Job Placement -
+it is a note - and what it leaves behind is a client sitting in the stage with
+no placement row, which is no retention milestone, no placement authorization
+and no fee to claim. 0373 made that state say so out loud; 0374 stops it
+happening.
+
+### The refusal is one, in one place
+
+`0374` replaces `move_client` - replaces rather than drops, because the
+signature is unchanged and the grants 0373 set are worth keeping - and puts
+the question with the other preconditions, above the stage read and the write
+rather than beside the placement insert below it. Nothing has happened when it
+raises, and nothing will: a move that cannot say where and when is refused
+whole.
+
+Three sentences, not one:
+
+    Job Placement needs the employer and the day they started. Add both and move again.
+    Job Placement needs the employer. Add it and move again.
+    Job Placement needs the day they started. Add it and move again.
+
+Because "what is missing" is three different facts, and a person who typed the
+employer and left the date blank should not be sent looking for the field they
+already filled in.
+
+One refusal covers three doors, which is the reason it is in the database
+rather than on a screen. The board's Move, the administrator's Approve and the
+record's own picker all get it, `decide_stage_request` needed no change at all
+- it passes the two fields through and the exception comes back up through it
+- and the subtransaction that unwinds leaves the request waiting rather than
+approved against a move that did not happen. That last part is asserted, not
+assumed: a refusal that closed the request would be the request lost rather
+than the move refused.
+
+The `said` sentence 0373 added loses its one interesting case - the blank
+employer - and keeps the other: "the placement at X is recorded".
+
+### And a box to type the answer into
+
+The record screen's picker was the third door and had no fields, so the
+refusal would have reached it as a dead end. That is the fault the same form
+already had once, in the opposite direction: "Move stage" answered "Say why
+they are moving" every time it was pressed, with nowhere to say it. The select
+is controlled now and the two fields appear under it when Job Placement is
+picked, the way the board's Move dialog has always done. `setStage` sends
+them.
+
+On the board both forms mark the fields `required`, so the browser asks before
+a round trip that would be refused anyway. The Approve dialog 0373 added was
+deliberately not requiring them; it is now, which is the ruling.
+
+### The check is about the doors, not the words
+
+`scripts/check-stage-doors.mjs`, in prebuild. The database settles the rule;
+what the database cannot do is put a box on a screen, and the thing that goes
+wrong next is a fourth door written by somebody who does not know about the
+refusal. So the check reads every call to `move_client` and
+`decide_stage_request` in `app/`, works out which of them could carry somebody
+into Job Placement - a call whose stage is a literal that is not Job Placement
+cannot, which is how the intake's move to Assessment is left alone - and asks
+that those pass `p_employer` and `p_start`; then that the forms behind those
+actions ask for both by the names the actions read; then that every one of
+those fields is `required`.
+
+Three faults put back, all three caught: `setStage` dropping `p_employer`, the
+record form renaming its employer box, and the Approve dialog's employer field
+losing `required`. The form half is the loose half and says so in its own
+prose - it can see that a form bound to the action carries the fields, not
+that the right form shows them at the right moment. That is the hand check on
+Clients › Board, which the definition of done already requires.
+
+### What the verify script says now
+
+`verify_stage_requests.sql` is 33 assertions. The new ones ask the approve
+path three times - neither, the employer alone, the date alone - and each
+checks that the sentence names what is missing *and not the other thing*,
+which is the assertion that fails if somebody collapses the three messages
+into one. Then that the refusal left the client where they were with the
+request still waiting and no placement written, and then the Move path, in the
+same words.
+
+Two faults put back: the refusal removed entirely (six failures), and the
+three messages flattened into one (two failures - exactly the two that are
+about naming what is missing rather than about refusing).
+
+And one assertion that had to change for a reason worth recording. The script
+borrows a real client and puts them back where it found them, so a client who
+*started* in Job Placement could no longer be put back - the restore is a move
+into Job Placement, and this migration refuses it without an employer the
+script has no business inventing for a real person. The borrow skips that
+stage now. It is the same shape of fault as the placement count that only held
+while the table was empty: a fixture cannot outvote the practice.
+
+Nobody needed putting right. One active client is in Job Placement and they
+have their placement row, so the refusal starts clean rather than against a
+backlog.

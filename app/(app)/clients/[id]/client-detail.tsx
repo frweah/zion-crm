@@ -71,6 +71,13 @@ function Message({ state }: { state: DetailState }) {
  * stage and nothing else, and `setStage` has required a note since the move
  * started writing a history row - so "Move stage" answered "Say why they are
  * moving" every time it was pressed, with nowhere to say it.
+ *
+ * The employer and the start date are here for that same reason rather than
+ * for a new one. 0374 made Job Placement refuse a move that cannot name both,
+ * and this is the third door into that stage: without the two fields the
+ * picker would offer a stage that answered "Job Placement needs the employer"
+ * every time, with nowhere to say that either. The select is controlled so it
+ * can ask the question only when the answer matters.
  */
 export function StageControl({
   client,
@@ -84,6 +91,7 @@ export function StageControl({
   const [moved, move, moving] = useActionState(setStage, initial);
   const [asked, ask, asking] = useActionState(requestStageChange, initial);
   const elsewhere = STAGES.filter((s) => s !== client.stage);
+  const [to, setTo] = useState(client.stage);
 
   return (
     <div className="card">
@@ -96,7 +104,7 @@ export function StageControl({
           <input type="hidden" name="id" value={client.id} />
           <label className="field">
             Stage
-            <select name="stage" defaultValue={client.stage}>
+            <select name="stage" value={to} onChange={(e) => setTo(e.target.value)}>
               {STAGES.map((st) => (
                 <option key={st}>{st}</option>
               ))}
@@ -106,6 +114,18 @@ export function StageControl({
             Why
             <input name="note" placeholder="Why they are moving" required />
           </label>
+          {to === "Job Placement" && (
+            <>
+              <label className="field">
+                Employer
+                <input name="employer" placeholder="Who is employing them" required />
+              </label>
+              <label className="field">
+                Started
+                <input type="date" name="hire_date" required />
+              </label>
+            </>
+          )}
           <button className="btn" type="submit" disabled={moving}>
             {moving ? "Moving…" : "Move stage"}
           </button>

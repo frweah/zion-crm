@@ -275,10 +275,10 @@ function StageCell({
       )}
 
       {/*
-        The same two fields the Move form asks for, in the same words. Neither
-        is required: an approval with the employer left blank goes through and
-        says that the clock has not started, which is what Move has always
-        done.
+        The same two fields the Move form asks for, in the same words, and
+        required for the same reason: Job Placement is a job at an employer on
+        a day, and `move_client` refuses a move that cannot name both (0374).
+        The browser asks first so that nobody makes the round trip to be told.
       */}
       {isAdmin && waiting && open === "approve" && (
         <form action={decide} style={CELL_FORM}>
@@ -286,8 +286,13 @@ function StageCell({
           <input type="hidden" name="client_id" value={row.client_id} />
           <input type="hidden" name="decision" value="approve" />
           <input type="hidden" name="reason" value="" />
-          <input name="employer" aria-label={`Who is employing ${row.name}`} placeholder="Employer" />
-          <input type="date" name="hire_date" aria-label={`The day ${row.name} started`} />
+          <input
+            name="employer"
+            aria-label={`Who is employing ${row.name}`}
+            placeholder="Employer"
+            required
+          />
+          <input type="date" name="hire_date" aria-label={`The day ${row.name} started`} required />
           <button className="btn" type="submit">
             Approve
           </button>
@@ -338,12 +343,18 @@ function StageCell({
             Job Placement starts the placement clock, which the retention
             checks and the placement fee both hang off - so the employer and
             the start date are asked for with the move rather than a week
-            later. The kanban card asked the same two questions.
+            later. The kanban card asked the same two questions, and since
+            0374 the database refuses the move without both answers.
           */}
           {stage === "Job Placement" && (
             <>
-              <input name="employer" aria-label={`Who is employing ${row.name}`} placeholder="Employer" />
-              <input type="date" name="hire_date" aria-label={`The day ${row.name} started`} />
+              <input
+                name="employer"
+                aria-label={`Who is employing ${row.name}`}
+                placeholder="Employer"
+                required
+              />
+              <input type="date" name="hire_date" aria-label={`The day ${row.name} started`} required />
             </>
           )}
           <button className="btn" type="submit">
