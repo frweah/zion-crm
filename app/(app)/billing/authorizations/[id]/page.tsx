@@ -438,7 +438,13 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               }
               attached={packet.length}
             />
-            {rec.status === "Submitted" || rec.status === "Due" ? (
+            {/* Authorized as well as Submitted and Due (0375). record_payment
+                has taken a payment against an Authorized record since 3
+                November - money arrives for work nobody got round to marking
+                as sent - and this condition had not been widened with it, so
+                the one screen the rule is written on was the one screen that
+                did not offer it. */}
+            {rec.status === "Submitted" || rec.status === "Due" || rec.status === "Authorized" ? (
               <RecordPayment
                 authId={rec.id as string}
                 amount={Number(rec.amount ?? 0)}
@@ -498,8 +504,6 @@ export default async function AuthorizationPage({ params }: { params: Promise<{ 
               service_start: (rec.service_start as string) ?? null,
               service_end: (rec.service_end as string) ?? null,
               recipient: (rec.recipient as string) ?? null,
-              paid_on: (rec.paid_on as string) ?? null,
-              paid_amount: rec.paid_amount == null ? null : Number(rec.paid_amount),
               note: (rec.note as string) ?? "",
             }}
           />

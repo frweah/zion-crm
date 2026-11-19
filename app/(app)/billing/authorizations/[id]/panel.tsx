@@ -421,8 +421,6 @@ export function EditEverything({
     service_start: string | null;
     service_end: string | null;
     recipient: string | null;
-    paid_on: string | null;
-    paid_amount: number | null;
     note: string;
   };
 }) {
@@ -432,8 +430,8 @@ export function EditEverything({
       <input type="hidden" name="auth_id" value={authId} />
       <h2 className="h2">The record itself</h2>
       <p className="lock">
-        Everything here is Billing&rsquo;s to change. Changing the number, the authorized hours,
-        the rate or the amount paid asks why, and that answer is kept with the record.
+        Everything here is Billing&rsquo;s to change. Changing the number, the authorized hours or
+        the rate asks why, and that answer is kept with the record.
       </p>
 
       <div className="grid">
@@ -520,22 +518,13 @@ export function EditEverything({
         </label>
       </div>
 
-      {/* The money, on the same screen as everything else: a payment entered
-          against the wrong month is corrected here rather than undone. */}
-      <div className="grid">
-        <label className="field">
-          <span>Paid on</span>
-          <input type="date" name="paid_on" defaultValue={rec.paid_on ?? ""} />
-        </label>
-        <label className="field">
-          <span>Amount paid</span>
-          <input
-            name="paid_amount"
-            inputMode="decimal"
-            defaultValue={rec.paid_amount == null ? "" : Number(rec.paid_amount).toFixed(2)}
-          />
-        </label>
-      </div>
+      {/* The money is not here (0375). Paid on and Amount paid were two boxes
+          on this form until a paid date went onto a record with no payment
+          behind it, which left the board saying "Paid on 2026-11-11" and "no
+          payment after 14 days" on the same row. A payment is recorded in
+          Record a payment, moved in Date paid, and taken back on the payment
+          itself - and the database refuses these two fields here, so this is
+          not a screen being polite about a rule it could break. */}
 
       <label className="field">
         <span>Note</span>

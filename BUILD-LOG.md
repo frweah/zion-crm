@@ -10710,3 +10710,160 @@ while the table was empty: a fixture cannot outvote the practice.
 Nobody needed putting right. One active client is in Job Placement and they
 have their placement row, so the refusal starts clean rather than against a
 backlog.
+
+## A paid date comes with its payment (19 November 2026)
+
+Owner, on Billing: "Paid, Record payment and Done appear to do nothing.
+V1045641 was paid; recording the payment as the owner does not take."
+
+### What was wrong, which was not the button
+
+Recording the payment on V1045641 as the owner - his staff row, his
+`auth.uid()`, against production inside a transaction that was rolled back -
+worked end to end: payment row written, status Paid, amount 560, and the
+invoice settled to Paid. The database was refusing nothing and reporting no
+zero-row write as success.
+
+What was wrong is that `paid_on` was a typed field on the Edit form. The same
+transaction, same identity:
+
+    edit_authorization with a paid date and nothing else
+      ACCEPTED  now Submitted, paid_on=2026-11-11, paid_amount=NULL, payments=0
+    and with an amount typed as well
+      REFUSED   The amount paid on … says 560.00 and its payments come to .00.
+
+The amount was guarded - `authorizations_paid_amount` has insisted since 0292
+that the figure is the sum of the payment rows - and the date was not. So the
+hole was exactly one column wide, and on Sunday 15 November at 9:54pm somebody
+typed a paid date into it. The record then said the money came and the ledger
+said it had not, and the board drew both sentences on one row: "Paid on
+2026-11-11" beside "Submitted 2026-10-27, no payment after 14 days".
+
+Why the controls then looked dead: the date somebody was trying to enter was
+already in the cell. The board's client row draws `paid_on` as read-only text
+with nothing to click, and the sub-row's Paid-on cell arrives pre-filled, so
+there is nothing on that row that looks like it needs pressing - and nothing
+anywhere that offered to reconcile the two halves.
+
+One row was in that state and no other. Every one of the 143 paid
+authorizations had its date, its amount and its payment row; no payment sat on
+an unpaid authorization; no invoice said Paid with nothing received. Money
+counts on the `paid` flag rather than on the date, so November income was not
+overstated either.
+
+### The money has one door
+
+The ruling: "One rule everywhere: typing a paid date records a payment. The
+Edit form's Paid on box behaves exactly like the board's Paid-on cell, or it
+comes off the Edit form; pick whichever leaves one path, and say which."
+
+It comes off the form - which is to say out of `edit_authorization`, because a
+rule that lives on a screen holds until somebody uses the other screen. There
+was already one door for each act money can take: `record_payment` for money
+arriving, which `add_authorization` calls for a historic payment typed in with
+a new record and the board's Paid-on cell calls too; `correct_payment_date` for
+the month it landed in, refused unless the record is Paid and a reason is
+given; `remove_payment` for a payment taken back, which writes its own
+correction row. Against that, the two boxes on the Edit form were a second way
+to write the same two columns, and one of them could only ever fail.
+
+The other way round would have left one button that sometimes writes money and
+sometimes does not, depending on which of twenty boxes somebody touched. That
+is two acts behind one button.
+
+The refusals are refusals rather than silence, and they sit with the other
+preconditions so nothing has been written when they raise:
+
+    A paid date goes on by recording the payment - use Record a payment, or
+    Date paid to move one already there.
+
+    The amount paid is the sum of the payments - record or remove a payment
+    rather than typing the figure.
+
+And "filling a blank paid_on is a logged change like any other", which it was
+not: the correction trigger logs a field that needs no reason only when a
+reason was given, so an ordinary payment moved the status and wrote the date
+with nothing in the log. `record_payment` now names the payment - "560.00
+received 11 November 2026." - so the paid date and the status move are both
+written down, attributed, and the log reads as the money history alongside
+remove_payment's own row. Two rows rather than three: the amount is already the
+sum by then, because inserting the payment fired `payments_set_the_total`.
+
+One screen gained something. `RecordPayment` on the record was offered for
+Submitted and Due only, but `record_payment` has taken a payment against an
+Authorized record since 3 November - money arrives for work nobody got round
+to marking as sent - so the one screen the rule is written on was the one
+screen that did not offer it.
+
+### A write that changed nothing is not a write that worked
+
+Three writes behind those screens were `update(...).eq("id", id)` reporting
+success on whatever came back, and what comes back from PostgREST includes "no
+error, nothing changed": a policy that refuses, a row somebody deleted while
+the list was on screen, an id that was never there. The screen then said "Ready
+to bill" over a record that had not moved. That is the `sms_messages` fault.
+
+The ruling named three. Reading the file to change them found four more of
+exactly the same shape - the stale date, the service dates, the zero-hours
+answer and the close that answer can make, which is a second status write
+nobody had counted - and Money's follow-up, which was already counting its
+rows. All eight go through `writeOne` in `lib/authorization-writes.ts`, which
+returns the ids and insists on exactly one. Three fixed and five left would
+have been the next report.
+
+Exactly one, not at least one: the where clause is a primary key, so two would
+mean something underneath had changed shape, and reporting success on that is
+how the first fault happened. It lives in `lib/` because a `"use server"`
+module may only export actions - exporting anything else from one is the
+19 October outage, where React refused the module on first require and every
+billing action answered "Application error".
+
+### What holds it
+
+`check-paid-date-one-door.mjs`, in prebuild: the form bound to
+`editAuthorization` offers neither field, no `.rpc(` argument object carries
+either as a key, and nothing writes them onto the table. It deliberately leaves
+alone every other form that says `paid_on` - the typed-in authorization sends
+one to `add_authorization`, Date paid sends one to `correct_payment_date`, and
+the contractors' and bills' screens mean a different table. The first version
+read `<form action={action}>` anywhere in a file and flagged Date paid, because
+every component in panel.tsx names its dispatcher `action`; it is bounded to
+the component that binds the action now.
+
+`check-status-writes.mjs`, in prebuild: no server action writes the table, the
+helper does exactly once, the actions call it, and it still insists on one. The
+last of those four exists because a fault proved the hole - loosening the
+helper's test from `=== 1` to `>= 0` left every call site still going through
+the helper, so the first three rules all passed while the helper waved every
+write through. Its first version also allowed three hundred characters between
+`.from("authorizations")` and `.update(`, and read a `.select(` on
+authorizations followed by a `.update(` on forms as one write.
+
+Seven faults put back, seven caught.
+
+`supabase/verify_billing_doors.sql`: every control that settles an
+authorization, pressed as a Billing person, with the row asked afterwards -
+Ready to bill, Waiting on payment, Record a payment, Date paid, taking a
+payment back, Mark N paid, straight to Paid, Close and Open it again, plus the
+correction-log row, the Edit form still saving what it is for, and the two
+refusals. Sixteen assertions; two faults put back and both caught.
+
+Its first assertion is about what is on file rather than about its own fixture,
+and it is the one thing still failing: V1045641 carries a paid date with no
+payment behind it. That is recorded through the screen rather than by SQL, which
+is the owner's own instruction and his hand to do it with - no automated
+account may write as Billing (0120).
+
+The smoke presses five of those controls as Billing with an authorization id
+that is not on file, so the module loads, the action answers, and the answer is
+the refusal: twice the helper's sentence, three times the database's. It cannot
+prove a state change and says so - the account it signs in as is a system
+account and 0120 refuses it every write by design, so that a mistake in a check
+cannot change anybody's record. A Billing account that is not a system account
+would close that gap, and making accounts is the owner's.
+
+Two controls are not pressed and are named as not pressed: the board's Paid-on
+cell and its status pill exist only once a client row is expanded, and Mark N
+paid only once rows are chosen. All three are drawn in the browser, so they are
+not in the HTML a check without a browser receives. The database door under all
+of them is `record_payment`, which the record's own Record a payment posts.

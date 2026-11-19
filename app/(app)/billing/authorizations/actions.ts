@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/session";
 import { EMPTY_BATCH, type BatchState } from "@/lib/billing";
 import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
+import { writeOne } from "@/lib/authorization-writes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, type Attachment } from "@/lib/email";
 import { today , PRACTICE_TZ } from "@/lib/constants";
@@ -66,8 +67,8 @@ const refusal = (message: string) => ({ error: message.replace(/^.*?:\s*/, "").t
 export async function markDue(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { supabase } = await billingHands();
   const id = String(formData.get("auth_id") ?? "");
-  const { error } = await supabase.from("authorizations").update({ status: "Due" }).eq("id", id);
-  if (error) return refusal(error.message);
+  const stopped = await writeOne(supabase, id, { status: "Due" }, "marked ready to bill");
+  if (stopped) return { error: stopped, ok: null };
   done(id);
   return { error: null, ok: "Ready to bill." };
 }
@@ -224,7 +225,7 @@ export async function submitAuthorization(
   const sent = await sendEmail({ to, cc, subject, text, attachments });
   if (!sent.ok) return { error: `Nothing was sent, so nothing was marked submitted. ${sent.error}`, ok: null };
 
-  const { error } = await supabase.from("authorizations").update({ status: "Submitted" }).eq("id", id);
+  const stopped = await writeOne(supabase, id, { status: "Submitted" }, "marked submitted");
 
   await supabase.from("contact_log").insert({
     client_id: rec.client_id,
@@ -237,11 +238,11 @@ export async function submitAuthorization(
 
   done(id, rec.client_id ?? undefined);
 
-  if (error) {
-    return {
-      error: `The packet went to ${to}, but the record would not move to Submitted: ${error.message}`,
-      ok: null,
-    };
+  // The packet has gone by now, so the refusal says so first: the sentence a
+  // person needs is "it was sent and the record did not move", which is
+  // recoverable, and not "something went wrong", which is not.
+  if (stopped) {
+    return { error: `The packet went to ${to}, but the record did not move. ${stopped}`, ok: null };
   }
   return {
     error: null,
@@ -259,11 +260,8 @@ export async function closeAuthorization(
   const reason = String(formData.get("closed_reason") ?? "").trim();
   if (!reason) return { error: "Say why it is being closed. Somebody will ask.", ok: null };
 
-  const { error } = await supabase
-    .from("authorizations")
-    .update({ status: "Closed", closed_reason: reason })
-    .eq("id", id);
-  if (error) return refusal(error.message);
+  const stopped = await writeOne(supabase, id, { status: "Closed", closed_reason: reason }, "closed");
+  if (stopped) return { error: stopped, ok: null };
   done(id);
   return { error: null, ok: "Closed, with the reason on the record." };
 }
@@ -307,11 +305,8 @@ export async function moveStaleDate(_prev: ActionState, formData: FormData): Pro
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "That date does not look right.", ok: null };
   if (!reason) return { error: "Say why the date is moving.", ok: null };
 
-  const { error } = await supabase
-    .from("authorizations")
-    .update({ stale_date: date, stale_reason: reason })
-    .eq("id", id);
-  if (error) return refusal(error.message);
+  const stopped = await writeOne(supabase, id, { stale_date: date, stale_reason: reason }, "moved");
+  if (stopped) return { error: stopped, ok: null };
   done(id);
   return { error: null, ok: "Moved, and the reason is on the record." };
 }
@@ -327,11 +322,13 @@ export async function recordServiceDates(
   const end = String(formData.get("service_end") ?? "").trim();
   if (!start) return { error: "When did the work start?", ok: null };
 
-  const { error } = await supabase
-    .from("authorizations")
-    .update({ service_start: start, service_end: end || null })
-    .eq("id", id);
-  if (error) return refusal(error.message);
+  const stopped = await writeOne(
+    supabase,
+    id,
+    { service_start: start, service_end: end || null },
+    "recorded",
+  );
+  if (stopped) return { error: stopped, ok: null };
   done(id);
   return { error: null, ok: "Recorded." };
 }
@@ -352,20 +349,24 @@ export async function resolveZeroHours(
   const answer = String(formData.get("answer") ?? "");
 
   if (answer === "no service") {
-    const { error } = await supabase
-      .from("authorizations")
-      .update({ status: "Closed", closed_reason: "No service provided this month" })
-      .eq("id", id);
-    if (error) return refusal(error.message);
+    const stopped = await writeOne(
+      supabase,
+      id,
+      { status: "Closed", closed_reason: "No service provided this month" },
+      "closed",
+    );
+    if (stopped) return { error: stopped, ok: null };
     done(id);
     return { error: null, ok: "Closed: no service this month." };
   }
 
-  const { error } = await supabase
-    .from("authorizations")
-    .update({ zero_hours_confirmed_by: me.id, zero_hours_confirmed_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) return refusal(error.message);
+  const stopped = await writeOne(
+    supabase,
+    id,
+    { zero_hours_confirmed_by: me.id, zero_hours_confirmed_at: new Date().toISOString() },
+    "noted",
+  );
+  if (stopped) return { error: stopped, ok: null };
   done(id);
   return { error: null, ok: "Noted. Log the hours and it will price itself." };
 }
@@ -478,8 +479,11 @@ const EDITABLE = [
   "service_start",
   "service_end",
   "recipient",
-  "paid_on",
-  "paid_amount",
+  // `paid_on` and `paid_amount` were here until 0375. The money has one door:
+  // recordPayment above, correctPaymentDate below, and remove_payment for a
+  // payment taken back. edit_authorization refuses them now, so sending them
+  // would be a refusal rather than a quiet second write - but a list that
+  // still named them would be a screen still asking for them.
   "note",
 ] as const;
 

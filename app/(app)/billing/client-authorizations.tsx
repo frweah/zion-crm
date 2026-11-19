@@ -327,8 +327,6 @@ export function ClientAuthorizations({
                 service_start: acting.service_start,
                 service_end: acting.service_end,
                 recipient: acting.recipient,
-                paid_on: acting.paid_on,
-                paid_amount: acting.paid_amount == null ? null : Number(acting.paid_amount),
                 note: acting.note ?? "",
               }}
             />

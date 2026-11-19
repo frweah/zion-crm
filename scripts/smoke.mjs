@@ -1025,7 +1025,11 @@ function actionForms(html) {
       if (!name) continue;
       fields.push([unescape(name), unescape(f[0].match(/value="([^"]*)"/)?.[1] ?? "")]);
     }
-    if (fields.some(([n]) => n.startsWith("$ACTION_REF_"))) forms.push(fields);
+    // The inner HTML comes back with the fields (19 Nov 2026), because the
+    // hidden names cannot tell two forms apart on a screen where every form
+    // carries the same `auth_id` - and the authorization record is nine forms
+    // all carrying it, one of which emails a packet to the billing office.
+    if (fields.some(([n]) => n.startsWith("$ACTION_REF_"))) forms.push({ fields, inner });
   }
   return forms;
 }
@@ -1043,11 +1047,11 @@ function actionForms(html) {
  * empty name, an empty body, no client chosen - and posts nothing else. What
  * is asserted is the same thing: the module loads and the action answers.
  */
-async function invokeOne(path, role, what, pick, extra = []) {
+async function invokeOne(path, role, what, pick, extra = [], expect = null) {
   const page = await open(path);
   if (!page.ok) return { role, path: `${path} (${what})`, ok: false, why: page.why };
 
-  const forms = actionForms(page.body).filter((fields) => pick(fields.map(([n]) => n)));
+  const forms = actionForms(page.body).filter((f) => pick(f.fields.map(([n]) => n), f.inner));
   if (forms.length === 0) {
     return {
       role,
@@ -1058,7 +1062,7 @@ async function invokeOne(path, role, what, pick, extra = []) {
   }
 
   const body = new FormData();
-  for (const [name, value] of forms[0]) body.append(name, value);
+  for (const [name, value] of forms[0].fields) body.append(name, value);
   for (const [name, value] of extra) body.set(name, value);
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
@@ -1072,12 +1076,32 @@ async function invokeOne(path, role, what, pick, extra = []) {
     return { role, path: `${path} (${what})`, ok: false, why: `HTTP ${res.status} - the action module did not load` };
   }
   const mark = ERROR_MARKS.find((m) => m.test(text));
-  return {
-    role,
-    path: `${path} (${what})`,
-    ok: !mark,
-    why: mark ? `a server error answering the action (${(text.match(mark) ?? [""])[0]})` : undefined,
-  };
+  if (mark) {
+    return {
+      role,
+      path: `${path} (${what})`,
+      ok: false,
+      why: `a server error answering the action (${(text.match(mark) ?? [""])[0]})`,
+    };
+  }
+  /*
+   * And, where one is given, the answer itself (19 Nov 2026).
+   *
+   * "It did not throw" is all this could say until now, which is the same
+   * thing the screen said while it was writing nothing: the three status
+   * writes reported success on a write that changed no rows. So an action
+   * whose refusal is the point is posted with what makes it refuse, and the
+   * sentence has to come back.
+   */
+  if (expect && !expect.test(text)) {
+    return {
+      role,
+      path: `${path} (${what})`,
+      ok: false,
+      why: `the action answered without saying ${expect} - which is what it says when it has done nothing`,
+    };
+  }
+  return { role, path: `${path} (${what})`, ok: true };
 }
 
 async function invokeActions(path, role) {
@@ -1097,9 +1121,9 @@ async function invokeActions(path, role) {
   }
 
   const out = [];
-  for (const [i, fields] of forms.entries()) {
+  for (const [i, form] of forms.entries()) {
     const body = new FormData();
-    for (const [name, value] of fields) body.append(name, value);
+    for (const [name, value] of form.fields) body.append(name, value);
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
       redirect: "manual",
@@ -1126,6 +1150,141 @@ async function invokeActions(path, role) {
     out.push({ role, path: where, ok: true });
   }
   return out;
+}
+
+/**
+ * Every control that settles an authorization, pressed as Billing (owner,
+ * 19 November 2026).
+ *
+ * The fault this answers: "Paid", "Record payment" and "Done" appeared to do
+ * nothing on Billing. Three of the writes behind those screens were
+ * `update(...).eq("id", id)` reporting success on whatever came back - which
+ * for PostgREST includes "no error, nothing changed" - so the screen said
+ * "Ready to bill" over a record that had not moved. 0375 put all eight through
+ * one helper that insists exactly one row changed.
+ *
+ * Each control is posted with an authorization id that is not on file, which
+ * does three things at once: the action module loads, the action answers, and
+ * the answer is the refusal rather than the success. Nothing anywhere is
+ * written - which is as well, because the account here is a system account and
+ * 0120 refuses it every write by design, so that a mistake in a check cannot
+ * change anybody's record.
+ *
+ * Which means this cannot prove a state change, and does not pretend to. That
+ * half is `supabase/verify_billing_doors.sql`, which presses the same doors as
+ * a Billing person and asks the row afterwards. What would let the deploy
+ * itself prove it is a Billing account that is not a system account, and
+ * making accounts is the owner's.
+ *
+ * Two controls are missing from the list below and are missing on purpose. The
+ * board's Paid-on cell and its status pill only exist once a client row is
+ * expanded, and Mark N paid only once rows are chosen - all three are drawn in
+ * the browser, so they are not in the HTML a check without a browser receives.
+ * The database door under all of them is `record_payment`, which the record's
+ * own Record a payment posts here.
+ *
+ * And the one form never posted: Submit. It emails the packet to the billing
+ * office, and every form on that record carries the same `auth_id`, which is
+ * why `actionForms` hands back the inner HTML for a picker to read.
+ */
+if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {
+  await signIn(
+    process.env.SMOKE_BILLING_EMAIL,
+    process.env.SMOKE_BILLING_PASSWORD,
+    "automated-check (billing actions)",
+  );
+
+  // Not on file, and shaped like a uuid so it reaches the database rather than
+  // being turned back by a parse error on the way.
+  const NOWHERE = "00000000-0000-4000-8000-000000000000";
+  const GONE = /is not on your list any more/;
+  const UNKNOWN = /That authorization does not exist/;
+
+  const board = await open("/billing");
+  if (!board.ok) {
+    all.push({ ...board, role: "Billing", path: "/billing (actions)" });
+  } else {
+    // A settled record offers none of these, so the first link is not
+    // necessarily the one to press: Billing › Authorizations groups Paid and
+    // Closed on the board too. Open them until one is still being worked.
+    const links = [...new Set([...board.body.matchAll(new RegExp(`/billing/authorizations/${uuid}`, "g"))].map((m) => m[0]))];
+    let record = null;
+    for (const link of links.slice(0, 6)) {
+      const page = await open(link);
+      if (page.ok && page.body.includes('name="closed_reason"')) {
+        record = link;
+        break;
+      }
+    }
+
+    if (!record) {
+      console.log(
+        `::warning title=No authorization to press::${links.length} authorization record(s) were linked from Billing and none of them offers the controls, so none was pressed on this deploy.`,
+      );
+    } else {
+      /*
+       * The two that go through the helper, posted so that nothing matches.
+       * This is the assertion the fault report asked for: a write that changed
+       * no rows says so, in a sentence, instead of reporting success.
+       */
+      all.push(
+        await invokeOne(
+          record,
+          "Billing",
+          "close, on a record that is not there",
+          (names, inner) => inner.includes('name="closed_reason"'),
+          [["auth_id", NOWHERE], ["closed_reason", "ZZ smoke: an id that is not on file"]],
+          GONE,
+        ),
+      );
+      all.push(
+        await invokeOne(
+          record,
+          "Billing",
+          "the service dates, on a record that is not there",
+          (names, inner) => inner.includes('name="service_start"'),
+          [["auth_id", NOWHERE], ["service_start", "2026-01-01"]],
+          GONE,
+        ),
+      );
+
+      // And the three the database answers for itself.
+      all.push(
+        await invokeOne(
+          record,
+          "Billing",
+          "record a payment, on a record that is not there",
+          (names, inner) => inner.includes('name="received"') && inner.includes('name="amount"'),
+          [["auth_id", NOWHERE], ["received", "2026-01-01"], ["amount", "1.00"]],
+          UNKNOWN,
+        ),
+      );
+      all.push(
+        await invokeOne(
+          record,
+          "Billing",
+          "set the status, on a record that is not there",
+          (names, inner) => inner.includes('name="status"'),
+          [["auth_id", NOWHERE], ["status", "Due"]],
+          UNKNOWN,
+        ),
+      );
+      all.push(
+        await invokeOne(
+          record,
+          "Billing",
+          "save the record, on a record that is not there",
+          (names, inner) => inner.includes('name="funding_source"'),
+          [["auth_id", NOWHERE], ["number", "ZQ-SMOKE"]],
+          UNKNOWN,
+        ),
+      );
+    }
+  }
+} else {
+  console.log(
+    "  note  no SMOKE_BILLING_EMAIL, so no control that settles an authorization was pressed on this deploy",
+  );
 }
 
 /**

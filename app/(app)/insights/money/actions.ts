@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { can } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
+import { writeOne } from "@/lib/authorization-writes";
 import { getCurrentStaff } from "@/lib/session";
 
 export type FollowupState = { error: string | null; ok: string | null };
@@ -28,13 +29,15 @@ export async function setFollowup(_prev: FollowupState, formData: FormData): Pro
   if (action.length > 500) return { error: "Keep the next action under 500 characters.", ok: null };
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("authorizations")
-    .update({ followup_owner: owner, followup_action: action, followup_due: due })
-    .eq("id", authId)
-    .select("id");
-  if (error) return { error: error.message, ok: null };
-  if (!data?.length) return { error: "That authorization could not be changed.", ok: null };
+  // Through the same helper as every other write to this table (0375): this
+  // one already counted its rows, and one answer for all of them is the point.
+  const stopped = await writeOne(
+    supabase,
+    authId,
+    { followup_owner: owner, followup_action: action, followup_due: due },
+    "saved",
+  );
+  if (stopped) return { error: stopped, ok: null };
 
   revalidatePath("/insights/money");
   return { error: null, ok: "Saved." };
