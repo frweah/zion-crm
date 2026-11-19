@@ -38,6 +38,7 @@ declare
   v_attB    uuid;
   v_doc     uuid;
   v_doc2    uuid;
+  v_doc3    uuid;
   v_count   int;
   r         record;
   failures  text[] := '{}';
@@ -93,6 +94,16 @@ begin
   returning id into v_doc2;
   insert into public.attachments (client_id, storage_path, filename, mime_type, category, uploaded_by)
   values (v_a, 'inbox/zz/six.pdf', 'six.pdf', 'application/pdf', 'Invoice', v_admin) returning id into v_att6;
+
+  -- A document nobody has said whose it is, which is what the client dropdown
+  -- on the documents-folder panel is for. Written here rather than below,
+  -- because `inbox_documents` takes an insert from the agent's service role
+  -- and not from a signed-in person - the first version of this tried it as
+  -- the Admin fixture and met the insert policy.
+  insert into public.inbox_documents (sha256, folder_name, relative_path, filename, client_id, kind, state, storage_path)
+  values ('zz' || repeat('3', 62), '', 'loose.pdf', 'loose.pdf', null,
+          'Authorization', 'Pending', 'inbox/zz/loose.pdf')
+  returning id into v_doc3;
 
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
@@ -238,6 +249,33 @@ begin
   if exists (select 1 from public.authorizations where public.normalize_auth_number(number) = 'ZQ9900009') then
     failures := failures || 'FAILED: the refused authorization exists anyway'::text;
   end if;
+
+  /*
+   * And it needs its service, and a client (owner, 19 November 2026).
+   *
+   * Both of these are what Confirm now waits for on the screen - the
+   * documents-folder panel disables it until the client and the service have
+   * both been chosen - and both are asked here, because a rule that lives on
+   * a screen holds until somebody uses the other screen. Admin → Documents
+   * and Billing → Authorizations are two screens over one function.
+   */
+  begin
+    select * into r from public.confirm_authorization_document(
+      p_attachment => v_att5, p_number => 'ZQ9900010',
+      p_service_type => null, p_rate_type => 'Flat Fee', p_rate => 500);
+    failures := failures || 'FAILED: an authorization was created with no service'::text;
+  exception when check_violation then
+    raise notice 'ok  a new authorization with no service is refused, so Confirm has something to wait for';
+  end;
+
+  begin
+    select * into r from public.confirm_authorization_document(
+      p_doc => v_doc3, p_number => 'ZQ9900011',
+      p_service_type => 'Job Development', p_rate_type => 'Flat Fee', p_rate => 500);
+    failures := failures || 'FAILED: a document with nobody against it was confirmed anyway'::text;
+  exception when check_violation then
+    raise notice 'ok  a document with no client is refused, which is what the client dropdown is for';
+  end;
 
   begin
     select * into r from public.confirm_authorization_document(p_auth => v_authA);

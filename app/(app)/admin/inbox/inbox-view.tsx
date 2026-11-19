@@ -205,10 +205,18 @@ export function AuthorizationProposal({
   doc,
   canBill,
   placeholders,
+  clientChosen = true,
 }: {
   doc: PendingRow;
   canBill: boolean;
   placeholders: Placeholder[];
+  /**
+   * Whether somebody has said whose the document is (owner, 19 November
+   * 2026). Admin's inbox only draws this for a document that already has a
+   * client, so it defaults true; Billing's panel draws the client dropdown
+   * and this together, and Confirm waits for both.
+   */
+  clientChosen?: boolean;
 }) {
   const [state, action, confirming] = useActionState(confirmAuthorization, initial);
 
@@ -222,10 +230,22 @@ export function AuthorizationProposal({
     : (named.choices ?? []).map((c) => ({ ...c, how: `${c.service_type} on file` }));
   const v = (k: string) => fields[k]?.value ?? "";
   const serviceRead = v("serviceType") || named.service_type || "";
-  const service = (SERVICE_TYPES as readonly string[]).includes(serviceRead) ? serviceRead : "";
+  const known = (SERVICE_TYPES as readonly string[]).includes(serviceRead);
 
   const [which, setWhich] = useState(read[0]?.id ?? "");
+  // Chosen for them where the parse read one of the practice's services, and
+  // empty where it read something else - which it does: the field is read off
+  // the PDF and comes back as whatever the form printed there.
+  const [service, setService] = useState(known ? serviceRead : "");
   const byNumber = which === "";
+  // What Confirm is waiting for. The database refuses both - "Say whose folder
+  // that document came from first" and "A new authorization needs its service"
+  // - and this is so that nobody meets either sentence: the button says it
+  // before it is pressed instead of the screen saying it afterwards.
+  const missing = [
+    clientChosen ? null : "whose it is",
+    !byNumber || service ? null : "the service",
+  ].filter(Boolean) as string[];
 
   return (
     <div style={{ marginTop: 8 }}>
@@ -305,7 +325,12 @@ export function AuthorizationProposal({
               </label>
               <label className="field" style={{ maxWidth: 220 }}>
                 Service
-                <select name="service_type" defaultValue={service}>
+                <select
+                  name="service_type"
+                  value={service}
+                  onChange={(e) => setService(e.target.value)}
+                  required
+                >
                   <option value="">Choose…</option>
                   {SERVICE_TYPES.map((t) => (
                     <option key={t}>{t}</option>
@@ -345,9 +370,19 @@ export function AuthorizationProposal({
             A number already on file takes the PDF. Dates fill blanks only.
           </p>
 
-          <button className="btn gold" type="submit" disabled={confirming}>
+          <button className="btn gold" type="submit" disabled={confirming || missing.length > 0}>
             {confirming ? "…" : byNumber ? "Confirm" : "Attach the PDF and fill blank dates"}
           </button>
+          {missing.length > 0 && (
+            <p className="lock" style={{ marginTop: 6 }}>
+              Still to choose: {missing.join(" and ")}
+            </p>
+          )}
+          {byNumber && serviceRead && !known && (
+            <p className="lock" style={{ marginTop: 6 }}>
+              The form reads the service as {serviceRead}, which is not one of the practice&rsquo;s
+            </p>
+          )}
         </form>
       )}
 
@@ -355,7 +390,7 @@ export function AuthorizationProposal({
         byNumber &&
         placeholders
           .filter((p) => p.client_id === doc.client_id)
-          .filter((p) => !serviceRead || familyOf(p.service_type) === familyOf(serviceRead))
+          .filter((p) => !service || familyOf(p.service_type) === familyOf(service))
           .map((p) => (
             <ReplacePlaceholder
               key={p.id}

@@ -10867,3 +10867,93 @@ cell and its status pill exist only once a client row is expanded, and Mark N
 paid only once rows are chosen. All three are drawn in the browser, so they are
 not in the HTML a check without a browser receives. The database door under all
 of them is `record_payment`, which the record's own Record a payment posts.
+
+## Billing says whose a queued PDF is (19 November 2026)
+
+Owner: "Billing › Authorizations › From the documents folder: each queued
+authorization PDF gets two dropdowns beside the PDF before Confirm — Client
+and Service. Confirm is disabled until both are chosen. If the form already
+has either dropdown, report what it has and change only what differs."
+
+### What it had
+
+The Service dropdown, over the rate schedule's services, pre-filled from what
+the agent read - but only on the "go by its number" branch, which is right:
+when the PDF matches an authorization already on file the service comes from
+the record. Not required, so Confirm went through with "Choose…" still
+showing, and the answer came back from the database afterwards. And the
+pre-fill was dropped in silence when the agent read a service that is not one
+of the practice's, which happens, because the field is read off the form and
+comes back as whatever the form printed.
+
+No client control at all. The client came from the folder the agent found the
+file in, set by Admin in Admin → Documents, and when that folder was not a
+client yet Billing read: "Its folder is not a client yet. Once the
+administrator has said whose it is, it can be confirmed here." A person
+holding the document, able to read the name off it, and able to do nothing
+about it.
+
+### What changed
+
+The picker is the one Admin → Documents already uses, moved rather than
+written again: `assign_document_to_client` has allowed Billing since it was
+written, and a second picker would have been a second set of rules about who
+may be chosen. It gained three things, all three of them the ruling's:
+
+**A search box.** The practice has a hundred and fifty clients on file and a
+select of a hundred and fifty is a list nobody can use. Typing narrows it, and
+whoever is chosen stays in the list whatever is typed, so the search cannot
+quietly empty the answer.
+
+**The parse's best match, chosen already.** Matched as sets of words rather
+than as strings, because USOR prints "Surname, Firstname" and the practice
+holds "Firstname Surname" - and because the parse reads the name as running
+into the words the form prints after it, so every word of the client's name
+has to appear in what was read rather than the two matching outright.
+"Surname, Firstname Client ID 89914" still finds somebody. Two words at least,
+so a one-word name cannot match everybody. It is chosen, not applied: nothing
+is assigned until somebody presses the button, and the line the parse read is
+printed underneath either way.
+
+**"+ Add new client", last in the list.** A button beside the dropdown is what
+was there; the ruling asked for it in the list, and it is right - choosing who
+it is and saying it is nobody yet are the same decision, taken in the same
+place. It opens the add-client form that was already there, filled from the
+PDF, and lands back on the same panel.
+
+### And Confirm waits
+
+The database refuses both of these already: "Say whose folder that document
+came from first", and "A new authorization needs its service" for a number it
+has never seen. So the gate on the button is not the rule - it is so that
+nobody meets the rule as a refusal. Confirm is disabled while either answer is
+missing and says which: "Still to choose: whose it is and the service". The
+service select is `required`, and when the agent has read a service that is not
+one of the practice's the screen says so rather than quietly showing "Choose…".
+
+### What holds it
+
+`check-document-confirm.mjs`, in prebuild: the documents-folder panel renders
+the picker and no longer tells Billing to wait for the administrator; the
+picker has its search box, its best match and its "+ Add new client"; the
+service is required; and Confirm is disabled on what is still to choose rather
+than only on being in flight.
+
+Four faults put back and four caught - the first of them twice. A check reading
+`"<WhoseDocument"` passed a panel whose component had been renamed to
+`<WhoseDocumentGone`, which is the shape of fault CLAUDE.md names: a question
+asked merely near the rule. It reads the whole tag and the import now.
+
+Two of its own regexes were wrong before any of that, and the faults are how
+that was found: one read "up to the next `>`" and stopped at the `>` inside
+`onChange={(e) => …}`, and one took the first gold submit button in the file,
+which belongs to another form. Both passed a screen that was correct and would
+have passed one that was not.
+
+`verify_authorization_documents.sql` gains the two refusals the button now
+waits for, because Admin → Documents and Billing → Authorizations are two
+screens over one function, and a rule that lives on a screen holds until
+somebody uses the other screen. The no-client fixture is written before the
+script takes on a person's identity: `inbox_documents` accepts an insert from
+the agent's service role and not from a signed-in person, which the first
+version of that assertion found out.

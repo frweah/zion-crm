@@ -5,6 +5,7 @@ import { fmtStamp } from "@/lib/constants";
 import { INBOX_BUCKET } from "@/lib/inbox-storage";
 import { DataTable } from "../data-table";
 import { AuthorizationProposal, type PendingRow, type Placeholder } from "../admin/inbox/inbox-view";
+import { WhoseDocument } from "../admin/inbox/whose-document";
 import { AgentStatus } from "../admin/inbox/agent-status";
 import { PdfFrame } from "./pdf-frame";
 
@@ -38,7 +39,13 @@ export default async function PendingAuthorizations({
   hrefFor: (docId: string | null) => string;
 }) {
   const supabase = await createClient();
-  const [{ data: pendingRows }, { data: placeholderRows }] = await Promise.all([
+  const [
+    { data: pendingRows },
+    { data: placeholderRows },
+    { data: clientRows },
+    { data: counselorRows },
+    { data: officeRows },
+  ] = await Promise.all([
     supabase.from("inbox_pending").select("*").order("first_seen", { ascending: false }),
     supabase
       .from("authorizations")
@@ -50,10 +57,20 @@ export default async function PendingAuthorizations({
       // "Replace with this number" was never offered for the authorizations
       // that actually need it.
       .eq("has_usor_number", false),
+    // Whose a queued PDF is, chosen here rather than waited for (owner,
+    // 19 November 2026). The same three lists Admin → Documents hands its own
+    // picker, because it is the same picker: a second one would be a second
+    // set of rules about who may be chosen.
+    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("counselors").select("id, name").order("name"),
+    supabase.from("offices").select("name").order("name"),
   ]);
 
   const pending = ((pendingRows ?? []) as unknown as PendingRow[]).filter(isAuthorization);
   const placeholders = (placeholderRows ?? []) as unknown as Placeholder[];
+  const clients = clientRows ?? [];
+  const counselors = counselorRows ?? [];
+  const offices = (officeRows ?? []).map((o) => o.name);
   const doc = pending.find((d) => d.id === selected) ?? null;
 
   // The file is minted a short-lived link only for a row the rules above
@@ -127,13 +144,29 @@ export default async function PendingAuthorizations({
                 Close
               </Link>
             </div>
-            {doc.client_id ? (
-              <AuthorizationProposal doc={doc} canBill placeholders={placeholders} />
-            ) : (
-              <p className="sub" style={{ marginTop: 10 }}>
-                Its folder is not a client yet. Once the administrator has said whose it is, it can be confirmed here.
-              </p>
-            )}
+            {/*
+              Whose it is, then what it is (owner, 19 November 2026).
+              Billing waited for Admin to say whose a folder was - "Once the
+              administrator has said whose it is, it can be confirmed here" -
+              which meant a PDF in front of somebody who could read the name
+              off it and could do nothing with it. The picker is the one
+              Admin → Documents uses, and `assign_document_to_client` has
+              allowed Billing since it was written.
+            */}
+            <WhoseDocument
+              docId={doc.id}
+              parsed={(doc.parsed ?? {}) as Record<string, unknown>}
+              clients={clients}
+              counselors={counselors}
+              offices={offices}
+              current={doc.client_id}
+            />
+            <AuthorizationProposal
+              doc={doc}
+              canBill
+              placeholders={placeholders}
+              clientChosen={Boolean(doc.client_id)}
+            />
           </div>
         </div>
       )}
