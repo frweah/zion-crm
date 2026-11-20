@@ -272,7 +272,7 @@ export async function draftMonth(
 
   const { data: existing } = await admin
     .from("client_reports")
-    .select("id, client_id, status")
+    .select("id, client_id, status, owner_id")
     .eq("template", "Monthly client report")
     .eq("period", monthStartOf(month));
   const already = new Map((existing ?? []).map((r) => [r.client_id, r]));
@@ -292,7 +292,23 @@ export async function draftMonth(
         .from("client_reports")
         .update({
           content: content as never,
-          owner_id: client.assigned_staff_id,
+          /*
+           * The writer is not the machine's to change (0377).
+           *
+           * This used to set `owner_id` to whoever the client is
+           * assigned to on every redraft, which was harmless while
+           * nothing could set it any other way. The reports board can:
+           * Reports and Admin set the Writer on the row, which is the
+           * owner's ruling 1 and the alternative to reassigning
+           * sixteen October drafts one at a time. A redraft that put
+           * it back would make that column a thing you set and lose.
+           *
+           * So an existing row keeps its writer and only its content
+           * is read again. A row with nobody on it still gets the
+           * client's assigned staff member, which is the case the
+           * original line was written for.
+           */
+          owner_id: row.owner_id ?? client.assigned_staff_id,
           generated_at: new Date().toISOString(),
         })
         .eq("id", row.id);
@@ -346,7 +362,7 @@ export async function draftReport(
 
   const { data: row } = await admin
     .from("client_reports")
-    .select("id, status")
+    .select("id, status, owner_id")
     .eq("client_id", clientId)
     .eq("template", template)
     .eq("period", period)
@@ -389,7 +405,23 @@ export async function draftReport(
       .from("client_reports")
       .update({
         content: content as never,
-        owner_id: client.assigned_staff_id,
+        /*
+         * The writer is not the machine's to change (0377).
+         *
+         * This used to set `owner_id` to whoever the client is
+         * assigned to on every redraft, which was harmless while
+         * nothing could set it any other way. The reports board can:
+         * Reports and Admin set the Writer on the row, which is the
+         * owner's ruling 1 and the alternative to reassigning
+         * sixteen October drafts one at a time. A redraft that put
+         * it back would make that column a thing you set and lose.
+         *
+         * So an existing row keeps its writer and only its content
+         * is read again. A row with nobody on it still gets the
+         * client's assigned staff member, which is the case the
+         * original line was written for.
+         */
+        owner_id: row.owner_id ?? client.assigned_staff_id,
         generated_at: new Date().toISOString(),
       })
       .eq("id", row.id);

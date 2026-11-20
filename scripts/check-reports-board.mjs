@@ -241,6 +241,38 @@ if (!filed.includes('c.method === "Appointment"')) {
   ok("an appointment somebody filed is in the month once, as the contact they filed");
 }
 
+// ── a redraft does not take the writer back ──────────────────
+/*
+ * The Writer column is Reports' and Admin's, and it was the alternative to
+ * reassigning sixteen October drafts one at a time. `draftMonth` and
+ * `draftReport` used to set `owner_id` to whoever the client is assigned to
+ * on every redraft, which was harmless while nothing else could set it - and
+ * which would have made the new column a thing you set and lose.
+ *
+ * Asked of each update to `client_reports` rather than of the file, so a
+ * third redraft path written next month is covered on the day it is written.
+ * `client_weekly_reports` is deliberately not in this: no screen anywhere
+ * sets a week's owner, so there is no decision for a redraft to undo.
+ */
+const drafts = await read("lib/report-drafts.ts");
+const updates = [];
+for (const m of drafts.matchAll(/\.from\("client_reports"\)\s*\n\s*\.update\(\{([\s\S]*?)\}\)/g)) {
+  updates.push(m[1]);
+}
+const resets = updates.filter((u) => /owner_id:\s*client\.assigned_staff_id/.test(u));
+const keeps = updates.filter((u) => /owner_id:\s*row\.owner_id\s*\?\?/.test(u));
+if (!updates.length) {
+  fail("nothing redrafts a report any more, so the scheduler has stopped assembling months");
+} else if (resets.length) {
+  fail(
+    `${resets.length} of the ${updates.length} redrafts put the writer back to the client's assigned staff, so the Writer column is a thing you set and lose`,
+  );
+} else if (!keeps.length) {
+  fail("no redraft keeps the writer a person chose");
+} else {
+  ok(`all ${updates.length} redrafts keep the writer a person chose, and fill in only an empty one`);
+}
+
 // ── and the sync writes a row only when it is sure ───────────
 const sync = await read("lib/sync.ts");
 const match = sync.slice(sync.indexOf("const namedInEvent"), sync.indexOf("// ── mail"));

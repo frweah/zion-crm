@@ -11252,3 +11252,23 @@ And the drafter leaves out an appointment somebody has already filed, matched
 on the day and the title the filing wrote. Without that, filling
 `calendar_events` would have put thirteen of October's appointments into a
 redraft twice over - the fix creating the bug it was fixing.
+
+## A redraft does not take the writer back (20 November 2026)
+
+Found by asking what the new Writer column collides with. `draftMonth` and
+`draftReport` set `owner_id` to whoever the client is assigned to on every
+redraft, which was harmless for as long as nothing else could set it - and
+which would have made the owner's ruling 1 hollow the first time somebody used
+it. Reports sets the Writer on a row; the next "Assemble it again" on the
+client's own Reports screen puts it straight back.
+
+So a row that has a writer keeps it, and only its content is read again. A row
+with nobody on it still gets the client's assigned staff member, which is the
+case the original line was written for.
+
+`client_weekly_reports` is deliberately left as it was: no screen anywhere
+sets a week's owner, so there is no decision for a redraft to undo.
+
+`check-reports-board.mjs` asks this of every update to `client_reports` rather
+than of the file, so a third redraft path written next month is covered on the
+day it is written.
