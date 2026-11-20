@@ -11306,3 +11306,15 @@ have found it - 142 screens opened without a server error on the commit that
 shipped it. The foreign key is named now, and `check-reports-board.mjs` asks
 whether it is, because the next person to add a column to that read will meet
 the same thing.
+
+## A read that failed is not an empty month (20 November 2026)
+
+The entry above is a bug that was invisible because of how the screen draws:
+the To file panel appears only when it has items, and the board's empty state
+says the caseload is empty. A query that came back refused reads as "there is
+nothing", which is why the ambiguous embed shipped.
+
+So whatever the database refused is now said on the screen, in its own words,
+above whatever did arrive. The house has said for a while that where the
+database refuses something it refuses it in a sentence somebody can act on;
+this is that rule applied to a read rather than to a write.

@@ -77,7 +77,7 @@ export default async function ReportsPage({
     await Promise.all([
       tab === "board"
         ? supabase.rpc("report_board_rows", { p_period: period })
-        : Promise.resolve({ data: [] as never[] }),
+        : Promise.resolve({ data: [] as never[], error: null }),
       supabase
         .from("staff")
         .select("id, name")
@@ -109,7 +109,7 @@ export default async function ReportsPage({
               .limit(60);
             return everybodys ? q : q.eq("staff_id", me.id);
           })()
-        : Promise.resolve({ data: [] as never[] }),
+        : Promise.resolve({ data: [] as never[], error: null }),
       tab === "board"
         ? (() => {
             const q = supabase
@@ -118,10 +118,10 @@ export default async function ReportsPage({
               .eq("state", "Waiting");
             return everybodys ? q : q.eq("staff_id", me.id);
           })()
-        : Promise.resolve({ count: 0 }),
+        : Promise.resolve({ count: 0, error: null }),
       tab === "board"
         ? supabase.from("clients").select("id, name").is("merged_into", null).order("name").limit(2000)
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
       tab === "sent"
         ? supabase
             .from("client_reports")
@@ -129,7 +129,7 @@ export default async function ReportsPage({
             .eq("status", "Sent")
             .order("sent_at", { ascending: false })
             .limit(200)
-        : Promise.resolve({ data: [] as never[] }),
+        : Promise.resolve({ data: [] as never[], error: null }),
     ]);
 
   const rows = toReportBoardRows(boardResult.data);
@@ -197,6 +197,22 @@ export default async function ReportsPage({
           </Link>
         ))}
       </div>
+
+      {/*
+        A read that failed is not an empty month.
+
+        The To file panel is drawn only when it has items and the board's
+        empty state says the caseload is empty, so a query that came back
+        refused reads on screen as "there is nothing" - which is how the
+        ambiguous `staff(name)` embed shipped and would have stayed shipped.
+        Whatever the database refused is said here in its own words, above
+        whatever did arrive.
+      */}
+      {tab === "board" && (boardResult.error || waitingResult.error) && (
+        <p className="alert bad">
+          {boardResult.error?.message ?? waitingResult.error?.message}
+        </p>
+      )}
 
       {tab === "board" && (
         <>
