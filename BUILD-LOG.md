@@ -10957,3 +10957,132 @@ somebody uses the other screen. The no-client fixture is written before the
 script takes on a person's identity: `inbox_documents` accepts an insert from
 the agent's service role and not from a signed-in person, which the first
 version of that assertion found out.
+
+## Needs review asks the record (19 November 2026)
+
+V1045641 was recorded first, through `record_payment` - the function the
+button calls - because no automated account can be Admin or Billing and the
+owner said to go ahead: $560 received 11 November, no warrant number. The
+board's outstanding reads $1,595, the invoice ledger $1,010 across 2, and
+November's income $3,170 with the $560 dated the 11th. `verify_billing_doors`
+is green and the suite is 158 of 158.
+
+Owner: "Admin → Warrants › Needs review: (1) collapse repeated scans of the
+same stub to one line; (2) a line whose authorization and amount match a
+recorded payment exactly is auto-accepted as 'matches payment on record' and
+leaves the queue - nothing new is written, the line is just no longer a
+question; (3) a claim letter matches against its base authorization's
+payments; (4) what remains is the real queue, with the reason each line is
+there."
+
+### What the 102 lines were
+
+**95 of them were not questions.** `reconcile_warrant_line` decides a page's
+problems before it looks for the money: a page whose lines do not add up to
+its printed total, or whose total was never read, stops every line on it with
+the page's reason, and the matching that would have recognised the payment
+already on record sits below that gate and never runs. So a stub read in part
+queued its good lines along with its bad one, and the good ones were money the
+practice had written down months earlier.
+
+**And the same stub arrives more than once.** A standalone PDF named for one
+client, then the same page inside a nine-page scan. 102 readings were 62 lines
+on the stubs.
+
+The screen counted the readings. $129,505 was the sum of an `amount` column
+that in one case read 27,250.00 where the description on the same line said
+2,250.00 - so the figure was not even the readings, it was the misreads.
+
+### The queue is a question, so it is asked
+
+`warrant_review_queue` (0376) returns one row per line on the stub, with
+whether a payment on file accounts for it. Nothing is written: a settled line
+keeps the status the reader gave it, and take the payment back and the line is
+a question again - which a cleared flag could never manage.
+
+**One line, however many scans.** Keyed on the warrant number's digits and the
+V-number read off the line, so the same stub inside two scans is one row that
+says it was read twice and names both files. Not the page, not the document,
+not the line number, which all differ between copies.
+
+**And the copy number**, because two lines on one page for the same
+authorization are two lines. The state bills a repeat claim against the same
+authorization and prints each claim on its own line, so one stub can carry two
+of them for the same money; collapsing those would make half a warrant
+disappear. The nth such line on one page pairs with the nth on another.
+
+**A figure, or the fact that there isn't one.** Every amount any scan read -
+the amount column and the amount written in the description, from each copy.
+One figure and the line's amount is known; two and it is not, and that is the
+line's question. Taking the description over the column, or the column over
+the description, settled six lines against a figure nobody had checked - one
+of them the $900 on F15617525, which belongs to no authorization and must not
+quietly become $2,250.
+
+**The claim letter is the base authorization** (0299), and the letter is not
+compared. The stub prints it before the slash and not in the description, so a
+scan that lost the first copy reads the base number for a claim line, and a
+payment entered from a remittance may carry no letter at all. Four of the
+lines that left the queue are one of those two shapes; comparing letters would
+have asked about all four.
+
+**One payment answers for one line.** The lines wanting a figure are numbered,
+the payments holding it are numbered, and they are matched one to one. "A
+payment exists for this amount" would let one payment answer for two lines,
+which is how a warrant comes to look accounted for while half of it is
+unrecorded.
+
+### The queue now
+
+**102 lines for $129,505 are 7 lines.** Two are a line and the record
+disagreeing: F15202394 reads $2,250 against an authorization holding $585, and
+F15329585 reads $585 against one holding $2,250 - a pair that looks swapped.
+Five are a figure two scans disagree about, and the sentence on each says both
+figures. All seven are answerable off the page image, which is beside them.
+
+The reason on each line is its own, not its page's: a page whose total does
+not add up is a question about the page, and "Does not add up" has asked it
+since 0326.
+
+### What else moved
+
+The tile counts the queue, because a figure and a list that come from two
+sources disagree the day a stub is scanned twice. And a page in the Received
+list says what it still has outstanding rather than the status the reader
+stored - a page reading "Needs review" beside a count of nothing is the screen
+contradicting itself, and the usual reason is that another copy of the same
+stub is where the question is being asked. A page with nothing outstanding
+reads "Read": looked at, nothing to ask, and not claimed to be reconciled when
+its total may still not add up.
+
+F15686394 - the stub that arrived on the 19th - leaves the queue, because the
+$560 on it is now recorded. Its date was never read, so the payment still has
+no warrant number, and "Warrant not on file" goes on saying so. That is the
+screen that is about it.
+
+### What holds it
+
+`supabase/verify_warrant_queue.sql`: thirteen assertions as a ZZ Admin, with
+two scans of one stub, a claim letter, two lines on one page for the same
+authorization against one payment, a line whose scans disagree, a line the
+record disagrees with, a page that is not a warrant, and a Billing person who
+is answered nothing. Including that asking the queue writes nothing and that
+taking the payment back makes its line a question again.
+
+`scripts/check-warrant-queue.mjs`, in prebuild: the section asks the queue and
+nothing else, the tile counts it, the list of pages says what a page has
+outstanding, and a figure two scans disagree about is not filled in for
+somebody.
+
+Ten faults put back and ten caught - six in the function, four on the screen.
+The one worth recording: removing the copy number from the key left every
+assertion about collapsing scans passing, because collapsing two scans and
+collapsing two lines on one page look identical to a check that only counts
+rows. It is caught by asking the two questions separately - how many rows eight
+readings of six lines come back as, and how many rows two lines on one page
+come back as.
+
+Nothing on this screen is in the deploy check's reach: Admin → Warrants is
+`requireAdmin`, no automated account may be Admin, and the smoke signs in as a
+system Billing account. The database half is the verify script; the screen is
+the owner's own look.

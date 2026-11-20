@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { money, fmtStamp } from "@/lib/constants";
-import { WarrantsToReview } from "./review-section";
+import { WarrantsToReview, loadWarrantsToReview } from "./review-section";
 import { PageHead } from "../../page-head";
 import { DataTable, type DataRow } from "../../data-table";
 
@@ -56,17 +56,23 @@ type PageRow = {
   status: string;
   received_at: string;
   warrant_documents: { filename: string; page_count: number } | null;
-  warrant_lines: { status: string; amount: number | null }[];
+  warrant_lines: { id: string; status: string; amount: number | null }[];
 };
 
 export default async function WarrantsPage() {
   await requireAdmin();
 
   const supabase = await createClient();
+  /*
+   * The queue is started here rather than inside the section, because the tile
+   * that counts it and the section that lists it are the same question and
+   * must not be able to disagree (0376).
+   */
+  const toReview = loadWarrantsToReview();
   const [{ data: pageData }, { data: waitingData }, { data: gapData }] = await Promise.all([
     supabase
       .from("warrant_pages")
-      .select("id, page_no, image_path, warrant_no, warrant_date, total, status, received_at, warrant_documents(filename, page_count), warrant_lines(status, amount)")
+      .select("id, page_no, image_path, warrant_no, warrant_date, total, status, received_at, warrant_documents(filename, page_count), warrant_lines(id, status, amount)")
       .order("received_at", { ascending: false })
       .limit(300),
     // Money recorded from a remittance whose stub has not arrived (0311).
@@ -94,6 +100,8 @@ export default async function WarrantsPage() {
 
   const gaps = ((gapData ?? []) as GapRow[]).map((g) => ({ ...g, gap: Number(g.gap) }));
 
+  const { queue, settled, openLines } = await toReview;
+
   const pages = (pageData ?? []) as unknown as PageRow[];
   const allLines = pages.flatMap((p) => p.warrant_lines ?? []);
   const count = (s: string) => allLines.filter((l) => l.status === s).length;
@@ -104,6 +112,18 @@ export default async function WarrantsPage() {
   const received: DataRow[] = pages.map((p) => {
     const lines = p.warrant_lines ?? [];
     const lineCount = (s: string) => lines.filter((l) => l.status === s).length;
+    /*
+     * What the page says now, rather than what the reader concluded.
+     *
+     * The stored status is the reader's own record and it stays as it is. But
+     * a page reading "Needs review" with nothing left to ask about would
+     * contradict the count above it, and the usual reason is that another copy
+     * of the same stub is where the question is being asked. So a page with no
+     * question on it reads "Read": looked at, nothing outstanding, and not
+     * claimed to be reconciled when its total may still not add up.
+     */
+    const open = lines.some((l) => openLines.has(l.id));
+    const says = open ? "Needs review" : p.status === "Needs review" ? "Read" : p.status;
     return {
       key: p.id,
       cells: {
@@ -132,8 +152,8 @@ export default async function WarrantsPage() {
           </span>
         ),
         status: (
-          <span className={"chip " + (p.status === "Reconciled" ? "ok" : p.status === "Needs review" ? "warn" : "")}>
-            {p.status}
+          <span className={"chip " + (says === "Reconciled" ? "ok" : says === "Needs review" ? "warn" : "")}>
+            {says}
           </span>
         ),
         received: <span className="lock">{fmtStamp(p.received_at)}</span>,
@@ -143,10 +163,10 @@ export default async function WarrantsPage() {
         date: p.warrant_date,
         total: p.total === null ? null : Number(p.total),
         lines: lines.length,
-        status: p.status,
+        status: says,
         received: p.received_at,
       },
-      text: [p.warrant_no, p.warrant_date, p.warrant_documents?.filename, p.status].filter(Boolean).join(" "),
+      text: [p.warrant_no, p.warrant_date, p.warrant_documents?.filename, says].filter(Boolean).join(" "),
     };
   });
 
@@ -176,8 +196,13 @@ export default async function WarrantsPage() {
           </div>
         </div>
         <div className="card">
-          <div className="stat" style={count("Needs review") ? { color: "var(--bad)" } : undefined}>
-            {count("Needs review")}
+          {/*
+            The questions, not the rows. 102 rows read as 62 lines on the
+            stubs, and 55 of those were money the record already held - so this
+            counted 102 when 7 needed a person (0376).
+          */}
+          <div className="stat" style={queue.length ? { color: "var(--bad)" } : undefined}>
+            {queue.length}
             <small>lines to review</small>
           </div>
         </div>
@@ -189,7 +214,7 @@ export default async function WarrantsPage() {
         </div>
       </div>
 
-      {count("Needs review") > 0 && <WarrantsToReview />}
+      {(queue.length > 0 || settled.length > 0) && <WarrantsToReview data={toReview} />}
 
       <h2 className="h2" style={{ margin: "32px 0 8px" }}>
         Warrant not on file

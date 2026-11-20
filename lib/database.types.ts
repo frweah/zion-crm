@@ -9342,6 +9342,10 @@ export type Database = {
         Args: { p_credential_id: string | null };
         Returns: undefined;
       };
+      warrant_review_queue: {
+        Args: Record<string, never>;
+        Returns: { key: string | null; warrant_no: string | null; warrant_date: string | null; page_id: string | null; image_path: string | null; line_id: string | null; line_ids: string[] | null; line_no: number | null; raw: string | null; client_name: string | null; voucher: string | null; service_date: string | null; readings: number | null; scans: string[] | null; ref: string | null; base_ref: string | null; claim: string | null; auth_id: string | null; auth_number: string | null; amount: number | null; read_as: number[] | null; settled: boolean | null; payment_id: string | null; why: string | null; page_why: string | null }[];
+      };
       warrants_not_accounted_for: {
         Args: Record<string, never>;
         Returns: { warrant_no: string | null; warrant_date: string | null; total: number | null; recorded: number | null; gap: number | null; pages: number | null; lines: number | null }[];

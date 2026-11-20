@@ -87,6 +87,8 @@ const RPC_FUNCTIONS = [
   "add_warrant_line",
   "correct_warrant_line",
   "warrants_not_accounted_for",
+  // Needs review asks the record (0376).
+  "warrant_review_queue",
   // A warrant is Admin's alone (0360). The warrant columns on `payments` are
   // granted to nobody signed in, so Billing reads a payment through these.
   "payments_for_billing",
