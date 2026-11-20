@@ -607,6 +607,70 @@ begin
     end if;
   end if;
 
+  -- ── 10a. a request already satisfied closes in one click ───
+  --
+  -- Owner, 19 November 2026: "a stage-change request whose client is already
+  -- in the requested stage closes in one click from the requests panel, no
+  -- employer/date asked, logged as already there."
+  --
+  -- The state is reachable, which is why this is a test and not a guard.
+  -- `move_client` closes a matching waiting request itself (section 9), but it
+  -- is not the only thing that writes a client's stage: `reactivate_client`
+  -- writes it directly, so a client who was asked for and then came back into
+  -- that very stage leaves the ask waiting with nothing to do.
+  --
+  -- And the stage is Job Placement on purpose. `decide_stage_request` closes
+  -- such a request before it reaches the move, so it reads neither the
+  -- employer nor the start date - which is the whole point: the two questions
+  -- 0374 added were being asked about a placement that had already happened.
+  select count(*) into n from public.client_stage_requests q
+   where q.id = v_req and q.outcome = 'Waiting' and q.to_stage = 'Job Placement';
+  if n <> 1 then
+    failures := failures || 'FAILED: this section needs the refused request still waiting for Job Placement'::text;
+  else
+    perform 1 from public.reactivate_client(v_client, 'Job Placement',
+                                            'ZZ verify: back, and already placed');
+
+    select c.stage into v_from from public.clients c where c.id = v_client;
+    select count(*) into n from public.client_stage_requests q
+     where q.id = v_req and q.outcome = 'Waiting';
+    if v_from <> 'Job Placement' or n <> 1 then
+      failures := failures || format('FAILED: the fixture did not reach "already there": stage %s, request %s',
+                                     v_from, case when n = 1 then 'waiting' else 'decided' end)::text;
+    else
+      raise notice 'ok  a client can come back into the stage somebody asked for, leaving the ask waiting';
+
+      select count(*) into v_rows from public.placements pl where pl.client_id = v_client;
+      v_text := null;
+      begin
+        select d.said into v_text
+          from public.decide_stage_request(v_req, true, '', null, null) d;
+      exception when others then
+        failures := failures || format('FAILED: closing a satisfied request was refused: %s', sqlerrm)::text;
+      end;
+
+      if v_text is not null then
+        select count(*) into n from public.client_stage_requests q
+         where q.id = v_req and q.outcome = 'Approved' and q.decision_reason = 'already moved'
+           and q.decided_by = v_admin.id and q.decided_at is not null;
+        if n <> 1 then
+          failures := failures || 'FAILED: approving a satisfied request did not close it as already moved'::text;
+        elsif v_text not like '%already in Job Placement%' then
+          failures := failures || format('FAILED: closing it did not say they were already there: %s', v_text)::text;
+        else
+          raise notice 'ok  and Approve closes it in one click, with no employer and no start date, saying they are already there';
+        end if;
+
+        select count(*) into n from public.placements pl where pl.client_id = v_client;
+        if n <> v_rows then
+          failures := failures || format('FAILED: closing a satisfied request wrote %s placement row(s)', n - v_rows)::text;
+        else
+          raise notice 'ok  and writes no placement, because nobody moved';
+        end if;
+      end if;
+    end if;
+  end if;
+
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 

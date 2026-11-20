@@ -215,10 +215,20 @@ function StageCell({
   const [open, setOpen] = useState<"" | "move" | "ask" | "decline" | "approve">("");
   const [stage, setStage] = useState("");
   const waiting = row.stage_request_id;
+  /*
+   * The client is already where the request asked for.
+   *
+   * `decide_stage_request` closes such a request as approved and logs it
+   * "already moved" without moving anybody and without reading the employer
+   * or the start date - it never reaches the move. So the two questions were
+   * being asked about a placement that had already happened, and the answers
+   * were thrown away (owner, 19 November 2026). It is one click.
+   */
+  const alreadyThere = Boolean(row.stage_request_to) && row.stage === row.stage_request_to;
   // An approval into Job Placement starts the placement clock, so it asks the
   // two questions Move asks rather than going through in one click (owner,
   // 18 Nov 2026). Every other approval is still one click.
-  const placing = row.stage_request_to === "Job Placement";
+  const placing = row.stage_request_to === "Job Placement" && !alreadyThere;
   const said = moved.error ?? asked.error ?? decided.error;
   const elsewhere = STAGES.filter((s) => s !== row.stage);
 
@@ -248,6 +258,8 @@ function StageCell({
           <span className="chip warn">to {stageLabel(row.stage_request_to ?? "")}</span>{" "}
           {row.stage_request_by ?? "somebody"} asked {day(row.stage_request_at)}
           {row.stage_request_reason && <div>{row.stage_request_reason}</div>}
+          {/* Why Approve is one click here, and that it moves nobody. */}
+          {alreadyThere && <div>Already there — approving closes the request</div>}
         </div>
       )}
 

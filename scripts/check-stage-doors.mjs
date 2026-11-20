@@ -26,6 +26,9 @@
  *      read: `employer` and `hire_date`.
  *   3. and every one of those fields is `required`, so the browser asks before
  *      the round trip that would be refused anyway.
+ *   4. except where the client is already in the stage that was asked for, in
+ *      which case the request closes without a move and neither field is read,
+ *      so neither is asked (owner, 19 November 2026).
  *
  * Step 2 is the loose one and is written down as loose: it finds the forms
  * bound to the action and asks whether one of them carries the two fields,
@@ -174,6 +177,49 @@ if (!asked) {
   problems.push("no screen was found behind any of those actions, which means this check is reading the wrong thing.");
 } else if (!problems.length) {
   ok(`and all ${asked} screens behind them ask for both, and require both`);
+}
+
+// ── 4. and a request already satisfied is one click ──────────
+//
+// `decide_stage_request` closes a request whose client is already in the
+// stage without ever reaching the move, so it reads neither field. A screen
+// that asks for them anyway - and requires them, which step 3 insists on -
+// makes two questions out of a close, about a placement that happened before
+// the request was read. The answers go nowhere.
+//
+// Asked of the gate rather than of the file: the variable that decides whether
+// the two fields are shown has to take account of where the client already is.
+// A check that only looked for the comparison anywhere in the file would pass
+// a screen that worked it out and then ignored it.
+const REQUESTS = "app/(app)/clients/stage-board.tsx";
+{
+  const src = read(REQUESTS);
+  const decls = new Map(
+    [...src.matchAll(/\bconst\s+([A-Za-z0-9_]+)\s*=\s*([^;]+);/g)].map((m) => [m[1], m[2]]),
+  );
+  const gates = [...decls.entries()].filter(([, value]) => value.includes('"Job Placement"'));
+
+  if (!gates.length) {
+    problems.push(
+      `${REQUESTS} has nothing deciding whether the Job Placement questions are asked, so whether a satisfied request is one click is unknown.`,
+    );
+  } else {
+    // One level of expansion: the gate, plus whatever it names.
+    const sameStage = /\brow\.stage\s*===?\s*row\.stage_request_to\b|\brow\.stage_request_to\s*===?\s*row\.stage\b/;
+    for (const [name, value] of gates) {
+      const expanded =
+        value +
+        [...value.matchAll(/\b([A-Za-z0-9_]+)\b/g)]
+          .map((m) => decls.get(m[1]) ?? "")
+          .join(" ");
+      if (!sameStage.test(expanded)) {
+        problems.push(
+          `${REQUESTS} decides the Job Placement questions on "${name}" without asking where the client already is, so a request for the stage they are in asks for an employer and a start date to close it.`,
+        );
+      }
+    }
+    if (!problems.length) ok("and a request whose client is already in that stage closes in one click");
+  }
 }
 
 if (problems.length) {

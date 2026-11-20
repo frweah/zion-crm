@@ -11086,3 +11086,53 @@ Nothing on this screen is in the deploy check's reach: Admin → Warrants is
 `requireAdmin`, no automated account may be Admin, and the smoke signs in as a
 system Billing account. The database half is the verify script; the screen is
 the owner's own look.
+
+## A request already satisfied closes in one click (19 November 2026)
+
+Owner: "A stage-change request whose client is already in the requested stage
+closes in one click from the requests panel, no employer/date asked, logged as
+already there."
+
+The database already did it. `decide_stage_request` has closed such a request
+as approved, logged "already moved", and returned "they are already in X, so
+the request is closed" since 0372 - before it reaches the move, which is why
+it reads neither the employer nor the start date.
+
+It was the screen. `placing` was `row.stage_request_to === "Job Placement"`
+and nothing else, so Approve on a client already in Job Placement opened the
+two boxes 0374 added and made them `required`. The browser then refused to
+submit a close that the database would have taken with both fields empty -
+two questions about a placement that had happened before the request was read,
+whose answers went nowhere.
+
+One term on the condition, and a line on the row saying why Approve is one
+click here and that it moves nobody.
+
+**It is reachable, which is why it is a test and not a guard.** `move_client`
+closes a matching waiting request itself, but it is not the only thing that
+writes a client's stage: `reactivate_client` writes it directly and closes
+nothing, so a client who was asked for and then came back into that very stage
+leaves the ask waiting with nothing to do. There is no request in that state
+today - there is no waiting request at all - and the verify fixture reaches it
+the way the practice would, by reactivating into the stage somebody asked for.
+
+`verify_stage_requests.sql` gains section 10a: the state is reached through
+`reactivate_client`, Approve is pressed with no employer and no start date, the
+request closes as approved with "already moved" and the administrator's name,
+the sentence says they are already there, and no placement row is written
+because nobody moved.
+
+`check-stage-doors.mjs` gains a fourth rule, asked of the gate rather than of
+the file: whatever decides that the Job Placement questions are shown has to
+take account of where the client already is. A check that looked for the
+comparison anywhere in the file would pass a screen that worked it out and
+ignored it.
+
+Two faults put back and two caught. The second one is the interesting one: the
+whole verify script run with one token of `decide_stage_request` patched out
+inside its own rolled-back transaction, which refuses the close with "Job
+Placement needs the employer and the day they started" - the owner's
+complaint, in the function's own words.
+
+Approve is Admin's, and no automated account may be Admin, so the screen half
+is the owner's own look as the definition of done says.
