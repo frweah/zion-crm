@@ -177,8 +177,18 @@ begin
     raise notice 'ok  and it says it was read twice, naming both scans';
   end if;
 
-  -- A line on a page that is not a warrant is not a question about a warrant.
-  if exists (select 1 from public.warrant_review_queue() q where q.warrant_no = '') then
+  /*
+   * A line on a page that is not a warrant is not a question about a warrant.
+   *
+   * Asked of this fixture's own page rather than of every row with no warrant
+   * number, which is how it was written and which passed only while nothing
+   * on production looked like that. On 20 November 2026 a real stub arrived
+   * whose warrant number the reader could not make out - status Needs review,
+   * number empty, five lines in the queue - and this assertion failed on the
+   * practice's data rather than on anything the ruling had got wrong. A
+   * fixture cannot outvote the practice, so it asks about the fixture.
+   */
+  if exists (select 1 from public.warrant_review_queue() q where q.page_id = v_p3) then
     failures := failures || 'FAILED: a line on a page marked "Not a warrant" is in the queue'::text;
   else
     raise notice 'ok  a page that is not a warrant asks nothing';

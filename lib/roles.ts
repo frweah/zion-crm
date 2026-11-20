@@ -203,6 +203,29 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     /**
+     * Reports, on the sidebar itself (owner, 20 November 2026).
+     *
+     * One item, so the sidebar draws it as a single button straight to the
+     * board, the way Clients is drawn. There was no Reports screen at all
+     * until this: nineteen October reports in Draft, all of them past their
+     * date, and the only thing in the practice that said so was a Friday
+     * email to each person about their own
+     * (docs/timing/reports.md).
+     *
+     * Everybody's, which is ruling 1 of the same day: every active staff
+     * member may open, edit, assemble and mark Reviewed on any monthly
+     * report, and the policy on `client_reports` says so rather than this
+     * screen. What stays narrower is signing, sending and who the writer is -
+     * `report_hands` in 0377 - and none of that is decided here.
+     */
+    key: "reports",
+    label: "Reports",
+    items: [
+      { label: "Reports", href: "/client-reports", roles: EVERYONE, note: "Every client's month, and what has gone into it." },
+    ],
+  },
+  {
+    /**
      * My work — the client work and the person's own, in one group
      * (owner, 18 Oct 2026).
      *

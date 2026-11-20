@@ -9094,6 +9094,10 @@ export type Database = {
         Args: { p_file: string | null; p_path: string | null; p_filename: string | null; p_mime: string | null; p_size: number | null };
         Returns: string;
       };
+      report_board_rows: {
+        Args: { p_period?: string | null };
+        Returns: { row_key: string | null; client_id: string | null; client_name: string | null; client_no: number | null; counselor: string | null; office: string | null; period: string | null; template: string | null; report_id: string | null; status: string | null; writer_id: string | null; writer: string | null; due_on: string | null; days_left: number | null; signed_at: string | null; sent_at: string | null; sent_to: string | null; owed: boolean | null; services: string[] | null; hourly: boolean | null; notes: number | null; contacts: number | null; hours: number | null; weeks_confirmed: number | null; weeks_total: number | null; first_unconfirmed_week: string | null; applications: number | null; placements: number | null }[];
+      };
       request_hours_correction: {
         Args: { p_session: string | null; p_hours: number | null; p_description: string | null; p_reason: string | null };
         Returns: string;

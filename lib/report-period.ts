@@ -11,18 +11,26 @@ import {
 import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  FAMILY_OF,
   GENERAL,
   type LineKind,
   type PeriodContent,
   type ReportLine,
   type ReportSection,
+  type ServiceFamily,
 } from "./report-shape.ts";
 
 // The shape of a report moved to lib/report-shape.ts, which has no imports,
 // so the renderer can be run by a check. Re-exported from here because this
 // is where the rest of the codebase already asks for it.
-export { GENERAL };
-export type { LineKind, PeriodContent, ReportLine, ReportSection };
+//
+// `FAMILY_OF` went the same way on 20 November 2026 and for the same reason:
+// `report_board_rows` has to know which family a service belongs to, so there
+// is now a copy of this map in SQL, and `check-reports-board.mjs` compares the
+// two before every build. A check cannot import this file - it is
+// `server-only` - so the map has to live where a check can run it.
+export { FAMILY_OF, GENERAL };
+export type { LineKind, PeriodContent, ReportLine, ReportSection, ServiceFamily };
 
 /**
  * A stretch of the record, read as sections.
@@ -61,40 +69,6 @@ export const REPORT_ROLES = ["Admin", "Job Search", "Reports", "Billing"] as con
 
 const coversReportRoles = (roles: string[] | null): boolean =>
   REPORT_ROLES.every((r) => (roles ?? []).includes(r));
-
-/**
- * The service a kind of activity belongs under.
- *
- * The brief names six sections - assessment, job development, job search,
- * life skills, placement, job coaching - and the authorizations name fifteen
- * services. These are the families that join them up: an application belongs
- * under job development because that is the authorization it is worked
- * against, and there is no "Job Search" service to put it under.
- *
- * A line is attributed to a family, and then to whichever service of that
- * family the client actually holds an authorization for in the period. If
- * they hold none, the line goes to General rather than nowhere - a report
- * that drops what it cannot classify is worse than one with a general
- * section, because the person reading it cannot tell that anything is gone.
- */
-export type ServiceFamily = "assessment" | "development" | "placement" | "coaching" | "life";
-
-export const FAMILY_OF: Record<string, ServiceFamily> = {
-  "WSA Tier 1": "assessment",
-  "WSA Tier 2": "assessment",
-  "HQ Indicator": "assessment",
-  "Job Development": "development",
-  "Job Development + HQ Indicator": "development",
-  "Job Placement": "placement",
-  "Job Placement (SE)": "placement",
-  "Job Coaching": "coaching",
-  "Follow-Along": "coaching",
-  "Supported Employment": "coaching",
-  "Life Skills": "life",
-  "CRP Group Training": "life",
-  "Job Readiness": "life",
-  "Temporary Work Experience": "life",
-};
 
 /** The family a note's type speaks to, where its type says one at all. */
 const FAMILY_OF_NOTE: Record<string, ServiceFamily> = {
@@ -370,12 +344,45 @@ export async function buildPeriodContent(
     });
   }
 
+  /**
+   * An appointment somebody has already filed is in the report once, as the
+   * contact they filed it as (0377).
+   *
+   * Until 20 November 2026 `calendar_events` had never held a row, so this
+   * loop had never produced a line and the question did not arise. The
+   * calendar sync fills it now - by the client's name, because nobody ever
+   * typed the `[Client #<number>]` tag it used to need - and the same Outlook
+   * appointment can therefore reach a month twice: once here, and once as the
+   * contact-log entry that `to_file_confirm` writes when somebody files it
+   * from To file. 13 of October's 21 appointments were filed that way, so
+   * without this a redraft of October would have listed thirteen appointments
+   * twice over.
+   *
+   * Matched on the day and the title together, which is exactly what the
+   * filing wrote: `to_file_confirm` dates the contact on `happened_at` and
+   * puts the event's title in `topic`. Same day, same words, filed as an
+   * appointment - it is the same appointment, and the filed one is the one to
+   * keep, because a person looked at it and said it happened.
+   */
+  const filedAppointments = new Set(
+    (contactsResult.data ?? [])
+      .filter((c) => c.method === "Appointment")
+      .map((c) => `${c.date}|${(c.topic ?? "").trim()}`),
+  );
+
   for (const ev of eventsResult.data ?? []) {
+    const on = dayOf(ev.starts_at);
+    if (filedAppointments.has(`${on}|${(ev.title ?? "").trim()}`)) continue;
     put(null, {
-      on: dayOf(ev.starts_at),
+      on,
       kind: "appointment",
+      // The kind only where it says something. Outlook does not say what kind
+      // of appointment it is, so an event pulled from a calendar is "Other",
+      // and "Other — met the counselor" is not a sentence to put in front of
+      // a counselor.
       text:
-        `${ev.kind || "Appointment"} — ${ev.title || "no title"}` +
+        (ev.kind && ev.kind !== "Other" ? `${ev.kind} — ` : "") +
+        (ev.title || "Appointment") +
         (ev.location ? ` (${ev.location})` : ""),
     });
   }

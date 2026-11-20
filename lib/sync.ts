@@ -159,7 +159,40 @@ export async function syncStaffMember(
     }
   }
 
-  // ── calendar: pull events tagged to a client ───────────────
+  /**
+   * Which client an event names, where the tag does not say (0377).
+   *
+   * The tag was the only way in, and the tag is `[Client #<number>]` typed into an
+   * Outlook subject. Nobody types it: of the 64 appointments the To file
+   * sweep had read off the same calendars by 20 November 2026, every one of
+   * which names a client, not one carried it - so `calendar_events` had never
+   * held a single row from Outlook in the life of the system, and the
+   * practice's own diary was invisible to the Calendar screen, My day, the
+   * phone and the client record.
+   *
+   * So the same question the To file sweep asks, asked here:
+   * `clients_named_in` matches a full name, a recorded alias or an email
+   * address against Active clients only, and only where the name is six
+   * characters or more.
+   *
+   * **Exactly one, or nothing.** The sweep takes the first of several
+   * matches, which is safe there because the result is an offer a person
+   * decides on. This writes a row onto a client's record, so an ambiguous
+   * event is left for the sweep to offer rather than filed against a guess.
+   *
+   * The subject and the location, which is where the tag was. Not the
+   * attendees: `listEvents` does not request them, and a counselor or a
+   * colleague on an invitation is not what makes an appointment somebody's.
+   */
+  const namedInEvent = async (text: string): Promise<string | null> => {
+    const said = text.trim();
+    if (!said) return null;
+    const { data } = await supabase.rpc("clients_named_in", { p_text: said.slice(0, 2000) });
+    const ids = [...new Set(((data ?? []) as { client_id: string }[]).map((r) => r.client_id))];
+    return ids.length === 1 ? ids[0] : null;
+  };
+
+  // ── calendar: pull the events that name a client ───────────
   try {
     const from = new Date(Date.now() - CALENDAR_BACK_DAYS * 86400000);
     const to = new Date(Date.now() + CALENDAR_FORWARD_DAYS * 86400000);
@@ -169,12 +202,20 @@ export async function syncStaffMember(
       if (event.isCancelled) continue;
 
       const clientNo = clientNoFromSubject(event.subject);
-      if (clientNo === null) continue;
-
-      const clientId = clientByNo.get(clientNo);
+      let clientId = clientNo === null ? undefined : clientByNo.get(clientNo);
       // A tag naming a client that does not exist is a typo, not a client. It
-      // is left alone rather than guessed at.
-      if (!clientId) continue;
+      // is left alone rather than guessed at — and it is not then put through
+      // the name match below, because somebody has already said which client
+      // this is and got the number wrong.
+      if (clientNo !== null && !clientId) continue;
+
+      if (!clientId) {
+        const named = await namedInEvent(
+          [event.subject, event.location?.displayName].filter(Boolean).join(" "),
+        );
+        if (!named) continue;
+        clientId = named;
+      }
 
       const startsAt = event.start?.dateTime ? new Date(event.start.dateTime + "Z") : null;
       const endsAt = event.end?.dateTime ? new Date(event.end.dateTime + "Z") : null;
@@ -193,6 +234,12 @@ export async function syncStaffMember(
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
           location: event.location?.displayName ?? "",
+          // Said rather than left to the column default, which is "Coaching
+          // visit" — so every appointment read out of Outlook would have
+          // arrived on the record as a coaching visit, and a report would
+          // have told a counselor so. Outlook does not say what kind of
+          // appointment it is, and neither does this.
+          kind: "Other",
           origin: "Outlook",
           push_state: "Not pushed",
         },

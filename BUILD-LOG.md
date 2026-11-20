@@ -11136,3 +11136,119 @@ complaint, in the function's own words.
 
 Approve is Admin's, and no automated account may be Admin, so the screen half
 is the owner's own look as the definition of done says.
+
+## The reports board (20 November 2026)
+
+The survey came first, and it is in `docs/timing/reports.md`. There was no
+Reports screen at all. Nineteen October reports sat in Draft, every one a
+fortnight past its date, and "which are overdue and whose are they" could not
+be answered by anybody from any screen: My day showed each person their own
+with no overdue flag, the administrator owned none and so saw none, and the
+practice-wide answer was fifty-four taps through the client records and still
+did not say who was writing them. The only thing that said it was the Friday
+email, once a week, per person.
+
+The owner's eight rulings on that survey are what this is.
+
+**Anybody may write a report; fewer may sign one.** The update policy was
+`is_admin() or owner_id = me`, so the sixteen October drafts belonging to the
+Job Search owner could not be touched by the reports manager whose job it is
+to get them out. The alternative on the table was reassigning sixteen drafts
+one at a time; the owner widened the rule instead. Every active staff member
+can now open, edit, assemble and mark Reviewed on any monthly report - in the
+policy, not on the screen - and signing, sending and taking a signature back
+are Reports', Admin's and the writer's. `report_hands` holds the narrow half,
+and writes an access-log line whenever somebody changes a report that is not
+theirs, which is the sentence of the ruling that keeps the widening honest:
+"the log keeps who edited what". Unsigning is held to the same hands as
+signing, which the ruling does not say in so many words and is the only way
+the sentence means anything - taking a signature back is undoing a signature.
+
+**The row is a report, not a client.** `(client, month, template)`, so a
+client in two services is two rows and their name repeats. And the rows are
+built from the caseload rather than from the table, which is what makes the
+current month answerable: November had no row anywhere until 1 December, and
+now it has twenty-eight on the 1st.
+
+**Owed and offered are not the same thing, and the board would have lied
+about it.** The practice owes one monthly report per client per month: that is
+what the scheduler drafts and what goes with the invoice. The narrower reports
+are written when a counselor asks. Eleven clients hold a coaching
+authorization, so a board that offered each of them a Job Coaching Update row
+and then called the unwritten ones overdue would have opened with eleven
+reports late that nobody had asked for. `owed` is the column that tells them
+apart; the monthly report carries the date the scheduler would have stamped on
+it, and an unasked-for report has no date and is never late. The first version
+of `overdue` left `owed` out and the tile said eleven.
+
+**The chips count what the drafter reads and nothing else.** Notes, contacts
+and calls, service hours, Rei's weeks, applications, placements. No texts and
+no recordings: a text is in a report once somebody logged it as a contact and
+a recording once it was confirmed, so a chip for either would tell the person
+compiling the month that something is in it when it is not. Three of them go
+red - no notes, no hours on an hourly service, a week nobody has confirmed.
+
+The first look at November says something nobody had been told: **all
+twenty-eight rows carry a red week chip, because no weekly report has ever
+been confirmed.** Ninety-four of them, every one still Draft.
+
+**To file moved half way.** It stays on My day and on the phone, each person's
+own, and it is also above the board - everybody's, grouped by whose, for
+Reports and Admin. One component, two filters, which is the owner's wording
+and the right shape: two inboxes would be two things to keep in step. Of the
+147 items waiting, 106 were somebody else's, and every one of those is a line
+missing from a month the reports manager is the person being asked about.
+`to_file_is_mine` widened to let her file them. Each item says which month
+filing it lands in, because filing keeps the day the thing happened: an
+October appointment filed in November goes into October's report.
+
+**And a draft whose client has since been closed is still on the board.**
+Three of October's nineteen are like that. The first version of the function
+joined the caseload at the end and all three disappeared - three unsent drafts
+in somebody's name that no screen showed.
+
+`service_family` is a second copy, in SQL, of `FAMILY_OF` in
+lib/report-shape.ts, which moved there from report-period.ts so a check can
+import it: report-period is server-only. `check-reports-board.mjs` runs one
+map against the other before every build, along with five other rules, each of
+which is a mistake that was nearly made. `supabase/verify_reports_board.sql`
+asks the database the nine questions above. Eighteen faults put back, eighteen
+caught - and one of them was only caught after the verify script was fixed:
+`r.due_on <> date '2026-11-05'` is null when the date is missing, and a null
+`if` does not fire, so the assertion could not see the very thing it was
+written for. Three comparisons in that script had the same hole.
+
+## Appointments have reached a report, by the other road (20 November 2026)
+
+Owner, ruling 8: "calendar_events never holding a row is a bug: the drafter
+reads it, so appointments have never reached a report. Find why the Outlook
+calendar sync writes nothing there and fix it in this pass."
+
+The first half is right and the second half is half right.
+
+The sync could only match an Outlook event to a client by a `[Client
+#<number>]` tag typed into the subject. Nobody types it. The To file sweep had
+read 64 appointments off the same calendars since 8 September, every one of
+which names a client, and not one carried the tag - so `calendar_events` took
+nothing from Outlook in the life of the system, and the practice's diary was
+invisible to the Calendar screen, My day, the phone and the client record.
+
+But the appointments did reach the reports, by the road the practice actually
+uses: filing one from To file writes a contact-log entry, and the drafter
+reads those. Of October's 21 appointments, 13 were filed and are in October's
+reports as contacts. 8 were not, across 5 clients - so 5 of the 19 October
+drafts are short of something the system had already seen. What had never
+happened is an *appointment* line, which is the dead read the ruling found.
+
+So both halves are fixed, and the second one is the one that mattered. The
+sync now asks `clients_named_in` - the same question the To file sweep asks -
+and writes a row only where exactly one Active client is named, because the
+sweep's answer is an offer a person decides on and this is a row on somebody's
+record. It also says `kind: 'Other'` rather than letting the column default to
+"Coaching visit", which would have put every appointment read out of Outlook
+into a report to a counselor as a coaching visit.
+
+And the drafter leaves out an appointment somebody has already filed, matched
+on the day and the title the filing wrote. Without that, filling
+`calendar_events` would have put thirteen of October's appointments into a
+redraft twice over - the fix creating the bug it was fixing.

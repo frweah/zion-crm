@@ -27,12 +27,24 @@ export type FileItem = {
   client_id: string | null;
   client_name: string | null;
   guess_why: string;
+  /** Whose inbox it is in. Only set where the panel shows everybody's. */
+  staff_name?: string | null;
 };
 
 export type ClientOption = { id: string; name: string };
 
+/** The month an item will land in, which is the month it happened in. */
+function landsIn(happenedAt: string | null): string {
+  const when = happenedAt ? new Date(happenedAt) : new Date();
+  return when.toLocaleDateString("en-US", {
+    timeZone: PRACTICE_TZ,
+    month: "long",
+    year: "numeric",
+  });
+}
+
 /**
- * To file (item E).
+ * To file (item E), on My day and on the reports board.
  *
  * Things the practice noticed and nobody has filed: an appointment in
  * somebody's Outlook, mail that names a client. Each one is a guess with the
@@ -41,11 +53,27 @@ export type ClientOption = { id: string; name: string };
  *
  * Nothing here is on a client's record yet. Confirming is what writes the
  * contact-log entry, so a report cannot carry a thing nobody has looked at.
+ *
+ * One component, two filters, and not two inboxes (owner, ruling 2 of 20
+ * November 2026). On My day and on the phone it is each person's own, as it
+ * always was. On the reports board it is everybody's, grouped by whose, for
+ * Reports and Admin - of the 147 items waiting when the board was built, 106
+ * were somebody else's, and every one of those was a line missing from a
+ * month the reports manager is the person being asked about. Which filter is
+ * which is the caller's business; `to_file`'s read policy and
+ * `to_file_is_mine` decide what is allowed either way.
+ *
+ * Each item says which month filing it lands in, because filing keeps the
+ * date the thing happened: an October appointment filed in November goes into
+ * October's report, not into the month somebody is looking at.
  */
 export function ToFile({
   items,
   clients,
   waiting,
+  anchor,
+  grouped = false,
+  foldable = false,
 }: {
   items: FileItem[];
   clients: ClientOption[];
@@ -54,19 +82,29 @@ export function ToFile({
   // inbox on its first night, and a list that quietly stopped at sixty would
   // have had eighteen nobody knew about.
   waiting: number;
+  /** An id to link to, where a tile above points at the panel. */
+  anchor?: string;
+  /** Everybody's, under a line per person. */
+  grouped?: boolean;
+  /** Served folded, for a screen whose subject is below it. */
+  foldable?: boolean;
 }) {
   const [open, setOpen] = useState<{ id: string; which: string } | null>(null);
+  const [shut, setShut] = useState(foldable);
 
   if (items.length === 0) return null;
 
-  return (
-    <section className="page-section">
-      <h2 className="h2">
-        To file
-        {waiting > items.length ? ` — ${items.length} of ${waiting}` : ""}
-      </h2>
-      <ul className="day-list">
-        {items.map((item) => (
+  const whose = grouped
+    ? [...new Set(items.map((i) => i.staff_name ?? ""))].sort()
+    : [""];
+
+  const heading = `To file${waiting > items.length ? ` — ${items.length} of ${waiting}` : ` (${waiting})`}`;
+
+  const list = (only: string) => (
+    <ul className="day-list">
+      {items
+        .filter((item) => !grouped || (item.staff_name ?? "") === only)
+        .map((item) => (
           <li key={item.id} style={{ display: "block" }}>
             <div className="row2" style={{ gap: 8, alignItems: "baseline" }}>
               <span className="chip">{item.source}</span>
@@ -88,6 +126,7 @@ export function ToFile({
                   {item.client_name
                     ? `${item.client_name} — ${item.guess_why}`
                     : "Nobody guessed — say who it was about"}
+                  {` · lands in ${landsIn(item.happened_at)}`}
                 </div>
               </span>
               <span className="record-actions">
@@ -110,7 +149,36 @@ export function ToFile({
             {open?.id === item.id && open.which === "discard" ? <Discard item={item} /> : null}
           </li>
         ))}
-      </ul>
+    </ul>
+  );
+
+  return (
+    <section className="page-section" id={anchor}>
+      <h2 className="h2">
+        {foldable ? (
+          <button
+            type="button"
+            className="toggle"
+            aria-expanded={!shut}
+            onClick={() => setShut((v) => !v)}
+          >
+            {shut ? "▸" : "▾"} {heading}
+          </button>
+        ) : (
+          heading
+        )}
+      </h2>
+      {!shut &&
+        (grouped
+          ? whose.map((who) => (
+              <div key={who || "nobody"}>
+                <div className="lock" style={{ marginTop: 8 }}>
+                  {who || "nobody"} — {items.filter((i) => (i.staff_name ?? "") === who).length}
+                </div>
+                {list(who)}
+              </div>
+            ))
+          : list(""))}
     </section>
   );
 }

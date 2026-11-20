@@ -69,6 +69,40 @@ Two of those zeros are not quiet months:
   a report only if something wrote a contact-log row for it, and a recording
   only once it is confirmed, which writes a note and a contact.
 
+## The two questions, after
+
+Read from the code and from production on 20 November 2026, at the commit
+that added **Reports** to the sidebar (`/client-reports`). Counted the same
+way as above, so the two columns are comparable.
+
+### 1. Which reports are overdue, and whose are they?
+
+| | Before | After |
+|---|---|---|
+| Shortest path | My day → "Reports due" | **Reports** |
+| Taps to the number | 1 | **1** — the Overdue tile carries it |
+| Taps to the list behind it | not possible | **2** — press the tile and the board filters to those rows |
+| Whose it shows | only your own | **everybody's**, with a Writer column and a Writer filter |
+| As the administrator | nothing: he owns none | the same screen as everybody else |
+| The practice-wide answer | not on any screen; 54 taps through the records and the writer not among them | **the screen** |
+
+### 2. What has gone into client X's November report?
+
+| | Before | After |
+|---|---|---|
+| Does November exist | no row until 1 December | **a row from the 1st**, built from the caseload |
+| Taps to what the month holds | 7, plus typing `2026-11-01` | **1** — the row's "What's collected" chips |
+| What it says | nothing until the draft is assembled | notes · contacts and calls · hours · weeks · applications · placements, with a red chip for a source the month expected and has not got |
+| Taps to the draft | 7 and a typed date | **2** — Assemble it, then the period |
+
+**What the first look at November says**, across the 18 active clients: 28
+rows — 18 monthly reports owed and 10 service reports offered — all Not
+started, the monthly ones due 5 December. 11 of the 28 carry "no hours
+logged" against an hourly service, 2 carry "no notes", and **all 28 carry a
+red week chip, because no weekly report has ever been confirmed**: 94 of
+them, every one still Draft. That is not the board being noisy. It is the
+first time the practice has been told.
+
 ## Record
 
 | Person | Question | Seconds (before) | Seconds (after) | What made you stop |
@@ -79,6 +113,30 @@ Two of those zeros are not quiet months:
 | | 2 | | | |
 | | 1 | | | |
 | | 2 | | | |
+
+## What the appointments were missing (ruling 8)
+
+`calendar_events` has never held a row, and the owner's reading was that
+appointments have therefore never reached a report. Half of that is right.
+
+The sync could only match an Outlook event to a client by a `[Client #<number>]`
+tag typed into the subject. **Nobody types it.** The To file sweep had read 64
+appointments off the same calendars since 8 September, every one of which
+names a client; not one carried the tag, so `calendar_events` took nothing
+from Outlook in the life of the system and the practice's diary was invisible
+to the Calendar screen, My day, the phone and the client record.
+
+But the appointments did reach the reports, by the other road: filing one from
+To file writes a contact-log entry, and the drafter reads those. Of October's
+21 appointments, **13 were filed and are in October's reports as contacts; 8
+were not, across 5 clients — so 5 of the 19 October drafts are short of
+something the system had already seen.** No report has ever carried an
+*appointment* line, which is the part that was dead.
+
+Both halves are fixed at 0377: the sync matches by the client's name where
+there is no tag and writes only where exactly one Active client is named, and
+the drafter leaves out an appointment somebody has already filed, so the same
+hour cannot be in a month twice.
 
 ## What the taps were counted from
 

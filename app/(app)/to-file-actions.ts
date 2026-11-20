@@ -15,6 +15,12 @@ export type FileState = { error: string | null; ok: string | null };
  * none. Confirming is the only one that writes anything onto a client's
  * record, which is what makes "unconfirmed never appears in a report" true
  * rather than remembered - there is nothing to leave out.
+ *
+ * Two screens are revalidated because the panel is on two: My day, where it
+ * is each person's own, and the reports board, where it is everybody's
+ * (0377). Filing changes what the board's "What's collected" chips say about
+ * the month the item happened in, so the board has to be redrawn even when
+ * the person is standing on My day.
  */
 async function hands() {
   const me = await getCurrentStaff();
@@ -32,6 +38,7 @@ export async function assignToFile(_prev: FileState, formData: FormData): Promis
   const { error } = await supabase.rpc("to_file_assign", { p_item: item, p_client: client });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/my-day");
+  revalidatePath("/client-reports");
   return { error: null, ok: "Assigned. Confirm it to put it on the record." };
 }
 
@@ -51,6 +58,7 @@ export async function confirmToFile(_prev: FileState, formData: FormData): Promi
   });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/my-day");
+  revalidatePath("/client-reports");
   return {
     error: null,
     ok:
@@ -71,5 +79,6 @@ export async function discardToFile(_prev: FileState, formData: FormData): Promi
   const { error } = await supabase.rpc("to_file_discard", { p_item: item, p_reason: reason });
   if (error) return { error: error.message, ok: null };
   revalidatePath("/my-day");
+  revalidatePath("/client-reports");
   return { error: null, ok: "Discarded. Nothing was written about anybody." };
 }

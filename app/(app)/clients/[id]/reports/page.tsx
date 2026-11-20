@@ -97,7 +97,9 @@ export default async function ClientReportsPage({
         standing={<span className="chip">{client.status}</span>}
       />
 
-      <section className="page-section">
+      {/* The anchor the board's week chip falls back to when every week
+          this month is confirmed (0377). */}
+      <section className="page-section" id="weeks">
         <h2 className="h2">Weeks</h2>
         {missing && canEdit && <MakeWeek clientId={id} weekStart={lastWeek} />}
         {weeks.length === 0 ? (

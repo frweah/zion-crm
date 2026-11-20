@@ -383,6 +383,8 @@ const RPC_FUNCTIONS = [
   "billing_overview",
   "clients_board",
   "clients_board_rows",
+  // The reports board in one call (0377).
+  "report_board_rows",
   "move_client",
   // Part 3 of the clients board: the ask and the decision (0372).
   "request_stage_change",

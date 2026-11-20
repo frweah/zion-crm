@@ -95,6 +95,11 @@ if (orphans.length) {
 // because approving a text to a client is a decision; Billing does not.
 const EXPECTED = {
   Admin: [
+    // "/client-reports" since 20 November 2026: the reports board, which is
+    // everybody's because every active staff member may open, edit, assemble
+    // and mark Reviewed on any monthly report. Signing and sending stay
+    // narrower, in report_hands (0377), not in the navigation.
+    "/client-reports",
     // "/admin/hours" since 5 November 2026: everybody's clocked time, which
     // is what payroll is paid from, so it is Admin's rather than Insights'.
     // "/admin/consent" since 9 November 2026: every number the practice holds
@@ -122,11 +127,13 @@ const EXPECTED = {
   // from the client's own record, which they still reach. What they no longer
   // have is a screen of blank forms and a second way to bill.
   "Job Search": [
+    "/client-reports",
     "/calendar", "/clients", "/counselors", "/dashboard",
     "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
+    "/client-reports",
     // "/counselors" since 6 November 2026: Colleagues is a tab of it, and it
     // is the only screen where somebody who is not Admin finds a colleague's
     // number. The counselors themselves are still behind the Counselors area,
@@ -136,6 +143,7 @@ const EXPECTED = {
     "/time-clock", "/updates",
   ],
   Billing: [
+    "/client-reports",
     "/admin/documents",
     "/billing", "/billing/invoices", "/calendar", "/clients", "/counselors",
     "/dashboard",
@@ -248,7 +256,11 @@ if (!problems.length) ok("Case Manager and Job Coach reach neither Admin nor HR,
 // work" and "your own work" never held in a sidebar: a job coach looking for
 // their day had to know which of two similar headings it was under, and the
 // honest answer was often both.
-const HUBS = ["Home", "Clients", "My work", "Communication", "Billing", "HR", "Admin"];
+// Reports came onto the sidebar on 20 November 2026, next to Clients and
+// drawn the same way: one item, one button, straight to the board. It is
+// the practice's second central record - what has been told to each
+// counselor about each client, and what has not been told yet.
+const HUBS = ["Home", "Clients", "Reports", "My work", "Communication", "Billing", "HR", "Admin"];
 const labels = NAV_GROUPS.map((g) => g.label);
 if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${HUBS.join(" · ")}`);
 

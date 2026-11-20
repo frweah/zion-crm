@@ -16,6 +16,48 @@
 export const GENERAL = "General";
 
 /**
+ * The service a kind of activity belongs under.
+ *
+ * The brief names six sections - assessment, job development, job search,
+ * life skills, placement, job coaching - and the authorizations name fifteen
+ * services. These are the families that join them up: an application belongs
+ * under job development because that is the authorization it is worked
+ * against, and there is no "Job Search" service to put it under.
+ *
+ * A line is attributed to a family, and then to whichever service of that
+ * family the client actually holds an authorization for in the period. If
+ * they hold none, the line goes to General rather than nowhere - a report
+ * that drops what it cannot classify is worse than one with a general
+ * section, because the person reading it cannot tell that anything is gone.
+ *
+ * Here rather than in `lib/report-period.ts`, where it was until 20 November
+ * 2026, because the reports board asks the same question in SQL -
+ * `service_family()` and `report_board_rows()` decide from a service which
+ * template a client-month is owed - and two copies of a fifteen-row map in
+ * two languages is a map that drifts. `check-reports-board.mjs` runs this one
+ * against the one in the migration before every build, and it can only import
+ * this file: `report-period.ts` is server-only.
+ */
+export type ServiceFamily = "assessment" | "development" | "placement" | "coaching" | "life";
+
+export const FAMILY_OF: Record<string, ServiceFamily> = {
+  "WSA Tier 1": "assessment",
+  "WSA Tier 2": "assessment",
+  "HQ Indicator": "assessment",
+  "Job Development": "development",
+  "Job Development + HQ Indicator": "development",
+  "Job Placement": "placement",
+  "Job Placement (SE)": "placement",
+  "Job Coaching": "coaching",
+  "Follow-Along": "coaching",
+  "Supported Employment": "coaching",
+  "Life Skills": "life",
+  "CRP Group Training": "life",
+  "Job Readiness": "life",
+  "Temporary Work Experience": "life",
+};
+
+/**
  * The service a note is about.
  *
  * Eight, in roughly the order a case moves through. The list is the same list

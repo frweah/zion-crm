@@ -267,6 +267,25 @@ async function pass(role) {
     paths.push(...needs.map((k) => `/dashboard/needs?list=${k}`));
     // Screens with tabs of their own, not in the navigation.
     paths.push("/counselors?tab=contact", "/counselors?tab=hours", "/sops/where");
+    /*
+     * The reports board's other three views (0377). The navigation names the
+     * board and nothing under it, so the previous month, the template list
+     * and the sent log would have been three screens nobody opened - and the
+     * sent log has never had a row to draw, which is exactly the shape of
+     * thing that renders once and then throws when it has data.
+     *
+     * Opened as Job Search because the board is everybody's: every active
+     * staff member may open, edit, assemble and mark Reviewed on any monthly
+     * report, which is ruling 1 of the same day.
+     */
+    const lastMonth = new Date();
+    lastMonth.setUTCDate(1);
+    lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1);
+    paths.push(
+      `/client-reports?month=${lastMonth.toISOString().slice(0, 10)}`,
+      "/client-reports?tab=templates",
+      "/client-reports?tab=sent",
+    );
   }
 
   const results = [];
@@ -1499,6 +1518,61 @@ if (process.env.SMOKE_REPORTS_EMAIL && process.env.SMOKE_REPORTS_PASSWORD) {
     );
   } else if (!inbox.ok) {
     all.push({ ...inbox, role: "Reports" });
+  }
+
+  /**
+   * The reports board, as the person whose board it is (0377, Part 4).
+   *
+   * Two things a 200 does not prove, and both of them are how this screen
+   * would fail quietly. The board's rows come from `report_board_rows`, a
+   * SECURITY DEFINER function gated on `is_active_staff()`: a grant that went
+   * missing is an empty table under a header, not an error. And the To file
+   * panel above it is everybody's for this role and each person's own for
+   * everybody else, which is one component reading two filters - the sort of
+   * thing that renders fine and shows the wrong inbox.
+   *
+   * So: the board is asked to have drawn its own table, and the panel is
+   * asked to have been drawn with somebody else's name on it, which is only
+   * true of this role.
+   */
+  const board = await open("/client-reports");
+  if (!board.ok) {
+    all.push({ ...board, role: "Reports" });
+  } else {
+    const drewTable = /class="board"/.test(board.body);
+    const drewGroups = /Not started/.test(board.body);
+    all.push({
+      role: "Reports",
+      path: "/client-reports",
+      ok: drewTable && drewGroups,
+      why: drewTable
+        ? drewGroups
+          ? undefined
+          : "the board drew a table with no groups in it, so report_board_rows answered nothing"
+        : "the board opened without its table, so the rows did not arrive",
+    });
+  }
+
+  /**
+   * And the filing action, pressed on the board.
+   *
+   * Posted the way everything here is posted - with the one field that makes
+   * it refuse - so the deploy exercises the module and writes nothing. What
+   * it proves is the lesson of 19 October: the action module loads and
+   * answers under this role, on this screen, on this deployment.
+   *
+   * The other half of the owner's definition of done - that filing attaches
+   * the item to the client's month - cannot be proved from here, because
+   * nothing a smoke run can do creates a `to_file` item: the table has no
+   * insert policy and the two sweeps that fill it are the cron's. It is
+   * proved instead in supabase/verify_reports_board.sql, which files a real
+   * item as this role and asserts the contact-log entry it writes, dated the
+   * day the appointment happened rather than the day it was filed - inside a
+   * transaction that is rolled back.
+   */
+  const boardFiling = await invokeActions("/client-reports", "Reports");
+  if (!boardFiling.some((r) => r.why?.includes("no server action on the page"))) {
+    all.push(...boardFiling);
   }
 
   const reports = await pass("Reports");

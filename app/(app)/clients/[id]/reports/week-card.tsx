@@ -64,7 +64,10 @@ export function WeekCard({
   const span = `${stamp(week.week_start)} to ${stamp(ends.toISOString().slice(0, 10))}`;
 
   return (
-    <article className="card" style={{ marginBottom: 14 }}>
+    // The week chip on the reports board opens the week it is about (0377,
+    // ruling 6), and a week is a card on this screen rather than a screen of
+    // its own - so the card carries the anchor the chip points at.
+    <article id={`week-${week.week_start}`} className="card" style={{ marginBottom: 14 }}>
       <div
         className="row2"
         style={{ justifyContent: "space-between", alignItems: "baseline", gap: 12 }}
