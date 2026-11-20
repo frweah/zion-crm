@@ -11318,3 +11318,63 @@ So whatever the database refused is now said on the screen, in its own words,
 above whatever did arrive. The house has said for a while that where the
 database refuses something it refuses it in a sentence somebody can act on;
 this is that rule applied to a read rather than to a write.
+
+## One push at a time (20 November 2026)
+
+Four commits went out in half an hour and three of their deploy checks
+overlapped. Each deploy swapped production under the browser the previous run
+was driving, so two of the three runs failed on things that were never about
+the code: one lost the sidebar mid-walk, the other got a 404 on a path four
+identical requests in the same run had just got 200 for. Every job passed on
+that code and no single run was ever green on it, which leaves somebody
+deciding by hand which failures to believe - and that somebody is the owner,
+on an evening when the whole point of the checks was that he would not have
+to.
+
+The rule from today: never push while a deploy check is running on
+production, wait for the verdict. It is enforced twice, because the two
+halves stop different things.
+
+The workflow queues its own runs. `cancel-in-progress: false` is the part
+that matters - cancelling the run in flight would throw away a verdict that
+is already half-collected, which is the thing being protected. Only the
+checks on production share a group; a hand-run check and a preview's skipped
+run get one of their own, because GitHub keeps a single pending run per group
+and cancels the rest, so a preview sharing that group could cancel a
+production verdict while it sat in the queue.
+
+And the push refuses. `.githooks/pre-push` asks
+`wait-for-deploy.mjs --before-push`, which reads the deploy check's own runs
+and hands the answer to `scripts/push-guard.mjs`. Queuing alone was never
+going to be enough: it stops two runs overlapping each other, but the deploy
+still lands while the first run is mid-walk, and the push is the last place
+that can be stopped. A push to the portal branch deploys nothing and goes out
+without asking GitHub anything. The hook is tracked rather than left in
+`.git/hooks`, where it would exist on one machine and nowhere else, and
+`npm install` points git at it.
+
+Two things it was easy to get wrong, both of them lessons the repository
+already had written down.
+
+Not knowing is not the answer "no". A rate limit used to read as "checks not
+started" in this same file, and on 6 October a deploy was reported as failed
+because of it. A guard that read it the other way would let the push out on
+exactly the night the network was bad, so it refuses, in a sentence that says
+which of the two happened, with `ZION_PUSH_ANYWAY=1 git push` named in it -
+a rule with no way past it is a rule that gets turned off wholesale the first
+time production is broken.
+
+And a check that asks a question merely near the rule. The concurrency group
+is evaluated rather than grepped: `deploy-check-${{ github.sha }}` contains
+every word a grep would look for and queues nothing at all, because every
+commit lands in a group of its own. So `check-push-guard.mjs` parses the
+expression, runs it against two production events, and asks whether they come
+out in the same group.
+
+Eleven faults were put back and all eleven were caught - but only after the
+twelfth, which was my own. "cancel-in-progress: true" was first injected by
+replacing the first occurrence of that phrase in the file, which is the
+comment above the setting rather than the setting, so the check passed and I
+read it as a check that could not fail. The lesson is already in the memory:
+a fault injection needs its own assertion. The harness now reads the setting
+back before it believes the fault applied.

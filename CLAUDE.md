@@ -143,6 +143,22 @@ deploy failed is reported as failed, with the reason.
 **Every report states the live production hash.** Not the local one, not the
 one that was pushed — the one the site is actually serving.
 
+**One push at a time.** Never push while a deploy check is running on
+production: wait for the verdict. Four commits went out in half an hour on
+20 November and three of their runs overlapped, each deploy swapping
+production under the browser the run before it was driving. Two of those runs
+failed and neither failure was about the code — a sidebar that stopped
+expanding mid-walk, a 404 on a path four identical requests in the same run
+had just got 200 for — so every job passed on that code and no single run was
+ever green on it, which left the owner deciding by hand which failures to
+believe. Two things hold the rule now: `concurrency` in the deploy-check
+workflow, so the runs queue instead of overlapping and the one in flight is
+never cancelled, and `.githooks/pre-push`, which refuses the push that would
+start the second one. The rule is `scripts/push-guard.mjs`, the answer comes
+from `wait-for-deploy.mjs --before-push`, and `check-push-guard` asks both.
+When production is broken and the fix cannot wait for a check with twenty
+minutes left to run: `ZION_PUSH_ANYWAY=1 git push`.
+
 **What only Admin can see, the owner checks by hand.** No automated account
 may be Admin (0295), so every Admin-only control is outside the deploy check's
 reach by construction: today that is Approve, Decline and the Stage-change

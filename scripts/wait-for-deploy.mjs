@@ -13,10 +13,21 @@
  *
  * Exits 0 when the commit is live and its run succeeded, 1 when the run
  * failed, 2 when it never arrived, and 3 when it could not find out.
+ *
+ * And the other way round, because the two questions have the same answer:
+ *
+ *   node scripts/wait-for-deploy.mjs --before-push
+ *
+ * refuses while a deploy check is still running on production. `.githooks/pre-push`
+ * asks it on every push and the rule is in scripts/push-guard.mjs; run by hand
+ * with no refs on stdin it answers the question about main. Exits 0 when the
+ * push may go out and 1 when it may not.
  */
-const sha = (process.argv[2] ?? "").trim();
-if (!sha) {
-  console.error("  FAILED  give the short sha to wait for");
+const arg = (process.argv[2] ?? "").trim();
+const BEFORE_PUSH = arg === "--before-push";
+const sha = BEFORE_PUSH ? "" : arg;
+if (!BEFORE_PUSH && !sha) {
+  console.error("  FAILED  give the short sha to wait for, or --before-push to ask whether a push may go out");
   process.exit(2);
 }
 
@@ -50,6 +61,65 @@ const headers = {
   "user-agent": "zion-crm-deploy-watch",
   ...(TOKEN ? { authorization: `Bearer ${TOKEN}` } : {}),
 };
+
+/**
+ * ── may this push go out? ────────────────────────────────────
+ *
+ * The deploy check's own runs rather than the repository's, so that a build
+ * of something else in flight is not mistaken for a check on production. The
+ * rule itself is scripts/push-guard.mjs; this is the part that has to touch
+ * the network and the terminal.
+ *
+ * Eight seconds, once. A hook that hangs is a hook somebody turns off, and
+ * whatever it could not find out in eight seconds it says it could not find
+ * out - which refuses, loudly, with the way past it named.
+ */
+if (BEFORE_PUSH) {
+  const { pushVerdict, refsPushed, reachesProduction } = await import("./push-guard.mjs");
+
+  const stdin = process.stdin.isTTY
+    ? ""
+    : await new Promise((resolve) => {
+        let said = "";
+        process.stdin.setEncoding("utf8");
+        process.stdin.on("data", (d) => (said += d));
+        process.stdin.on("end", () => resolve(said));
+        process.stdin.on("error", () => resolve(said));
+      });
+
+  const refs = refsPushed(stdin);
+  const anyway = Boolean(process.env.ZION_PUSH_ANYWAY);
+  let runs = [];
+  let unknown = null;
+
+  // Asked only when the answer could change anything: a push to the portal
+  // branch deploys nothing and must not need the network to go out.
+  if (reachesProduction(refs) && !anyway) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${REPO}/actions/workflows/smoke.yml/runs?per_page=10`,
+        { headers, signal: AbortSignal.timeout(8000) },
+      );
+      if (res.status === 403 || res.status === 429) {
+        unknown = "GitHub is rate-limiting this machine";
+      } else if (!res.ok) {
+        unknown = `GitHub answered ${res.status} for the deploy check's runs`;
+      } else {
+        runs = (await res.json())?.workflow_runs ?? [];
+      }
+    } catch {
+      unknown = "GitHub could not be reached in eight seconds";
+    }
+  }
+
+  const said = pushVerdict({ refs, runs, unknown, anyway });
+  if (said.push) {
+    console.log(`  ok  ${said.why}`);
+    process.exit(0);
+  }
+  console.error(`  FAILED  ${said.why}`);
+  process.exit(1);
+}
 
 /**
  * How often each thing is asked.

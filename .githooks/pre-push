@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Never push while a deploy check is running on production.
+#
+# The rule and its reasons are in scripts/push-guard.mjs; the answer comes
+# from `wait-for-deploy.mjs --before-push`, which reads the refs git writes
+# here on stdin. A push that deploys nothing - the portal branch, a worktree -
+# is let through without asking GitHub anything.
+#
+# The hook is tracked rather than left in .git/hooks, where it would exist on
+# one machine and nowhere else. `npm install` points git at this directory
+# (the `prepare` script in package.json); to do it by hand:
+#
+#   git config core.hooksPath .githooks
+#
+# To push anyway - production is broken and the fix cannot wait for a check
+# that has another twenty minutes to run:
+#
+#   ZION_PUSH_ANYWAY=1 git push
+#
+if ! command -v node >/dev/null 2>&1; then
+  [ -n "$ZION_PUSH_ANYWAY" ] && exit 0
+  echo "  FAILED  node is not on the path, so whether a deploy check is running on production was never asked - ZION_PUSH_ANYWAY=1 git push" >&2
+  exit 1
+fi
+
+exec node scripts/wait-for-deploy.mjs --before-push

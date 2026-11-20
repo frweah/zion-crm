@@ -55,6 +55,35 @@ on:
         required: true
         default: "https://crm.zionvocrehab.com"
 
+# ── one check on production at a time ──────────────────────
+#
+# On the evening of 20 November four commits went out in half an hour and
+# three of their checks overlapped. Each deploy swapped production under the
+# browser the previous run was driving, and two runs failed for it: one lost
+# the sidebar mid-walk, the other got a 404 on a path four identical requests
+# in the same run had just got 200 for. Every job passed on that code and no
+# single run was ever green on it, which leaves the owner deciding by hand
+# which failures to believe.
+#
+# So the runs queue. `cancel-in-progress: false` matters more than the group:
+# cancelling the run in flight would throw away the verdict that is already
+# half-collected, which is the thing being protected.
+#
+# Only the checks on production share a group. A hand-run check and a preview
+# deployment's skipped run get a group of their own - GitHub keeps one pending
+# run per group and cancels the rest, so a preview sharing this group could
+# cancel a production verdict while it waited.
+#
+# This is the half that stops two runs overlapping each other. It cannot stop
+# the *deploy* landing mid-run, because by then the push has happened: that
+# half is .githooks/pre-push.
+concurrency:
+  group: >-
+    ${{ (github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production')
+        && 'deploy-check-production'
+        || format('deploy-check-{0}', github.run_id) }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   issues: write
