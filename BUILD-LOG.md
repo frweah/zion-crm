@@ -11272,3 +11272,20 @@ sets a week's owner, so there is no decision for a redraft to undo.
 `check-reports-board.mjs` asks this of every update to `client_reports` rather
 than of the file, so a third redraft path written next month is covered on the
 day it is written.
+
+## A group without an icon wears the dashboard's (20 November 2026)
+
+`NavIcon` falls back to the four squares for a name it does not know, which is
+the right thing for it to do and the wrong thing to find out about on screen:
+Reports shipped to a local render wearing Home's icon and nothing said so.
+
+It has one of its own now - a sheet with a signature line under the text - and
+check-nav asks the question of every group rather than of that one.
+
+Two things the rule got wrong before it worked, both worth keeping in mind:
+`\s` inside a template literal is not an escape and collapses to a plain "s",
+so the first pattern matched nothing and reported all eight groups iconless.
+And the second version read only the object literal, which reported
+Communication iconless - its icon is given by `PATHS.inbox = PATHS.mail` after
+the object, and a check that reads half of how a thing is done reports the
+other half as missing.

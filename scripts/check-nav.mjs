@@ -302,6 +302,42 @@ if (!problems.length) {
 }
 
 
+/*
+ * Every group has an icon of its own.
+ *
+ * `NavIcon` falls back to the dashboard's four squares for a name it does not
+ * know, which is the right thing for it to do and the wrong thing to find out
+ * about on screen: Reports shipped to a local render wearing Home's icon and
+ * nothing said so. A fallback that cannot be seen is a fallback that is used.
+ *
+ * Read as text because the icons are JSX and this is a .mjs check. Bounded to
+ * the PATHS object, so a group key appearing anywhere else in the file does
+ * not answer for it.
+ */
+const icons = await readFile(new URL("../app/(app)/nav-icons.tsx", import.meta.url), "utf8");
+// From the map to the component that reads it, so the two ways an icon is
+// given both count: an entry in the object, and an assignment after it
+// (`PATHS.inbox = PATHS.mail`, which is Communication sharing the envelope).
+// Slicing to the object's closing brace alone reported Communication
+// iconless, which it is not.
+const block = icons.slice(icons.indexOf("const PATHS"), icons.indexOf("export function NavIcon"));
+// Not a template literal: `\s` inside one is not an escape, so it collapses
+// to a plain "s" and the pattern becomes `^ss{dashboard}:`, which matches
+// nothing and reported every group iconless. A key with a hyphen is quoted in
+// the object, so the quotes are optional here.
+const iconless = NAV_GROUPS.filter(
+  (g) =>
+    !new RegExp('^\\s{2}"?' + g.key + '"?:', "m").test(block) &&
+    !block.includes("PATHS." + g.key + " ="),
+);
+if (!block) {
+  fail("nav-icons.tsx has no PATHS, so every sidebar group draws the same icon");
+} else if (iconless.length) {
+  fail(`${iconless.map((g) => g.label).join(", ")} has no icon of its own, so it wears the dashboard's`);
+} else {
+  ok(`all ${NAV_GROUPS.length} sidebar groups have an icon of their own`);
+}
+
 // ── a manager is not a role ──────────────────────────────────
 //
 // The team's end of day opens for an Admin by role and for anybody who
