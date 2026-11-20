@@ -241,6 +241,36 @@ if (!filed.includes('c.method === "Appointment"')) {
   ok("an appointment somebody filed is in the month once, as the contact they filed");
 }
 
+// ── the To file panel names its foreign key ──────────────────
+/*
+ * `to_file` points at `staff` three times - whose inbox it is, who the thing
+ * was actually with, and who decided it - so `staff(name)` is ambiguous and
+ * PostgREST refuses the whole query with PGRST201.
+ *
+ * This is here rather than left to be noticed because of how it fails: the
+ * refusal arrives as `{ data: null }`, which on this screen looks exactly
+ * like an empty inbox. The panel would simply not be there, on every deploy,
+ * and the smoke check would see HTTP 200 and agree. It shipped that way for
+ * ten minutes on 20 November 2026 and was found by asking the REST endpoint
+ * by hand, not by anything that runs.
+ */
+const boardPage = await read("app/(app)/client-reports/page.tsx");
+const reads = [...boardPage.matchAll(/\.from\("to_file"\)[\s\S]*?\.select\(\s*\n?\s*"([^"]*)"/g)].map(
+  (m) => m[1],
+);
+const loose = reads.filter((sel) => /\bstaff\(/.test(sel));
+if (!reads.length) {
+  fail("the board reads no To file items, so the panel above it is empty by construction");
+} else if (loose.length) {
+  fail(
+    "the To file read embeds staff() without naming the foreign key, and PostgREST refuses it as ambiguous — the panel comes back empty and says nothing",
+  );
+} else if (!reads.some((sel) => sel.includes("staff!to_file_staff_id_fkey"))) {
+  fail("the To file read does not say whose inbox each item is in, so the panel cannot group by whose");
+} else {
+  ok("the To file panel reads whose inbox each item is in, by the foreign key's name");
+}
+
 // ── a redraft does not take the writer back ──────────────────
 /*
  * The Writer column is Reports' and Admin's, and it was the alternative to

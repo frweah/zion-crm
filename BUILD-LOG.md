@@ -11289,3 +11289,20 @@ And the second version read only the object literal, which reported
 Communication iconless - its icon is given by `PATHS.inbox = PATHS.mail` after
 the object, and a check that reads half of how a thing is done reports the
 other half as missing.
+
+## The To file panel came back empty and said nothing (20 November 2026)
+
+`to_file` points at `staff` three times - whose inbox it is, who the thing was
+actually with, and who decided it - so `staff(name)` is ambiguous and PostgREST
+refuses the whole query with PGRST201.
+
+The refusal arrives as `{ data: null }`, which on the reports board looks
+exactly like an empty inbox: the panel is drawn only when there are items, so
+there would simply have been no panel, on every deploy, for everybody. The
+screen returns HTTP 200 and the deploy check agrees with it.
+
+Found by asking the REST endpoint by hand, which is the only thing that would
+have found it - 142 screens opened without a server error on the commit that
+shipped it. The foreign key is named now, and `check-reports-board.mjs` asks
+whether it is, because the next person to add a column to that read will meet
+the same thing.

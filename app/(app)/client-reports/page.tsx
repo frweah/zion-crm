@@ -88,7 +88,22 @@ export default async function ReportsPage({
         ? (() => {
             const q = supabase
               .from("to_file")
-              .select("id, source, title, detail, happened_at, client_id, guess_why, clients(name), staff(name)")
+              /*
+               * The foreign key is named, and has to be.
+               *
+               * `to_file` has three columns pointing at `staff` - whose inbox
+               * it is, who the thing was actually with, and who decided it -
+               * so `staff(name)` is ambiguous and PostgREST refuses the whole
+               * query with PGRST201. That refusal arrives as `{ data: null }`,
+               * which on this screen is indistinguishable from an empty
+               * inbox: the panel would simply not be there, on every deploy,
+               * and the smoke check would see HTTP 200 and agree.
+               *
+               * Whose inbox it is, which is what the panel groups by.
+               */
+              .select(
+                "id, source, title, detail, happened_at, client_id, guess_why, clients(name), staff!to_file_staff_id_fkey(name)",
+              )
               .eq("state", "Waiting")
               .order("happened_at", { ascending: false, nullsFirst: false })
               .limit(60);
