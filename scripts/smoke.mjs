@@ -27,6 +27,7 @@ import { createServerClient } from "@supabase/ssr";
 import { readdir } from "node:fs/promises";
 import { reachableFor, navFor, navPath, hubBack, NAV_GROUPS } from "../lib/roles.ts";
 import { CLIENT_TABS } from "../lib/client-tabs.ts";
+import { retrying } from "./retry-screen.mjs";
 
 const env = (k) => {
   const v = process.env[k];
@@ -138,7 +139,24 @@ const ERROR_MARKS = [
   /Application error: a server-side exception has occurred/,
 ];
 
-async function open(path) {
+/**
+ * Open one screen, once.
+ *
+ * Every failure carries a `kind` as well as a sentence, and the two are for
+ * different readers: the sentence is for whoever opens the issue, the kind is
+ * for `scripts/retry-screen.mjs`, which decides from it whether asking again
+ * in ten seconds could answer differently. The sentences here have been
+ * reworded three times and will be again, so nothing is allowed to depend on
+ * their words.
+ *
+ * `check-retry.mjs` asserts that every failure below carries one. A failure
+ * with no kind is retried rather than refused a second look, which is the
+ * safe side to be wrong on, but it is still wrong - a settled failure asked
+ * twice costs the run ten seconds for an answer it already had.
+ *
+ * Nothing calls this directly. `open` below is this wrapped in the rule.
+ */
+async function openOnce(path) {
   /**
    * No session, said as no session.
    *
@@ -149,37 +167,69 @@ async function open(path) {
    * into the other two.
    */
   if (![...jar.keys()].some((name) => /^sb-.*-auth-token/.test(name))) {
-    return { path, ok: false, why: "there is no session in the jar - the check signed itself out before asking for this" };
+    return { path, ok: false, kind: "no-session", why: "there is no session in the jar - the check signed itself out before asking for this" };
   }
   let url = `${BASE}${path}`;
   for (let hop = 0; hop < 6; hop++) {
-    const res = await fetch(url, {
-      redirect: "manual",
-      headers: { cookie: cookie(), ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {}) },
-    });
+    /**
+     * A request that never arrived is a failure like any other, rather than
+     * the end of the run.
+     *
+     * It used to throw out of here and take the whole check down with it,
+     * which reads as "the deploy check fell over" - no rollback, and nothing
+     * known about any screen after this one. A dropped connection is also the
+     * single likeliest thing the second look exists for, and a retry that
+     * cannot survive the first throw is a retry for nothing.
+     */
+    let res;
+    try {
+      res = await fetch(url, {
+        redirect: "manual",
+        headers: { cookie: cookie(), ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {}) },
+      });
+    } catch (err) {
+      return { path, ok: false, kind: "unreachable", why: `the request never arrived: ${err instanceof Error ? err.message : err}` };
+    }
     // Before anything is decided about the response: a refreshed session
     // arrives as Set-Cookie on a redirect just as often as on a page.
     remember(res);
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       const next = new URL(res.headers.get("location"), url);
-      if (/^\/(login|no-access)/.test(next.pathname)) return { path, ok: false, why: `sent to ${next.pathname} - the account is signed out or has no access` };
+      if (/^\/(login|no-access)/.test(next.pathname)) return { path, ok: false, kind: "sent", why: `sent to ${next.pathname} - the account is signed out or has no access` };
       // The layout sends somebody to the dashboard from a screen they cannot
       // reach; the navigation says this one they can.
       if (next.pathname === "/dashboard" && !path.startsWith("/dashboard")) {
-        return { path, ok: false, why: "sent to the dashboard - the navigation offers a screen this role cannot open" };
+        return { path, ok: false, kind: "sent", why: "sent to the dashboard - the navigation offers a screen this role cannot open" };
       }
       url = next.toString();
       continue;
     }
     const body = await res.text();
-    if (res.status >= 500) return { path, ok: false, why: `HTTP ${res.status}`, body };
-    if (res.status !== 200) return { path, ok: false, why: `HTTP ${res.status}` };
+    if (res.status >= 500) return { path, ok: false, kind: "status", why: `HTTP ${res.status}`, body };
+    if (res.status !== 200) return { path, ok: false, kind: "status", why: `HTTP ${res.status}` };
     const mark = ERROR_MARKS.find((m) => m.test(body));
-    if (mark) return { path, ok: false, why: `a server error inside the page (${(body.match(mark) ?? [""])[0]})`, body };
+    if (mark) return { path, ok: false, kind: "in-page", why: `a server error inside the page (${(body.match(mark) ?? [""])[0]})`, body };
     return { path, ok: true, body };
   }
-  return { path, ok: false, why: "redirected in a loop" };
+  return { path, ok: false, kind: "loop", why: "redirected in a loop" };
 }
+
+/**
+ * The rule: a screen that fails is asked once more, ten seconds later, and
+ * two failures in a row is a real one (owner, 20 November 2026).
+ *
+ * `scripts/retry-screen.mjs` holds it, so the behaviour can be put to
+ * fixtures instead of only to production. Everything in this file opens
+ * screens through this `open`, and a GET is the only thing it retries: the
+ * action posts below go out through their own fetch, because posting an
+ * action twice is a write, and writing twice is the one thing this check must
+ * never do on a deploy.
+ */
+const retry = retrying({
+  open: openOnce,
+  wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+});
+const open = retry.open;
 
 // ── the screens ───────────────────────────────────────────────
 /** Every route with a page of its own, as a URL path. */
@@ -1726,11 +1776,26 @@ for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
 console.log(`  the way back was asserted on ${backChecked.length} hub tab(s)`);
 
 const failed = all.filter((r) => !r.ok);
-for (const r of all) console.log(`  ${r.ok ? "ok    " : "FAILED"}  ${r.role.padEnd(10)} ${r.path}${r.ok ? "" : `  - ${r.why}`}`);
+/**
+ * A screen that failed once and opened on the second look is marked in the
+ * list as well as counted at the end. It passed - the run is green on it, by
+ * the rule - and "ok" on the same line as every other screen is how a screen
+ * that does this every week goes unnoticed for a month.
+ */
+for (const r of all) {
+  const mark = r.ok ? (r.flakyWhy ? "flaky " : "ok    ") : "FAILED";
+  const tail = r.ok ? (r.flakyWhy ? `  - ${r.flakyWhy}, then opened` : "") : `  - ${r.why}`;
+  console.log(`  ${mark}  ${r.role.padEnd(10)} ${r.path}${tail}`);
+}
 console.log("");
 if (!jobSearch.client) console.log("  note  no client record was listed, so no record tabs were opened");
+// Last, so the step summary's `tail -60` of this log carries it.
+for (const line of retry.lines()) console.log(line);
 if (failed.length) {
   console.error(`${failed.length} of ${all.length} screens failed on ${BASE}.`);
   process.exit(1);
 }
-console.log(`--- ALL ${all.length} SCREENS OPENED WITHOUT A SERVER ERROR (${BASE}) ---`);
+console.log(
+  `--- ALL ${all.length} SCREENS OPENED WITHOUT A SERVER ERROR (${BASE}) ---` +
+    (retry.flaky.length ? ` - ${retry.flaky.length} of them only on the second look` : ""),
+);

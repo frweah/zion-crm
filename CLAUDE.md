@@ -159,6 +159,27 @@ from `wait-for-deploy.mjs --before-push`, and `check-push-guard` asks both.
 When production is broken and the fix cannot wait for a check with twenty
 minutes left to run: `ZION_PUSH_ANYWAY=1 git push`.
 
+**One failure is not a finding; two in a row is.** A screen that fails in the
+deploy check is asked once more ten seconds later, and only a screen that
+fails both times fails the run. The rule exists because of what the first
+failure can be: the run that rolled production back on 20 November got a 404
+on a path four identical requests in the same run had already got 200 for. A
+cold function, a dropped connection, a read that took nine seconds instead of
+two — none of them is a broken screen, and putting production back on the
+previous deployment is the most expensive thing this check does.
+
+The dangerous half is the other one, so it is the half that is held: a screen
+that failed once and opened the second time is marked in the log, listed at
+the end of the run, and raises a warning on the run page. It is green, and it
+is visible. A flaky screen nothing shows is the same screen every week with
+nobody counting. Three things are not asked twice, because their answer cannot
+change in ten seconds — a session the check signed itself out of, a redirect
+to /login or the dashboard, and a redirect loop — and twelve second looks is
+all one run will pay for, because a job cancelled on its timeout opens no
+issue and rolls nothing back. The rule is `scripts/retry-screen.mjs` and
+`check-retry` asks it; the action posts are not retried, because posting twice
+is writing twice.
+
 **What only Admin can see, the owner checks by hand.** No automated account
 may be Admin (0295), so every Admin-only control is outside the deploy check's
 reach by construction: today that is Approve, Decline and the Stage-change

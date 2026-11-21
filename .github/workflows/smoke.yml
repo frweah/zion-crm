@@ -1,6 +1,18 @@
 # The deploy check (scripts/smoke.mjs): after every production deploy, sign in
 # as the automated-check system account and open every screen it can reach.
-# Any server error fails this job.
+# Any server error fails this job - but not on one look.
+#
+# A screen that fails is asked once more, ten seconds later, and two failures
+# in a row is a real one (owner, 20 November 2026). The rule is
+# scripts/retry-screen.mjs and check-retry asks it. A screen that failed once
+# and opened the second time is named in the log and raises a warning on this
+# run page, green run or not: a flaky screen that nothing shows is the same
+# screen every week with nobody counting.
+#
+# Twelve second looks a run, at ten seconds each - two minutes on top of a job
+# that takes three and is cancelled at ten. Past that a screen is failed on
+# one answer and the log says so, because a cancelled job opens no issue and
+# rolls nothing back.
 #
 # Vercel's Deployment Checks would hold a deploy back until this passes, but
 # that setting is not on this plan's project (owner, 28 Sept 2026), so the

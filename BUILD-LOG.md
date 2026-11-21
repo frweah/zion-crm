@@ -11378,3 +11378,97 @@ comment above the setting rather than the setting, so the check passed and I
 read it as a check that could not fail. The lesson is already in the memory:
 a fault injection needs its own assertion. The harness now reads the setting
 back before it believes the fault applied.
+
+## One failure is not a finding (20 November 2026)
+
+The second rule of the evening, and the other half of the one before it. The
+queue and the pre-push guard stop two deploys landing under one another; this
+one is about what the deploy check does with a single failure when it sees it.
+
+It had just done the expensive thing twice. One of the overlapping runs got a
+404 on a path four identical requests in the same run had already got 200 for,
+and it put production back on the previous deployment - correctly by its own
+rules, and wrongly by any other measure, because nothing was broken. The other
+lost the sidebar halfway through a walk. Both were the overlap, which is fixed,
+but a cold function, a dropped connection and a read that answered in nine
+seconds instead of two are all still single failures that mean nothing.
+
+So: a screen that fails is asked once more, ten seconds later, and two failures
+in a row is a real one.
+
+The rule is `scripts/retry-screen.mjs` rather than a dozen lines inside the
+check, for the reason `rollback-target.mjs` and `push-guard.mjs` are modules -
+a rule that can only be asked of production at four in the morning is a rule
+nobody can test. It takes the opener it wraps and the wait it should use, which
+is how `check-retry.mjs` drives the real loop over fixtures instead of sitting
+through two minutes of it, and `scripts/smoke.mjs` passes the real wait and
+nothing else. There is no environment variable anywhere near it: a workflow
+that can set `SMOKE_RETRY_MS=0` is a workflow that can turn the rule off
+without changing a line of the rule, and check-retry fails if `process.env`
+ever appears in that file.
+
+### The dangerous half
+
+A second look is a way for a broken screen to pass, and that is the half worth
+building carefully.
+
+The second look is the same look - same path, same session, same assertions -
+and the check asserts the path, because a second look at something easier is
+how this becomes a rubber stamp. And a screen that failed once and opened the
+second time is not silently green. It is marked `flaky` in the run's own list
+of screens, listed again at the end of the run, and raises a `::warning` on the
+run page. The run passes and the screen is visible, which is the point: a flaky
+screen nothing shows is the same screen every week with nobody counting.
+
+### Two things that are easy to get wrong
+
+**Not every failure is worth asking twice, and the reason is arithmetic.** A
+run opens more than a hundred screens. A failure whose answer cannot change in
+ten seconds costs ten seconds and buys nothing - a session the check signed
+itself out of, a redirect to /login or the dashboard, a redirect loop. The
+15 October middleware fault is the case that matters: it signed the check out
+halfway through, and every screen after that failed the same way. Asking those
+twice spends the whole budget on an answer that was never going to change, and
+the screens after them get failed on one look because of it.
+
+Which failures those are is decided on a `kind` the failure carries, not on its
+wording. The wording is a sentence for whoever opens the issue and has been
+reworded three times in this file alone. check-retry finds every failure
+`openOnce` can return by matching braces and asserts that each one carries a
+kind at all - and an unlabelled failure is asked again, which is the safe side
+to be wrong on but not a thing to be wrong about silently.
+
+**A budget, because a job that is cancelled reports nothing.** Twelve second
+looks at ten seconds each is two minutes on top of a job that takes three and
+is cancelled at ten. Without the cap, a deploy that breaks every screen fails a
+hundred of them, and a hundred second looks is sixteen minutes - the job would
+be *cancelled* rather than failed, and a cancelled job opens no issue and rolls
+nothing back. The cap is not patience; it is the check still being able to
+speak. Past it a screen is failed on one answer and the run says that in as
+many words.
+
+A third thing, found on the way: `openOnce` did not catch a throw from `fetch`.
+A dropped connection took the whole run down - which reads as "the deploy check
+fell over", no rollback, nothing known about any screen after it - and it is
+also the single likeliest thing a second look exists for. A retry that cannot
+survive the first throw is a retry for nothing, so a request that never arrived
+is now a failure like any other, with a kind of its own.
+
+### Where the rule stops
+
+The screen reads. `invokeOne` and `invokeActions` get their page through the
+wrapped opener, so the GET is asked twice, and then post with their own fetch,
+which is not retried - posting an action twice is writing twice, and the one
+thing this check must never do on a deploy is write twice.
+
+The timing job is not covered either. Its failures are a click that did not
+land and a screen that never went quiet, and retrying those means walking back
+to where the walk was, which is a different piece of work. Worth saying plainly
+because one of the two failures that started all of this was in that job.
+
+Twenty-two faults put back, twenty-two caught, and one of them is the kind this
+exists to find: with `BUDGET` at 200 the fixtures still passed on their own
+terms, and what failed was the arithmetic assertion - that the budget cannot
+add more to the job than the job's timeout has to spare. The hardcoded
+`/screen-14` in that fixture was a roster where a rule belonged, and it now
+derives from the budget.
