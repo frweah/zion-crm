@@ -11636,3 +11636,40 @@ The name is declared once now, beside the two, and `check-deploy-check` asks
 `hubBack` whether each named screen actually has a hub above it for somebody.
 Three faults put back, three caught - the hoisting one, a stray brace, and
 this.
+
+### A migration never goes out ahead of the code it needs
+
+The owner's rule, the same evening, from the twenty minutes the database spent
+holding a rule the live code could not satisfy. A migration that changes what
+a screen must send is applied only once that code is live, or it is shaped to
+tolerate the old code until it is - never ahead of a push that can roll back.
+
+`check-migrations.mjs` asks it of every migration from 0378 onwards, which is
+the one that caused it. What it can see is the SQL and the repository, so that
+is what it asks:
+
+  - what in the file can refuse a write the live code already makes - a
+    trigger whose function raises, a check constraint, a column that stops
+    being nullable. A check constraint that permits null tolerates the old
+    code by construction and is not flagged; a *function* that raises is not
+    flagged either, because nothing already deployed calls a function the same
+    migration introduces;
+  - that each such file says which of the two shapes it is, in a line this
+    reads;
+  - and that a "needs the new code live first" migration names the field in
+    backticks and the files that send it - which have to exist and have to
+    mention it, because a refusal nothing sends breaks whatever is live
+    whichever order it went out in.
+
+What it does not claim to know is what is live, or when a migration was
+applied: prebuild runs inside the deployment it would be asking about, which
+is why check-deployed cannot live there either. It makes the hazard visible in
+the file, at review time, in the words of whoever wrote it.
+
+0378's declaration says the truth about itself - that it needed the new code
+and was applied before it, and that the reason this was survivable is luck
+rather than design.
+
+Eight faults put back, eight caught. The sixth found a bug in the check: the
+path pattern read `bottom-bar.tsx` as `bottom-bar.ts` and reported a file that
+exists as missing, because the extension alternation tried `ts` before `tsx`.

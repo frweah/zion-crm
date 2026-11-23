@@ -558,14 +558,23 @@ begin
   v_mark := coalesce(array_length(failures, 1), 0);
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_sys_uid, 'role', 'authenticated')::text, true);
+  /**
+   * A system account reads the board and writes nothing on it.
+   *
+   * The deploy check signs in as one, so a board it could not read would be a
+   * board nothing opens on any deploy - and 0120 is about writes, not reads.
+   * Both halves are asserted here, because "it can read" without "it cannot
+   * write" would be the wrong half of the rule.
+   */
   select count(*) into v_n from public.client_threads_board();
-  if v_n <> 0 then
-    failures := failures || format('FAILED: a system account sees %s rows of the board', v_n)::text;
+  if v_n = 0 then
+    failures := failures || 'FAILED: the account the deploy check uses cannot read the board at all'::text;
   end if;
-  select count(*) into v_n from public.client_thread_stream(v_owed);
-  if v_n <> 0 then
-    failures := failures || format('FAILED: a system account sees %s items of a thread', v_n)::text;
-  end if;
+  begin
+    perform public.log_a_call(v_owed, 'From the automated check', 'Job search', v_when, '');
+    failures := failures || 'FAILED: a system account logged a call'::text;
+  exception when others then null;
+  end;
 
   perform set_config('request.jwt.claims', '', true);
   select count(*) into v_n from public.client_threads_board();
@@ -578,7 +587,7 @@ begin
   exception when others then null;
   end;
   if coalesce(array_length(failures, 1), 0) = v_mark then
-    raise notice '  ok  a system account and a stranger see none of it';
+    raise notice '  ok  the check account reads the board and writes nothing; a stranger sees none of it';
   end if;
 
   perform set_config('role', 'postgres', true);

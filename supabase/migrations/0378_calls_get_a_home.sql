@@ -27,6 +27,26 @@
  * named and nothing else.
  */
 
+-- ── how this migration meets the live code ───────────────────
+--
+-- Needs the new code live first: `method`
+-- The code that sends it: app/(app)/clients/[id]/actions.ts,
+--   app/(app)/quick-add-actions.ts
+--
+-- The trigger below refuses a hand-written contact note that does not say how
+-- the contact happened, and no screen before this commit had a field for it.
+-- So it belongs on the far side of the push, and on 23 November 2026 it was
+-- not: it went in at 19:20, the push failed its deploy check at 19:45 on a
+-- fault in the check itself, and production rolled back to a commit whose
+-- note form could not answer the question. For twenty minutes the database
+-- held a rule the live code could not satisfy. Nobody wrote a Meeting note in
+-- that window, so nobody met it.
+--
+-- That is the rule in CLAUDE.md now and `check-migrations` asks every
+-- migration from this one onwards. The honest record of this one is that it
+-- was applied the wrong way round, and the reason it was survivable is luck
+-- rather than design.
+
 -- ── how a contact happened ────────────────────────────────────
 --
 -- Four, the owner's. Not Email: an email to a counselor is already a row in

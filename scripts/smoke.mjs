@@ -1759,8 +1759,8 @@ if (!callForm.why?.includes("no log a call form on the page")) {
   all.push(callForm);
 } else {
   console.log(
-    "::note title=No call form::" +
-      "No thread was open on the board, so Log a call was not posted. The board's own link is followed above.",
+    "  note  Log a call sits behind a button on the thread, so it is not in the HTML and cannot be posted " +
+      "from here. The function that writes both halves of a call is proved in verify_the_threads_board.sql.",
   );
 }
 

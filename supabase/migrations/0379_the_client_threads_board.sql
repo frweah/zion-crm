@@ -36,8 +36,16 @@
  * staff see conversations, messages, texts, mail and the contact log; notes
  * are narrowed to the roles on the row - and a definer function would have to
  * restate every one of those rules and then be trusted to have got them
- * right. The one thing it adds is the gate: an inactive account and a system
- * account get nothing at all.
+ * right.
+ *
+ * Which is also why there is no gate of its own in here. The first version
+ * refused an inactive account and a system account explicitly, and putting
+ * the fault back proved the line could not matter: every table this reads
+ * already requires `is_active_staff()`, so a stranger gets an empty board
+ * either way. A line no fault can change is a line that is not doing
+ * anything. What is asserted instead is the real mechanism - somebody not
+ * signed in sees nothing, and the system account the deploy check signs in as
+ * reads the board and cannot write on it, because 0120 is about writes.
  */
 
 -- ── the board ─────────────────────────────────────────────────
@@ -95,10 +103,7 @@ as $$
   with day as (
     select coalesce(p_today, public.practice_today()) as today
   ),
-  allowed as (
-    select public.is_active_staff() and not public.current_staff_is_system() as ok
-  ),
-  -- Every client the practice has said anything to or heard anything from.
+    -- Every client the practice has said anything to or heard anything from.
   -- Closed clients included: a closed client who texts is still a person
   -- waiting for an answer, and the status shows on the row.
   seen as (
@@ -442,8 +447,6 @@ as $$
       else 'Up to date'
     end as status
    from everything e
-  cross join allowed
-  where allowed.ok
   -- Longest wait first (ruling 4), then the quietest, then whatever happened
   -- most recently. One order for the whole board: the screen groups the rows
   -- it is given rather than sorting them again.
@@ -490,10 +493,7 @@ language sql
 stable
 set search_path to 'public'
 as $$
-  with allowed as (
-    select public.is_active_staff() and not public.current_staff_is_system() as ok
-  ),
-  texts as (
+  with   texts as (
     select 'text:' || s.id::text as item_key,
            'Text'::text as channel,
            s.created_at as at,
@@ -550,9 +550,7 @@ as $$
             where g.source = e.channel and g.source_key = e.ref_id::text
          ) as collected
     from everything e
-   cross join allowed
-   where allowed.ok
-     and (p_since is null or e.at >= p_since)
+   where p_since is null or e.at >= p_since
    order by e.at desc nulls last;
 $$;
 

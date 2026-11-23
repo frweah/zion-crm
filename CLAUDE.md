@@ -201,6 +201,29 @@ issue and rolls nothing back. The rule is `scripts/retry-screen.mjs` and
 `check-retry` asks it; the action posts are not retried, because posting twice
 is writing twice.
 
+**A migration never goes out ahead of the code it needs.** A migration that
+changes what a screen must send — a trigger that refuses, a constraint that
+can fail, a column that stops being nullable — is applied only once the code
+that sends it is **live**, or it is shaped to tolerate the old code until it
+is. Never ahead of a push that can roll back.
+
+The deploy check rolls production back one commit when a screen fails, and
+the migrations here go in by hand before the push, so the two together can
+leave the database holding a rule the live code cannot satisfy. On 23
+November 2026 they did: 0378's trigger went in at 19:20, the push failed its
+check at 19:45 on a fault in the check itself, and for twenty minutes a
+Meeting note typed on the Notes tab would have been refused with a question
+that screen had no field to answer. Nobody wrote one.
+
+Each such migration says which of the two it is, in a line
+`scripts/check-migrations.mjs` reads: `-- Tolerates the old code: <why>`, or
+`-- Needs the new code live first: `<field>`` with
+`-- The code that sends it: <paths>` — and those paths have to exist and
+mention the field, because a refusal nothing sends breaks whatever is live
+whichever order it went out in. A constraint that permits null tolerates the
+old code by construction and needs no declaration; a new function that raises
+is not a refusal at all, because nothing deployed calls it yet.
+
 **What only Admin can see, the owner checks by hand.** No automated account
 may be Admin (0295), so every Admin-only control is outside the deploy check's
 reach by construction: today that is Approve, Decline and the Stage-change
