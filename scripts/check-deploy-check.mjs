@@ -124,9 +124,55 @@ if (checked === 0) {
   bad("no top-level call of a helper was found, so the order of the file was not actually checked");
 }
 
+// ── 3. a screen it asserts a way back on has one ──────────────
+/**
+ * The deploy check fails the run when a named screen has no back arrow, and
+ * "no back arrow" is the right answer for a screen that is not a hub tab.
+ *
+ * On 23 November 2026 the texts inbox stopped being one - the client threads
+ * board took its place in the hub - and the check went on naming it. One
+ * failure, on a screen that was behaving correctly, and production rolled
+ * back for the second time in twenty minutes. So each path the check names
+ * here has to be a tab with a hub above it for somebody.
+ */
+{
+  const { navFor, hubBack, ROLE_NAMES } = await import("../lib/roles.ts");
+  const list = src.match(/for \(const named of \[([^\]]+)\]\) \{/);
+  if (!list) {
+    bad("the deploy check no longer names the screens whose way back it asserts");
+  } else {
+    const named = [];
+    for (const piece of list[1].split(",").map((p) => p.trim())) {
+      const literal = piece.match(/^"([^"]+)"$/);
+      if (literal) named.push(literal[1]);
+      else {
+        // A name declared beside the list, which is how the same path is kept
+        // in step across the two places it is asserted.
+        const declared = src.match(new RegExp(`const ${piece} = "([^"]+)"`));
+        if (declared) named.push(declared[1]);
+        else bad(`the deploy check names ${piece}, and nothing in the file says what it is`);
+      }
+    }
+    for (const path of named) {
+      const [pathname, query] = path.split("?");
+      const tab = new URLSearchParams(query ?? "").get("tab");
+      const anybody = ROLE_NAMES.some((role) => hubBack(navFor(role), pathname, tab) !== null);
+      if (!anybody) {
+        bad(
+          `the deploy check asserts a way back on ${path}, and no role has a hub above it - ` +
+            "so the run fails on a screen that is behaving correctly",
+        );
+      }
+    }
+    if (named.length === 0) bad("the deploy check names no screen at all, so it asserts nothing");
+  }
+}
+
 if (problems.length) {
   for (const p of problems) console.error(`  - ${p}`);
   console.error(`\n  FAILED  ${problems.length} problem(s) with the deploy check itself`);
   process.exit(1);
 }
-console.log(`  ok  the deploy check parses, and its ${checked} top-level calls run after what they read`);
+console.log(
+  `  ok  the deploy check parses, its ${checked} top-level calls run after what they read, and the screens it names are tabs`,
+);

@@ -296,6 +296,18 @@ for (const [href, want] of [
   }
 }
 
+/**
+ * The screen the owner named for texts.
+ *
+ * It was Communication - Texts, a tab on the hub, until 23 November 2026,
+ * when the client threads board took that place and the seven-view inbox
+ * moved behind it. Named once here, because the same path is asserted in two
+ * places and a stale one of them fails the run on a screen that is no longer
+ * a tab - which is how this check failed on a091ad7 and rolled production
+ * back for the second time in twenty minutes.
+ */
+const NAMED_TEXTS = "/communication/threads";
+
 /** Every hub tab either account found a way back on, across both passes. */
 const backChecked = [];
 
@@ -752,7 +764,7 @@ if (missingAccounts.length) {
   );
 }
 
-for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
+for (const named of ["/billing?tab=hours", NAMED_TEXTS]) {
     const seen = hubTabs.find((r) => r.path === named);
     if (seen) {
       console.log(`  ${role}: ${named} has the way back`);
@@ -1895,7 +1907,7 @@ console.log(
  * warning rather than a failure when the Billing account is not configured -
  * the run already says, loudly, which screens nobody opened.
  */
-for (const named of ["/billing?tab=hours", "/messages/texts?tab=texts"]) {
+for (const named of ["/billing?tab=hours", NAMED_TEXTS]) {
   if (backChecked.includes(named)) continue;
   const line = `${named} was not opened by any account, so its way back is unconfirmed`;
   if (named.startsWith("/billing") && !process.env.SMOKE_BILLING_EMAIL) {

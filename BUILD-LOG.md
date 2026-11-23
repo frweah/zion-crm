@@ -11624,3 +11624,15 @@ the consts that helper reads. Put the fault back and it says
 Two faults put back, two caught. The rollback worked exactly as it is built
 to: production served the previous commit for the eighteen minutes it took to
 find the fault, write the check, and push again.
+
+And a second stale assertion, found the same way: the deploy check names two
+screens whose back arrow it insists on - Billing → Hours and, until today,
+Communication → Texts. The texts inbox stopped being a hub tab when the board
+took its place, so the arrow was correctly absent and the run failed on a
+screen that was behaving properly. One failure of 144, and production rolled
+back a second time.
+
+The name is declared once now, beside the two, and `check-deploy-check` asks
+`hubBack` whether each named screen actually has a hub above it for somebody.
+Three faults put back, three caught - the hoisting one, a stray brace, and
+this.
