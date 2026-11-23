@@ -1697,15 +1697,25 @@ if (!threads.ok) {
       : "the board opened without its table, so the rows did not arrive",
   });
 
-  // A thread, opened the way a person opens one: off the board's own link.
-  const openHref = threads.body.match(/href="\/communication\/threads\?c=([0-9a-f-]{36})"/)?.[0];
+  /**
+   * A client thread, opened the way a person opens one.
+   *
+   * Taken from a client cell rather than from the first ?c= link on the
+   * page. A stranger row - a website chat, a number nobody has placed -
+   * carries a link of exactly the same shape with a conversation id in it,
+   * so picking the first would open a stranger on any week when nothing
+   * needed a reply, and then assert a client's sentence against it. The
+   * client cell is the only place the board says which id is a client's.
+   */
+  const whose = threads.body.match(/href="\/clients\/([0-9a-f-]{36})\?tab=dashboard"/)?.[1];
+  const openHref = whose ? `/communication/threads?c=${whose}` : null;
   if (!openHref) {
     console.log(
       "::warning title=No thread opened::" +
         "No row on the client threads board offered a link to a thread, so the panel - the stream, the reply box and the consent line - was not opened by this run.",
     );
   } else {
-    const panel = await open(openHref.match(/href="([^"]+)"/)[1]);
+    const panel = await open(openHref);
     if (!panel.ok) {
       all.push({ ...panel, role: "Job Search" });
     } else {
