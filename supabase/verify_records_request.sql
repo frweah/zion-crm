@@ -255,8 +255,8 @@ begin
   insert into public.client_private (client_id, dob, address)
   values (v_client, date '1988-04-04', '9 ZZ Lane, Provo');
 
-  insert into public.notes (client_id, staff_id, staff_name, text, type, visible_roles)
-  values (v_client, v_admin, 'ZZ Admin', 'Ordinary note everybody can see.', 'Meeting',
+  insert into public.notes (client_id, staff_id, staff_name, text, type, method, visible_roles)
+  values (v_client, v_admin, 'ZZ Admin', 'Ordinary note everybody can see.', 'Meeting', 'In person',
           array['Admin','Job Search','Reports','Billing']);
 
   -- The one that matters for review: written for a narrower audience.

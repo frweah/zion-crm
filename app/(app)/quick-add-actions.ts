@@ -6,6 +6,7 @@ import { LIVE_STATUSES, authorizationNumberLabel } from "@/lib/billing";
 import { readRateSchedule, type ServiceRate } from "@/lib/rate-schedule";
 import { today } from "@/lib/constants";
 import { kindsForRole, type QuickKind } from "@/lib/quick-add";
+import { categoryForStage } from "@/lib/report-shape";
 import { addNote, addTask, addPlacement } from "./clients/[id]/actions";
 import { addClientJob, updateClientJob } from "./clients/[id]/job-actions";
 import { logSession } from "./hours/actions";
@@ -170,7 +171,32 @@ export async function quickAdd(
   const str = (k: string) => String(formData.get(k) ?? "").trim();
 
   if (what === "note") {
-    const fd = pass({ id: clientId, text: str("text"), type: str("type") || "General" });
+    /**
+     * The service the note is about, from the client's stage.
+     *
+     * The Notes tab guesses it the same way and lets somebody change it;
+     * there is no room for a third dropdown in a box that exists to catch a
+     * sentence between the car and the desk. It is not optional: `addNote`
+     * has refused a note without one since the reports brief, and this is why
+     * every note added from the "+" came back with "Say which service this
+     * note is about" and nothing was written.
+     */
+    const supabase = await createClient();
+    const { data: client } = await supabase
+      .from("clients")
+      .select("stage")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const fd = pass({
+      id: clientId,
+      text: str("text"),
+      type: str("type") || "General",
+      category: categoryForStage(client?.stage ?? null),
+      // How the contact happened, where the form asked (Part 3). A phone
+      // call needs no answer: the type is the method.
+      method: str("method") || null,
+    });
     // The same default the Notes tab offers. Widening it is a decision, and
     // decisions belong on the screen that shows what is already there.
     fd.append("visible_roles", "Job Search");

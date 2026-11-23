@@ -1005,6 +1005,125 @@ all.push(...jobSearch.results.map((r) => ({ ...r, role: "Job Search" })));
   }
 }
 
+/**
+ * The client threads board, and the one thing a deploy must not do (ruling 7,
+ * 23 November 2026).
+ *
+ * **No automated sends.** Nothing here posts the send form, and that is not
+ * caution about the code - it is the rule: a deploy check that presses Send
+ * texts a real client every time anybody pushes. The owner presses one real
+ * Send by hand after a release that touches sending, and the refusals are
+ * proved where they can be proved without a carrier: the consent gate, the
+ * STOP gate and the 8am-to-9pm window are in verify_sms.sql, and a reply on
+ * any channel, the groups and who may write are in verify_the_threads_board.
+ *
+ * What this asks of the deployment is the half those cannot reach: that the
+ * board draws its own table, that a thread opens, and that the box which does
+ * send says which number it would send to before anybody types - because the
+ * number is the thing this screen gets wrong if it gets anything wrong. A
+ * client, their partner and their daughter-in-law are three numbers on one
+ * record and two of them may not be textable.
+ */
+const threads = await open("/communication/threads");
+if (!threads.ok) {
+  all.push({ ...threads, role: "Job Search" });
+} else {
+  const drewTable = /class="board"/.test(threads.body);
+  const drewGroups = /Needs a reply/.test(threads.body);
+  all.push({
+    role: "Job Search",
+    path: "/communication/threads",
+    ok: drewTable && drewGroups,
+    why: drewTable
+      ? drewGroups
+        ? undefined
+        : "the board drew a table with no groups in it, so client_threads_board answered nothing"
+      : "the board opened without its table, so the rows did not arrive",
+  });
+
+  // A thread, opened the way a person opens one: off the board's own link.
+  const openHref = threads.body.match(/href="\/communication\/threads\?c=([0-9a-f-]{36})"/)?.[0];
+  if (!openHref) {
+    console.log(
+      "::warning title=No thread opened::" +
+        "No row on the client threads board offered a link to a thread, so the panel - the stream, the reply box and the consent line - was not opened by this run.",
+    );
+  } else {
+    const panel = await open(openHref.match(/href="([^"]+)"/)[1]);
+    if (!panel.ok) {
+      all.push({ ...panel, role: "Job Search" });
+    } else {
+      /**
+       * The reply box says which number, and when that number agreed.
+       *
+       * Either it offers a send box naming the number, or it says why it
+       * cannot send to any of them. What must never happen is a box with no
+       * number named: that is the version of this screen that sends a client's
+       * business to their ex-partner's phone.
+       */
+      const names = /Text .*at \+1\d{10}/.test(panel.body) || /agreed \d{4}-\d{2}-\d{2}/.test(panel.body);
+      const refuses =
+        /has not agreed to be texted/.test(panel.body) ||
+        /replied STOP/.test(panel.body) ||
+        /no number on this record/.test(panel.body) ||
+        /does not send texts/.test(panel.body);
+      all.push({
+        role: "Job Search",
+        path: "a client thread",
+        ok: names || refuses,
+        why: "the panel offered a reply box without saying which number it would send to",
+      });
+      // And the stream came with it.
+      all.push({
+        role: "Job Search",
+        path: "a client thread (the stream)",
+        ok: /class="chip">Text</.test(panel.body) || /Nothing on this channel yet/.test(panel.body),
+        why: "the thread opened with neither a message in it nor a sentence saying there are none",
+      });
+    }
+  }
+}
+
+/**
+ * Log a call: the module loads and refuses an empty one.
+ *
+ * Posted with nothing in it, which is what makes it refuse - the same way
+ * every other action on this check is exercised. It writes nothing, and what
+ * it proves is that the function behind the one new write on this screen is
+ * there on this deployment.
+ */
+const callForm = await invokeOne(
+  "/communication/threads",
+  "Job Search",
+  "log a call",
+  (names) => names.includes("client_id") && names.includes("text"),
+  [["text", ""]],
+);
+if (!callForm.why?.includes("no log a call form on the page")) {
+  all.push(callForm);
+} else {
+  console.log(
+    "::note title=No call form::" +
+      "No thread was open on the board, so Log a call was not posted. The board's own link is followed above.",
+  );
+}
+
+/**
+ * And the two roles ruling 6c is about are opened by nobody.
+ *
+ * A Job Coach and a Case Manager can write on a client's record and cannot
+ * text, which is the whole reason the send box is gated and Log a call is
+ * offered instead. Neither has an account here, so neither half is opened on
+ * any deploy. Said as a warning rather than a failure: it is true of every
+ * run until somebody makes the accounts.
+ */
+if (!process.env.SMOKE_COACH_EMAIL && !process.env.SMOKE_CASE_EMAIL) {
+  console.log(
+    "::warning title=The roles that cannot text are unopened::" +
+      "No SMOKE_COACH_EMAIL or SMOKE_CASE_EMAIL, so nothing checks that a Job Coach or a Case Manager is offered Log a call instead of a send box. The database half is in verify_the_threads_board.sql.",
+  );
+}
+
 // The Billing account is optional: until it exists the check runs as it
 // always has, and says which screens nobody is opening (0129).
 if (process.env.SMOKE_BILLING_EMAIL && process.env.SMOKE_BILLING_PASSWORD) {

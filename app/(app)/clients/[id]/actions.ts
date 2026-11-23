@@ -5,6 +5,7 @@ import { can } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isOnlyTemplate } from "@/lib/note-template";
+import { CONTACT_METHODS, NEEDS_METHOD } from "@/lib/contact-methods";
 import { noteCategoryFromForm } from "@/lib/report-shape";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
@@ -191,6 +192,26 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
   const category = noteCategoryFromForm(formData.get("category"));
   if (!category) return { error: "Say which service this note is about.", ok: null };
 
+  /**
+   * How the contact happened, where the note is one (Part 3, 23 November
+   * 2026).
+   *
+   * Refused rather than guessed at, for the same reason the category is: the
+   * form asks, and a note arriving without it means the box was emptied on
+   * purpose. A phone call is not asked - the type is the method, and the
+   * database fills that one in.
+   *
+   * The database refuses it too (`notes_say_how`). This is here so the answer
+   * comes back in a sentence about the note rather than as a row-level error.
+   */
+  const method = String(formData.get("method") ?? "").trim();
+  if (method && !(CONTACT_METHODS as readonly string[]).includes(method)) {
+    return { error: "Say how it happened: in person, phone, video or text.", ok: null };
+  }
+  if (!method && NEEDS_METHOD.includes(type)) {
+    return { error: "Say how it happened: in person, phone, video or text.", ok: null };
+  }
+
   const roles = new Set<string>(["Admin"]);
   for (const r of formData.getAll("visible_roles")) roles.add(String(r));
 
@@ -240,6 +261,7 @@ export async function addNote(_prev: DetailState, formData: FormData): Promise<D
     staff_name: me.name,
     text,
     type,
+    method: method || null,
     category,
     visible_roles: [...roles],
   });

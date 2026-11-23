@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { addNote, type DetailState } from "./actions";
 import { NOTE_TYPES, fmtStamp } from "@/lib/constants";
+import { CONTACT_METHODS, NEEDS_METHOD } from "@/lib/contact-methods";
 import { NOTE_CATEGORIES, categoryForStage, type NoteCategory } from "@/lib/report-shape";
 import { ROLE_NAMES, ROLE_LABEL, type Role } from "@/lib/roles";
 import { onTypeChange } from "@/lib/note-template";
@@ -127,6 +128,20 @@ export function NotesTab({
                 ))}
               </select>
             </label>
+            {/* How it happened, where the note is a record of talking to
+                somebody (Part 3, 23 November 2026). A phone call says it
+                itself, so it is not asked twice - the database fills that one
+                in and would refuse the others with no answer. */}
+            {NEEDS_METHOD.includes(type) && (
+              <label className="field" style={{ maxWidth: 200 }}>
+                How
+                <select name="method" defaultValue="In person" required>
+                  {CONTACT_METHODS.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <span className="lock">Stamped with the time and your name — {myName}</span>
           </div>
 

@@ -385,6 +385,13 @@ const RPC_FUNCTIONS = [
   "clients_board_rows",
   // The reports board in one call (0377).
   "report_board_rows",
+  // The client threads board, its thread, and the two things done from it
+  // (0379). A call and a collected contact are written by the database so
+  // that neither can be written by half.
+  "client_threads_board",
+  "client_thread_stream",
+  "collect_contact",
+  "log_a_call",
   "move_client",
   // Part 3 of the clients board: the ask and the decision (0372).
   "request_stage_change",

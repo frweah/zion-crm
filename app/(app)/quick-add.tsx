@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { CONTACT_METHODS, NEEDS_METHOD } from "@/lib/contact-methods";
 import { NOTE_TYPES, JOB_STATUSES } from "@/lib/constants";
 import { QUICK_KINDS, type QuickKind } from "@/lib/quick-add";
 import { AddFileForm } from "./add-file";
@@ -37,6 +38,8 @@ export function QuickAdd({
   const [clientId, setClientId] = useState(presetClientId ?? "");
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [employerId, setEmployerId] = useState("");
+  // The note's type, so the How question can appear only where it is needed.
+  const [noteType, setNoteType] = useState("Phone call");
 
   const [state, action, pending] = useActionState<QuickAddState, FormData>(quickAdd, {
     error: null,
@@ -197,12 +200,25 @@ export function QuickAdd({
                   */}
                   <label className="field">
                     Type
-                    <select name="type" defaultValue="Phone call">
+                    <select name="type" value={noteType} onChange={(e) => setNoteType(e.target.value)}>
                       {NOTE_TYPES.map((t) => (
                         <option key={t}>{t}</option>
                       ))}
                     </select>
                   </label>
+                  {/* How it happened, where the type does not say (Part 3).
+                      A phone call is a phone call, which is the default type
+                      here and the commonest thing this box catches. */}
+                  {NEEDS_METHOD.includes(noteType) && (
+                    <label className="field">
+                      How
+                      <select name="method" defaultValue="In person" required>
+                        {CONTACT_METHODS.map((m) => (
+                          <option key={m}>{m}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label className="field">
                     What happened
                     <textarea name="text" rows={4} required autoFocus />

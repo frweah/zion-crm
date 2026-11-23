@@ -17,7 +17,6 @@ import type { Theme } from "./theme-actions";
 import { BottomBar } from "./bottom-bar";
 import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
-import { TeamLink } from "./team-link";
 import { TeamPane } from "./team-pane";
 import { TeamBubble } from "./team-bubble";
 import { chatSettings } from "@/lib/chat-prefs";
@@ -155,13 +154,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <NavLinks groups={nav} narrow={narrow} />
         </Suspense>
 
-        {/* Team, directly below the main tabs, with its own unread count
-            (owner, 30 Oct 2026). Not inside a hub: a colleague asking
-            something is not an errand to go and find, and it was three clicks
-            down Communication. */}
-        <Suspense fallback={null}>
-          <TeamLink />
-        </Suspense>
+        {/* Team chat is a tab under Communication since 23 November 2026
+            (ruling 3), and its unread count is part of that group's badge -
+            which it always was arithmetically, because
+            `waitingConversations` has counted a colleague's message and a
+            client's text together since September. The bubble bottom-left
+            still opens the same screen over whatever page somebody is on,
+            which is the door that mattered. */}
 
         {/* Microsoft 365 Copilot Chat: the one AI tool client information may
             go into (data-handling policy, rule 2). It opens in a new tab,

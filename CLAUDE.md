@@ -159,6 +159,27 @@ from `wait-for-deploy.mjs --before-push`, and `check-push-guard` asks both.
 When production is broken and the fix cannot wait for a check with twenty
 minutes left to run: `ZION_PUSH_ANYWAY=1 git push`.
 
+**A reply is a reply on any channel.** On the client threads board, a client
+needs a reply when they spoke last and nothing outbound has happened since —
+a text out, an email filed on their record, a contact-log line or a note
+dated on or after the day they wrote. "Quiet 14+ days" reads the same way.
+The rule is `client_threads_board` and `verify_the_threads_board.sql`, not a
+query on a screen, because the three screens that answered this question
+before gave three different numbers: 22 text threads whose last word was
+theirs, 8 conversations with something unread, and 4 clients who had actually
+had no answer. Fourteen of the twenty-two had been answered another way and
+no screen could see it.
+
+**A call is a note that says how it happened.** `notes.method` — in person,
+phone, video, text — is required on a hand-written contact note, derived for
+a Phone call, and left empty where a document is the record of how it
+happened. `contact_log.method` is a different column answering a different
+question: what the line *is*. A contact-log line counts towards a client's
+month only if it says Call, Text, Email, Appointment or In person — never
+"End of day report", which was 200 of November's 221 lines. The two
+vocabularies live in `lib/contact-methods.ts` and in migration 0378, and
+`check-threads` holds them to each other.
+
 **One failure is not a finding; two in a row is.** A screen that fails in the
 deploy check is asked once more ten seconds later, and only a screen that
 fails both times fails the run. The rule exists because of what the first

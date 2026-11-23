@@ -119,7 +119,7 @@ const EXPECTED = {
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/end-of-day/team", "/hours",
     "/forms-and-checklists", "/insights/capacity", "/insights/money", "/insights/outcomes", "/insights/referrals",
     "/books", "/insights/reports", "/updates",
-    "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
+    "/leads", "/mail", "/communication/threads", "/team", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   // Billing → Forms and Report & bill were theirs and are gone (Billing
@@ -129,7 +129,7 @@ const EXPECTED = {
   "Job Search": [
     "/client-reports",
     "/calendar", "/clients", "/counselors", "/dashboard",
-    "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
+    "/end-of-day", "/hours", "/leads", "/mail", "/communication/threads", "/team", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops",
     "/tasks", "/time-clock", "/updates",
   ],
   Reports: [
@@ -139,7 +139,7 @@ const EXPECTED = {
     // number. The counselors themselves are still behind the Counselors area,
     // which this role does not have - the screen gates its own tabs.
     "/calendar", "/clients", "/counselors", "/dashboard", "/end-of-day", "/hours",
-    "/leads", "/mail", "/messages/texts", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
+    "/leads", "/mail", "/communication/threads", "/team", "/messages/weekly-updates", "/my-clients", "/my-day", "/forms-and-checklists", "/paperwork", "/requests", "/sops", "/tasks",
     "/time-clock", "/updates",
   ],
   Billing: [
@@ -147,7 +147,7 @@ const EXPECTED = {
     "/admin/documents",
     "/billing", "/billing/invoices", "/calendar", "/clients", "/counselors",
     "/dashboard",
-    "/books", "/end-of-day", "/hours", "/leads", "/mail", "/messages/texts", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
+    "/books", "/end-of-day", "/hours", "/leads", "/mail", "/communication/threads", "/team", "/forms-and-checklists", "/my-day", "/paperwork", "/requests", "/sops", "/time-clock", "/updates",
     // Since 11 Nov 2026: Home's "My clients" tile bounced Billing back to
     // Home. The screen shows only the person's own clients.
     "/my-clients",
@@ -260,7 +260,10 @@ if (!problems.length) ok("Case Manager and Job Coach reach neither Admin nor HR,
 // drawn the same way: one item, one button, straight to the board. It is
 // the practice's second central record - what has been told to each
 // counselor about each client, and what has not been told yet.
-const HUBS = ["Home", "Clients", "Reports", "My work", "Communication", "Billing", "HR", "Admin"];
+// Calendar joined them on 23 November 2026 (ruling 1): it was a tab inside
+// Communication, between a client's texts and the practice's posts, because
+// everything in that group "arrives". What day it is is not a message.
+const HUBS = ["Home", "Clients", "Reports", "My work", "Communication", "Calendar", "Billing", "HR", "Admin"];
 const labels = NAV_GROUPS.map((g) => g.label);
 if (labels.join("|") !== HUBS.join("|")) fail(`the sidebar is ${labels.join(" · ")}, not ${HUBS.join(" · ")}`);
 
@@ -436,6 +439,21 @@ for (const imported of layout.matchAll(/from "\.\/([a-z0-9-]+)"/g)) {
   }
 }
 
+/** Every screen's source, for "something points at this path". */
+const appSource = await (async () => {
+  let all = "";
+  const walk = async (dir) => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) await walk(new URL(`${entry.name}/`, dir));
+      else if (entry.name.endsWith(".tsx") || entry.name.endsWith(".ts")) {
+        all += await readFile(new URL(entry.name, dir), "utf8");
+      }
+    }
+  };
+  await walk(APP);
+  return all;
+})();
+
 for (const path of SIDEBAR_SCREENS) {
   const page = new URL(`..${"/app/(app)"}${path}/page.tsx`, import.meta.url);
   let body = "";
@@ -447,17 +465,32 @@ for (const path of SIDEBAR_SCREENS) {
   }
   const inSidebar = sidebarSource.includes(`href="${path}"`);
   const redirects = body.includes("redirect(");
-  if (!inSidebar && !redirects) {
-    fail(`${path} is on the sidebar list, is in no hub, and nothing in the sidebar opens it`);
+  /**
+   * Or another screen opens it.
+   *
+   * /messages/texts is the seven-view inbox - spam, the portal, a referral
+   * from a stranger's text - and since 23 November 2026 the client threads
+   * board owns the rows that matter and links to it for the rest. A screen
+   * reached from a screen is still reached; what would be a loophole is a
+   * path nothing at all points at, so the link has to be found somewhere.
+   */
+  const linkedFromAScreen = appSource.includes(`href="${path}"`) || appSource.includes(`href={\`${path}`);
+  if (!inSidebar && !redirects && !linkedFromAScreen) {
+    fail(`${path} is on the sidebar list and nothing opens it`);
   }
 }
-if (!problems.length) ok(`all ${SIDEBAR_SCREENS.length} sidebar screens are opened from the sidebar or redirect to one`);
+if (!problems.length) {
+  ok(`all ${SIDEBAR_SCREENS.length} sidebar screens are opened from the sidebar, from a screen, or redirect`);
+}
 
 const groupOf = (href) => NAV_GROUPS.find((g) => g.items.some((i) => navPath(i.href) === href))?.label;
 const HOMES = {
   "/tasks": "My work", "/clients": "Clients", "/leads": "My work", "/counselors": "My work",
-  "/mail": "Communication", "/messages/texts": "Communication",
-  "/calendar": "Communication", "/hours": "My work", "/paperwork": "My work", "/sops": "My work",
+  "/mail": "Communication", "/communication/threads": "Communication",
+  "/team": "Communication",
+  // Its own group since 23 November 2026, and the board took the inbox's
+  // place in this one.
+  "/calendar": "Calendar", "/hours": "My work", "/paperwork": "My work", "/sops": "My work",
   "/end-of-day": "My work", "/end-of-day/team": "HR", "/admin/people": "HR",
   "/insights/money": "Admin", "/insights/reports": "Admin", "/admin/documents": "Admin", "/admin/system": "Admin",
 };
@@ -976,8 +1009,12 @@ const BACK_CASES = [
   ["Job Coach", "/clients", null, null],
   ["Job Search", "/tasks", null, "/my-work"],
   ["Admin", "/mail", null, "/communication"],
-  ["Job Search", "/messages/texts", "texts", "/communication"],
-  ["Job Search", "/messages/texts", "web", "/communication"],
+  // The board is the hub's first tab since 23 November 2026; the old inbox is
+  // reached from it rather than from the sidebar, so it has no hub above it
+  // and no arrow - the Close on the board is the way back from there.
+  ["Job Search", "/communication/threads", null, "/communication"],
+  ["Job Search", "/team", null, "/communication"],
+  ["Job Search", "/messages/texts", "texts", null],
   ["Admin", "/sops", null, "/my-work"],
   ["Admin", "/hours", "approvals", "/my-work"],
   // A hub with no landing page: its first screen is the landing, and the tab

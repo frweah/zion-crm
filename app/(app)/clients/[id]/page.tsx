@@ -52,6 +52,7 @@ import { readRateSchedule } from "@/lib/rate-schedule";
 import { readPayments } from "@/lib/payments";
 import { buildReportText, type ReportPeriod } from "@/lib/report";
 import { presetByKey } from "@/lib/report-presets";
+import { CAN_SEND_TEXTS } from "@/lib/threads-board-shape";
 import { CLIENT_TABS, MOVED_CLIENT_TABS, isClientTab, type ClientTab } from "@/lib/client-tabs";
 import { NumbersAndContacts } from "./numbers-and-contacts";
 import { RecordingsPanel, type RecordingRow } from "./recordings-panel";
@@ -385,7 +386,27 @@ export default async function ClientPage({
       { data: portalRequests },
       { data: portalResume },
     ] = await Promise.all([
-      supabase.from("conversations").select("id").eq("kind", "sms").eq("client_id", id).maybeSingle(),
+      /**
+       * Every text thread this client has, not one (ruling 6a, 23 November
+       * 2026).
+       *
+       * A thread is one number since 0332 - the client's own, their
+       * partner's, their daughter-in-law's - so this asked for a single row
+       * and production answered `PGRST116: the result contains 3 rows`. The
+       * error was dropped, `conv` came back null, and the tab rendered as
+       * though the client had never texted. Two clients were like that on the
+       * day it was found, one with three threads and one with two, and every
+       * text was on file the whole time.
+       *
+       * Newest first, so the thread somebody is answering is the one the box
+       * below sends to.
+       */
+      supabase
+        .from("conversations")
+        .select("id, external_address, title, last_message_at")
+        .eq("kind", "sms")
+        .eq("client_id", id)
+        .order("last_message_at", { ascending: false, nullsFirst: false }),
       supabase.from("client_sms_consent").select("can_text, consented_phone, client_phone, state").eq("client_id", id).maybeSingle(),
       supabase.from("sms_templates").select("id, label, body").eq("active", true).order("sort_order"),
       supabase.from("sms_messages").select("id, body, send_after").eq("client_id", id).eq("status", "Scheduled").order("send_after"),
@@ -446,12 +467,20 @@ export default async function ClientPage({
       : { data: [] as { id: string; storage_path: string; filename: string }[] };
     const fileFor = new Map((requestFiles ?? []).map((f) => [f.id, f]));
 
-    const { data: thread } = conv
+    // Every thread's messages, in one dated column. Which number each came
+    // from is already on the message - `sms_into_conversation` writes the
+    // contact's name and relationship onto it as it arrives - so a partner's
+    // text reads as theirs rather than as the client's.
+    const threads = conv ?? [];
+    const { data: thread } = threads.length
       ? await supabase
           .from("messages")
           .select("id, seq, sender_kind, sender_label, body, status, created_at")
-          .eq("conversation_id", conv.id)
-          .order("seq")
+          .in(
+            "conversation_id",
+            threads.map((t) => t.id),
+          )
+          .order("created_at")
           .limit(300)
       : { data: [] };
 
@@ -471,14 +500,14 @@ export default async function ClientPage({
         <TextThread
           clientId={id}
           clientName={detail.name}
-          conversationId={conv?.id ?? null}
+          conversationId={threads[0]?.id ?? null}
           messages={(thread ?? []) as never}
           scheduled={(scheduled ?? []) as never}
           templates={(templates ?? []) as never}
           canText={Boolean(consent?.can_text)}
           consentState={consent?.state ?? null}
           phone={consent?.consented_phone ?? consent?.client_phone ?? ""}
-          canSend={canEdit}
+          canSend={CAN_SEND_TEXTS.includes(me.role)}
           insideHours={new Date(next).getTime() <= Date.now() + 60_000}
           nextWindow={next}
         />

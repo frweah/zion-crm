@@ -290,32 +290,72 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Certifications", href: "/paperwork?tab=certifications", roles: EVERYONE },
       { label: "Knowledge base", href: "/sops", roles: EVERYONE, note: "How the practice does things, by shelf." },
       { label: "Forms and checklists", href: "/forms-and-checklists", roles: EVERYONE, note: "A visit, a worksite check, an incident." },
+      // Moved out of Communication on 23 November 2026 (ruling 1). What the
+      // practice tells everybody is not a conversation with anybody, and it
+      // belongs with the rest of what a person is expected to have read.
+      { label: "Updates", href: "/updates", roles: EVERYONE, note: "Posts from the practice, and what you have read." },
     ],
   },
   {
-    // Everything that arrives, in one place with one unread badge (owner,
-    // 21 Sept 2026). Mail is each person's own Outlook, read live; texts and
-    // the website chat are one screen shown two ways.
+    /**
+     * Four tabs, one subject (owner, 23 November 2026, ruling 1).
+     *
+     * This group held six items and three questions: what a client said, what
+     * a colleague said, and what day it is. The calendar has its own button
+     * now and the practice's own posts moved in with the rest of a person's
+     * paperwork, which leaves the four things that are somebody talking to
+     * somebody.
+     *
+     * Client threads is first because it is the one with people waiting on
+     * it. Texts, website chats and the numbers nobody has placed are all rows
+     * on it - the old seven-view inbox is still at /messages/texts for spam
+     * and the portal, reached from the board rather than from here.
+     *
+     * Team chat is a tab, and the bubble bottom-left still opens the same
+     * screen. That replaces the ruling of 30 October, which gave it a sidebar
+     * entry of its own: its unread count is part of this group's badge now,
+     * which it always was arithmetically - `waitingConversations` has counted
+     * both since September.
+     */
     key: "inbox",
     label: "Communication",
     hub: "/communication",
     items: [
+      {
+        label: "Client threads",
+        href: "/communication/threads",
+        roles: EVERYONE,
+        note: "Who is waiting, what did not go, and who has gone quiet.",
+      },
       { label: "Mail", href: "/mail", roles: EVERYONE, note: "Your own Outlook, read here." },
-      { label: "Texts", href: "/messages/texts?tab=texts", roles: EVERYONE, note: "Clients, both ways." },
-      { label: "Website chat", href: "/messages/texts?tab=web", roles: EVERYONE, note: "Whoever is on zionvocrehab.com now." },
-      { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
-      // What the practice tells everybody, and who it can reach
-      // (Design language, §3).
+      { label: "Team chat", href: "/team", roles: EVERYONE, note: "Colleagues, live, and the files they share." },
       // The Friday drafts, read and sent one at a time (owner, 9 Nov 2026).
       // Not everybody's: approving a text to a client is a decision, and the
       // three roles that keep client records are the ones who make it.
       {
-        label: "Weekly updates",
+        label: "Friday updates",
         href: "/messages/weekly-updates",
         roles: ["Admin", "Job Search", "Reports"],
         note: "A text each, drafted Friday, sent one at a time.",
       },
-      { label: "Updates", href: "/updates", roles: EVERYONE, note: "Posts from the practice, and what you have read." },
+    ],
+  },
+  {
+    /**
+     * The calendar, on the sidebar itself (owner, 23 November 2026).
+     *
+     * It was a tab inside Communication, where it sat between a client's
+     * texts and the practice's posts because everything in that group
+     * "arrives". What day it is is not a message, and the screen people open
+     * most often in the morning was two clicks behind a heading.
+     *
+     * One item, so the sidebar draws it as a single button straight to the
+     * screen, the way Clients and Reports are drawn.
+     */
+    key: "calendar",
+    label: "Calendar",
+    items: [
+      { label: "Calendar", href: "/calendar", roles: EVERYONE, note: "Appointments, yours and the practice's." },
     ],
   },
   {
@@ -639,7 +679,16 @@ const ALWAYS_REACHABLE = ["/security/two-factor", "/more"];
  * runs before the page does, so a path that redirects still has to be
  * reachable or the redirect never happens.
  */
-export const SIDEBAR_SCREENS = ["/team", "/messages"];
+/**
+ * Screens that are reached from something other than a sidebar item.
+ *
+ * `/messages` redirects to the team chat, which is a tab under Communication
+ * since 23 November 2026. `/messages/texts` is the seven-view inbox - spam,
+ * the portal, a referral from a stranger's text - and the board links to it
+ * rather than the sidebar: the rows that matter are on the board, and the
+ * rest is housekeeping somebody does once a week.
+ */
+export const SIDEBAR_SCREENS = ["/messages", "/messages/texts"];
 
 export function canReach(who: Role | Access, pathname: string): boolean {
   if (ALWAYS_REACHABLE.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;

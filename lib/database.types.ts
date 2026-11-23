@@ -1673,6 +1673,8 @@ export type Database = {
           updated_at: string;
           billing_office_id: string | null;
           category: string | null;
+          source: string | null;
+          source_key: string | null;
         };
         Insert: {
           id?: string;
@@ -1690,6 +1692,8 @@ export type Database = {
           updated_at?: string;
           billing_office_id?: string | null;
           category?: string | null;
+          source?: string | null;
+          source_key?: string | null;
         };
         Update: {
           id?: string;
@@ -1707,6 +1711,8 @@ export type Database = {
           updated_at?: string;
           billing_office_id?: string | null;
           category?: string | null;
+          source?: string | null;
+          source_key?: string | null;
         };
         Relationships: [];
       };
@@ -3828,6 +3834,7 @@ export type Database = {
           dated_from: string;
           from_ocr: boolean;
           category: string;
+          method: string | null;
         };
         Insert: {
           id?: string;
@@ -3846,6 +3853,7 @@ export type Database = {
           dated_from?: string;
           from_ocr?: boolean;
           category: string;
+          method?: string | null;
         };
         Update: {
           id?: string;
@@ -3864,6 +3872,7 @@ export type Database = {
           dated_from?: string;
           from_ocr?: boolean;
           category?: string;
+          method?: string | null;
         };
         Relationships: [];
       };
@@ -8158,6 +8167,14 @@ export type Database = {
         Args: { p_clients: string[] | null };
         Returns: { client_id: string | null; kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
       };
+      client_thread_stream: {
+        Args: { p_client: string | null; p_since?: string | null };
+        Returns: { item_key: string | null; channel: string | null; at: string | null; direction: string | null; who: string | null; body: string | null; status: string | null; media_url: string | null; media_type: string | null; ref_id: string | null; web_link: string | null; collected: boolean | null }[];
+      };
+      client_threads_board: {
+        Args: { p_today?: string | null };
+        Returns: { row_key: string | null; grp: string | null; kind: string | null; client_id: string | null; client_name: string | null; client_no: number | null; conversation_id: string | null; update_id: string | null; who: string | null; numbers: string | null; channels: string[] | null; last_at: string | null; last_channel: string | null; last_sender_kind: string | null; last_sender: string | null; last_body: string | null; last_status: string | null; last_media_url: string | null; waiting_hours: number | null; quiet_days: number | null; assigned_staff_id: string | null; assigned_name: string | null; unread: number | null; next_scheduled: string | null; next_update: string | null; failed: number | null; drafts: number | null; consent_missing: boolean | null; opted_out: boolean | null; can_text: boolean | null; status: string | null }[];
+      };
       clients_board: {
         Args: { p_today?: string | null };
         Returns: { client_id: string | null; name: string | null; stage: string | null; goal: string | null; counselor: string | null; assigned_to: string | null; days_in_stage: number | null; services: string[] | null; chip: string | null; chip_urgency: number | null; last_note: string | null; last_note_on: string | null }[];
@@ -8205,6 +8222,10 @@ export type Database = {
       close_ledger_month: {
         Args: { p_month: string | null; p_note?: string | null };
         Returns: undefined;
+      };
+      collect_contact: {
+        Args: { p_channel: string | null; p_ref: string | null; p_note?: string | null };
+        Returns: string;
       };
       confirm_authorization_document: {
         Args: { p_attachment?: string | null; p_doc?: string | null; p_auth?: string | null; p_number?: string | null; p_service_type?: string | null; p_rate_type?: string | null; p_rate?: number | null; p_total_hours?: number | null; p_start?: string | null; p_end?: string | null };
@@ -8541,6 +8562,10 @@ export type Database = {
       link_document_to_authorization: {
         Args: { p_doc: string | null; p_auth: string | null; p_category: string | null; p_start?: string | null; p_end?: string | null; p_outcome?: string | null; p_ocr?: boolean | null };
         Returns: { attachment_id: string | null; start_filled: boolean | null; end_filled: boolean | null; conflicts: string | null }[];
+      };
+      log_a_call: {
+        Args: { p_client: string | null; p_text: string | null; p_category: string | null; p_on?: string | null; p_outcome?: string | null };
+        Returns: string;
       };
       log_mail_message: {
         Args: { p_client_id: string | null; p_counselor_id: string | null; p_message_id: string | null; p_conversation_id: string | null; p_subject: string | null; p_sent_at: string | null; p_direction: string | null; p_counterpart: string | null; p_web_link: string | null; p_filed_how?: string | null };

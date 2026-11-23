@@ -146,8 +146,17 @@ export function TextThread({
       )}
 
       {!canSend ? (
+        /**
+         * The roles the policy on `sms_messages` admits are Admin, Job Search
+         * and Reports (ruling 6c, 23 November 2026). Everybody else was shown
+         * this box, allowed to type into it, and refused by a row-level
+         * policy on the way out - so the sentence says what they can do
+         * instead, and a job coach who rings a client all day has somewhere
+         * to put the call.
+         */
         <p className="lock" style={{ marginTop: 10 }}>
-          Your role does not send texts.
+          Your role does not send texts.{" "}
+          <Link href={`/communication/threads?c=${clientId}`}>Log a call</Link> instead.
         </p>
       ) : !canText ? (
         <p className="lock" style={{ marginTop: 10 }}>

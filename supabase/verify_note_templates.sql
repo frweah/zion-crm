@@ -82,10 +82,10 @@ begin
   end if;
 
   -- ── changing the headings leaves written notes alone ───────
-  insert into public.notes (client_id, staff_id, staff_name, text, type)
+  insert into public.notes (client_id, staff_id, staff_name, text, type, method)
   values (v_client, v_admin, 'ZZ Test',
           E'Where, and how long:\nAt the store, an hour.\n\nWhat was worked on:\nThe register.',
-          'Coaching session')
+          'Coaching session', 'In person')
   returning id, text into v_note, v_text;
 
   perform set_config('role', 'authenticated', true);

@@ -11472,3 +11472,133 @@ terms, and what failed was the arithmetic assertion - that the budget cannot
 add more to the job than the job's timeout has to spare. The hardcoded
 `/screen-14` in that fixture was a roster where a rule belonged, and it now
 derives from the budget.
+
+## The client threads board (23 November 2026)
+
+Four screens answered "who is waiting on us" and none of them answered it.
+The survey is `docs/timing/communications.md`, written before anything
+changed; the number that decided the shape of this is that the three screens
+which came closest gave **22, 8 and 4**:
+
+- the texts inbox: 22 threads whose last word was theirs;
+- the Inbox badge and Home: 8 conversations with something *unread*;
+- and the truth, once an email, a logged contact or a note counted as an
+  answer: **4 clients**, two of them waiting more than two days.
+
+Fourteen of the twenty-two had been answered on another channel and no screen
+could see it. A nag list that is wrong five times in seven is a nag list
+people stop reading, so the owner's ruling 4 is that a reply is a reply on any
+channel, and that the rule lives in a database function where a verify script
+can put a fault in it.
+
+### What the board is
+
+One row per client with every number and every channel folded in, in the six
+groups a person works: Needs a reply, Waiting on your approval, Failed or
+stuck, Quiet 14+ days, Not a client yet, and Up to date collapsed. Six tiles
+that are filters rather than counts. The same chrome as the other three
+boards, because this is the fourth of the same screen.
+
+Three kinds of row, which the groups force: a client, a Friday draft waiting
+on somebody with its own Approve and its own Send, and whoever is not a client
+yet — the website chats and the six text threads from numbers nobody has
+placed, which were a seventh view of an inbox somebody had to know about.
+
+Clicking a row opens the thread beside it: texts, logged calls and the
+counselor email filed on the record, in one dated stream with chips for All,
+Texts, Calls and Email. Nothing sends from a row. The reply box names the
+number it will send to and the day that number agreed, because the number is
+the thing this screen gets wrong if it gets anything wrong — a client, their
+partner and their daughter-in-law are three numbers on one record and two of
+them may not be textable.
+
+### Dates and times are not the same question
+
+A text and an email happened at a moment. A contact-log line and a note are
+dated by the day. So the day-dated things count as a reply when their day is
+on or after the day the client wrote, which is the owner's wording and also
+the only reading that does not call a note written that afternoon "no reply".
+The function carries both: `said_at` for the timestamped channels and
+`said_on` for the dated ones.
+
+### Calls got a home, and the chip got honest
+
+`contact_log` has had a `method` column since the beginning and not one of its
+369 rows said Phone. What was in there is a list of *events* — "End of day
+report", "Stage change", "Billing submitted" — written by code, because the
+only screen that ever offered a person the choice is the counselor contact log
+and nobody has used it. So the practice made calls all day and the record said
+nothing about them.
+
+Two halves, and they are different columns on different tables:
+`notes.method` is how a contact happened, in the person's own words from a
+list of four; `contact_log.method` is what the line *is*, and now has Call,
+Text and Email in it so that filing a text or a call onto a client's month has
+something true to write.
+
+The chip that counts them was counting everything. November holds 221
+contact-log lines across 19 clients and **4 of them are contacts** — three
+appointments and one emailed report. After ruling 5 the chip says 4 across 3
+clients. October goes from 136 lines across 23 clients to 15 across 9. The
+rest was the practice's paperwork about itself, and a counselor reading "11
+contacts and calls" was reading the end-of-day roll-up.
+
+### Three faults the survey found, and a fourth found on the way
+
+**The client record's Messages tab was empty for two clients.** It asked for
+one text thread with `maybeSingle()`, and a thread has been one number since
+0332. Production answered `PGRST116: the result contains 3 rows`, the error
+was dropped, and the tab rendered as though the client had never texted. It
+reads every thread now, in one dated column, with each message carrying whose
+number it came from.
+
+**"Cannot text" on the inbox answered about the client, not the number.** The
+chip read `client_sms_consent`; the row is a number. It reads
+`sms_consent_numbers` now, which is the view the sending gate itself uses, so
+a chip and a refusal cannot disagree.
+
+**Two roles were shown a send box the database refuses.** `CAN_EDIT_CLIENTS`
+is five roles and the policy on `sms_messages` admits three. A Job Coach typed
+a text and was stopped by a row-level policy. They are offered Log a call now,
+which is the thing they can do and had nowhere to go until this.
+
+And the fourth, found while wiring Part 3: **every note added from the "+"
+was refused.** `addNote` has required a category since the reports brief and
+quick-add has never sent one, so the quick box — which exists precisely to
+catch the note somebody would otherwise not write — answered "Say which
+service this note is about" every time. It sends the category the client's
+stage implies, the way the Notes tab guesses it.
+
+### Two things that are worth knowing before changing any of this
+
+**A fault that cannot be caught from one seat is not caught.** The
+Personal-note assertion passed with the exclusion removed, because a Personal
+note is invisible to a Job Search reader by row-level policy: the test could
+not tell "the board leaves Personal notes out" from "the reader could not see
+it anyway". For an **Admin**, who can see it, a board that relied on the
+policy would quietly change its mind — the same client owed a reply for one
+person and up to date for another. There is an Admin seat in the verify script
+now, and that is what catches it.
+
+**A changed return type needs a drop.** The board handed out `last_direction`
+and `last_who` until `check-text-rows` refused it: deciding what "from them"
+means is `lastLine`'s job and nobody else's, which is why the inbox and the
+client's record cannot describe one text two ways. Fixing it changed the
+function's column list, so 0379 drops before it creates and restates its
+grants — `create or replace` cannot change what a function returns.
+
+### What is proved, and how
+
+- `verify_the_threads_board.sql`: fifteen sections, from a reply on any
+  channel to who may write an outgoing text. **Thirteen faults put back,
+  thirteen caught**, each inside one transaction that ends in rollback so
+  production never holds a broken function.
+- `check-threads.mjs`, in prebuild: the four method vocabularies against the
+  migration that gives them to the database, the groups against the function
+  that emits them, and the panel against ruling 6c. **Twenty-five faults put
+  back, twenty-five caught** — after one of them proved my own assertion was
+  asking whether a word appeared rather than whether the door was used.
+- The deploy check opens the board as every role account, follows its own link
+  into a thread, and asserts the reply box says which number it would send to.
+  **It sends nothing**, by ruling 7: a deploy check that presses Send texts a
+  real client every time anybody pushes.

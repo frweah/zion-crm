@@ -123,6 +123,16 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M16 10l-2 2 2 2" />
     </>
   ),
+  // Calendar, a group of its own since 23 November 2026. A month with its
+  // heading, which is what the screen draws.
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 3v4M16 3v4" />
+      <path d="M7.5 14h3M13.5 14h3M7.5 17.5h3" />
+    </>
+  ),
   "side-wide": (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />

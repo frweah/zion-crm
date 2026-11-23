@@ -23,6 +23,11 @@ export type FeedExtras = {
 /** The kinds, in the order the chips are shown. */
 export const ACTIVITY_KINDS = [
   "Note",
+  // A call, back as a kind of its own (Part 3, 23 November 2026). A note
+  // whose method is Phone reads as a Call in `client_activity`, so the chip
+  // has something to filter and a phone call stops looking like a piece of
+  // writing.
+  "Call",
   "Recording",
   "Job",
   "Interview",
