@@ -554,6 +554,42 @@ begin
     raise notice '  ok  a Job Coach cannot text a client, and Job Search can';
   end if;
 
+  -- ── 13b. a contact who says STOP is a number, not a client ───
+  --
+  -- The fourth refusal ruling 7 names, at the level this board works at.
+  -- verify_sms proves a text after STOP is refused for the client's own
+  -- number; this is the partner's, which is the number the panel offers when
+  -- the client's own has never agreed - and the refusal has to name the
+  -- person whose number it is, because "they have not agreed" about somebody
+  -- who did is how a screen sends a client's business to the wrong phone.
+  v_mark := coalesce(array_length(failures, 1), 0);
+  insert into public.sms_consent_events (client_id, contact_id, state, phone, method, note, staff_id)
+  values (v_partner, v_contact, 'Withdrawn', public.normalize_phone('385-555-0211'),
+          'Text reply', 'Replied STOP', v_js);
+  select can_text into v_said from public.sms_consent_numbers
+   where client_id = v_partner and phone = public.normalize_phone('385-555-0211');
+  if v_said is distinct from 'false' then
+    failures := failures || 'FAILED: a contact''s number still reads as textable after STOP'::text;
+  end if;
+  begin
+    insert into public.sms_messages (client_id, direction, phone, body, kind, status, created_by)
+    values (v_partner, 'Outgoing', public.normalize_phone('385-555-0211'), 'After the stop', 'Manual', 'Queued', v_js);
+    failures := failures || 'FAILED: a text went to a contact''s number after they replied STOP'::text;
+  exception when check_violation then
+    if sqlerrm not like '%ZZ Partner%' then
+      failures := failures || format('FAILED: the refusal does not name whose number it is: %s', sqlerrm)::text;
+    end if;
+  end;
+  -- And the board says so on the row.
+  select opted_out::text into v_said from public.client_threads_board()
+   where kind = 'client' and client_id = v_partner;
+  if v_said is distinct from 'true' then
+    failures := failures || 'FAILED: the board does not show the client as having a number that opted out'::text;
+  end if;
+  if coalesce(array_length(failures, 1), 0) = v_mark then
+    raise notice '  ok  a contact who replies STOP stops that number, and the refusal names them';
+  end if;
+
   -- ── 14. nobody who is not signed in, and no system account ───
   v_mark := coalesce(array_length(failures, 1), 0);
   perform set_config('request.jwt.claims',
