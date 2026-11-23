@@ -11602,3 +11602,25 @@ grants — `create or replace` cannot change what a function returns.
   into a thread, and asserts the reply box says which number it would send to.
   **It sends nothing**, by ruling 7: a deploy check that presses Send texts a
   real client every time anybody pushes.
+
+### And the deploy check found the one fault nothing local could
+
+The first push of this failed on production and rolled it back, forty seconds
+into the run, with `ReferenceError: Cannot access 'unescape' before
+initialization`. The threads block had been inserted above the `const` that
+`actionForms` reads: a function declaration is hoisted and a const it closes
+over is not, so the order of statements in a 1,900-line module is part of
+whether it works. Nothing local could find it, because without SMOKE_BASE_URL
+the module exits before it reaches its own first statement.
+
+`check-deploy-check.mjs` asks both halves of that now, in prebuild, with no
+credentials: the file parses, and every top-level call of a helper comes after
+the consts that helper reads. Put the fault back and it says
+
+    line 1095 calls invokeOne(), which reads "unescape" - and unescape is not
+    declared until line 1188. It will throw "Cannot access before
+    initialization" on the real run.
+
+Two faults put back, two caught. The rollback worked exactly as it is built
+to: production served the previous commit for the eighteen minutes it took to
+find the fault, write the check, and push again.

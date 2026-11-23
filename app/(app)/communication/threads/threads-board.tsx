@@ -236,9 +236,15 @@ export function ThreadsBoard({
 
   let rowNumber = 0;
 
-  /** Where a row opens: a client by their id, a stranger by the thread's. */
+  /**
+   * Where a row opens: a client by their id, a stranger by the thread's.
+   *
+   * A draft row opens the client's thread rather than its own, because the
+   * thread is the client's - the draft is one text waiting to go out on it,
+   * and the panel is where somebody reads what was said before approving it.
+   */
   const href = (r: ThreadRow) =>
-    `/communication/threads?c=${r.kind === "client" ? r.client_id : r.conversation_id}`;
+    `/communication/threads?c=${r.kind === "stranger" ? r.conversation_id : r.client_id}`;
 
   const cell = (r: ThreadRow, key: string) => {
     switch (key) {
