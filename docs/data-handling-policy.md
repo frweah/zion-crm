@@ -117,6 +117,38 @@ Admin and HR are already shut to a Case Manager at the navigation and at the
 database, with their own staff record, hours and certifications reached from
 their profile.
 
+## Nobody writes the ledger from outside the practice
+
+The money tables - payments, invoices, the authorization correction log and
+the warrant decisions - are written in one of two ways and no third. Either a
+person does it on a screen, which goes through the one database function for
+that act and stamps their name on the row, or the practice's own reader does
+it while reconciling a warrant page, which goes through the same function and
+is answerable to the page the stub came from.
+
+Nothing else writes them. Not a spreadsheet, not a connected tool, and not an
+assistant working with a database key, however it is asked and whoever asks.
+A write that arrives from outside those functions is refused unless it names
+an active member of staff, so there is no such thing here as an entry in the
+ledger that nobody is answerable for.
+
+This is a rule and not a hope: the refusal is in the database, it fires for
+every connection including the ones that go round the ordinary permissions,
+and `verify_the_ledger_says_who.sql` puts it back wrong seven ways to confirm
+it is still there.
+
+It exists because of 23 November 2026. An assistant working for the owner
+read three warrant stubs and recorded the four payments they covered -
+correctly, as the stubs proved the next day - by writing to the database
+directly. The entries named no staff member, because nothing required one,
+and three of the four were missing the invoice they paid, which another check
+found the following evening. The money was right and the record was not
+answerable, and those are different things.
+
+Where a repair by hand is the only way, it names the person whose act it is,
+and it is written down here with what was changed and why - the way the two
+corrections of 24 November 2026 were.
+
 ## What happens if this is broken
 
 Depending on what happened: retraining, removal of access, or dismissal, and

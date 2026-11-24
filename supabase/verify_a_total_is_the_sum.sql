@@ -25,13 +25,16 @@ begin;
 
 do $$
 declare
-  v_client uuid; v_counsel uuid; v_auth uuid;
+  v_client uuid; v_counsel uuid; v_auth uuid; v_staff uuid;
   v_doc uuid; v_page_a uuid; v_page_b uuid; v_line_a uuid; v_line_b uuid; v_line_c uuid;
   v_outcome text; v_total numeric; v_n integer;
   failures text[] := '{}';
 begin
   insert into public.counselors (name, email, office)
   values ('ZQ Sum Counselor', 'zq-sum@example.test', 'Salt Lake City') returning id into v_counsel;
+  -- A payment says who recorded it (0386), so the fixture needs somebody.
+  insert into public.staff (name, email, role, active)
+  values ('ZZ Sum Biller', 'zz-sum-biller@example.test', 'Billing', true) returning id into v_staff;
   insert into public.clients (name, stage, status, counselor_id)
   values ('ZZ Sum Testperson', 'Job Search', 'Active', v_counsel) returning id into v_client;
 
@@ -68,8 +71,8 @@ begin
   set constraints all deferred;
 
   insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source,
-                               recorded_by_name)
-  values (v_auth, 585, 'F19999001', public.practice_today() - 40, 'ZQ-V-1', 'By hand', 'ZQ');
+                               recorded_by, recorded_by_name)
+  values (v_auth, 585, 'F19999001', public.practice_today() - 40, 'ZQ-V-1', 'By hand', v_staff, 'ZQ');
   if (select coalesce(paid_amount, 0) from public.authorizations where id = v_auth) <> 585 then
     failures := failures || 'FAILED: adding a payment did not reach the total'::text;
   else
@@ -77,8 +80,8 @@ begin
   end if;
 
   insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source,
-                               recorded_by_name)
-  values (v_auth, 585, 'F19999002', public.practice_today() - 10, 'ZQ-V-2', 'By hand', 'ZQ');
+                               recorded_by, recorded_by_name)
+  values (v_auth, 585, 'F19999002', public.practice_today() - 10, 'ZQ-V-2', 'By hand', v_staff, 'ZQ');
   if (select coalesce(paid_amount, 0) from public.authorizations where id = v_auth) <> 1170 then
     failures := failures || 'FAILED: a second payment did not reach the total'::text;
   else
@@ -125,8 +128,8 @@ begin
   -- Paid from one warrant, named again on another. The old rule refused the
   -- second line; it is an ordinary second payment.
   insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source,
-                               recorded_by_name)
-  values (v_auth, 585, 'F19999001', public.practice_today() - 40, 'ZQ-V-1', 'By hand', 'ZQ');
+                               recorded_by, recorded_by_name)
+  values (v_auth, 585, 'F19999001', public.practice_today() - 40, 'ZQ-V-1', 'By hand', v_staff, 'ZQ');
 
   insert into public.warrant_documents (sha256, filename, relative_path, page_count)
   values (repeat('a', 64), 'zq-warrant.pdf', 'zq-warrant.pdf', 1) returning id into v_doc;

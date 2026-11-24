@@ -125,8 +125,9 @@ begin
   update public.authorizations
      set status = 'Paid', paid_on = date '2026-01-15', paid_amount = 560
    where id = v_auth1;
-  insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name)
-  values (v_auth1, 560, 'ZW0000001', date '2026-01-15', '26PR00000000001', 'Workbook', 'Workbook import')
+  -- A payment says who recorded it (0386).
+  insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by, recorded_by_name)
+  values (v_auth1, 560, 'ZW0000001', date '2026-01-15', '26PR00000000001', 'Workbook', v_admin, 'Workbook import')
   returning id into v_wb_pay;
   perform set_config('zion.reconciling', '', true);
 

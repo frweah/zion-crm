@@ -36,8 +36,9 @@ begin
   )
   values (v_client, 'ZQ9700001', 'Job Placement', 'Flat Fee', 560, 'Paid',
           date '2026-04-06', 560, date '2026-03-20') returning id into v_auth;
-  insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by_name)
-  values (v_auth, 560, 'ZW0000701', date '2026-04-06', '26PR00000000701', 'Workbook', 'Workbook import')
+  -- A payment says who recorded it (0386).
+  insert into public.payments (auth_id, amount, warrant_no, warrant_date, voucher, source, recorded_by, recorded_by_name)
+  values (v_auth, 560, 'ZW0000701', date '2026-04-06', '26PR00000000701', 'Workbook', v_admin, 'Workbook import')
   returning id into v_pay;
 
   -- ── Admin sees it, saying what it is ───────────────────────

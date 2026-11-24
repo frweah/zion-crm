@@ -100,8 +100,9 @@ begin
   -- typed submission date both need a number to exist, so one is written here.
   -- The number is a figure, not a string - the column is a bigint, and the
   -- first version of this read "ZQ-INV-DR-1" and got as far as the insert.
-  insert into public.invoices (number, client_id, auth_id, amount, status, sent_to, source)
-  values (9000001, v_client, v_a1, 500, 'Submitted', 'zz-office@example.test', 'Backfill')
+  -- An invoice says who sent it (0386).
+  insert into public.invoices (number, client_id, auth_id, amount, status, sent_to, source, submitted_by)
+  values (9000001, v_client, v_a1, 500, 'Submitted', 'zz-office@example.test', 'Backfill', v_bil)
   returning id into v_inv;
 
   perform set_config('role', 'authenticated', true);

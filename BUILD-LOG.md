@@ -11837,3 +11837,85 @@ something warrant-shaped:
 That is the answer to the question the first scan could not ask. A scan run
 as one seat says what that seat can see; a scan run as nobody says what is
 there, and the two together say which rule is doing the work.
+
+## 24 November 2026 — the three invoices, and the ledger says who did it
+
+The owner confirmed it: the four payments of 23 November were his, recorded
+from warrant stubs by another session working for him. Three of them were on
+authorizations this practice had never raised an invoice for, which is what
+`verify_invoices` had been failing on.
+
+Rehearsed first, inside a transaction that was thrown away. That cost nothing,
+because invoice numbers here come from max+1 under an advisory lock rather
+than a sequence (0323) - the fix for a rollback that had spent 138 claim
+numbers. Then raised for real through `raise_invoice`, in the owner's name,
+and each existing payment linked to the invoice it pays: V1044403 claim
+957908 at $560, V1044400 claim 957909 at $900, V1046527 claim 957910 at $585.
+The numbers jump from 955636 because the floor reads the warrant stubs as well
+as the ledger, so a claim number USOR has already paid against cannot be
+handed out twice even when this practice never recorded it. Each invoice came
+out Paid the moment its payment pointed at it, which is the trigger that
+follows the money doing its job.
+
+### The part that was missing
+
+The money was right. What was wrong is that four rows in the money tables
+named nobody: `recorded_by` null, and a `recorded_by_name` no account here
+issues. Grants were never the gap - nobody signed in can write `payments`,
+`invoices`, `authorization_corrections` or `warrant_lines` at all, which is
+how the ledger has been held since 0114 - but the service role and a direct
+connection go round grants and row level security both, and that is the door
+0386 closes.
+
+A write to those four tables now has to be one of two things: inside one of
+the ledger's own ten functions, or naming a real active member of staff. The
+first is how every real path works, including the ones with no person behind
+them - the reader reconciling a warrant page runs as the service role with no
+staff id, and `reconcile_warrant_line` is what vouches for it. The second is
+what a repair by hand has to do: say whose act it is. Anything else is refused
+with a sentence.
+
+It asks by reading its own call stack, not a session variable. The practice
+already has the variable convention - `zion.reconciling`, set and cleared by
+the function around its work - and it is the right shape for telling a trigger
+what is happening. It is the wrong shape for a rule about who may write, since
+anybody who can write directly can set a variable. A call stack cannot be
+arranged without calling the function.
+
+Three things the faults taught, none of which was in the design:
+
+The trailing bracket in `function <name>(` is load-bearing. A fault that
+trusted `inline_code_block` - the name a DO block prints under - changed
+nothing, because an inline block prints as `function inline_code_block line
+13` with no parentheses. Had the check matched on the name alone, every hand
+written DO block in the practice would have counted as a ledger function.
+
+Dropping `raise_invoice` from the trusted list does not break raising
+invoices, and should not: the function stamps a real active person, so the
+attribution half lets it through. The only thing that notices is the
+assertion that reads the list out of the function and compares it with the
+catalog - which is why that assertion exists, and why it found
+`reconcile_warrant_page` on the list writing nothing at all.
+
+And the assertion about a staff id that does not exist is held by the foreign
+key, not by the new rule. Worth knowing, because a reader would otherwise
+think the guard was carrying it.
+
+### What was not done
+
+`payments.recorded_by` is not NOT NULL. 147 of the 164 payments on file have
+none: they came from the workbook and from warrant stubs before there was a
+person to record, and filling 147 rows in with the owner's name would be
+inventing an authorship to satisfy a constraint. A NOT VALID check would
+refuse any later edit of those rows, which is exactly what reconciliation
+does to them - linking tonight's three payments to their invoices would have
+been refused by it. So the rule is enforced where authorship is actually
+decided, on the way in, and the 147 are left saying what they honestly know.
+
+Nine fixtures across six verification scripts were writing ledger rows with
+no author, and now name one; two more were already asserting that even an
+Admin cannot write a payment or a correction directly, and those were left
+exactly as they were. 164 of 164 scripts pass. The policy says it in words as
+well, in `docs/data-handling-policy.md`: nobody writes the ledger from
+outside the practice, and that section names the day it was written on and
+why.

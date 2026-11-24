@@ -137,8 +137,9 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   begin
-    insert into public.authorization_corrections (auth_id, auth_number, field, was_value, new_value, reason)
-    values (v_real, 'V0000001', 'Document', 'scan.pdf', 'taken off', 'OCR shows another number');
+    -- A correction says who made it (0386).
+    insert into public.authorization_corrections (auth_id, auth_number, field, was_value, new_value, reason, staff_id, staff_name)
+    values (v_real, 'V0000001', 'Document', 'scan.pdf', 'taken off', 'OCR shows another number', v_admin, 'ZZ Placeholder Admin');
     update public.attachments set review_note = 'OCR reads a different number' where storage_path = 'inbox/zx/1.pdf';
     raise notice 'ok  the log takes a document taken off an authorization, and a file takes a review note';
   exception when others then
