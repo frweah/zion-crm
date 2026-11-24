@@ -11798,3 +11798,42 @@ did not carry `apply_system_read_only`. Neither was reachable, because both
 refuse every write from anybody signed in, but `verify_system_account` asks
 the catalog rather than the author and found them in a second. That is twice
 now, which is why it asks the catalog.
+
+### The two comments, and what the whole scan found
+
+The owner approved it the same evening and both comments were changed: each
+warrant or voucher number became "(on the payment)", nothing else in either
+sentence moved, and each is logged in `client_corrections` as
+`task_comments.said` - beside the two `tasks.title` corrections already there,
+because a change to something a person wrote about a client goes on that
+client's record. That table is read by any active staff member, so the old
+value is written with the number taken out and the reason says where it went.
+`verify_no_warrant_in_prose` passes.
+
+Then the same scan was run again with no row level security at all, over
+every text column in the practice, to answer the other half of the question -
+what is there that a Billing seat simply cannot see. Fourteen columns hold
+something warrant-shaped:
+
+  the five that are supposed to - `payments.warrant_no` and `.voucher`,
+  `invoices.warrant` and `.voucher`, `authorizations.warrant` - none of them
+  granted to `authenticated` at all;
+
+  the warrant tables, which are the warrant stubs themselves: `warrant_lines`
+  (raw, voucher, problem), `warrant_pages` (ocr_text, warrant_no) and
+  `warrant_documents` (filename, relative_path). Those columns are granted,
+  and the rows are not: every one of those tables answers `warrant_hands()`,
+  which is Admin and nobody else;
+
+  and `authorization_corrections`, which is the only one of the fourteen that
+  a non-Admin can read rows from at all. Twenty-six matches, five in
+  `new_value` and twenty-one in `reason`, and seventeen of them on fields that
+  are not 'Warrant' - Amount paid, Paid on, Status, Closed reason. Every one
+  of those seventeen is in `correction_is_admins`, which is the 0364
+  mechanism: a correction whose words name a warrant is Admin's whatever field
+  it is filed under. So the number a non-Admin seat can read is zero, and it
+  is zero because of a rule rather than by luck.
+
+That is the answer to the question the first scan could not ask. A scan run
+as one seat says what that seat can see; a scan run as nobody says what is
+there, and the two together say which rule is doing the work.
