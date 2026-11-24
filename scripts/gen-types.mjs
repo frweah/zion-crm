@@ -389,6 +389,12 @@ const RPC_FUNCTIONS = [
   // (0379). A call and a collected contact are written by the database so
   // that neither can be written by half.
   "client_threads_board",
+
+  // The Friday text lists the week, and a reply answers it (0387-0389).
+  "client_said_no_to",
+  "weekly_update_list",
+  "weekly_update_invitation",
+  "sms_segments",
   "client_thread_stream",
   "collect_contact",
   "log_a_call",

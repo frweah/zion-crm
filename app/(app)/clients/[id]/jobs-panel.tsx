@@ -49,6 +49,28 @@ export type JobRow = {
 };
 
 /**
+ * What the client said about working there (0387-0389).
+ *
+ * Their reply to the Friday text, newest first. `said` is the message they
+ * sent, whole: the screen shows the answer and their sentence, because "too
+ * far by bus" is the part anybody can act on.
+ */
+export type FeedbackRow = {
+  match_id: string;
+  answer: string;
+  said: string;
+  at: string;
+};
+
+/** The newest answer per application. */
+function newestByMatch(feedback: FeedbackRow[]): Map<string, FeedbackRow> {
+  const out = new Map<string, FeedbackRow>();
+  // The rows arrive newest first, so the first one seen for a match is theirs.
+  for (const f of feedback) if (!out.has(f.match_id)) out.set(f.match_id, f);
+  return out;
+}
+
+/**
  * Where an application got to, one entry at a time (0270).
  *
  * Latest first, which is the order the screen reads them in.
@@ -201,11 +223,13 @@ function JobItem({
   job,
   clientId,
   statuses,
+  said,
   canRecordStatus,
 }: {
   job: JobRow;
   clientId: string;
   statuses: StatusRow[];
+  said: FeedbackRow | null;
   canRecordStatus: boolean;
 }) {
   const [state, action, pending] = useActionState(updateClientJob, initial);
@@ -219,6 +243,25 @@ function JobItem({
       <div className="row2" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <b>{job.employer_name}</b>
+        {/*
+          What the client said, before anything staff wrote. It is the only
+          line on this card that is not ours, so it says whose it is.
+        */}
+        {said && (
+          <div style={{ marginTop: 4 }}>
+            <span className={"chip " + (said.answer === "Yes" ? "ok" : "warn")}>
+              {said.answer === "Yes" ? "Would work there" : "Would not work there"}
+            </span>
+            {said.said && (
+              <span style={{ fontSize: "var(--text-sm)", marginLeft: 6 }}>
+                &ldquo;{said.said}&rdquo;
+              </span>
+            )}
+            <span className="lock" style={{ marginLeft: 6 }}>
+              their reply, {said.at.slice(0, 10)}
+            </span>
+          </div>
+        )}
         <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)" }}>
           {job.title}
           {job.hours_week && ` · ${job.hours_week}`}
@@ -415,13 +458,18 @@ function JobItem({
 function AddJob({
   clientId,
   employers,
+  saidNo,
 }: {
   clientId: string;
   employers: { id: string; name: string }[];
+  /** Employers this client has said they would not work at, and why. */
+  saidNo: Map<string, FeedbackRow>;
 }) {
   const [state, action, pending] = useActionState(addClientJob, initial);
   const [open, setOpen] = useState(false);
   const [newEmployer, setNewEmployer] = useState(false);
+  const [chosen, setChosen] = useState("");
+  const warned = saidNo.get(chosen) ?? null;
 
   if (!open) {
     return (
@@ -443,7 +491,12 @@ function AddJob({
             {newEmployer ? (
               <input name="new_employer" required placeholder="Name of the employer" />
             ) : (
-              <select name="employer_id" required defaultValue="">
+              <select
+                name="employer_id"
+                required
+                defaultValue=""
+                onChange={(e) => setChosen(e.target.value)}
+              >
                 <option value="" disabled>
                   Choose…
                 </option>
@@ -462,6 +515,16 @@ function AddJob({
             >
               {newEmployer ? "Choose from the directory instead" : "Not in the directory yet"}
             </button>
+            {/*
+              Said at the moment it matters, which is before the application
+              is made rather than on the record afterwards.
+            */}
+            {warned && (
+              <div className="alert warn" style={{ marginTop: 6 }}>
+                They said on {warned.at.slice(0, 10)} they would not work here
+                {warned.said ? `: "${warned.said}"` : ""}
+              </div>
+            )}
           </label>
           <label className="field" style={{ flex: 2 }}>
             Position
@@ -566,6 +629,7 @@ export function JobsPanel({
   jobs,
   employers,
   statuses,
+  feedback,
   canEdit,
   canRecordStatus,
 }: {
@@ -573,9 +637,22 @@ export function JobsPanel({
   jobs: JobRow[];
   employers: { id: string; name: string }[];
   statuses: StatusRow[];
+  feedback: FeedbackRow[];
   canEdit: boolean;
   canRecordStatus: boolean;
 }) {
+  const newest = newestByMatch(feedback);
+  /**
+   * Which employers they have said no to, by the application the answer was
+   * about. Built from the rows already on the page rather than asked for
+   * again: every answer belongs to an application, and every application on
+   * this tab names its employer.
+   */
+  const saidNo = new Map<string, FeedbackRow>();
+  for (const job of jobs) {
+    const f = newest.get(job.match_id);
+    if (f && f.answer === "No" && !saidNo.has(job.employer_id)) saidNo.set(job.employer_id, f);
+  }
   const done = (s: string) => (JOB_DONE as readonly string[]).includes(s);
   const open = jobs.filter((j) => !done(j.status));
   const closed = jobs.filter((j) => done(j.status));
@@ -636,6 +713,7 @@ export function JobsPanel({
                     job={job}
                     clientId={clientId}
                     statuses={history.get(job.match_id) ?? []}
+                    said={newest.get(job.match_id) ?? null}
                     canRecordStatus={canRecordStatus}
                   />
                 ),
@@ -659,7 +737,7 @@ export function JobsPanel({
 
       {canEdit && (
         <div style={{ marginTop: 10 }}>
-          <AddJob clientId={clientId} employers={employers} />
+          <AddJob clientId={clientId} employers={employers} saidNo={saidNo} />
         </div>
       )}
     </section>

@@ -28,7 +28,7 @@ import { BoardGrid } from "../../billing/board-grid";
 import { readBoard } from "@/lib/billing-board";
 import { byClient } from "@/lib/billing-board-shape";
 import { readHours, readJobs, readLastContact, readReport } from "@/lib/client-dashboard";
-import { JobsPanel, type JobRow, type StatusRow } from "./jobs-panel";
+import { JobsPanel, type JobRow, type StatusRow, type FeedbackRow } from "./jobs-panel";
 import {
   DirectoryHistory,
   DIRECTORY_CHANGE_COLUMNS,
@@ -745,7 +745,7 @@ export default async function ClientPage({
 
   // ── Jobs ───────────────────────────────────────────────────
   if (tab === "jobs") {
-    const [{ data: jobs }, { data: employers }, { data: statuses }, { data: placements }] = await Promise.all([
+    const [{ data: jobs }, { data: employers }, { data: statuses }, { data: placements }, { data: feedback }] = await Promise.all([
       supabase
         .from("client_job_history")
         .select("*")
@@ -767,6 +767,16 @@ export default async function ClientPage({
         .select("id, employer, title, start_date, wage, hours_week, check30, check60, check90, jp_submitted, jp_paid, shifts_worked, fifth_shift_on, stability_on, stability_basis, employer_benefits, stem_occupation, rural_client")
         .eq("client_id", id)
         .order("start_date", { ascending: false, nullsFirst: false }),
+      // What the client said about working at each place, newest first
+      // (0387-0389). Their own words, so the tab can show the answer beside
+      // the application and warn before a new one is made to the same
+      // employer.
+      supabase
+        .from("application_feedback")
+        .select("match_id, answer, said, at")
+        .eq("client_id", id)
+        .order("seq", { ascending: false })
+        .limit(400),
     ]);
 
     const rows = (placements ?? []) as PlacementRow[];
@@ -789,6 +799,7 @@ export default async function ClientPage({
           jobs={(jobs ?? []) as JobRow[]}
           employers={(employers ?? []) as { id: string; name: string }[]}
           statuses={(statuses ?? []) as StatusRow[]}
+          feedback={(feedback ?? []) as FeedbackRow[]}
           canEdit={canEdit}
           canRecordStatus={canRecordStatus}
         />

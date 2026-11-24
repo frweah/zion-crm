@@ -11919,3 +11919,105 @@ exactly as they were. 164 of 164 scripts pass. The policy says it in words as
 well, in `docs/data-handling-policy.md`: nobody writes the ledger from
 outside the practice, and that section names the day it was written on and
 why.
+
+## 24 November 2026 — the Friday text lists the week, and a reply answers it
+
+The portal brief was stopped and this replaces it: no new screens for the
+client, no invitations, nothing to sign in to. The Friday text numbers the
+places they applied to and ends with one line asking what they think, and
+their reply lands on the application.
+
+### What the report found before any of it was built
+
+**The reply this asks for was already a consent keyword.**
+`record_incoming_sms` reduced an incoming body to its letters -
+`regexp_replace(body, '[^A-Za-z]', '')` - and matched the carrier keywords
+against that. "3 YES" reduced to "YES", which is in the opt-in list, so the
+exact reply the new text asks for would have been recorded as *consent given
+by text* and never as a rating. It now strips punctuation and spaces only, so
+a digit cannot vanish, and the rating is parsed before the keywords are
+considered. One behaviour changed with it, deliberately: "YES 3" no longer
+grants consent, because it is no longer the word YES. A bare YES, which is
+what the carrier rules are about, is untouched.
+
+**The text was already at the single-segment boundary.** Today's body is 146
+to 164 characters, average 160 - and that average is the empty-week wording,
+because nobody has logged an application since 2 November. A real week is five
+applications (p90 six, max seven). The invitation line is 116 characters. One
+employer on file is spelled with a typographic apostrophe, which would turn
+every Friday text in the practice into UCS-2 at 67 characters a part, and one
+job title on file is 342 characters long. So `sms_plain` folds the
+punctuation, `cut_to` caps the label, and the result is measured rather than
+hoped at: a four-application week came out at 308 characters and three parts,
+and the worst week on file is also three.
+
+**And the practice had already ruled the other way.**
+`weekly_update_facts` carries a count and not a list on purpose - "a text
+listing five employers is a text that reads as a report". The owner reversed
+that for the client's own copy. It stands for a contact's copy, which still
+gets the count: listing where somebody else's client applied is the half of
+that ruling worth keeping, and nothing in the new one asks for it.
+
+### What a reply is allowed to mean
+
+The client's own number, an update actually sent to them inside seven days
+that carried a list, and a number followed by YES, Y, NO or N. Several pairs
+in one message all count. Everything else stays a message for somebody to
+answer: a bare YES or NO, a number on its own, a number that was not on the
+list, any other word, a reply from a contact's number, anything after seven
+days - and the reversed form, "YES 3", because "NO 3" cannot be told from
+"number 3" and a wrong guess there warns the next member of staff off an
+employer the client never rejected.
+
+The numbers are written down as they are sent, in `weekly_update_items`,
+rather than recomputed when the reply arrives. A recomputed list renumbers
+itself the moment anybody logs another application, and a fault proved it: the
+answer lands on the wrong employer.
+
+### What the faults taught
+
+Nine put back, nine caught, and three of them were about the assertions rather
+than the code:
+
+The invitation assertion was self-referential. It asked whether the body
+contained `weekly_update_invitation()`, and the body is built from that same
+function - so a fault that reworded the line passed twice. It now checks the
+owner's words.
+
+The label cap was never exercised. The role is only printed when the same
+employer appears twice in a week, and no fixture had that, so the
+342-character title could not reach the text at all. The fixture now applies
+twice to one employer.
+
+And the guard against a contact's reply counting as the client's is in two
+places - the parser and `record_incoming_sms` - so bending one proved
+nothing. The fault bends both, which is what it would take for the rule to be
+gone.
+
+### The rest of it
+
+A No shows as a warning on the employer when a new application to them is
+started, said at the moment it matters rather than on the record afterwards.
+The answer lands on the Jobs tab beside the application, as the client's
+words. `client_activity` has one more branch so it is in the activity stream
+too, with a chip of its own - and `check-activity-kinds` is in prebuild now,
+because a branch added to that view without a kind added to the tab's list is
+rows that exist, are counted in "All", and can never be filtered to.
+
+It counts as a contact: one `contact_log` line per message, method Text, keyed
+to the message so a provider retry is harmless.
+
+Two things the checks found the moment the tables existed, both of which are
+in the owner's own standing rules. `verify_system_account` wanted
+`apply_system_read_only` on both new tables. `verify_records_request` wanted
+`application_feedback` in the records bundle or on the written list of
+exclusions - and it is not an exclusion: what a client said about where they
+would work is their own sentence about themselves, so it sits inside
+`jobs_applied_for`, beside the application it answers.
+
+`client_activity` and the bundle function were both replaced by dumping their
+own definitions and inserting one anchored block, rather than retyping 12,837
+and 8,238 characters. The one that answers a legal request is not a thing to
+copy by hand.
+
+165 of 165 verify scripts pass.

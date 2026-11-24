@@ -7,6 +7,9 @@
     "agent_heartbeat": [
       "select"
     ],
+    "application_feedback": [
+      "select"
+    ],
     "asset_assignments": [
       "select"
     ],
@@ -759,6 +762,9 @@
       "select"
     ],
     "web_chats": [
+      "select"
+    ],
+    "weekly_update_items": [
       "select"
     ],
     "weekly_updates": [

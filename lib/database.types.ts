@@ -60,6 +60,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      application_feedback: {
+        Row: {
+          id: string;
+          match_id: string;
+          client_id: string;
+          update_id: string | null;
+          answer: string;
+          said: string;
+          sms_id: string | null;
+          at: string;
+          source: string;
+          seq: number;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          client_id: string;
+          update_id?: string | null;
+          answer: string;
+          said?: string;
+          sms_id?: string | null;
+          at?: string;
+          source?: string;
+          seq: number;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          client_id?: string;
+          update_id?: string | null;
+          answer?: string;
+          said?: string;
+          sms_id?: string | null;
+          at?: string;
+          source?: string;
+          seq?: number;
+        };
+        Relationships: [];
+      };
       asset_assignments: {
         Row: {
           id: string;
@@ -6957,6 +6996,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      weekly_update_items: {
+        Row: {
+          id: string;
+          update_id: string;
+          item_no: number;
+          match_id: string;
+          label: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          update_id: string;
+          item_no: number;
+          match_id: string;
+          label?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          update_id?: string;
+          item_no?: number;
+          match_id?: string;
+          label?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       weekly_updates: {
         Row: {
           id: string;
@@ -8212,6 +8278,10 @@ export type Database = {
         Args: { p_clients: string[] | null };
         Returns: { client_id: string | null; kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
       };
+      client_said_no_to: {
+        Args: { p_client: string | null; p_employer: string | null };
+        Returns: { at: string | null; said: string | null }[];
+      };
       client_thread_stream: {
         Args: { p_client: string | null; p_since?: string | null };
         Returns: { item_key: string | null; channel: string | null; at: string | null; direction: string | null; who: string | null; body: string | null; status: string | null; media_url: string | null; media_type: string | null; ref_id: string | null; web_link: string | null; collected: boolean | null }[];
@@ -9300,6 +9370,10 @@ export type Database = {
         Args: { p_form_id: string | null; p_sensitive: Json | null; p_tin_last4: string | null; p_signer: string | null; p_ip: string | null };
         Returns: undefined;
       };
+      sms_segments: {
+        Args: { p_text: string | null };
+        Returns: number;
+      };
       staff_activity: {
         Args: { p_from: string | null; p_to: string | null };
         Returns: { staff_id: string | null; staff_name: string | null; role: string | null; employment_type: string | null; active: boolean | null; hours: number | null; sessions: number | null; days_worked: number | null; statements_submitted: number | null; statements_approved: number | null; amount_paid: number | null; clients_assigned: number | null; tasks_open: number | null; tasks_done: number | null; notes_written: number | null; leads_added: number | null }[];
@@ -9447,6 +9521,14 @@ export type Database = {
       weekly_update_facts: {
         Args: { p_client: string | null; p_from: string | null; p_to: string | null };
         Returns: Json;
+      };
+      weekly_update_invitation: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      weekly_update_list: {
+        Args: { p_client: string | null; p_from: string | null; p_to: string | null };
+        Returns: { item_no: number | null; match_id: string | null; label: string | null }[];
       };
       weekly_update_sent: {
         Args: { p_id: string | null; p_sms: string | null };

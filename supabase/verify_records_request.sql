@@ -69,6 +69,9 @@ declare
     'forms=forms',
     'placements=placements',
     'lead_matches=jobs_applied_for',
+    -- What they said about each of those places, in their own words, from
+    -- their reply to the Friday text (0387-0391).
+    'application_feedback=what_they_said_about_places',
     'calendar_events=appointments',
     'sms_messages=texts',
     'sms_consent_events=texting_consent',

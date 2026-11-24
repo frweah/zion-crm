@@ -30,6 +30,11 @@ export const ACTIVITY_KINDS = [
   "Call",
   "Recording",
   "Job",
+  // What the client said about a place they applied to, in their own words,
+  // from their reply to the Friday text (owner, 24 November 2026). Its own
+  // chip because "would you work there" is a different question from
+  // anything staff recorded about the application.
+  "Rating",
   "Interview",
   "Follow-up",
   "Task",
