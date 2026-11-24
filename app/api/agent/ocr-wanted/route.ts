@@ -64,8 +64,25 @@ export async function POST(request: NextRequest) {
     if (signed?.signedUrl) photos.push({ id: p.id, url: signed.signedUrl, mime: p.mime_type });
   }
 
+  /**
+   * And whether somebody has asked for an extra pass (0382).
+   *
+   * The agent walks the client folders twice a day and wakes every fifteen
+   * minutes for the photos; this is how an afternoon's dropped stub is picked
+   * up without waiting for seven o'clock. The ids travel back with the
+   * manifest, which is the request being answered, and the agent clearing
+   * them is what stops the ask repeating forever.
+   */
+  const { data: asked } = await supabase
+    .from("inbox_scan_requests")
+    .select("id")
+    .is("done_at", null)
+    .order("asked_at")
+    .limit(20);
+
   return NextResponse.json({
     wanted: [...waiting, ...decided].map((d) => ({ hash: d.sha256, path: d.relative_path })),
     photos,
+    scanNow: (asked ?? []).map((a) => a.id),
   });
 }

@@ -267,6 +267,10 @@
     "inbox_runs": [
       "select"
     ],
+    "inbox_scan_requests": [
+      "insert",
+      "select"
+    ],
     "intake_mail": [
       "select"
     ],

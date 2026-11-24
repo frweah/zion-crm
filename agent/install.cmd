@@ -4,9 +4,15 @@ rem  Zion CRM — document agent, one-step install
 rem
 rem  Right-click this file and choose "Run as administrator".
 rem
-rem  It asks for the secret, writes the configuration beside itself,
-rem  registers a scheduled task that runs every 15 minutes, and does
-rem  one run straight away so you can see it work.
+rem  It writes the configuration beside itself - or keeps the one that is
+rem  already there, secret and all - registers two scheduled tasks, and
+rem  does one full run straight away so you can see it work.
+rem
+rem    the client folders and the warrants   10:00 and 19:00
+rem    phone photos, and any extra pass      every 15 minutes
+rem
+rem  Run it again whenever the schedule changes. It asks nothing when a
+rem  configuration is already there.
 rem
 rem  It never touches the watched folder. Uninstalling is one line,
 rem  printed at the end.

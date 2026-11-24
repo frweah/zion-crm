@@ -21,8 +21,16 @@ export async function AgentStatus() {
   const runs = data ?? [];
   const last = runs[0];
   const hoursSince = last ? Math.floor((Date.now() - new Date(last.ran_at).getTime()) / 3600000) : null;
-  // It runs every fifteen minutes. Six hours of silence is a machine that is
-  // off, which is normal overnight; a day is something to look at.
+  /**
+   * The folders are read at 10:00 and 19:00 (owner, 23 November 2026), so a
+   * gap of a few hours is the ordinary state and a day is not.
+   *
+   * Only a full pass leaves a row here: the row is written by the manifest,
+   * which is the folder walk asking what the CRM has not seen. The
+   * quarter-hourly pass that reads phone photos sends no manifest and so
+   * records nothing - this card says when the folders were last read, which
+   * is what it is for, and not whether the photo task is alive.
+   */
   const quiet = hoursSince !== null && hoursSince >= 24;
 
   return (
@@ -32,8 +40,9 @@ export async function AgentStatus() {
           <h3 style={{ marginTop: 0 }}>No contact yet</h3>
           <p className="sub" style={{ margin: 0 }}>
             Nothing has arrived yet. Run <code>install.cmd</code> from the agent folder on the machine
-            that holds the client folders — it registers a task that runs every fifteen minutes and
-            does one run straight away.
+            that holds the client folders — it registers two tasks, one that reads the folders at
+            10:00 and 19:00 and one that reads phone photos every fifteen minutes, and does one
+            full run straight away.
           </p>
         </>
       ) : (
@@ -64,8 +73,9 @@ export async function AgentStatus() {
 
           {quiet && (
             <p className="lock" style={{ margin: "10px 0 0" }}>
-              It runs every fifteen minutes when the machine is on. A quiet night is normal; a quiet
-              day is worth checking. On that machine: Task Scheduler, or{" "}
+              The folders are read at 10:00 and 19:00 when the machine is on, so a few quiet hours
+              are normal and a quiet day is worth checking. Run now above asks for an extra pass on
+              the next wake. On that machine: Task Scheduler, or{" "}
               <code>Get-ScheduledTaskInfo -TaskName &quot;Zion CRM document agent&quot;</code>.
             </p>
           )}

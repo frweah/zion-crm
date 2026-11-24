@@ -11673,3 +11673,58 @@ rather than design.
 Eight faults put back, eight caught. The sixth found a bug in the check: the
 path pattern read `bottom-bar.tsx` as `bottom-bar.ts` and reported a file that
 exists as missing, because the extension alternation tried `ts` before `tsx`.
+
+## The agent reads the folders twice a day (23 November 2026)
+
+The documents agent walked two thousand files and hashed every one of them
+every fifteen minutes, for folders that change a few times a week. That is
+most of what the owner's machine did all day. The folder walk moved to 10:00
+and 19:00; the phone photos did not move, because somebody is standing in a
+kitchen with a signed form and a phone, and a reading that arrives nine hours
+later is not a reading they can use (the owner's option B).
+
+So two tasks, one script:
+
+    Zion CRM document agent            10:00 and 19:00, with -Scan
+    Zion CRM document agent (photos)   every 15 minutes, and at logon
+
+A light pass asks the CRM what it wants, reads the photos it is given, and
+stops before the folder walk. The expensive half - the listing, the hashing,
+the manifest, the warrants - happens on a full pass, and the last line of the
+log says which kind of pass it was.
+
+**Run now**, on Admin → Documents, is the other half: the folders are read
+twice a day and an afternoon's dropped stub should not wait for seven
+o'clock. It writes a row (0382), the quarter-hourly pass picks it up on its
+next wake, and the manifest that walks the folder marks it done with the run
+that did the work. So "somebody asked and nothing happened" is a state the
+screen can show, which a flag could not. One open ask at a time: a second
+press before the agent wakes would make two rows that one pass answers, and
+the record would read as two passes.
+
+The ask moved to the top of the script, which is the one structural change.
+It used to be made halfway down, after the folder walk, because its only
+reader was the OCR section; a light pass has to know about Run now before it
+decides whether to walk anything. The photo pass moved with it, which left
+its only save at the end of the file - a line a light pass never reaches - so
+a photo Tesseract could not read would have been retried every fifteen
+minutes for ever instead of being left for a week. `Save-FailedOcr` is a
+function now, called by both ends, and `check-agent` asserts that the light
+pass calls it.
+
+`check-agent.mjs` is in prebuild and asks the thing that cannot be asked of
+the machine: that the four files which each say when the agent runs say the
+same thing. The installer registers the tasks, the script decides what a run
+does, install.cmd is what somebody double-clicks, and the card in the CRM is
+what the owner reads when deciding whether to worry. Ten faults put back, ten
+caught - including the card quietly going back to promising a quarter-hourly
+walk, which is the one a person would have believed.
+
+And the installer keeps the configuration it already wrote. Re-running it to
+change a schedule used to mean typing the AGENT_SECRET into a terminal again,
+which is how a secret ends up somewhere it was not meant to be.
+
+Nothing server-side moved: texts every fifteen minutes, the Friday drafts at
+2pm, the Monday sweep, the Outlook sync, the recordings and the to-file sweep
+are all as they were. Those are pg_cron jobs in Supabase and this was a
+scheduled task on one PC; they share nothing but the subject.

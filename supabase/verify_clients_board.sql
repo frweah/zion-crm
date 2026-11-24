@@ -153,14 +153,24 @@ begin
     raise notice 'ok  last contact is a text, an email, a counselor contact or an appointment';
   end if;
 
+  -- A note written today does not become "last contact": writing a meeting
+  -- up a week later would otherwise move every client to today.
+  --
+  -- Picked while the seat is still on, which is the fix for 23 November 2026.
+  -- This ran as postgres, where `clients_board_rows` answers nothing - it is
+  -- gated on is_active_staff - so it fell through to "the first Active
+  -- client", unordered, which may be somebody this person's board does not
+  -- carry at all. Then the control below looked for a row that was never
+  -- there and reported the whole question as unanswerable. It passed for
+  -- weeks because the unordered row happened to be on the board, and failed
+  -- the day the physical order changed.
+  select b.client_id into v_client from public.clients_board_rows() b limit 1;
+
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  -- A note written today does not become "last contact": writing a meeting
-  -- up a week later would otherwise move every client to today.
-  select b.client_id into v_client from public.clients_board_rows() b limit 1;
   if v_client is null then
-    select id into v_client from public.clients where status = 'Active' limit 1;
+    raise exception 'The board answered no rows for %, so there is nothing to ask about a note.', v_staff.name;
   end if;
 
   perform set_config('role', 'authenticated', true);

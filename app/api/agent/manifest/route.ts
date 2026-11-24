@@ -26,7 +26,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { files?: Entry[]; machine?: string; version?: string; error?: string };
+  let body: {
+    files?: Entry[];
+    machine?: string;
+    version?: string;
+    error?: string;
+    /** The extra passes this run is answering (0382). */
+    scanRequests?: string[];
+  };
   try {
     body = await request.json();
   } catch {
@@ -48,14 +55,37 @@ export async function POST(request: NextRequest) {
   );
   const wanted = hashes.filter((h) => !known.has(h));
 
-  await supabase.from("inbox_runs").insert({
+  const { data: run } = await supabase
+    .from("inbox_runs")
+    .insert({
     machine: (body.machine ?? "").slice(0, 80),
     agent_version: (body.version ?? "").slice(0, 20),
     files_seen: files.length,
     files_new: wanted.length,
     folders_seen: new Set(files.map((f) => f.folder)).size,
     error: (body.error ?? "").slice(0, 300),
-  });
+    })
+    .select("id")
+    .maybeSingle();
+
+  /**
+   * And the extra passes this run has just done (0382).
+   *
+   * Marked done with the run that did them, so "somebody asked and nothing
+   * happened" is a state the screen can show rather than a thing nobody can
+   * tell. Only the ones the agent says it answered: a request that arrives
+   * while a run is already walking the folder is left for the next one.
+   */
+  const answered = (Array.isArray(body.scanRequests) ? body.scanRequests : [])
+    .filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id))
+    .slice(0, 50);
+  if (answered.length) {
+    await supabase
+      .from("inbox_scan_requests")
+      .update({ done_at: new Date().toISOString(), done_run: run?.id ?? null })
+      .in("id", answered)
+      .is("done_at", null);
+  }
 
   return NextResponse.json({ wanted });
 }

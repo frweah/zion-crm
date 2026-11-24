@@ -35,11 +35,20 @@ param(
     # powershell.exe -File - which is exactly how the scheduled task runs it.
     # Join-Path then threw before a single line of the script ran: exit code 1,
     # no log, no request. That silently stopped the first real install.
-    [string] $ConfigPath
+    [string] $ConfigPath,
+
+    # A full pass over the client folders and the warrants (agent 1.4.0).
+    #
+    # The task that runs at ten and at seven passes this. The one that wakes
+    # every fifteen minutes does not, and does the cheap work only - the phone
+    # photos, and any extra pass asked for from the CRM. Walking and hashing
+    # two thousand files every quarter of an hour was most of what this
+    # machine did all day, for folders that change a few times a week.
+    [switch] $Scan
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.3.0'
+$AgentVersion = '1.4.0'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -168,6 +177,127 @@ function Get-OcrFields {
     return $fields
 }
 
+# ── what the CRM wants, asked first ─────────────────────────
+#
+# One small request, on every run, before anything is read off the disk.
+# It answers with three things: the scans it would like read, the phone
+# photos waiting for a reading, and whether somebody has pressed Run now on
+# Admin - Documents (0382).
+#
+# It is asked first because of what it decides. A run started by the
+# quarter-hourly task does the photos and nothing else - the folder walk and
+# the hashing are what moved to ten o'clock and seven - unless this says an
+# extra pass was asked for, and then it does everything.
+$ask = $null
+if ($OcrPerRun -gt 0) {
+    try {
+        $ask = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/ocr-wanted" `
+            -Headers $headers -ContentType 'application/json' `
+            -Body (@{ limit = $OcrPerRun } | ConvertTo-Json -Compress) -TimeoutSec 60
+    } catch {
+        # A CRM that does not have this address yet is not this run failing.
+        Write-Log "The CRM did not answer what it wants: $($_.Exception.Message)" 'warn'
+    }
+}
+
+# The extra passes this run is answering, if any. Sent with the manifest,
+# which is the ask being answered, and cleared there.
+$ScanRequests = @()
+if ($ask -and $ask.scanNow) { $ScanRequests = @($ask.scanNow | Where-Object { $_ }) }
+
+$DidScan = [bool] $Scan -or $ScanRequests.Count -gt 0
+if ($Scan) {
+    Write-Log 'A full pass: the client folders and the warrants.'
+} elseif ($ScanRequests.Count -gt 0) {
+    Write-Log "An extra pass was asked for ($($ScanRequests.Count)), so the folders are read as well."
+} else {
+    Write-Log 'A light pass: phone photos only. The folders are read at 10:00 and 19:00.'
+}
+
+# Scans OCR could not finish, and when, kept beside this script. One scan with
+# a page Tesseract cannot read in two minutes would otherwise be the first
+# thing the CRM asks for on every run, costing minutes each time; it is tried
+# again after a week. A read that succeeds - text or none - takes it off.
+$FailedPath = Join-Path $Here 'ocr-failed.json'
+$failedOcr = @{}
+try {
+    if (Test-Path -LiteralPath $FailedPath) {
+        $saved = Get-Content -LiteralPath $FailedPath -Raw | ConvertFrom-Json
+        foreach ($p in $saved.PSObject.Properties) { $failedOcr[$p.Name] = [datetime]$p.Value }
+    }
+} catch { $failedOcr = @{} }
+
+# Written back by whichever pass touched it - which is why this is a function
+# and not a few lines at the end of the file. The photo pass runs on every
+# wake and the end of the file is only reached by a full one, so a photo that
+# could not be read would have been tried again a quarter of an hour later,
+# for ever, instead of being left for a week.
+function Save-FailedOcr {
+    try {
+        $keep = [ordered]@{}
+        foreach ($k in $failedOcr.Keys) {
+            if ($failedOcr[$k] -gt (Get-Date).AddDays(-7)) { $keep[$k] = $failedOcr[$k].ToString('o') }
+        }
+        ($keep | ConvertTo-Json -Compress) | Set-Content -LiteralPath $FailedPath -Encoding utf8
+    } catch { }
+}
+
+# ── photos taken on a phone ──────────────────────────────────
+# A photo of a signed form taken in the CRM's phone app (owner, 11 Nov 2026).
+# This computer never had a copy, so the CRM sends a link that works for ten
+# minutes. Same rules as a scan: a reading - text or none - is sent; a
+# failure is not, so the CRM keeps asking, and one that keeps failing is left
+# for a week. The copy fetched here is deleted as soon as it is read.
+$photosRead = 0
+if ($Tesseract -and $ask -and $ask.photos) {
+    foreach ($p in @($ask.photos)) {
+        if (-not $p -or -not $p.id -or -not $p.url) { continue }
+        $tag = "photo:$($p.id)"
+        if ($failedOcr.ContainsKey($tag) -and $failedOcr[$tag] -gt (Get-Date).AddDays(-7)) {
+            Write-Log "Skipping a phone photo for now (failed $($failedOcr[$tag].ToString('s'))): $($p.id)"
+            continue
+        }
+        $ext = switch -Regex ([string]$p.mime) { 'png' { '.png' } 'webp' { '.webp' } 'tif' { '.tif' } default { '.jpg' } }
+        $work = Join-Path ([System.IO.Path]::GetTempPath()) ("zion-photo-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $work | Out-Null
+        $img = Join-Path $work ("photo" + $ext)
+        try {
+            Invoke-WebRequest -Uri $p.url -OutFile $img -UseBasicParsing -TimeoutSec 60
+            $read = Read-PngWithTesseract -Exe $Tesseract -Png $img
+            $failedOcr.Remove($tag)
+            $inv = [System.Globalization.CultureInfo]::InvariantCulture
+            $payload = @{
+                id             = [string]$p.id
+                ocr_text_b64   = ConvertTo-Base64Utf8 $read.Text
+                ocr_confidence = ([double]$read.Confidence).ToString($inv)
+                ocr_engine     = $OcrEngine
+            } | ConvertTo-Json -Compress
+            $answer = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/photo-ocr" `
+                -Headers $headers -ContentType 'application/json' -Body $payload -TimeoutSec 60
+            Write-Log "Phone photo read: $($p.id) -> $($answer.ocr)"
+            $photosRead++
+        } catch {
+            $failedOcr[$tag] = Get-Date
+            Write-Log "Phone photo not read, will try again later: $($p.id): $($_.Exception.Message)" 'warn'
+        } finally {
+            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+# ── a light pass ends here ──────────────────────────────────
+#
+# Nothing below this line is cheap: it walks two thousand files, hashes
+# every one of them and asks the CRM about all of them. That is the work
+# that moved to twice a day, and a quarter-hourly run has no business doing
+# it. The photos above are the part that has to stay quick, because somebody
+# is standing in a kitchen with a signed form and a phone.
+if (-not $DidScan) {
+    Save-FailedOcr
+    Write-Log "Light pass finished. $photosRead phone photo(s) read."
+    Trim-Log
+    exit 0
+}
+
 # ── list what is there ───────────────────────────────────────
 # One subfolder per client. Files loose at the top level are included with an
 # empty folder name, which lands them in the review list rather than being
@@ -223,9 +353,13 @@ foreach ($f in $files) {
 $wanted = @()
 try {
     $manifest = @{
-        machine = $env:COMPUTERNAME
-        version = $AgentVersion
-        files   = @($entries | Select-Object hash, path, folder, size, modified)
+        machine      = $env:COMPUTERNAME
+        version      = $AgentVersion
+        files        = @($entries | Select-Object hash, path, folder, size, modified)
+        # The extra passes this walk answers (0382). The CRM marks them done
+        # with the run it records here, so a request that was asked for and
+        # never ran stays visible as one.
+        scanRequests = @($ScanRequests)
     } | ConvertTo-Json -Depth 5 -Compress
 
     $response = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/manifest" `
@@ -557,29 +691,8 @@ if ($WarrantsFolder -and -not $Tesseract) {
 # from this machine's own copy, matched by hash, a few per run.
 $ocrSent = 0
 
-# Scans OCR could not finish, and when, kept beside this script. One scan with
-# a page Tesseract cannot read in two minutes would otherwise be the first
-# thing the CRM asks for on every run, costing minutes each time; it is tried
-# again after a week. A read that succeeds - text or none - takes it off.
-$FailedPath = Join-Path $Here 'ocr-failed.json'
-$failedOcr = @{}
-try {
-    if (Test-Path -LiteralPath $FailedPath) {
-        $saved = Get-Content -LiteralPath $FailedPath -Raw | ConvertFrom-Json
-        foreach ($p in $saved.PSObject.Properties) { $failedOcr[$p.Name] = [datetime]$p.Value }
-    }
-} catch { $failedOcr = @{} }
 
 if ($Tesseract -and $OcrPerRun -gt 0) {
-    $ask = $null
-    try {
-        $ask = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/ocr-wanted" `
-            -Headers $headers -ContentType 'application/json' `
-            -Body (@{ limit = $OcrPerRun } | ConvertTo-Json -Compress) -TimeoutSec 60
-    } catch {
-        # A CRM that does not have this address yet is not this run failing.
-        Write-Log "The CRM did not ask for any OCR: $($_.Exception.Message)" 'warn'
-    }
     foreach ($w in @($ask.wanted)) {
         if (-not $w) { continue }
         $local = $entries | Where-Object { $_.hash -eq $w.hash } | Select-Object -First 1
@@ -606,58 +719,10 @@ if ($Tesseract -and $OcrPerRun -gt 0) {
     }
 }
 
-# ── photos taken on a phone ──────────────────────────────────
-# A photo of a signed form taken in the CRM's phone app (owner, 11 Nov 2026).
-# This computer never had a copy, so the CRM sends a link that works for ten
-# minutes. Same rules as a scan: a reading - text or none - is sent; a
-# failure is not, so the CRM keeps asking, and one that keeps failing is left
-# for a week. The copy fetched here is deleted as soon as it is read.
-$photosRead = 0
-if ($Tesseract -and $ask -and $ask.photos) {
-    foreach ($p in @($ask.photos)) {
-        if (-not $p -or -not $p.id -or -not $p.url) { continue }
-        $tag = "photo:$($p.id)"
-        if ($failedOcr.ContainsKey($tag) -and $failedOcr[$tag] -gt (Get-Date).AddDays(-7)) {
-            Write-Log "Skipping a phone photo for now (failed $($failedOcr[$tag].ToString('s'))): $($p.id)"
-            continue
-        }
-        $ext = switch -Regex ([string]$p.mime) { 'png' { '.png' } 'webp' { '.webp' } 'tif' { '.tif' } default { '.jpg' } }
-        $work = Join-Path ([System.IO.Path]::GetTempPath()) ("zion-photo-" + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $work | Out-Null
-        $img = Join-Path $work ("photo" + $ext)
-        try {
-            Invoke-WebRequest -Uri $p.url -OutFile $img -UseBasicParsing -TimeoutSec 60
-            $read = Read-PngWithTesseract -Exe $Tesseract -Png $img
-            $failedOcr.Remove($tag)
-            $inv = [System.Globalization.CultureInfo]::InvariantCulture
-            $payload = @{
-                id             = [string]$p.id
-                ocr_text_b64   = ConvertTo-Base64Utf8 $read.Text
-                ocr_confidence = ([double]$read.Confidence).ToString($inv)
-                ocr_engine     = $OcrEngine
-            } | ConvertTo-Json -Compress
-            $answer = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/photo-ocr" `
-                -Headers $headers -ContentType 'application/json' -Body $payload -TimeoutSec 60
-            Write-Log "Phone photo read: $($p.id) -> $($answer.ocr)"
-            $photosRead++
-        } catch {
-            $failedOcr[$tag] = Get-Date
-            Write-Log "Phone photo not read, will try again later: $($p.id): $($_.Exception.Message)" 'warn'
-        } finally {
-            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
 
-try {
-    $keep = [ordered]@{}
-    foreach ($k in $failedOcr.Keys) {
-        if ($failedOcr[$k] -gt (Get-Date).AddDays(-7)) { $keep[$k] = $failedOcr[$k].ToString('o') }
-    }
-    ($keep | ConvertTo-Json -Compress) | Set-Content -LiteralPath $FailedPath -Encoding utf8
-} catch { }
+Save-FailedOcr
 
-Write-Log "Run finished. $sent sent, $failed failed, $ocrSent read with OCR on request, $photosRead phone photo(s) read, $warrantPagesSent warrant page(s) read."
+Write-Log "Full pass finished. $sent sent, $failed failed, $ocrSent read with OCR on request, $photosRead phone photo(s) read, $warrantPagesSent warrant page(s) read."
 Trim-Log
 
 # A run that could not send anything it meant to is a failed run, so the task

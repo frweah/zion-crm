@@ -2595,6 +2595,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      inbox_scan_requests: {
+        Row: {
+          id: string;
+          asked_at: string;
+          asked_by: string | null;
+          asked_by_name: string;
+          done_at: string | null;
+          done_run: number | null;
+        };
+        Insert: {
+          id?: string;
+          asked_at?: string;
+          asked_by?: string | null;
+          asked_by_name?: string;
+          done_at?: string | null;
+          done_run?: number | null;
+        };
+        Update: {
+          id?: string;
+          asked_at?: string;
+          asked_by?: string | null;
+          asked_by_name?: string;
+          done_at?: string | null;
+          done_run?: number | null;
+        };
+        Relationships: [];
+      };
       intake_mail: {
         Row: {
           id: string;
