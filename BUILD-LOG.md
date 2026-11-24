@@ -11728,3 +11728,73 @@ Nothing server-side moved: texts every fifteen minutes, the Friday drafts at
 2pm, the Monday sweep, the Outlook sync, the recordings and the to-file sweep
 are all as they were. Those are pg_cron jobs in Supabase and this was a
 scheduled task on one PC; they share nothing but the subject.
+
+## 24 November 2026 — the quarter-hourly pass says it ran, the second look asks the whole question, and a warrant number is not prose
+
+Three rules, one push.
+
+**The agent's other half can be seen.** The folder walk leaves a row in
+`inbox_runs`, which is what the agent card has always shown. The pass that
+reads phone photos leaves nothing - no manifest, no run - so the half that has
+to be quick, because somebody is standing in a kitchen with a signed form, was
+the half nobody could see had stopped. It stamps one row now, `kind = 'light
+pass'` in `agent_heartbeat`, updated in place: ninety-six rows a day for the
+right to read the newest one is a table something would have to trim, and the
+something would be the next thing to stop quietly.
+
+Where it stamps is the rule, not a detail. After the photos, so a run that
+hangs on a page Tesseract cannot read does not report itself healthy on the
+way in. Only when the quarter-hourly task invoked it - `-Scan` is the switch
+the daily one passes - because the two tasks can stop independently and a
+heartbeat both of them write cannot tell the owner which did. `check-agent`
+asks all three of those by position and eleven faults were put back, including
+the stamp moved below the light pass's own exit, where only a full pass would
+ever have reached it.
+
+**A screen that answers 200 and draws nothing has failed.** The retry rule
+covered a status and not an assertion, which is how the client threads board
+failed a run: `class="board"` in the page, `Needs a reply` not in it, one read
+of a function that has answered every other time in 1.2 seconds, and the check
+rolled production back a commit for it. The opener takes the question with it
+now - same path, same session, same assertion, both times. The half that
+matters is the second look asking the same question: a loop that ran the
+assertion only the first time would call every broken screen flaky and green,
+so `check-retry` puts that fault back and five in all were caught.
+
+**And prose was the last way a warrant number reached Billing.** Warrants are
+Admin's, and every structured route was closed on 14 November: the warrant
+columns are not granted to `authenticated`, a correction whose field is
+'Warrant' is Admin's alone, the warrant tables answer `warrant_hands()`. A
+column grant cannot close prose, because the column it would have to close is
+the one the note is typed into. So it is refused as it is saved, for every
+role but Admin - who may read warrants, so a note of theirs naming one tells
+nobody anything - with a sentence saying where the number belongs, and the
+screens show it unchanged because they already return `error.message` as it
+comes back.
+
+The shape is this practice's, not numbers in general: F and eight digits, two
+digits and two letters and eleven digits, or either word followed by six
+digits or more. An authorization number is C or V and seven to thirteen, and
+is deliberately not matched - staff write those all day, and a rule that
+refused them would be turned off within a week and would deserve to be. Seven
+faults put back, including the shape widened until it caught them.
+
+`verify_no_warrant_in_prose` asks the same rule of the data, and asks the
+catalog rather than a list of columns, because the list is what goes stale: a
+text column added next month is in the scan the day it exists. It proves it
+can fail before it is believed - an Admin writes a note with a warrant number
+in it, the scan must find it, the note goes, the scan must then find nothing -
+and it never prints what it found, because a script that reports a leaked
+warrant number by quoting it is the leak, in a log that is not Admin's either.
+
+It found two. Two task comments from 6 November, written by an Admin, each
+naming a warrant number that is on file, and a Billing seat can read both of
+them because it can read the task. They have not been touched: that is a
+change to a record somebody wrote and it is the owner's to approve, the way
+the authorization note was.
+
+And two tables added this week - `inbox_scan_requests` and `agent_heartbeat` -
+did not carry `apply_system_read_only`. Neither was reachable, because both
+refuse every write from anybody signed in, but `verify_system_account` asks
+the catalog rather than the author and found them in a second. That is twice
+now, which is why it asks the catalog.

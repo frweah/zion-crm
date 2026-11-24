@@ -1,4 +1,4 @@
-<#
+﻿<#
     Zion CRM — document agent
     ==========================
 
@@ -48,7 +48,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.4.0'
+$AgentVersion = '1.4.1'
 
 # Where this script lives, worked out in the body where it is reliable, with a
 # fallback for the cases where even there it is not populated.
@@ -284,6 +284,30 @@ if ($Tesseract -and $ask -and $ask.photos) {
         }
     }
 }
+# ── the quarter-hourly pass says it ran ───────────
+#
+# Nothing else records it. A full pass leaves a row in `inbox_runs`, which is
+# what the agent card has always shown; this pass sends no manifest and leaves
+# nothing, so the half of the agent that has to be quick was the half nobody
+# could see had stopped.
+#
+# Stamped here rather than from the ask at the top of the run: a pass that
+# reported itself on the way in would call a run that then hung on Tesseract a
+# healthy one. And only when this is the quarter-hourly task - $Scan is the
+# switch the daily one passes - because the two tasks can stop independently
+# and a heartbeat both of them write cannot tell the owner which did.
+if (-not $Scan) {
+    try {
+        Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/agent/light-pass" `
+            -Headers $headers -ContentType 'application/json' `
+            -Body (@{ photos = $photosRead; machine = $env:COMPUTERNAME } | ConvertTo-Json -Compress) `
+            -TimeoutSec 60 | Out-Null
+    } catch {
+        # A CRM that does not have this address yet is not this run failing.
+        Write-Log "The CRM did not take the heartbeat: $($_.Exception.Message)" 'warn'
+    }
+}
+
 # ── a light pass ends here ──────────────────────────────────
 #
 # Nothing below this line is cheap: it walks two thousand files, hashes

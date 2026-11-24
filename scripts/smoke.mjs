@@ -1680,21 +1680,31 @@ await signIn(env("SMOKE_EMAIL"), env("SMOKE_PASSWORD"), "automated-check");
  * client, their partner and their daughter-in-law are three numbers on one
  * record and two of them may not be textable.
  */
-const threads = await open("/communication/threads");
+/**
+ * Asked as a question the retry rule covers, rather than after it.
+ *
+ * The board's table and its groups are read by the opener itself, so a board
+ * that answers 200 and draws nothing is a screen that failed and is asked
+ * once more ten seconds later - the owner's rule, 24 November 2026, and the
+ * reason is one run: `class="board"` was there and `Needs a reply` was not,
+ * on a function that has answered every other time and in 1.2 seconds, and
+ * the check rolled production back a commit for that one read.
+ */
+const threads = await open("/communication/threads", (r) => {
+  if (!/class="board"/.test(r.body)) return "the board opened without its table, so the rows did not arrive";
+  if (!/Needs a reply/.test(r.body)) {
+    return "the board drew a table with no groups in it, so client_threads_board answered nothing";
+  }
+  return undefined;
+});
 if (!threads.ok) {
   all.push({ ...threads, role: "Job Search" });
 } else {
-  const drewTable = /class="board"/.test(threads.body);
-  const drewGroups = /Needs a reply/.test(threads.body);
   all.push({
     role: "Job Search",
     path: "/communication/threads",
-    ok: drewTable && drewGroups,
-    why: drewTable
-      ? drewGroups
-        ? undefined
-        : "the board drew a table with no groups in it, so client_threads_board answered nothing"
-      : "the board opened without its table, so the rows did not arrive",
+    ok: true,
+    flakyWhy: threads.flakyWhy,
   });
 
   /**

@@ -4,6 +4,9 @@
     "access_log": [
       "select"
     ],
+    "agent_heartbeat": [
+      "select"
+    ],
     "asset_assignments": [
       "select"
     ],

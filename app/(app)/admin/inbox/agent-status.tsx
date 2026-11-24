@@ -18,8 +18,23 @@ export async function AgentStatus() {
     .order("ran_at", { ascending: false })
     .limit(5);
 
+  /**
+   * And the quarter-hourly pass, which leaves no run of its own: it reads
+   * phone photos, sends no manifest, and stamps one row in place (0383). Two
+   * tasks can stop independently, so the card says when each last happened
+   * rather than treating the agent as one thing.
+   */
+  const { data: beats } = await supabase
+    .from("agent_heartbeat")
+    .select("at, detail")
+    .eq("kind", "light pass")
+    .limit(1);
+
   const runs = data ?? [];
   const last = runs[0];
+  const beat = (beats ?? [])[0];
+  /** Three missed wakes. One is a machine that was busy; three is a task. */
+  const photosStale = beat ? Date.now() - new Date(beat.at).getTime() > 45 * 60 * 1000 : false;
   const hoursSince = last ? Math.floor((Date.now() - new Date(last.ran_at).getTime()) / 3600000) : null;
   /**
    * The folders are read at 10:00 and 19:00 (owner, 23 November 2026), so a
@@ -37,7 +52,13 @@ export async function AgentStatus() {
     <div className="card">
       {!last ? (
         <>
-          <h3 style={{ marginTop: 0 }}>No contact yet</h3>
+          {/*
+            A heartbeat with no run is a real state and the state the machine
+            is in after an install that registered one task: the photos are
+            being read and the folders are not. The action is the same either
+            way - install.cmd registers both - so only the title changes.
+          */}
+          <h3 style={{ marginTop: 0 }}>{beat ? "Folder pass not registered" : "No contact yet"}</h3>
           <p className="sub" style={{ margin: 0 }}>
             Nothing has arrived yet. Run <code>install.cmd</code> from the agent folder on the machine
             that holds the client folders — it registers two tasks, one that reads the folders at
@@ -61,6 +82,17 @@ export async function AgentStatus() {
                 {last.machine && ` from ${last.machine}`} — {last.files_seen} files across{" "}
                 {last.folders_seen} folders, {last.files_new} new.
               </p>
+              <p className="sub" style={{ margin: "2px 0 0" }}>
+                Phone photos{" "}
+                {!beat ? (
+                  "have not been read since this version went on"
+                ) : (
+                  <span style={photosStale ? { color: "var(--bad)" } : undefined}>
+                    checked {fmtStamp(beat.at)}
+                    {beat.detail && ` — ${beat.detail}`}
+                  </span>
+                )}
+              </p>
             </div>
             <span className={"chip " + (quiet ? "bad" : "ok")}>{quiet ? "silent" : "heard from"}</span>
           </div>
@@ -74,8 +106,9 @@ export async function AgentStatus() {
           {quiet && (
             <p className="lock" style={{ margin: "10px 0 0" }}>
               The folders are read at 10:00 and 19:00 when the machine is on, so a few quiet hours
-              are normal and a quiet day is worth checking. Run now above asks for an extra pass on
-              the next wake. On that machine: Task Scheduler, or{" "}
+              are normal and a quiet day is worth checking. The photos are read every 15 minutes by
+              a task of its own, which is the line above. Run now asks for an extra pass on the next
+              wake. On that machine: Task Scheduler, or{" "}
               <code>Get-ScheduledTaskInfo -TaskName &quot;Zion CRM document agent&quot;</code>.
             </p>
           )}

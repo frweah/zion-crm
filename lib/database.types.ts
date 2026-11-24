@@ -42,6 +42,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      agent_heartbeat: {
+        Row: {
+          kind: string;
+          at: string;
+          detail: string;
+        };
+        Insert: {
+          kind: string;
+          at?: string;
+          detail?: string;
+        };
+        Update: {
+          kind?: string;
+          at?: string;
+          detail?: string;
+        };
+        Relationships: [];
+      };
       asset_assignments: {
         Row: {
           id: string;

@@ -103,8 +103,30 @@ export function retrying({ open, wait, after = AFTER_MS, budget = BUDGET, say = 
 
   const said = `${Math.round(after / 1000)}s`;
 
-  async function openTwice(path) {
-    const first = await open(path);
+  /**
+   * One look: open it, and then ask of what came back whatever the caller
+   * wanted asked.
+   *
+   * A screen that answers 200 and draws nothing has failed, and before this
+   * the rule did not cover it: the opener retried a status and an in-page
+   * assertion made afterwards got one look. That is exactly how the client
+   * threads board failed on 24 November - `class="board"` was there,
+   * `Needs a reply` was not, one read of a function that has answered every
+   * other time - and the run put production back a commit for it.
+   *
+   * The assertion returns the sentence that is wrong, or nothing. It is run
+   * on the second look too, because the second look has to be the same
+   * question or it is a way for a broken screen to pass.
+   */
+  async function look(path, check) {
+    const r = await open(path);
+    if (!r.ok || typeof check !== "function") return r;
+    const why = check(r);
+    return why ? { ...r, ok: false, kind: "in-page", why } : r;
+  }
+
+  async function openTwice(path, check) {
+    const first = await look(path, check);
     if (first.ok || !askAgain(first)) return first;
 
     if (spent >= budget) {
@@ -118,7 +140,7 @@ export function retrying({ open, wait, after = AFTER_MS, budget = BUDGET, say = 
     spent += 1;
     say(`  again   ${path} - ${first.why}; asking again in ${said}`);
     await wait(after);
-    const second = await open(path);
+    const second = await look(path, check);
 
     if (second.ok) {
       flaky.push({ path, why: first.why });

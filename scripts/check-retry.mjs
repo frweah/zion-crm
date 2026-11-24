@@ -112,6 +112,63 @@ const five00 = { ok: false, kind: "status", why: "HTTP 500" };
   if (!/HTTP 500/.test(r.why) || !/HTTP 404/.test(r.why)) bad(`a screen that failed two different ways says only "${r.why}"`);
 }
 
+/**
+ * A screen that answers 200 and draws nothing is a screen that failed.
+ *
+ * The rule covered a status and not an assertion until 24 November 2026, when
+ * the client threads board answered 200 with its table and without its
+ * groups - one read of a function that has answered every other time - and
+ * the run put production back a commit for it. So the question the caller
+ * wants asked of the page is part of the look, and is asked again with it.
+ */
+{
+  const bodies = [{ ok: true, body: "<table class=\"board\"></table>" }, { ok: true, body: "Needs a reply" }];
+  const groups = (r) => (/Needs a reply/.test(r.body) ? undefined : "the board drew no groups");
+
+  // Nothing wrong with the page: one look, no wait.
+  {
+    const h = harness(bodies[1]);
+    const r = await h.open("/communication/threads", groups);
+    if (!r.ok) bad("a page that answered the caller's question was still failed");
+    if (h.asked.length !== 1) bad(`a page that answered was asked ${h.asked.length} times`);
+  }
+
+  // Wrong once, right the second time: green, and named as flaky.
+  {
+    const h = harness(bodies[0], bodies[1]);
+    const r = await h.open("/communication/threads", groups);
+    if (!r.ok) bad("a page that drew nothing once and drew it the second time was still failed");
+    if (h.asked.length !== 2) bad(`a page that drew nothing was asked ${h.asked.length} times, not twice`);
+    if (h.waited[0] !== AFTER_MS) bad("the second look at a page that drew nothing did not wait ten seconds");
+    if (h.flaky.length !== 1) bad("a page that drew nothing once was not recorded as flaky");
+    if (r.flakyWhy !== "the board drew no groups") bad("the flaky record does not say what was missing the first time");
+  }
+
+  /**
+   * And wrong twice is real - which is the half that stops this becoming a
+   * way for a broken screen to pass. The second look has to ask the same
+   * question of the second page: a loop that ran the assertion only on the
+   * first look would call every broken screen flaky and green.
+   */
+  {
+    const h = harness(bodies[0]);
+    const r = await h.open("/communication/threads", groups);
+    if (r.ok) bad("a page that drew nothing twice came back open, so a broken screen passes on its second look");
+    if (h.asked.length !== 2) bad(`a page that drew nothing twice was asked ${h.asked.length} times`);
+    if (!/twice/.test(r.why) || !/10s apart/.test(r.why)) bad(`"${r.why}" does not say it was asked twice, ten seconds apart`);
+    if (r.kind !== "in-page") bad(`a page that drew nothing is labelled "${r.kind}" rather than in-page`);
+    if (h.flaky.length) bad("a page that drew nothing twice was recorded as flaky as well as failed");
+  }
+
+  // A page that did not open is not asked the question at all: there is no
+  // page to ask it of, and the status is the fault worth reporting.
+  {
+    const h = harness(four04, four04);
+    const r = await h.open("/communication/threads", () => "the board drew no groups");
+    if (r.why.includes("groups")) bad("a 404 was reported as a page that drew nothing");
+  }
+}
+
 // The other two kinds that are worth a second look.
 for (const kind of ["in-page", "unreachable"]) {
   const h = harness({ ok: false, kind, why: `a ${kind} failure` }, ok);
@@ -270,6 +327,27 @@ if (!/^const open = retry\.open;$/m.test(smoke)) bad("scripts/smoke.mjs does not
   for (const kind of ["status", "in-page", "unreachable"]) {
     if (!kinds.has(kind)) bad(`openOnce no longer returns "${kind}", which is one of the failures the second look is for`);
     if (SETTLED.includes(kind)) bad(`"${kind}" is settled, so the failure the rule was written for is never asked twice`);
+  }
+}
+
+/**
+ * The board asks its question inside the look, not after it.
+ *
+ * This is the one screen in the run whose fault was an assertion rather than
+ * a status, and the shape is easy to lose: read the page, then test the body
+ * a few lines down, and the second look is gone again without a word.
+ */
+{
+  const asked = /open\("\/communication\/threads",\s*\(r\)\s*=>/.test(smoke);
+  if (!asked) {
+    bad("the client threads board does not pass its assertion to the opener, so its table and groups get one look");
+  }
+  const call = smoke.match(/const threads = await open\([\s\S]{0,600}?\n\}\);/)?.[0] ?? "";
+  for (const mark of ['class="board"', "Needs a reply"]) {
+    const inCall = call.includes(mark);
+    const after = smoke.slice(smoke.indexOf("const threads = await open(") + call.length).includes(mark);
+    if (!inCall) bad(`the board's look does not test for ${mark}, which is how it draws nothing and passes`);
+    if (after) bad(`${mark} is tested again after the look, where a second look cannot reach it`);
   }
 }
 

@@ -201,6 +201,31 @@ issue and rolls nothing back. The rule is `scripts/retry-screen.mjs` and
 `check-retry` asks it; the action posts are not retried, because posting twice
 is writing twice.
 
+**A screen that answers 200 and draws nothing has failed**, so what the page
+must draw is part of the question the second look asks. The client threads
+board failed a run on 24 November with `class="board"` in the page and
+`Needs a reply` not in it — one read of a function that has answered every
+other time, in 1.2 seconds — and the rule did not cover it, because the
+assertion was made after the opener had finished. An opener takes the
+question with it: same path, same session, same assertion, both times. A loop
+that asked only the first time would call every broken screen flaky and
+green, which is why `check-retry` puts that fault back.
+
+**A warrant number is not prose.** Warrants are Admin's (14 November), and
+every structured route was closed that week — the warrant columns are not
+granted to `authenticated`, a correction whose field is 'Warrant' is Admin's
+alone, the warrant tables answer `warrant_hands()`. Prose is the route a
+column grant cannot close, because the column it would have to close is the
+one the note is typed into. So a warrant or voucher number typed into a note
+is refused as it is saved, for every role but Admin — who may read warrants,
+so a note of theirs that names one tells nobody anything — and
+`verify_no_warrant_in_prose` asks the same rule of the data: no text column a
+Billing seat can read holds one. It asks the catalog rather than a list of
+columns, because the list is what goes stale, and it never prints what it
+found: a script that reports a leaked warrant number by quoting it is the
+leak. An authorization number is deliberately not matched. Staff write those
+all day, and a rule that refused them would be turned off within a week.
+
 **A migration never goes out ahead of the code it needs.** A migration that
 changes what a screen must send — a trigger that refuses, a constraint that
 can fail, a column that stops being nullable — is applied only once the code

@@ -102,6 +102,82 @@ if (!/scanRequests\s*=\s*@\(\$ScanRequests\)/.test(script)) {
   bad("the manifest does not carry the extra passes it answers, so Run now would ask for ever");
 }
 
+// ── the quarter-hourly pass says it ran, and the card says when ──
+//
+// The folder walk leaves a row in `inbox_runs`; the light pass leaves nothing
+// unless it stamps one, which makes this the half of the agent that can stop
+// without anybody seeing. Three files have to agree: the script that stamps,
+// the route that writes the row, and the card that judges the time.
+const route = read("app/api/agent/light-pass/route.ts");
+
+if (!/api\/agent\/light-pass/.test(script)) {
+  bad("the agent never stamps a heartbeat, so a stopped photo task looks like a quiet week");
+}
+/**
+ * Where it stamps, which is the whole of the rule.
+ *
+ * Below the `-not $DidScan` exit it would only ever be reached by a full
+ * pass - the one pass that already leaves a row - so the line would be there
+ * and the heartbeat would still never be written by the task it is about.
+ */
+const exitAt = script.search(/if \(-not \$DidScan\) \{/);
+const stampAt = script.search(/api\/agent\/light-pass/);
+if (stampAt >= 0 && exitAt >= 0 && stampAt > exitAt) {
+  bad("the heartbeat is stamped below the light pass's exit, so only a full pass would ever send it");
+}
+/**
+ * And after the photos, not before them.
+ *
+ * A stamp sent on the way in says the pass started. The run that then hangs
+ * on a page Tesseract cannot read would be reported as a healthy one, which
+ * is the single thing this row exists to not do.
+ */
+const photosAt = script.search(/\$photosRead\+\+/);
+if (stampAt >= 0 && photosAt >= 0 && stampAt < photosAt) {
+  bad("the heartbeat is stamped before the photos are read, so a run that hangs still reports itself healthy");
+}
+/** And only by the quarter-hourly task: $Scan is what the daily one passes. */
+const stampBlock = script.slice(Math.max(0, stampAt - 400), stampAt);
+if (stampAt >= 0 && !/if \(-not \$Scan\) \{/.test(stampBlock)) {
+  bad("a full pass stamps the photo heartbeat too, so the card cannot say which task stopped");
+}
+if (!/\$photosRead/.test(script.slice(stampAt, stampAt + 400))) {
+  bad("the heartbeat does not carry what the pass read, so the card can only say that it ran");
+}
+
+if (!/kind:\s*"light pass"/.test(route)) {
+  bad("the route does not stamp the light pass, so the card would read a row nothing writes");
+}
+if (!/onConflict:\s*"kind"/.test(route)) {
+  bad("the route does not upsert on the kind, so a pass every fifteen minutes leaves a row");
+}
+
+if (!/from\("agent_heartbeat"\)/.test(card)) {
+  bad("the agent card does not read the heartbeat, so the stamp is written and shown to nobody");
+}
+if (!/eq\("kind",\s*"light pass"\)/.test(card)) {
+  bad("the agent card does not ask for the light pass by name");
+}
+/**
+ * And the card's patience is the schedule's.
+ *
+ * A card that calls the photos stale after one missed wake cries wolf on a
+ * machine that was busy; one that waits six hours is not watching. The
+ * installer's interval is the authority, as it is for the hours.
+ */
+const everyMin = Number(installer.match(/-RepetitionInterval \(New-TimeSpan -Minutes (\d+)\)/)?.[1]);
+const stale = Number(card.match(/(\d+)\s*\*\s*60\s*\*\s*1000/)?.[1]);
+if (!Number.isFinite(stale)) {
+  bad("the agent card has no threshold for a photo pass that has stopped");
+} else if (Number.isFinite(everyMin)) {
+  if (stale < everyMin * 2) {
+    bad(`the card calls the photos stale after ${stale} minutes, which is under two ${everyMin}-minute wakes`);
+  }
+  if (stale > everyMin * 6) {
+    bad(`the card waits ${stale} minutes before saying the photo pass stopped, which is most of a morning`);
+  }
+}
+
 // ── and every file that names the hours names the same ones ──
 const sayings = [
   ["agent/install.ps1", installer],
