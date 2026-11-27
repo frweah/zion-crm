@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { carrierName, readSwitch, type Carrier, type Which } from "@/lib/carrier-switch";
 import {
   findContactByPhone,
   upsertContact,
@@ -31,14 +32,8 @@ import {
  * second set of rules.
  */
 
-export type Carrier = "ghl" | "twilio";
-
-/** The name this carrier goes by in `sms_messages.provider`. */
-export function carrierName(carrier: Carrier): string {
-  return carrier === "twilio" ? "Twilio" : "GoHighLevel";
-}
-
-export type Which = { ok: true; carrier: Carrier } | { ok: false; error: string };
+export { carrierName };
+export type { Carrier, Which };
 
 /**
  * Which carrier is live, asked of the database rather than the environment.
@@ -53,25 +48,7 @@ export type Which = { ok: true; carrier: Carrier } | { ok: false; error: string 
  * message is recorded as Failed with the reason, which leaves it retryable.
  */
 export async function whichCarrier(supabase: SupabaseClient<Database>): Promise<Which> {
-  const { data, error } = await supabase.rpc("sms_provider");
-  const said = typeof data === "string" ? data : null;
-
-  /**
-   * One refusal for every way of not knowing, because they are the same
-   * thing: an error, a row that could not be read, and a word this does not
-   * recognise all mean the carrier is unknown, and none of them means "send
-   * it through the usual one". `sms_provider()` answers null rather than a
-   * default (0393) exactly so that this can be one branch.
-   */
-  if (error || (said !== "ghl" && said !== "twilio")) {
-    return {
-      ok: false,
-      error:
-        "Could not read which texting provider is in use, so nothing was sent. " +
-        (error?.message ?? `The switch answered ${said === null ? "nothing" : said}.`),
-    };
-  }
-  return { ok: true, carrier: said };
+  return readSwitch(await supabase.rpc("sms_provider"));
 }
 
 /**

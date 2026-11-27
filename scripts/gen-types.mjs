@@ -518,6 +518,16 @@ const RPC_FUNCTIONS = [
   "correct_payment_date",
   // Which carrier the practice texts through (0392).
   "sms_provider",
+  // Calls in the browser, and what a voicemail is (0394-0395).
+  "voice_here",
+  "voice_gone",
+  "staff_on_the_phones",
+  "who_is_calling",
+  "record_call_started",
+  "record_call_answered",
+  "record_call_ended",
+  "record_voicemail",
+  "file_voicemail",
 ];
 
 const { rows: fns } = await client.query(

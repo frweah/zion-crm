@@ -693,6 +693,9 @@
     "staff_signatures": [
       "select"
     ],
+    "staff_voice_presence": [
+      "select"
+    ],
     "task_comments": [
       "insert",
       "select"
@@ -751,6 +754,9 @@
       "insert",
       "select",
       "update"
+    ],
+    "voice_calls": [
+      "select"
     ],
     "warrant_documents": [
       "select"

@@ -174,16 +174,27 @@ begin
    * own financial documents. The default is in the database rather than in
    * the form, so it holds for the agent and the filing rules too - and the
    * only way to check that is to write a row the way they would.
+   *
+   * A voicemail is on the list from 0399. It is a recording of somebody's
+   * voice talking about their own life, and a trigger restricts every audio
+   * attachment anyway (verify_recordings) - so the row agrees with the
+   * trigger rather than being quietly overruled by it. The *words* are a
+   * different question and are not restricted: the transcript goes on the
+   * contact-log line, because a voicemail has to reach the client threads
+   * board as something somebody can act on.
+   *
+   * The list is written out rather than counted, so adding a restricted type
+   * is a decision somebody takes in a diff.
    */
   perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
 
   select string_agg(key, ', ' order by key) into v_text
     from public.client_file_categories where restricted_by_default;
-  if v_text is distinct from 'Financial document, Guardianship document, Identity document, Medical or psychological, Recording, Signed intake' then
+  if v_text is distinct from 'Financial document, Guardianship document, Identity document, Medical or psychological, Recording, Signed intake, Voicemail' then
     failures := failures || format('FAILED: the types that start restricted are %s', v_text)::text;
   else
-    raise notice 'ok  an ID, anything medical, a legal paper, the client''s own money and a signed intake start restricted';
+    raise notice 'ok  an ID, anything medical, a legal paper, the client''s own money, a signed intake and a voicemail start restricted';
   end if;
 
   -- An invoice does not. There are 130 on file and none restricted: they are

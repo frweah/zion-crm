@@ -74,6 +74,12 @@ declare
     'application_feedback=what_they_said_about_places',
     'calendar_events=appointments',
     'sms_messages=texts',
+    -- Every call either way, and the message they left (0394, 0398). A
+    -- voicemail is the client's own voice asking the practice something,
+    -- which is the clearest case there is for something belonging in their
+    -- record. `staff_voice_presence` is not here and does not need to be: it
+    -- holds a member of staff and a timestamp and no client at all.
+    'voice_calls=calls',
     'sms_consent_events=texting_consent',
     -- The other spellings of their own name (0303): held so a warrant or an
     -- invoice under one of them finds the record, and theirs to see.

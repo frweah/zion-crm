@@ -24,6 +24,7 @@ import { createHmac } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { expectedSignature, signedUrl } from "../lib/twilio-signature.ts";
+import { readSwitch } from "../lib/carrier-switch.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -233,7 +234,28 @@ const ALLOWED = new Set(["lib/text-provider.ts", "lib/portal/deliver.ts"]);
  * it could not, and failed the two routes for importing their own signature
  * reader.
  */
-const RECEIVE_ONLY = new Set(["readSignedWebhook", "signingConfigured", "type Proof", "Proof"]);
+const RECEIVE_ONLY = new Set([
+  // Proving a request is Twilio's. The two webhook routes are Twilio's own
+  // endpoints and could not be anything else.
+  "readSignedWebhook",
+  "signingConfigured",
+  "type Proof",
+  "Proof",
+  // Fetching the audio of a voicemail Twilio has already taken. It sends
+  // nothing and chooses nothing: the call it belongs to arrived on a Twilio
+  // webhook, so the carrier was decided before this is reached.
+  "recordingAudio",
+  // Building the URL Twilio should post back to. A string.
+  "callbackUrl",
+]);
+
+/**
+ * The list is closed, and that is the point.
+ *
+ * A name not on it fails, so `sendSms` imported into a route next month is
+ * caught - which is the rule this is for. Adding a name here is a decision
+ * somebody takes in a diff, with the reason beside it.
+ */
 
 const sendersOutside = [];
 for (const path of sources) {
@@ -361,19 +383,48 @@ if (!/rpc\("sms_provider"\)/.test(provider)) {
 /**
  * And a switch that cannot be read refuses the send.
  *
- * The practice has been caught twice by code reading a failure as an answer -
- * middleware reading an auth error as "revoked", getCurrentStaff reading a
+ * Run, not grepped for. The first version of this looked for the sentence in
+ * the file, and a fault that added a fallback *above* the refusal passed it -
+ * the words were still there, in a branch nothing could reach. The rule lives
+ * in lib/carrier-switch.ts with no imports and no environment so that it can
+ * be asked instead.
+ *
+ * The practice has been caught twice by code reading a failure as an answer:
+ * middleware reading an auth error as "revoked", and getCurrentStaff reading a
  * failed query as "no access" and signing the whole practice out. Here it
- * would be worse: a default would text a client from whichever number the
- * practice is not using, and their reply would arrive where nobody is looking.
+ * would be worse than either - a default would text a client from whichever
+ * number the practice is not using, and their reply would arrive where nobody
+ * is looking.
  */
-if (!/Could not read which texting provider is in use, so nothing was sent/.test(provider)) {
-  fail(
-    "lib/text-provider.ts does not refuse the send when it cannot read the switch, so a failed " +
-      "read would fall back to a carrier rather than stopping",
-  );
-} else {
-  ok("a switch that cannot be read stops the send rather than guessing");
+const answers = [
+  ["ghl", { data: "ghl", error: null }, "ghl"],
+  ["twilio", { data: "twilio", error: null }, "twilio"],
+  ["an error from the database", { data: null, error: { message: "connection lost" } }, null],
+  ["no row at all", { data: null, error: null }, null],
+  ["a carrier nothing here can send through", { data: "telnyx", error: null }, null],
+  ["something that is not a word", { data: 7, error: null }, null],
+  ["an answer and an error together", { data: "twilio", error: { message: "stale" } }, null],
+];
+
+for (const [say, answer, want] of answers) {
+  const got = readSwitch(answer);
+  if (want === null) {
+    if (got.ok) {
+      fail(
+        `the switch answered ${say} and the practice sent the text anyway, through ` +
+          `${got.carrier} - which is whichever number it happens not to be using`,
+      );
+    } else if (!/nothing was sent/.test(got.error)) {
+      fail(`the switch answered ${say} and the refusal does not say nothing was sent: ${got.error}`);
+    }
+  } else if (!got.ok || got.carrier !== want) {
+    fail(`the switch answered ${say} and this read it as ${got.ok ? got.carrier : got.error}`);
+  }
+}
+ok(`${answers.length} answers from the switch, and every way of not knowing stops the send`);
+
+if (!/readSwitch\(/.test(provider)) {
+  fail("lib/text-provider.ts does not read the switch through the rule, so the rule is not the one that runs");
 }
 
 if (problems.length) {

@@ -1732,6 +1732,7 @@ export type Database = {
           category: string | null;
           source: string | null;
           source_key: string | null;
+          direction: string | null;
         };
         Insert: {
           id?: string;
@@ -1751,6 +1752,7 @@ export type Database = {
           category?: string | null;
           source?: string | null;
           source_key?: string | null;
+          direction?: string | null;
         };
         Update: {
           id?: string;
@@ -1770,6 +1772,7 @@ export type Database = {
           category?: string | null;
           source?: string | null;
           source_key?: string | null;
+          direction?: string | null;
         };
         Relationships: [];
       };
@@ -6252,6 +6255,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_voice_presence: {
+        Row: {
+          staff_id: string;
+          since: string;
+          at: string;
+        };
+        Insert: {
+          staff_id: string;
+          since?: string;
+          at?: string;
+        };
+        Update: {
+          staff_id?: string;
+          since?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
       task_comments: {
         Row: {
           id: string;
@@ -6794,6 +6815,75 @@ export type Database = {
           note?: string;
           created_at?: string;
           created_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      voice_calls: {
+        Row: {
+          id: string;
+          call_sid: string;
+          direction: string;
+          from_phone: string;
+          to_phone: string;
+          client_id: string | null;
+          contact_id: string | null;
+          answered_by: string | null;
+          state: string;
+          started_at: string;
+          answered_at: string | null;
+          ended_at: string | null;
+          seconds: number | null;
+          recording_sid: string | null;
+          recording_secs: number | null;
+          attachment_id: string | null;
+          recording_id: string | null;
+          contact_log_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          call_sid: string;
+          direction: string;
+          from_phone: string;
+          to_phone: string;
+          client_id?: string | null;
+          contact_id?: string | null;
+          answered_by?: string | null;
+          state?: string;
+          started_at?: string;
+          answered_at?: string | null;
+          ended_at?: string | null;
+          seconds?: number | null;
+          recording_sid?: string | null;
+          recording_secs?: number | null;
+          attachment_id?: string | null;
+          recording_id?: string | null;
+          contact_log_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          call_sid?: string;
+          direction?: string;
+          from_phone?: string;
+          to_phone?: string;
+          client_id?: string | null;
+          contact_id?: string | null;
+          answered_by?: string | null;
+          state?: string;
+          started_at?: string;
+          answered_at?: string | null;
+          ended_at?: string | null;
+          seconds?: number | null;
+          recording_sid?: string | null;
+          recording_secs?: number | null;
+          attachment_id?: string | null;
+          recording_id?: string | null;
+          contact_log_id?: string | null;
+          created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
@@ -8481,6 +8571,10 @@ export type Database = {
         Args: { p_message: string | null; p_client: string | null; p_category: string | null };
         Returns: string;
       };
+      file_voicemail: {
+        Args: { p_sid: string | null; p_storage_path: string | null; p_filename: string | null; p_mime: string | null; p_bytes: number | null; p_sha256?: string | null; p_seconds?: number | null };
+        Returns: { attachment_id: string | null; recording_id: string | null }[];
+      };
       fmt_hours: {
         Args: { n: number | null };
         Returns: string;
@@ -9097,6 +9191,18 @@ export type Database = {
         Args: { p_recipient_id: string | null; p_method: string | null; p_delivered_on: string | null };
         Returns: undefined;
       };
+      record_call_answered: {
+        Args: { p_sid: string | null; p_identity: string | null };
+        Returns: undefined;
+      };
+      record_call_ended: {
+        Args: { p_sid: string | null; p_seconds?: number | null; p_state?: string | null };
+        Returns: string;
+      };
+      record_call_started: {
+        Args: { p_sid: string | null; p_direction: string | null; p_from: string | null; p_to: string | null };
+        Returns: { call_id: string | null; client_id: string | null; contact_id: string | null; label: string | null }[];
+      };
       record_chat_file: {
         Args: { p_conversation: string | null; p_path: string | null; p_filename: string | null; p_mime: string | null; p_size: number | null };
         Returns: string;
@@ -9140,6 +9246,10 @@ export type Database = {
       record_text_status: {
         Args: { p_provider_id: string | null; p_status: string | null; p_error?: string | null; p_payload?: Json | null };
         Returns: { matched: boolean | null; status: string | null }[];
+      };
+      record_voicemail: {
+        Args: { p_sid: string | null; p_recording_sid: string | null; p_seconds?: number | null };
+        Returns: string;
       };
       recording_drafted: {
         Args: { p_id: string | null; p_summary: Json | null };
@@ -9397,6 +9507,10 @@ export type Database = {
         Args: { p_area: string | null; p_level?: string | null };
         Returns: boolean;
       };
+      staff_on_the_phones: {
+        Args: Record<string, never>;
+        Returns: { staff_id: string | null; name: string | null }[];
+      };
       staff_presence_status: {
         Args: Record<string, never>;
         Returns: { staff_id: string | null; status: string | null }[];
@@ -9497,6 +9611,14 @@ export type Database = {
         Args: { p_credential_id: string | null };
         Returns: undefined;
       };
+      voice_gone: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      voice_here: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
       warrant_review_queue: {
         Args: Record<string, never>;
         Returns: { key: string | null; warrant_no: string | null; warrant_date: string | null; page_id: string | null; image_path: string | null; line_id: string | null; line_ids: string[] | null; line_no: number | null; raw: string | null; client_name: string | null; voucher: string | null; service_date: string | null; readings: number | null; scans: string[] | null; ref: string | null; base_ref: string | null; claim: string | null; auth_id: string | null; auth_number: string | null; amount: number | null; read_as: number[] | null; settled: boolean | null; payment_id: string | null; why: string | null; page_why: string | null }[];
@@ -9540,6 +9662,10 @@ export type Database = {
       weekly_update_sent: {
         Args: { p_id: string | null; p_sms: string | null };
         Returns: undefined;
+      };
+      who_is_calling: {
+        Args: { p_phone: string | null };
+        Returns: { client_id: string | null; contact_id: string | null; label: string | null }[];
       };
       work_categories_for: {
         Args: { p_role: string | null };

@@ -235,6 +235,58 @@ export async function messageStatus(
 }
 
 /**
+ * The audio of a voicemail, fetched so it can be kept on the client's record.
+ *
+ * Twilio's media URLs are not public: the recording needs the same credential
+ * the REST API does, which is the reason this cannot be a URL handed to
+ * Supabase storage or to Azure to fetch for itself. The bytes come here and
+ * go on from here.
+ *
+ * `.mp3` rather than the default WAV. A ninety-second message is about 150kB
+ * as MP3 and about 1.5MB as WAV, both of them get read the same by Azure, and
+ * the small one is the one that lives on a client's record for seven years.
+ *
+ * A minute's grace over the usual timeout: this is the one call here that
+ * transfers a file rather than a sentence.
+ */
+export async function recordingAudio(
+  recordingSid: string,
+): Promise<TwilioResult<{ bytes: Buffer; mime: string }>> {
+  const notReady = textingNotReady();
+  if (notReady) return { ok: false, error: notReady };
+
+  try {
+    const res = await fetch(
+      `${BASE}/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${encodeURIComponent(recordingSid)}.mp3`,
+      {
+        headers: { Authorization: authorization() },
+        cache: "no-store",
+        signal: AbortSignal.timeout(60_000),
+      },
+    );
+    if (!res.ok) {
+      return { ok: false, error: `Twilio would not hand over the recording: ${res.status}` };
+    }
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length === 0) {
+      return { ok: false, error: "Twilio handed over an empty recording." };
+    }
+    return {
+      ok: true,
+      data: { bytes, mime: res.headers.get("content-type") ?? "audio/mpeg" },
+    };
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      return { ok: false, error: "Twilio did not hand over the recording within a minute." };
+    }
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "The recording could not be fetched.",
+    };
+  }
+}
+
+/**
  * Where Twilio should post back to.
  *
  * Built from the site's own address rather than guessed from the request,

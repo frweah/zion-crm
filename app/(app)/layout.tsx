@@ -19,6 +19,7 @@ import { NavIcon } from "./nav-icons";
 import { LiveMessaging } from "./live-messaging";
 import { TeamPane } from "./team-pane";
 import { TeamBubble } from "./team-bubble";
+import { Softphone } from "./softphone";
 import { chatSettings } from "@/lib/chat-prefs";
 import { ClientSearch } from "./client-search";
 import { createClient } from "@/lib/supabase/server";
@@ -265,6 +266,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* And the way in that is always in the corner of the eye, with the
           count on it. It opens the pane above in its compact presentation. */}
       <TeamBubble off={chat.bubbleOff} />
+      {/* The practice line (owner, 27 Nov 2026). Here rather than on one
+          screen because a call arriving has to reach whoever is signed in
+          wherever they are - a telephone that can be missed because somebody
+          was scrolled down a client list is not a telephone. It renders
+          nothing at all for a seat that does not take calls, and loads the
+          SDK only after it has been told it may. */}
+      <Softphone />
     </div>
   );
 }

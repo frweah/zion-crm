@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Dial } from "../../dial";
 import Link from "next/link";
 import { PRACTICE_TZ, today } from "@/lib/constants";
 import {
@@ -182,7 +183,7 @@ export function ThreadPanel({
             <label className="field">
               <span>
                 Text {to?.whose === "Contact" ? `${to.whose_name} (${to.relationship})` : "them"} at{" "}
-                {to?.phone}
+                {to?.phone} <Dial phone={to?.phone} label={to?.whose_name ?? undefined} />
                 {to?.since ? ` — agreed ${to.since.slice(0, 10)}` : ""}
               </span>
               <textarea name="body" rows={3} maxLength={600} required />
