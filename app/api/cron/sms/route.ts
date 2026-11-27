@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { smsConfigured } from "@/lib/ghl";
+import { carrierNotReady } from "@/lib/text-provider";
 import { sendDueReminders } from "@/lib/sms";
 
 /**
@@ -35,14 +35,17 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!smsConfigured()) {
-    return NextResponse.json(
-      { error: "Texting is not configured — GHL_API_KEY or GHL_LOCATION_ID is missing." },
-      { status: 500 },
-    );
+  const supabase = createAdminClient();
+
+  // Asked once, before the list is walked, so a missing key is one line here
+  // rather than one failed message per client. Which keys matter depends on
+  // which carrier is live, so the question is asked of the switch rather than
+  // of one provider's environment variables.
+  const notReady = await carrierNotReady(supabase);
+  if (notReady) {
+    return NextResponse.json({ error: notReady }, { status: 500 });
   }
 
-  const supabase = createAdminClient();
   const result = await sendDueReminders(supabase);
 
   // Errors come back in the body rather than as a failed request: a run where

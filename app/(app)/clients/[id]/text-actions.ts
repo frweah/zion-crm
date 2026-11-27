@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { sendClientSms, resendRecorded } from "@/lib/sms";
+import { sendClientText, resendRecorded } from "@/lib/sms";
 import { CAN_EDIT_CLIENTS } from "@/lib/constants";
 
 /**
@@ -37,7 +37,7 @@ export async function sendText(_prev: TextState, formData: FormData): Promise<Te
   const phone = consent?.consented_phone ?? client.phone ?? "";
   if (!phone) return { error: "There is no number on this record.", ok: null };
 
-  const outcome = await sendClientSms(supabase, {
+  const outcome = await sendClientText(supabase, {
     clientId,
     clientName: client.name,
     phone,

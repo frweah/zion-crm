@@ -45,6 +45,7 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/version",
   "/api/sms",
+  "/api/twilio",
   "/api/agent",
   "/api/widget",
   "/api/graph",
@@ -75,6 +76,20 @@ const PUBLIC_PATHS = [
 // dropped. It was missing for a day and nothing said so: the redirect is a
 // 307 to a page, so the caller sees a success and there is nothing in any log
 // to notice.
+//
+// /api/twilio is the same thing for the carrier the client line is moving to:
+// the inbound message webhook and the delivery-status callback, both posted
+// with no session. They prove themselves differently and better than the
+// GoHighLevel pair - not with a shared secret in a header we chose, but with
+// Twilio's own signature over the exact URL and every parameter, recomputed
+// with the account's auth token. A body captured from one of the two cannot
+// be replayed at the other, because the URL is part of what was signed.
+//
+// Without this line the gate redirects those POSTs to the login page and the
+// reply is lost - including a STOP, which is the one message that must never
+// be dropped, and which on Twilio the carrier has already honoured by the
+// time it reaches us. The redirect is a 307 to a page, so the caller sees a
+// success and there is nothing in any log to notice.
 //
 // /api/agent is the document agent on the owner's machine. Same shape: no
 // session, its own shared secret, checked by both routes behind it.

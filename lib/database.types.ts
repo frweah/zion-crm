@@ -4061,6 +4061,7 @@ export type Database = {
           recording_hours_per_person: number;
           recording_draft_words: number;
           clock_accounts_from: string | null;
+          sms_provider: string;
         };
         Insert: {
           id?: boolean;
@@ -4090,6 +4091,7 @@ export type Database = {
           recording_hours_per_person?: number;
           recording_draft_words?: number;
           clock_accounts_from?: string | null;
+          sms_provider?: string;
         };
         Update: {
           id?: boolean;
@@ -4119,6 +4121,7 @@ export type Database = {
           recording_hours_per_person?: number;
           recording_draft_words?: number;
           clock_accounts_from?: string | null;
+          sms_provider?: string;
         };
         Relationships: [];
       };
@@ -9369,6 +9372,10 @@ export type Database = {
       sign_tax_form: {
         Args: { p_form_id: string | null; p_sensitive: Json | null; p_tin_last4: string | null; p_signer: string | null; p_ip: string | null };
         Returns: undefined;
+      };
+      sms_provider: {
+        Args: Record<string, never>;
+        Returns: string;
       };
       sms_segments: {
         Args: { p_text: string | null };

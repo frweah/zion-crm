@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { sendClientSms } from "@/lib/sms";
+import { sendClientText } from "@/lib/sms";
 import { CAN_SEND_TEXTS, CAN_LOG_CALLS } from "@/lib/threads-board-shape";
 import { noteCategoryFromForm } from "@/lib/report-shape";
 
@@ -87,7 +87,7 @@ export async function sendOnThread(_prev: ThreadState, formData: FormData): Prom
     .eq("phone", phone)
     .maybeSingle();
 
-  const outcome = await sendClientSms(supabase, {
+  const outcome = await sendClientText(supabase, {
     clientId,
     clientName: client.name,
     phone,

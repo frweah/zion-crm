@@ -13,6 +13,8 @@ import { MileageRateForm } from "../../hours/expenses";
 import { SharedMailboxCard, type SharedMailboxRow } from "../../dashboard/shared-mailbox-card";
 import { WebChatSettingsForm, type WebChatSettings } from "./web-chat";
 import MailboxWatchSection from "./mailbox-watch";
+import { TelephonyForm, type TelephonyChoice } from "./telephony";
+import { ORG } from "@/lib/roles";
 
 /**
  * Admin → System.
@@ -46,7 +48,7 @@ export default async function SystemPage({
     isAdmin ? supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name") : Promise.resolve({ data: [] }),
     supabase
       .from("org_settings")
-      .select("web_chat_enabled, web_chat_takers, web_chat_open, web_chat_close, web_chat_days, web_chat_greeting, web_chat_promise")
+      .select("web_chat_enabled, web_chat_takers, web_chat_open, web_chat_close, web_chat_days, web_chat_greeting, web_chat_promise, sms_provider")
       .maybeSingle(),
     // Live is not a setting: it is whether anybody who takes chats has a
     // window open right now, inside the hours below.
@@ -85,7 +87,37 @@ export default async function SystemPage({
 
   const webChatError = webChatFailure?.message ?? null;
 
-  const toc: [string, string][] = [["mailbox-watch", "Mailbox watch"], ["access-log", "Access log"]];
+  /**
+   * Which carrier the client line runs on, and whether either could send.
+   *
+   * The readiness of each is read here, on the server, because the keys are
+   * only ever in the environment - nothing about them reaches the browser,
+   * and the screen says "ready" or "keys not set" rather than naming a value.
+   *
+   * A refused read of org_settings arrives as an empty row rather than as
+   * nothing, which is why the fallback is 'ghl': the carrier the practice has
+   * been sending through for a year is the safer thing to show when the row
+   * cannot be read, and `sms_provider()` falls back the same way.
+   */
+  const telephony: TelephonyChoice = {
+    provider:
+      (webChat as { sms_provider?: string } | null)?.sms_provider === "twilio" ? "twilio" : "ghl",
+    ghlReady: Boolean(process.env.GHL_API_KEY && process.env.GHL_LOCATION_ID),
+    twilioReady: Boolean(
+      process.env.TWILIO_ACCOUNT_SID &&
+        process.env.TWILIO_API_KEY_SID &&
+        process.env.TWILIO_API_KEY_SECRET &&
+        process.env.TWILIO_MESSAGING_SERVICE_SID &&
+        process.env.TWILIO_AUTH_TOKEN,
+    ),
+    number: ORG.clientPhone,
+  };
+
+  const toc: [string, string][] = [
+    ["client-line", "Client line"],
+    ["mailbox-watch", "Mailbox watch"],
+    ["access-log", "Access log"],
+  ];
 
   return (
     <>
@@ -103,6 +135,17 @@ export default async function SystemPage({
           website chat, work and hours, note headings, shared mailboxes and tax years.
         </p>
       </section>
+
+      {/* Which carrier the client line runs on (owner, 27 Nov 2026). Here
+          rather than on a settings page because it is not a preference: it is
+          the switch somebody reaches for during a cutover, and the minute
+          after one goes wrong is not the minute to be looking for it. */}
+      {isAdmin && (
+        <section id="client-line" className="page-section">
+          <h2>Client line</h2>
+          <TelephonyForm choice={telephony} />
+        </section>
+      )}
 
       {/* Who has a second factor, and the switch (0217). */}
       {isAdmin && (

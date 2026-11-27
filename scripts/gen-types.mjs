@@ -516,6 +516,8 @@ const RPC_FUNCTIONS = [
   "clients_i_can_restrict",
   // Moving a payment to the month it actually arrived in (0255).
   "correct_payment_date",
+  // Which carrier the practice texts through (0392).
+  "sms_provider",
 ];
 
 const { rows: fns } = await client.query(

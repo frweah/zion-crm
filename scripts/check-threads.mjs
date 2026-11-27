@@ -252,14 +252,14 @@ const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   }
   // Every write goes through the actions file, and that file goes through the
   // one door that records a text before it sends it.
-  // The call, not the word. Asserting that "sendClientSms" appears anywhere
+  // The call, not the word. Asserting that "sendClientText" appears anywhere
   // in the file passes with the import left behind and the send replaced by a
   // direct insert, which is the one shape this is here to refuse.
-  if (!/await sendClientSms\(supabase/.test(actions)) {
+  if (!/await sendClientText\(supabase/.test(actions)) {
     bad("the panel sends a text without the door that records it before it goes");
   }
   if (/from\("sms_messages"\)\s*\n?\s*\.insert/.test(actions)) {
-    bad("the panel writes a text row itself rather than through sendClientSms");
+    bad("the panel writes a text row itself rather than through sendClientText");
   }
   if (!/rpc\("log_a_call"/.test(actions)) bad("a call is not written by the function that writes both halves");
   if (!/rpc\("collect_contact"/.test(actions)) bad("adding to the month does not go through collect_contact");

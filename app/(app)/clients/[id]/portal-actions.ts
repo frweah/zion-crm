@@ -6,7 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff, type CurrentStaff } from "@/lib/session";
 import { sendEmail } from "@/lib/email";
-import { sendClientSms } from "@/lib/sms";
+import { sendClientText } from "@/lib/sms";
 import { invitationEmail, invitationText } from "@/lib/portal/deliver";
 
 export type PortalAdminState = { error: string | null; ok: string | null };
@@ -91,7 +91,7 @@ async function tellThem(
     };
   }
 
-  const sent = await sendClientSms(supabase, {
+  const sent = await sendClientText(supabase, {
     clientId,
     clientName: client.name,
     phone: account.phone!,
