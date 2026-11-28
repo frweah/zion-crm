@@ -114,22 +114,27 @@ begin
   end if;
 
   perform public.generate_notifications();
+  -- The alert is found by the link it opens: the key carried the
+  -- authorization's id in its second field until the four client categories
+  -- became one, and it carries a hash of the sentence now.
   select count(*) into v_n from public.notifications
-   where dedupe_key like 'authorization:' || v_auth || ':%' and resolved_at is null;
+   where href = '/billing/authorizations/' || v_auth and resolved_at is null;
   if v_n <> 1 then
     failures := failures || format('FAILED: one authorization raised %s alerts', v_n);
   end if;
   select text into v_text from public.notifications
-   where dedupe_key like 'authorization:' || v_auth || ':%' and resolved_at is null;
+   where href = '/billing/authorizations/' || v_auth and resolved_at is null;
   if v_text is null or v_text not like '%not invoiced after 14 days%' then
     failures := failures || format('FAILED: the alert does not say what the record says (%s)', v_text);
   else
     raise notice 'ok  the alert carries the same sentence as the record and the list';
   end if;
 
-  -- And no authorization anywhere has two.
+  -- And no authorization anywhere has two. Counted by the link it opens:
+  -- the key held the authorization's id in its second field until the four
+  -- client categories became one, and holds a hash of the sentence now.
   select count(*) into v_n from (
-    select split_part(dedupe_key, ':', 2) a, count(*) c
+    select href a, count(*) c
       from public.notifications
      where kind = 'authorization' and resolved_at is null
      group by 1 having count(*) > 1) d;

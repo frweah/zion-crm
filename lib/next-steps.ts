@@ -27,6 +27,14 @@ export type NextStep = {
   action_href: string;
   /** 1 overdue or today · 2 this week or holding up billing · 3 further off · 4 undated. */
   severity: number;
+  /**
+   * Whose it is, by id, where `who` is the same person by name.
+   *
+   * The eighth column, added the night the engine landed. The nightly
+   * alerts address a task to the person it is on, and a name is not
+   * something to join staff on.
+   */
+  whose?: string | null;
 };
 
 /**

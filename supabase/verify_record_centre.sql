@@ -90,19 +90,19 @@ begin
 
   -- ── what is next ───────────────────────────────────────────
   -- Hours logged, no form: billing is being held up, and it says so.
-  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'form') then
+  if not exists (select 1 from public.next_steps('client', null, v_client) where kind = 'form') then
     failures := failures || 'FAILED: hours logged with no form did not show as holding up billing'::text;
   end if;
   -- The authorization ends inside a month and has hours on it.
-  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'authorization') then
+  if not exists (select 1 from public.next_steps('client', null, v_client) where kind = 'authorization') then
     failures := failures || 'FAILED: an authorization ending with hours on it was not raised'::text;
   end if;
   -- Nobody has said whether they may be texted.
-  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'consent') then
+  if not exists (select 1 from public.next_steps('client', null, v_client) where kind = 'consent') then
     failures := failures || 'FAILED: a client with no texting consent recorded was not raised'::text;
   end if;
   -- And a client with nothing against them has nothing due but the consent.
-  select count(*) into v_n from public.client_next_actions(v_other) where kind <> 'consent';
+  select count(*) into v_n from public.next_steps('client', null, v_other) where kind <> 'consent';
   if v_n <> 0 then
     failures := failures || format('FAILED: a client with nothing recorded had %s things due', v_n)::text;
   else
@@ -198,7 +198,7 @@ begin
 
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_worker_uid, 'role', 'authenticated')::text, true);
-  if exists (select 1 from public.client_next_actions(v_client) where kind = 'placement') then
+  if exists (select 1 from public.next_steps('client', null, v_client) where kind = 'placement') then
     failures := failures || 'FAILED: the placement was billable before any shift was recorded'::text;
   end if;
 
@@ -209,10 +209,10 @@ begin
    where id = v_placement;
   perform set_config('role', 'authenticated', true);
 
-  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'placement') then
+  if not exists (select 1 from public.next_steps('client', null, v_client) where kind = 'placement') then
     failures := failures || 'FAILED: five shifts kept did not make the placement billable'::text;
   end if;
-  if not exists (select 1 from public.client_next_actions(v_client) where kind = 'stability') then
+  if not exists (select 1 from public.next_steps('client', null, v_client) where kind = 'stability') then
     failures := failures || 'FAILED: thirty days of stability did not raise the indicators'::text;
   else
     raise notice 'ok  five shifts kept and thirty days of stability each say so, and neither can predate the placement';
@@ -259,7 +259,7 @@ begin
   -- ── nobody signed in ───────────────────────────────────────
   perform set_config('request.jwt.claims', '', true);
   if has_function_privilege('anon', 'public.search_clients(text, integer)', 'execute')
-     or has_function_privilege('anon', 'public.client_next_actions(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.next_steps(text, uuid, uuid)', 'execute')
      or has_function_privilege('anon', 'public.set_my_signature(text)', 'execute')
      or has_function_privilege('anon', 'public.authorization_can_submit(uuid)', 'execute')
      or has_function_privilege('anon', 'public.hqi_for_placement(uuid)', 'execute')

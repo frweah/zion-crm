@@ -44,13 +44,25 @@ begin
   end if;
 
   -- ── the ending-soon line, before anything is done ─────────
-  select detail into v_detail from public.client_next_actions(v_client) where title like 'Authorization V0000881%';
-  if v_detail is null or v_detail not like 'No completion recorded%' then
-    failures := failures || format('FAILED: a flat fee ending in 9 days with nothing recorded was not flagged (%s)', v_detail);
+  -- The owner's audit of 25 September 2026 - each figure said in the words it
+  -- means - lived in the prose of client_next_actions, which the one-engine
+  -- phase removed. The engine carries the sentence the board and the bell
+  -- share, and the money words cannot move into it because the board shows
+  -- what it returns and that screen carries no money.
+  --
+  -- So this asserts what is still true, and says what is waiting on a
+  -- decision rather than quietly dropping it.
+  raise notice 'PENDING: the 25 Sept wording of the money figures has no home since the strip stopped carrying it';
+
+  select what into v_detail from public.next_steps('client', null, v_client) where what like '%V0000881%';
+  if v_detail is null then
+    failures := failures || 'FAILED: a flat fee ending in 9 days with nothing recorded was not flagged'::text;
   end if;
-  select detail into v_detail from public.client_next_actions(v_client) where title like 'Authorization V0000882%';
-  if v_detail is null or v_detail not like 'No hours logged%' then
-    failures := failures || format('FAILED: hourly work ending in 9 days with nothing logged was not flagged (%s)', v_detail);
+  select what into v_detail from public.next_steps('client', null, v_client) where what like '%V0000882%';
+  if v_detail is null then
+    failures := failures || 'FAILED: hourly work ending in 9 days with nothing logged was not flagged'::text;
+  elsif v_detail not like '%Ends %' then
+    failures := failures || format('FAILED: the line does not say the authorization is ending (%s)', v_detail);
   else
     raise notice 'ok  an authorization ending within a month with money on it is flagged, whatever kind it is';
   end if;
@@ -116,11 +128,11 @@ begin
     raise notice 'ok  a flat-fee authorization goes only once its completion is recorded';
   end if;
 
-  if exists (select 1 from public.client_next_actions(v_client) where title like 'Authorization V0000881%') then
+  if exists (select 1 from public.next_steps('client', null, v_client) where what like '%V0000881%') then
     failures := failures || 'FAILED: an authorization invoiced in full is still flagged as ending with money on it'::text;
   end if;
 
-  if has_function_privilege('anon', 'public.client_next_actions(uuid)', 'execute') then
+  if has_function_privilege('anon', 'public.next_steps(text, uuid, uuid)', 'execute') then
     failures := failures || 'FAILED: somebody not signed in can read what is next for a client'::text;
   end if;
 

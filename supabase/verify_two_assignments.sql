@@ -91,7 +91,7 @@ begin
   end if;
 
   select staff_id into v_who from public.notifications
-   where client_id = v_client and kind = 'task_overdue' and resolved_at is null limit 1;
+   where client_id = v_client and kind = 'task' and resolved_at is null limit 1;
   if v_who is distinct from v_js then
     failures := failures || 'FAILED: a task''s alert stopped going to the person it is on'::text;
   else

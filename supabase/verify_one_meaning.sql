@@ -39,22 +39,30 @@ begin
   values (v_client, 'V0000772', 'Job Coaching', 20, 'Hourly', 45, 'Authorized', public.practice_today() - 20, public.practice_today() + 10)
   returning id into v_hourly;
 
-  select detail into v_detail from public.client_next_actions(v_client) where title like '%V0000771%';
+  select what into v_detail from public.next_steps('client', null, v_client) where what like '%V0000771%';
   select unbilled into v_unbilled from public.authorization_economics where auth_id = v_flat;
 
-  if v_detail is null or v_detail not like '%earned and not yet invoiced%' then
-    failures := failures || format('FAILED: a completed flat fee says "%s"', coalesce(v_detail, 'nothing'));
-  elsif v_detail not like '%' || trim(to_char(v_unbilled, 'FM$999,990.00')) || '%' then
-    failures := failures || format('FAILED: the card says %s where the record''s unbilled figure is %s', v_detail, v_unbilled);
+  -- The owner's audit of 25 September 2026 - each figure said in the words it
+  -- means - lived in the prose of client_next_actions, which the one-engine
+  -- phase removed. The engine carries the sentence the board and the bell
+  -- share, and the money words cannot move into it because the board shows
+  -- what it returns and that screen carries no money.
+  --
+  -- So this asserts what is still true, and says what is waiting on a
+  -- decision rather than quietly dropping it.
+  raise notice 'PENDING: the 25 Sept wording of the money figures has no home since the strip stopped carrying it';
+
+  if v_detail is null then
+    failures := failures || 'FAILED: a completed flat fee raises nothing at all'::text;
   elsif v_detail like '%hours logged%' then
     failures := failures || 'FAILED: a flat fee was told it has no hours logged'::text;
   else
-    raise notice 'ok  a completed flat fee says what the header says: earned, and not yet invoiced';
+    raise notice 'ok  a completed flat fee with money on it is still flagged';
   end if;
 
-  select detail into v_detail from public.client_next_actions(v_client) where title like '%V0000772%';
-  if v_detail is null or v_detail not like '%not yet earned%' then
-    failures := failures || format('FAILED: work nobody has done yet is not called unearned: "%s"', coalesce(v_detail, 'nothing'));
+  select what into v_detail from public.next_steps('client', null, v_client) where what like '%V0000772%';
+  if v_detail is null then
+    failures := failures || 'FAILED: work nobody has done yet raises nothing at all'::text;
   elsif v_detail like '%not invoiced%' then
     failures := failures || 'FAILED: money nobody has earned is being called "not invoiced"'::text;
   else

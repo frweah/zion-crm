@@ -132,22 +132,27 @@ begin
   end if;
 
   -- And one authorization is one alert.
+  --
+  -- Asked of the link rather than of the key. The key used to be
+  -- authorization:<id>:<urgency> and the id was its second field; it is
+  -- step:<kind>:<client>:<hash> now, and the thing that names one
+  -- authorization is the href the alert opens.
   if exists (select 1 from (
-       select split_part(dedupe_key, ':', 2) a, count(*) c from public.notifications
+       select href a, count(*) c from public.notifications
         where kind = 'authorization' and resolved_at is null group by 1 having count(*) > 1) d) then
     failures := failures || 'an authorization raised more than one alert'::text;
   end if;
 
   if not exists (select 1 from public.notifications
-                  where kind = 'task_overdue' and text like '%ZZ overdue task%'
+                  where kind = 'task' and text like '%ZZ overdue task%'
                     and resolved_at is null) then
-    failures := failures || 'task_overdue did not fire'::text;
+    failures := failures || 'a task alert did not fire'::text;
   end if;
 
   if not exists (select 1 from public.notifications
-                  where kind = 'followup_due' and text like '%ZZ chase authorization%'
+                  where kind = 'followup' and text like '%ZZ chase authorization%'
                     and resolved_at is null) then
-    failures := failures || 'followup_due did not fire'::text;
+    failures := failures || 'a follow-up alert did not fire'::text;
   end if;
 
   -- The monthly reminder only applies up to the 15th, which is the rule.
@@ -163,7 +168,7 @@ begin
 
   -- An overdue task must reach Admin and the role it sits with, not everyone.
   if exists (select 1 from public.notifications
-              where kind = 'task_overdue' and text like '%ZZ overdue task%'
+              where kind = 'task' and text like '%ZZ overdue task%'
                 and 'Billing' = any (roles)) then
     failures := failures || 'LEAK: an overdue Job Search task was addressed to Billing'::text;
   end if;

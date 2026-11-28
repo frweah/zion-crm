@@ -76,6 +76,20 @@ const TAB_FOR_KIND: Record<string, string> = {
   followup_due: "dashboard",
   counselor_followup: "dashboard",
   inactive: "dashboard",
+  // The engine's kinds (0405). The four names above are the categories it
+  // replaced, kept so an alert nobody has cleared yet still knows where it
+  // is dealt with.
+  task: "dashboard",
+  followup: "dashboard",
+  form: "billing",
+  reply: "messages",
+  quiet: "dashboard",
+  consent: "profile",
+  appointment: "dashboard",
+  interview: "jobs",
+  placement: "billing",
+  stability: "billing",
+  retention: "jobs",
 };
 
 /** Screens that moved, whose alerts were still pointing at the old place. */

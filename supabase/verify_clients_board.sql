@@ -108,28 +108,39 @@ begin
   end if;
 
   -- ── 4. what the tiles count is true of the row ─────────────
+  --
+  -- The tile was "Authorization ends within 30 days" and read a date column
+  -- the board worked out for itself. It is "Authorization needs attention"
+  -- now and filters on next_kinds, which is the engine's answer and the same
+  -- one the cell beside it shows. So the question is no longer whether a
+  -- date is within thirty days - it is whether a row claims an authorization
+  -- when the client has none live.
   select count(*) into n
     from public.clients_board_rows() b
-   where b.authorization_ends_on is not null
-     and (b.authorization_ends_on < public.practice_today()
-       or b.authorization_ends_on > public.practice_today() + 30);
-  if n <> 0 then
-    failures := failures || format('FAILED: %s row(s) say an authorization ends within 30 days and it does not', n)::text;
-  else
-    raise notice 'ok  "authorization ends within 30 days" means exactly that';
-  end if;
-
-  select count(*) into n
-    from public.clients_board_rows() b
-   where b.authorization_ends_on is not null
+   where 'authorization' = any (b.next_kinds)
      and not exists (
        select 1 from public.authorizations a
-        where a.client_id = b.client_id and a.end_date = b.authorization_ends_on
-          and a.status not in ('Paid', 'Closed'));
+        where a.client_id = b.client_id
+          and a.status in ('Authorized', 'Due', 'Submitted')
+          and not a.is_placeholder);
   if n <> 0 then
-    failures := failures || format('FAILED: %s row(s) count an authorization that is already settled', n)::text;
+    failures := failures || format('FAILED: %s row(s) flag an authorization the client does not have', n)::text;
   else
-    raise notice 'ok  a settled authorization does not light the tile';
+    raise notice 'ok  a row flags an authorization only where there is one to flag';
+  end if;
+
+  -- And the cell says one of the things the engine lists for that client,
+  -- never a sentence of the board's own.
+  select count(*) into n
+    from public.clients_board_rows() b
+   where b.next_step is not null
+     and not exists (
+       select 1 from public.next_steps('client', null, b.client_id) x
+        where x.what = b.next_step);
+  if n <> 0 then
+    failures := failures || format('FAILED: %s row(s) name a next step the record does not list', n)::text;
+  else
+    raise notice 'ok  the cell says one of the things the record says';
   end if;
 
   select count(*) into n
@@ -231,16 +242,25 @@ begin
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_staff.user_id, 'role', 'authenticated')::text, true);
+  -- The row carried the next open task in four columns of its own; it
+  -- carries one cell from the engine now, and a task thirty days overdue is
+  -- the worst thing this client has, so it is what the cell says.
   select count(*) into n from public.clients_board_rows() b
-   where b.client_id = v_client and b.next_task_id = v_task;
+   where b.client_id = v_client
+     and 'task' = any (b.next_kinds)
+     and b.next_step_severity = 1
+     and exists (
+       select 1 from public.next_steps('client', null, v_client) x
+        where x.kind = 'task' and x.severity = 1
+          and x.what like '%ZZ the soonest task%');
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   delete from public.tasks where id = v_task;
 
   if n <> 1 then
-    failures := failures || 'FAILED: the row did not take the task due soonest as the next one'::text;
+    failures := failures || 'FAILED: the row did not take the overdue task as what is next'::text;
   else
-    raise notice 'ok  the next task is the open one due soonest, with whose it is';
+    raise notice 'ok  an overdue task is what the row says is next, at the top severity';
   end if;
 
   if failures = '{}' then

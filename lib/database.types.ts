@@ -8366,14 +8366,6 @@ export type Database = {
         Args: { p_client: string | null };
         Returns: string;
       };
-      client_next_actions: {
-        Args: { p_client: string | null };
-        Returns: { kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
-      };
-      client_next_actions_for: {
-        Args: { p_clients: string[] | null };
-        Returns: { client_id: string | null; kind: string | null; title: string | null; detail: string | null; href: string | null; urgency: number | null }[];
-      };
       client_said_no_to: {
         Args: { p_client: string | null; p_employer: string | null };
         Returns: { at: string | null; said: string | null }[];
@@ -8392,7 +8384,7 @@ export type Database = {
       };
       clients_board_rows: {
         Args: { p_today?: string | null };
-        Returns: { client_id: string | null; name: string | null; stage: string | null; counselor: string | null; office: string | null; assigned_staff_id: string | null; assigned_to: string | null; job_status: string | null; job_status_on: string | null; last_contact_at: string | null; last_contact_kind: string | null; next_task_id: string | null; next_task_title: string | null; next_task_owner: string | null; next_task_due: string | null; days_in_stage: number | null; report_status: string | null; report_due_on: string | null; attention: string | null; attention_urgency: number | null; goal: string | null; services: string[] | null; funding_source: string | null; availability: string | null; applied_7d: number | null; next_interview: string | null; last_note: string | null; last_note_on: string | null; authorization_ends_on: string | null; flagged_for_review: string | null; stage_request_id: string | null; stage_request_to: string | null; stage_request_by: string | null; stage_request_at: string | null; stage_request_reason: string | null; next_step: string | null; next_step_severity: number | null; next_step_href: string | null; next_kinds: string[] | null }[];
+        Returns: { client_id: string | null; name: string | null; stage: string | null; counselor: string | null; office: string | null; assigned_staff_id: string | null; assigned_to: string | null; job_status: string | null; job_status_on: string | null; last_contact_at: string | null; last_contact_kind: string | null; days_in_stage: number | null; report_status: string | null; report_due_on: string | null; goal: string | null; services: string[] | null; funding_source: string | null; availability: string | null; applied_7d: number | null; next_interview: string | null; last_note: string | null; last_note_on: string | null; flagged_for_review: string | null; stage_request_id: string | null; stage_request_to: string | null; stage_request_by: string | null; stage_request_at: string | null; stage_request_reason: string | null; next_step: string | null; next_step_severity: number | null; next_step_href: string | null; next_kinds: string[] | null }[];
       };
       clients_i_can_restrict: {
         Args: Record<string, never>;
@@ -8876,7 +8868,7 @@ export type Database = {
       };
       next_steps: {
         Args: { p_scope: string | null; p_person: string | null; p_client: string | null };
-        Returns: { client_id: string | null; "when": string | null; what: string | null; who: string | null; kind: string | null; action_href: string | null; severity: number | null }[];
+        Returns: { client_id: string | null; "when": string | null; what: string | null; who: string | null; kind: string | null; action_href: string | null; severity: number | null; whose: string | null }[];
       };
       next_text_window: {
         Args: { p_at?: string | null };
