@@ -40,6 +40,26 @@ export const VOICEMAIL_SECONDS = 120;
 /** How often the browser says it is still there. Half the window it is trusted for. */
 export const PRESENCE_REFRESH_MS = 60_000;
 
+/**
+ * The voice the line speaks in.
+ *
+ * Twilio's own `<Say>` voice reads the greeting the way a parking machine
+ * reads a ticket number, and the greeting is the one sentence in this system
+ * a member of the public hears. Amazon's neural Joanna reads it like a
+ * person. Named once, because a line that answers in two voices sounds like
+ * two practices.
+ */
+export const SAY_VOICE = "Polly.Joanna-Neural";
+
+/**
+ * A second of quiet before the first word.
+ *
+ * A call's audio is still connecting when Twilio starts speaking, so without
+ * this the caller hears "...reached Zion Voc Rehab" and the name of the
+ * practice is the part that gets cut.
+ */
+export const LEAD_IN_SECONDS = 1;
+
 const base64url = (input: Buffer | string): string =>
   Buffer.from(input).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
@@ -120,6 +140,17 @@ export function twimlDocument(body: string): string {
 }
 
 /**
+ * Something said to whoever is on the line.
+ *
+ * The voice and the second of quiet are here rather than at each `<Say>`, so
+ * there is one answer to what this practice sounds like and one place to
+ * change it. The pause comes first on purpose: a pause after the words
+ * quietens nothing and clips the first one anyway.
+ */
+const say = (words: string): string =>
+  `<Pause length="${LEAD_IN_SECONDS}"/><Say voice="${SAY_VOICE}">${xml(words)}</Say>`;
+
+/**
  * A call arriving: ring every desk that is there, then take a message.
  *
  * One `<Client>` per member of staff with a live token. Each one carries the
@@ -159,7 +190,7 @@ export function inboundTwiml(params: {
     : "";
 
   const record =
-    `<Say>${xml(GREETING)}</Say>` +
+    say(GREETING) +
     `<Record maxLength="${VOICEMAIL_SECONDS}" playBeep="true" trim="trim-silence"` +
     (params.recordingStatusCallback
       ? ` recordingStatusCallback="${xml(params.recordingStatusCallback)}" recordingStatusCallbackMethod="POST"`
@@ -185,8 +216,8 @@ export function outboundTwiml(params: { to: string; callerId: string }): string 
 }
 
 /** What a caller hears when the practice cannot place their call. */
-export function refusedTwiml(say: string): string {
-  return twimlDocument(`<Say>${xml(say)}</Say><Hangup/>`);
+export function refusedTwiml(words: string): string {
+  return twimlDocument(`${say(words)}<Hangup/>`);
 }
 
 /**

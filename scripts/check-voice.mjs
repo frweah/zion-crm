@@ -19,7 +19,7 @@
  * or requires a session, and this says which.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { GREETING, RING_SECONDS, VOICEMAIL_SECONDS, PRESENCE_REFRESH_MS, dialable, voiceToken, inboundTwiml, outboundTwiml } from "../lib/twilio-voice.ts";
+import { GREETING, RING_SECONDS, VOICEMAIL_SECONDS, PRESENCE_REFRESH_MS, SAY_VOICE, LEAD_IN_SECONDS, dialable, voiceToken, inboundTwiml, outboundTwiml, refusedTwiml } from "../lib/twilio-voice.ts";
 import { NOT_IN_REPORTS, NOT_IN_REPORTS_FILTER } from "../lib/contact-methods.ts";
 
 const problems = [];
@@ -156,6 +156,46 @@ if (!ringing.includes('name="caller"') || !ringing.includes('name="clientId"')) 
   fail("the browser is rung without being told who is calling, so the banner says a phone number");
 }
 ok("a caller hears the greeting when nobody is there, and every desk is rung when somebody is");
+
+// ── and it is spoken in the practice's voice, after a breath ───
+
+/**
+ * Two rules about how the greeting is spoken (owner, 27 November 2026).
+ *
+ * The fault to refuse is not a particular voice name - it is `<Say>` saying
+ * nothing about the voice, because that is the one that gets Twilio's
+ * default, and the default is what a caller got before today.
+ *
+ * And the pause has to come *before* the words. A pause after the greeting
+ * quietens nothing while looking exactly like the fix, so the order is what
+ * is asked rather than the presence: `<Pause/>` anywhere in the document
+ * passed the first version of this with the greeting still clipped.
+ */
+const spoken = [...empty.matchAll(/<Say\b[^>]*>/g)].map((m) => m[0]);
+if (spoken.length === 0) {
+  fail("nothing is said to a caller at all, so everything above about the greeting asks nothing");
+}
+const voiceless = spoken.filter((tag) => !tag.includes(`voice="${SAY_VOICE}"`));
+if (voiceless.length > 0) {
+  fail(
+    `${voiceless.join(" ")} speaks to a caller in whichever voice Twilio defaults to, and ` +
+      "the greeting is the one sentence in this system a member of the public hears",
+  );
+}
+const quiet = empty.search(/<Pause\b/);
+const words = empty.search(/<Say\b/);
+if (quiet < 0 || !new RegExp(`<Pause length="${LEAD_IN_SECONDS}"\\s*/>`).test(empty)) {
+  fail("there is no second of quiet before the greeting, so the caller loses its first word");
+} else if (quiet > words) {
+  fail("the quiet comes after the greeting, which clips the first word exactly as before");
+}
+
+// A refusal is the same line talking to the same person.
+const refusal = refusedTwiml("That number cannot be dialled from here.");
+if (!refusal.includes(`voice="${SAY_VOICE}"`) || !/<Pause\b[\s\S]*<Say\b/.test(refusal)) {
+  fail("a refusal is spoken in a different voice from the greeting, or clipped where it is not");
+}
+ok("the line speaks in one voice, and waits a second before it starts");
 
 // ── a number this practice will dial ────────────────────────
 
@@ -402,6 +442,28 @@ if (readsMode.length > 0) {
   );
 } else {
   ok("whose desk rings is read by the database alone, and set on one screen");
+}
+
+/**
+ * And what the practice sounds like is named in one file.
+ *
+ * The owner's instruction was a single constant, which is a rule about the
+ * repository rather than about any one document: a second `voice="..."`
+ * written at a `<Say>` somewhere else is a line that answers in two voices
+ * and a change that only half lands.
+ */
+const namesAVoice = sources.filter(
+  (f) => f !== "lib/twilio-voice.ts" && /Polly\.|<Say\b[^>]*voice=/.test(read(f)),
+);
+if (namesAVoice.length > 0) {
+  fail(
+    `${namesAVoice.join(", ")} name a voice of their own. There is one constant for what ` +
+      "this practice sounds like, and it is in lib/twilio-voice.ts",
+  );
+} else if (!/Polly\./.test(read("lib/twilio-voice.ts"))) {
+  fail("nothing names a voice anywhere, so the line is back to whatever Twilio defaults to");
+} else {
+  ok("the voice is named once, in lib/twilio-voice.ts");
 }
 
 if (problems.length) {
