@@ -16,6 +16,10 @@ export type TelephonyState = { error: string | null; ok: string | null };
 const KNOWN = ["ghl", "twilio"] as const;
 type Known = (typeof KNOWN)[number];
 
+/** Whose desk the line rings (owner, 27 Nov 2026). */
+const MODES = ["off", "admin", "all"] as const;
+type Mode = (typeof MODES)[number];
+
 export async function saveTelephony(
   _prev: TelephonyState,
   formData: FormData,
@@ -61,20 +65,40 @@ export async function saveTelephony(
     };
   }
 
+  const voice = String(formData.get("voice") ?? "");
+  if (!MODES.includes(voice as Mode)) {
+    return { error: "Choose who the line rings.", ok: null };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("org_settings")
-    .update({ sms_provider: chosen })
+    .update({ sms_provider: chosen, voice_mode: voice })
     .eq("id", true);
 
   if (error) return { error: error.message, ok: null };
 
   revalidatePath("/admin/system");
+
+  /**
+   * Said as one sentence, because it is one decision: which carrier, and
+   * whose desk hears it. A screen that reported only half of what the button
+   * changed would be a screen somebody has to press twice to believe.
+   */
+  const rings =
+    voice === "all"
+      ? "every seat that texts clients"
+      : voice === "admin"
+        ? "Admin seats only"
+        : "nobody";
+
   return {
     error: null,
     ok:
-      chosen === "twilio"
-        ? "The line is on Twilio. Send one text and make one call before telling anybody."
-        : "The line is back on GoHighLevel.",
+      (chosen === "twilio"
+        ? "The line is on Twilio and rings "
+        : "The line is on GoHighLevel and rings ") +
+      rings +
+      (chosen === "twilio" ? ". Send one text and make one call before telling anybody." : "."),
   };
 }

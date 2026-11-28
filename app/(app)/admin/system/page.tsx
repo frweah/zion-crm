@@ -48,7 +48,7 @@ export default async function SystemPage({
     isAdmin ? supabase.from("staff").select("id, name").eq("active", true).eq("is_system", false).order("name") : Promise.resolve({ data: [] }),
     supabase
       .from("org_settings")
-      .select("web_chat_enabled, web_chat_takers, web_chat_open, web_chat_close, web_chat_days, web_chat_greeting, web_chat_promise, sms_provider")
+      .select("web_chat_enabled, web_chat_takers, web_chat_open, web_chat_close, web_chat_days, web_chat_greeting, web_chat_promise, sms_provider, voice_mode")
       .maybeSingle(),
     // Live is not a setting: it is whether anybody who takes chats has a
     // window open right now, inside the hours below.
@@ -102,6 +102,14 @@ export default async function SystemPage({
   const telephony: TelephonyChoice = {
     provider:
       (webChat as { sms_provider?: string } | null)?.sms_provider === "twilio" ? "twilio" : "ghl",
+    // Off is the fallback as well as the default, for the reason 0401 gives:
+    // a desk ringing when it should not is worse than a voicemail.
+    voice:
+      (webChat as { voice_mode?: string } | null)?.voice_mode === "all"
+        ? "all"
+        : (webChat as { voice_mode?: string } | null)?.voice_mode === "admin"
+          ? "admin"
+          : "off",
     ghlReady: Boolean(process.env.GHL_API_KEY && process.env.GHL_LOCATION_ID),
     twilioReady: Boolean(
       process.env.TWILIO_ACCOUNT_SID &&

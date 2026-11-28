@@ -102,6 +102,15 @@ const BOUNDED = [
  *
  * So: walk forward, and stop at the comma, semicolon or closing bracket that
  * ends this expression at the depth it started.
+ *
+ * It does not skip comments, which is worth knowing before it is believed: a
+ * comma inside a `//` comment in the middle of a chain ends the chain here,
+ * and every filter after that comment becomes invisible. On 27 November 2026
+ * it reported lib/report.ts as an unbounded read of contact_log because of a
+ * comma in a sentence about voicemail. The answer taken then was to put the
+ * comment above the chain rather than inside it; the alternative is to teach
+ * this to skip comments and strings, which changes the verdict for every
+ * other read in the practice and is not a thing to do in passing.
  */
 function chainAfter(source, start) {
   let depth = 0;

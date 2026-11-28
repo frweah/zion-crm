@@ -4065,6 +4065,7 @@ export type Database = {
           recording_draft_words: number;
           clock_accounts_from: string | null;
           sms_provider: string;
+          voice_mode: string;
         };
         Insert: {
           id?: boolean;
@@ -4095,6 +4096,7 @@ export type Database = {
           recording_draft_words?: number;
           clock_accounts_from?: string | null;
           sms_provider?: string;
+          voice_mode?: string;
         };
         Update: {
           id?: boolean;
@@ -4125,6 +4127,7 @@ export type Database = {
           recording_draft_words?: number;
           clock_accounts_from?: string | null;
           sms_provider?: string;
+          voice_mode?: string;
         };
         Relationships: [];
       };
@@ -8573,7 +8576,7 @@ export type Database = {
       };
       file_voicemail: {
         Args: { p_sid: string | null; p_storage_path: string | null; p_filename: string | null; p_mime: string | null; p_bytes: number | null; p_sha256?: string | null; p_seconds?: number | null };
-        Returns: { attachment_id: string | null; recording_id: string | null }[];
+        Returns: { filed_attachment: string | null; filed_recording: string | null }[];
       };
       fmt_hours: {
         Args: { n: number | null };

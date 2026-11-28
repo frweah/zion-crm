@@ -20,6 +20,7 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { GREETING, RING_SECONDS, VOICEMAIL_SECONDS, PRESENCE_REFRESH_MS, dialable, voiceToken, inboundTwiml, outboundTwiml } from "../lib/twilio-voice.ts";
+import { NOT_IN_REPORTS, NOT_IN_REPORTS_FILTER } from "../lib/contact-methods.ts";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -299,6 +300,109 @@ if (!/zion:dial/.test(dialButton) || !/zion:dial/.test(panel)) {
   fail("pressing a number does not reach the one telephone in the shell");
 }
 ok("a number on a screen asks the shell's telephone to dial rather than holding one");
+
+// ── a voicemail's words do not go out in a report ───────────
+
+/**
+ * The owner's second limit, 27 November 2026: a voicemail transcript never
+ * appears in a report or an export.
+ *
+ * It is a real risk and not a theoretical one. The transcript is on
+ * `contact_log.outcome` so that the threads board can show it, and the
+ * monthly report and the period report both read that column straight into a
+ * document that goes to a counselor at USOR. Before this, a client's
+ * voicemail would have been quoted in their monthly report.
+ *
+ * Asked of `lib/` rather than of those two files by name, so a third report
+ * next month fails this instead of leaking - and of `lib/` rather than of
+ * everything, because that is the structural line in this repository: `lib/`
+ * builds the documents that leave the practice, and `app/` draws the screens
+ * that stay inside it.
+ *
+ * The screens are deliberately not asked. A voicemail's words are meant to
+ * show on a client's record and on the threads board - that is the owner's
+ * ruling and the whole point of reading the message at all - and a check that
+ * demanded the filter everywhere would have been a check demanding the words
+ * be hidden from the practice. The first version of this did exactly that and
+ * named three screens, two of which cannot show a voicemail anyway because
+ * they filter by counselor or by method.
+ */
+const sources = [];
+for (const top of ["lib", "app"]) {
+  (function walk(where) {
+    for (const entry of readdirSync(new URL(where, root))) {
+      if (entry === "node_modules" || entry.startsWith(".")) continue;
+      const rel = `${where}/${entry}`;
+      if (statSync(new URL(rel, root)).isDirectory()) walk(rel);
+      // The generated types name every column in the database, including the
+      // two this file has rules about, and are nobody's decision.
+      else if (/\.(ts|tsx)$/.test(entry) && !entry.endsWith(".d.ts") && entry !== "database.types.ts") {
+        sources.push(rel);
+      }
+    }
+  })(top);
+}
+
+const documents = sources.filter((f) => f.startsWith("lib/"));
+
+const readsOutcome = documents.filter((f) => {
+  const body = read(f);
+  return /from\("contact_log"\)[\s\S]{0,200}?\.select\([^)]*outcome/.test(body);
+});
+
+/**
+ * The call, not the import.
+ *
+ * `/NOT_IN_REPORTS_FILTER/` is satisfied by the import line, so a fault that
+ * deleted the `.not(…)` and left the import behind passed - which is the one
+ * shape this exists to refuse, and the third time this session that a check
+ * has looked for a word instead of a call.
+ */
+const unfiltered = readsOutcome.filter(
+  (f) => !/\.not\(\s*"method"\s*,\s*"in"\s*,\s*NOT_IN_REPORTS_FILTER\s*\)/.test(read(f)),
+);
+if (unfiltered.length > 0) {
+  fail(
+    `${unfiltered.join(", ")} read contact_log.outcome without excluding the lines whose words ` +
+      "never leave the record, so a client's voicemail would be quoted in a report sent to USOR",
+  );
+} else if (readsOutcome.length === 0) {
+  fail(
+    "nothing reads contact_log.outcome any more, so this check is asking nothing - either the " +
+      "reports changed shape or the pattern has stopped matching",
+  );
+} else {
+  ok(
+    `${readsOutcome.length} of ${documents.length} files in lib/ read the outcome, and every one ` +
+      "excludes a voicemail",
+  );
+}
+
+if (NOT_IN_REPORTS.length === 0 || !NOT_IN_REPORTS.includes("Voicemail")) {
+  fail("the list of lines whose words never leave the record does not include a voicemail");
+}
+if (!/"Voicemail"/.test(NOT_IN_REPORTS_FILTER)) {
+  fail(`the PostgREST filter is ${NOT_IN_REPORTS_FILTER}, which will not exclude anything`);
+}
+
+/**
+ * And whose desk rings is read in one place, which is the database.
+ *
+ * A second reader in the application would be a seat that gets a token and
+ * never rings, or one that rings without a token - and both look like a
+ * broken telephone rather than a setting.
+ */
+const readsMode = sources.filter(
+  (f) => /voice_mode/.test(read(f)) && !f.includes("admin/system"),
+);
+if (readsMode.length > 0) {
+  fail(
+    `${readsMode.join(", ")} read the voice mode. Only the Admin screen that sets it should: ` +
+      "whose desk rings is decided in staff_on_the_phones and nowhere else",
+  );
+} else {
+  ok("whose desk rings is read by the database alone, and set on one screen");
+}
 
 if (problems.length) {
   for (const p of problems) console.error(`  - ${p}`);

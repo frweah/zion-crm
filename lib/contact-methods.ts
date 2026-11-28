@@ -67,3 +67,28 @@ export const REAL_CONTACT_METHODS = [
 
 export const isRealContact = (method: string | null | undefined): boolean =>
   (REAL_CONTACT_METHODS as readonly string[]).includes((method ?? "").trim());
+
+/**
+ * The lines whose words never leave the record (owner, 27 November 2026).
+ *
+ * A voicemail's outcome is the client's own words, put there by a machine
+ * reading the recording (0395, 0397). Those words are for the practice: they
+ * are what makes "needs a reply" a row somebody can act on, and they are
+ * readable by anybody who can see the client. They are **not** for a monthly
+ * report sent to a counselor or for an export, which is the owner's ruling
+ * and the same rule the transcript has always had.
+ *
+ * This is a fifth list and it is not derivable from the four above.
+ * `REAL_CONTACT_METHODS` leaves out a dozen things that do belong in a report
+ * - "End of day report" is two hundred of November's lines - so "not a real
+ * contact" is far too wide a net for this. These two are the whole of it: the
+ * two methods a machine writes words onto.
+ *
+ * Nothing is lost from any report that has ever been produced. Both methods
+ * were created on 27 November 2026 and no line on file carries either, so
+ * excluding them cannot change a single report the practice has sent.
+ */
+export const NOT_IN_REPORTS = ["Voicemail", "Missed call"] as const;
+
+/** The same list as PostgREST wants it, for a `.not("method", "in", …)`. */
+export const NOT_IN_REPORTS_FILTER = `(${NOT_IN_REPORTS.map((m) => `"${m}"`).join(",")})`;

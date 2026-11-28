@@ -9,6 +9,7 @@ import {
   weeksAcross,
 } from "@/lib/report-weeks";
 import type { Database } from "@/lib/database.types";
+import { NOT_IN_REPORTS_FILTER } from "@/lib/contact-methods";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   FAMILY_OF,
@@ -292,8 +293,12 @@ export async function buildPeriodContent(
       .eq("client_id", clientId)
       .limit(50),
     supabase
+      // As in lib/report.ts: a machine's reading of somebody's voice does not
+      // go out in a report (owner, 27 Nov 2026) - the `.not()` below. Said
+      // here rather than inside the chain for the reason given there.
       .from("contact_log")
       .select("date, method, topic, outcome, category")
+      .not("method", "in", NOT_IN_REPORTS_FILTER)
       .eq("client_id", clientId)
       .gte("date", from)
       .lte("date", to)

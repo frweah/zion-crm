@@ -23,6 +23,12 @@
 --   meeting recording's words still never leave the recording (the owner's
 --   rule of 14 November);
 --
+--   whose desk rings is the practice's to set - nobody, Admin only, or
+--   every seat that texts clients - and 'off' means no desk rings at all;
+--
+--   a records request carries the call row, the audio and the words **once**,
+--   not the message twice;
+--
 --   and nothing on a screen can say a call happened.
 --
 -- Everything is rolled back.
@@ -50,6 +56,8 @@ declare
   v_n        integer;
   v_said     text;
   v_hours    integer;
+  v_other    uuid;
+  v_bundle   jsonb;
 begin
   -- ── the practice, in miniature ─────────────────────────────
   insert into public.staff (name, email, role, active)
@@ -129,7 +137,14 @@ begin
   end if;
 
   -- ── 2. who is at their desk ────────────────────────────────
+  --
+  -- Asked with the line on 'all', because this section is about the
+  -- freshness window and the roles. Whose desk the mode allows is section 2b,
+  -- and the default is 'off' - which this section inherited on the first run
+  -- and reported as "somebody who just said they were there is not on the
+  -- phones".
   v_mark := coalesce(array_length(failures, 1), 0);
+  update public.org_settings set voice_mode = 'all' where id = true;
 
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
@@ -163,6 +178,54 @@ begin
 
   if coalesce(array_length(failures, 1), 0) = v_mark then
     raise notice '  ok  a fresh beat is on the phones, a stale one is not, and only seats that text are rung';
+  end if;
+
+  -- ── 2b. and whose desk rings is the practice's to say ─────
+  --
+  -- Three modes, and 'off' is the one worth asserting hardest: the whole of
+  -- part B was deployed with the line silent, so a mode that did not hold
+  -- would have been a test number ringing the practice before anybody asked
+  -- for it.
+  v_mark := coalesce(array_length(failures, 1), 0);
+
+  update public.org_settings set voice_mode = 'off' where id = true;
+  select count(*) into v_n from public.staff_on_the_phones();
+  if v_n <> 0 then
+    failures := failures || format(
+      'FAILED: the line is switched off and %s desk(s) still ring', v_n)::text;
+  end if;
+
+  -- Admin only: the owner's setting for running the proofs without the team
+  -- watching a test line ring.
+  update public.org_settings set voice_mode = 'admin' where id = true;
+  select count(*) into v_n from public.staff_on_the_phones() where staff_id = v_staff;
+  if v_n <> 1 then
+    failures := failures || 'FAILED: the line rings Admin only and the Admin desk does not ring'::text;
+  end if;
+  insert into public.staff (name, email, role, active)
+  values ('ZZ Phones Search', 'zz-phones-search@example.test', 'Job Search', true)
+  returning id into v_other;
+  insert into public.staff_voice_presence (staff_id) values (v_other);
+  select count(*) into v_n from public.staff_on_the_phones() where staff_id = v_other;
+  if v_n <> 0 then
+    failures := failures ||
+      'FAILED: the line rings Admin only and a Job Search desk rings too'::text;
+  end if;
+
+  -- And everybody, which is the cutover setting.
+  update public.org_settings set voice_mode = 'all' where id = true;
+  select count(*) into v_n from public.staff_on_the_phones() where staff_id = v_other;
+  if v_n <> 1 then
+    failures := failures || 'FAILED: the line rings everybody and a Job Search desk does not'::text;
+  end if;
+  select count(*) into v_n from public.staff_on_the_phones() where staff_id = v_coach;
+  if v_n <> 0 then
+    failures := failures ||
+      'FAILED: even on "all" the line rings a seat that may not text a client'::text;
+  end if;
+
+  if coalesce(array_length(failures, 1), 0) = v_mark then
+    raise notice '  ok  off rings nobody, admin rings Admin, and all still leaves out seats that do not text';
   end if;
 
   -- ── 3. an answered call is a contact; a missed one is not ──
@@ -406,13 +469,40 @@ begin
   -- says so rather than quietly handing one over.
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
-  select jsonb_array_length(
-           coalesce(public.records_request_bundle(v_client, 'ZZ verify') -> 'calls', '[]'::jsonb))
-    into v_n;
+  v_bundle := public.records_request_bundle(v_client, 'ZZ verify');
   perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+  select jsonb_array_length(coalesce(v_bundle -> 'calls', '[]'::jsonb)) into v_n;
   if coalesce(v_n, 0) = 0 then
     failures := failures ||
       'FAILED: a client asking for everything the practice holds is not told about their calls'::text;
+  end if;
+
+  /**
+   * And the message once, not twice.
+   *
+   * `counselor_contacts` hands over the whole contact-log row, so a
+   * voicemail's own words are already in the bundle as that line's outcome.
+   * 0398 put them in the calls section as well, which answered a client with
+   * their message twice; 0402 took them back out. The call row keeps what
+   * only it knows - which way, when, how long - and the audio is in `files`,
+   * because a voicemail is filed as an attachment like anything else.
+   *
+   * Counted across the whole document rather than per section, so moving the
+   * duplication somewhere else does not pass.
+   */
+  select count(*) into v_n from regexp_matches(v_bundle::text, 'too far by bus', 'g');
+  if v_n <> 1 then
+    failures := failures || format(
+      'FAILED: a records request carries the client''s message %s time(s), and it should carry it once',
+      v_n)::text;
+  end if;
+
+  -- And the recording itself, as a file on their record: a client told about
+  -- a message they cannot hear has not been told everything.
+  if v_bundle::text not like '%Voicemail%' then
+    failures := failures ||
+      'FAILED: the recording is not in the bundle, so the client cannot hear what they said'::text;
   end if;
 
   if coalesce(array_length(failures, 1), 0) = v_mark then

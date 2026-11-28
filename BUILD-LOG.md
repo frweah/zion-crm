@@ -12187,3 +12187,78 @@ fail.
 database. 64 checks in prebuild. 166 of 167 verify scripts pass; the one that
 does not is `verify_billing_overview`, which this branch does not touch and
 which fails on real data.
+
+### Two rulings on it, the same evening
+
+**Whose desk rings is a setting too.** `voice_mode` is `off`, `admin` or
+`all`, default `off`, and it is one `case` inside `staff_on_the_phones` - the
+one place that already decides whose browser to ring. Nothing else needed to
+know: the token route refuses a token to anybody that function does not list,
+so a seat outside the mode is handed no telephone and the panel draws nothing.
+A second place deciding would be a seat that gets a token and never rings,
+which looks like a broken telephone rather than a setting.
+
+An unreadable mode falls back to `off`, and that is *not* the reasoning the
+carrier switch uses. There a failed read refuses the send, because a default
+would text a client from whichever number the practice is not using. Here the
+harm runs one way only - a desk ringing when it should not is a client call
+answered by somebody who should not have it, and a desk not ringing is a
+voicemail - so this one falls back to silence on purpose.
+
+**A voicemail's words, twice over.** The owner's second ruling was that
+transcripts never appear in reports or exports and that a records request
+carries the call row and the audio, not the transcript line twice. Both were
+true risks rather than theoretical ones.
+
+The monthly report and the period report read `contact_log.outcome` straight
+into a document that goes to a counselor at USOR, so a client's voicemail
+would have been quoted in their own monthly report. Both now exclude the two
+methods whose words a machine writes, which is a fifth list in
+`lib/contact-methods.ts` and deliberately not derived from the other four:
+"not a real contact" leaves out a dozen things that do belong in a report.
+Nothing is lost from any report ever produced, because both methods were
+created the same day and no line on file carries either.
+
+And the bundle carried the words twice - in `recordings`, where every reading
+has lived since 0344, and in `counselor_contacts`, which hands over the whole
+contact-log row. 0402 took them out of the new `calls` section and 0404 takes
+them out of the contact-log row, so a client who asks for everything gets the
+fact of the call, the recording, their own words and the line saying a message
+was left. Once each.
+
+### And a bug the new assertion found
+
+`client_threads_board` compared `hd.at::date` - the **UTC** day a message
+arrived - against `contact_log.date`, which is the practice's own local day.
+Utah is seven hours behind, so from five in the evening the message's day was
+already tomorrow and nothing the practice did that day could count as an
+answer. A client who rang at ten past five, was rung back at half past and had
+the call logged, stayed on the board as needing a reply until the next day.
+
+It errs the safe way - a row that has been answered rather than one that has
+not - which is why nobody reported it, and it is older than any of this: it
+affects texts exactly as much, and the voicemail fixture is only what found
+it, at 17:21 on 27 November. 0403 compares the practice's day with the
+practice's day, which is what the owner's rule said all along. **It changes
+what the board shows:** rows answered in the evening of the day they arrived
+stop appearing under "Needs a reply".
+
+Three more of the assertions were wrong rather than the code. Two bends
+written with `\n` stopped applying the moment the files went through git and
+came back with CRLF - the second time in one session, so the fault runner
+normalises line endings now rather than each bend remembering to. And the
+report rule looked for `NOT_IN_REPORTS_FILTER` anywhere in the file, which the
+import line satisfies, so deleting the `.not()` and leaving the import behind
+passed: the third time in one session that a check looked for a word instead
+of a call.
+
+One other thing worth writing down, because it cost an hour:
+`check-unbounded-reads` walks a method chain to the first comma at bracket
+depth zero and does not skip comments, so a comma inside a `//` comment in the
+middle of a query makes every filter after it invisible. It reported
+`lib/report.ts` as an unbounded read of `contact_log` because of a comma in a
+sentence about voicemail. The comment moved above the chain, and the trap is
+now written in the check.
+
+57 faults put back, 57 caught. 65 checks in prebuild. 166 of 167 verify
+scripts pass.

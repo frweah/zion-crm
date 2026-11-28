@@ -8,6 +8,8 @@ const initial: TelephonyState = { error: null, ok: null };
 export type TelephonyChoice = {
   /** What the switch says now. */
   provider: "ghl" | "twilio";
+  /** Whose desk it rings: nobody, Admin only, or everybody who texts. */
+  voice: "off" | "admin" | "all";
   /** Whether each carrier has everything it needs to send. */
   ghlReady: boolean;
   twilioReady: boolean;
@@ -35,6 +37,17 @@ export function TelephonyForm({ choice }: { choice: TelephonyChoice }) {
     { value: "twilio", name: "Twilio", ready: choice.twilioReady },
   ] as const;
 
+  /**
+   * Whose desk rings. Separate from the carrier because they move at
+   * different times: the owner runs the proofs on a test number with this on
+   * Admin, and turns it to everybody at cutover.
+   */
+  const modes = [
+    { value: "off", name: "Nobody" },
+    { value: "admin", name: "Admin only" },
+    { value: "all", name: "Everyone who texts clients" },
+  ] as const;
+
   return (
     <form action={action} className="card" style={{ marginTop: 14 }}>
       {state.error && <div className="alert bad">{state.error}</div>}
@@ -42,7 +55,14 @@ export function TelephonyForm({ choice }: { choice: TelephonyChoice }) {
 
       <p className="sub" style={{ marginTop: 0 }}>
         {choice.number} texts and rings through{" "}
-        <span className="chip ok">{choice.provider === "twilio" ? "Twilio" : "GoHighLevel"}</span>
+        <span className="chip ok">{choice.provider === "twilio" ? "Twilio" : "GoHighLevel"}</span>{" "}
+        {choice.voice === "off" ? (
+          <span className="chip warn">no desk rings</span>
+        ) : (
+          <span className="chip">
+            {choice.voice === "admin" ? "Admin desks ring" : "every texting desk rings"}
+          </span>
+        )}
       </p>
 
       <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
@@ -60,6 +80,16 @@ export function TelephonyForm({ choice }: { choice: TelephonyChoice }) {
             ) : (
               <span className="chip warn">keys not set</span>
             )}
+          </label>
+        ))}
+      </div>
+
+      <h3 style={{ marginTop: 16, marginBottom: 0 }}>Who it rings</h3>
+      <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+        {modes.map((m) => (
+          <label key={m.value} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="radio" name="voice" value={m.value} defaultChecked={choice.voice === m.value} />
+            <span>{m.name}</span>
           </label>
         ))}
       </div>
