@@ -19,7 +19,7 @@
  * or requires a session, and this says which.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { GREETING, RING_SECONDS, VOICEMAIL_SECONDS, PRESENCE_REFRESH_MS, SAY_VOICE, LEAD_IN_SECONDS, dialable, voiceToken, inboundTwiml, outboundTwiml, refusedTwiml } from "../lib/twilio-voice.ts";
+import { GREETING, RING_SECONDS, VOICEMAIL_SECONDS, PRESENCE_REFRESH_MS, SAY_VOICE, LEAD_IN_SECONDS, SPOKEN_NAME, spokenWords, dialable, voiceToken, inboundTwiml, outboundTwiml, refusedTwiml } from "../lib/twilio-voice.ts";
 import { NOT_IN_REPORTS, NOT_IN_REPORTS_FILTER } from "../lib/contact-methods.ts";
 
 const problems = [];
@@ -111,7 +111,7 @@ const empty = inboundTwiml({
   clientId: null,
   recordingStatusCallback: "https://example.test/api/twilio/recording-status",
 });
-if (!empty.includes(WORDS.replace(/'/g, "&apos;"))) {
+if (!empty.includes(spokenWords(WORDS))) {
   fail("the greeting is not in the TwiML a caller gets when nobody is at a desk");
 }
 if (/<Dial/.test(empty)) {
@@ -196,6 +196,61 @@ if (!refusal.includes(`voice="${SAY_VOICE}"`) || !/<Pause\b[\s\S]*<Say\b/.test(r
   fail("a refusal is spoken in a different voice from the greeting, or clipped where it is not");
 }
 ok("the line speaks in one voice, and waits a second before it starts");
+
+// ── and it says the name of the practice ────────────
+
+/**
+ * The name is spoken differently from how it is written (owner, 27 November
+ * 2026): Polly reads "Voc" as "voke", and it rhymes with rock.
+ *
+ * The first of these is the one that matters. Strip the markup out of the
+ * spoken form and what is left has to be exactly the written greeting,
+ * escaped - no word added and none dropped - because a substitution that
+ * quietly loses "Rehab" is a greeting nobody is reading any more. The
+ * comparison is made here rather than against the library's own escaping,
+ * so the thing under test is not also the thing it is measured by.
+ */
+const asSaid = spokenWords(GREETING);
+if (asSaid.replace(/<[^>]+>/g, "") !== GREETING.replace(/'/g, "&apos;")) {
+  fail(
+    "the spoken greeting is not the written one with a pronunciation on it. Stripped of its " +
+      `markup it reads:\n      "${asSaid.replace(/<[^>]+>/g, "")}"`,
+  );
+}
+if (asSaid.includes("Zion Voc Rehab")) {
+  fail('the practice is still named in the TwiML as it is written, so a caller hears "voke"');
+}
+
+// The markup reaches the caller, inside the <Say> and with a sound in it.
+const ph = empty.search(/<phoneme\b/);
+const opens = empty.search(/<Say\b/);
+const closes = empty.search(/<\/Say>/);
+if (ph < 0) {
+  fail("nothing tells Polly how to say the name, so the greeting mispronounces the practice");
+} else if (ph < opens || ph > closes) {
+  fail("the pronunciation is outside the <Say>, where it is markup nobody reads aloud");
+}
+if (!/ph="[^"]+"/.test(SPOKEN_NAME) || !/alphabet="ipa"/.test(SPOKEN_NAME)) {
+  fail(`the spoken name carries no sound to make: ${SPOKEN_NAME}`);
+}
+
+/**
+ * And escaping still happens, which is the half a substitution can undo.
+ *
+ * Everything but the practice's own name has to come through as text. A
+ * caller called "Jones & Son" whose name reached the TwiML raw is a document
+ * Twilio refuses, which is an error tone rather than a greeting.
+ */
+const awkward = spokenWords("Jones & Son's <line>, \"the one\"");
+if (!/&amp;/.test(awkward) || !/&apos;/.test(awkward) || !/&lt;line&gt;/.test(awkward)) {
+  fail(`words reach Polly unescaped: ${awkward}`);
+}
+
+// A refusal names the practice the same way, through the same helper.
+if (!/<phoneme\b/.test(refusedTwiml("Zion Voc Rehab cannot dial that number."))) {
+  fail("a refusal that names the practice says it the old way, so the line has two names");
+}
+ok("the practice is named as it is said, the words are otherwise exactly the written ones");
 
 // ── a number this practice will dial ────────────────────────
 

@@ -52,6 +52,23 @@ export const PRESENCE_REFRESH_MS = 60_000;
 export const SAY_VOICE = "Polly.Joanna-Neural";
 
 /**
+ * How the practice's name is said, as against how it is written.
+ *
+ * Polly reads "Voc" as "voke". It is short for vocational, it rhymes with
+ * rock, and the first thing a caller hears is the name of the practice being
+ * got wrong. So the written form is left exactly as it is - every screen,
+ * every report and every text still says "Zion Voc Rehab" - and only the
+ * spoken one carries the pronunciation.
+ *
+ * `\u0251` is the vowel in "rock". <phoneme> is ordinary SSML rather than
+ * one of the Amazon-specific tags Twilio's <Say> refuses, so a neural voice
+ * takes it; if it turns out not to honour it, the whole fallback is this one
+ * constant spelled "Vock" instead.
+ */
+const WRITTEN_NAME = "Zion Voc Rehab";
+export const SPOKEN_NAME = `Zion <phoneme alphabet="ipa" ph="v\u0251k">Voc</phoneme> Rehab`;
+
+/**
  * A second of quiet before the first word.
  *
  * A call's audio is still connecting when Twilio starts speaking, so without
@@ -147,8 +164,20 @@ export function twimlDocument(body: string): string {
  * change it. The pause comes first on purpose: a pause after the words
  * quietens nothing and clips the first one anyway.
  */
+/**
+ * Words turned into what Polly is handed.
+ *
+ * Escaped first, so an apostrophe in the greeting or an ampersand in a
+ * caller's name still cannot become markup, and only then is the one phrase
+ * allowed to *be* markup put in. That order is the whole of it: substituting
+ * first and escaping afterwards would escape the phoneme tag and read it out
+ * loud, which is why this is not a plain xml() call.
+ */
+export const spokenWords = (words: string): string =>
+  xml(words).split(xml(WRITTEN_NAME)).join(SPOKEN_NAME);
+
 const say = (words: string): string =>
-  `<Pause length="${LEAD_IN_SECONDS}"/><Say voice="${SAY_VOICE}">${xml(words)}</Say>`;
+  `<Pause length="${LEAD_IN_SECONDS}"/><Say voice="${SAY_VOICE}">${spokenWords(words)}</Say>`;
 
 /**
  * A call arriving: ring every desk that is there, then take a message.
