@@ -19,6 +19,15 @@
 --   because the owner's rule is that the tile and the screen it opens read
 --   one view.
 --
+-- Every figure here is read as a change, not as a total. `billing_overview`
+-- answers for the whole practice, so a fixture that asserts the overdue count
+-- is nought is asserting something about the practice rather than about the
+-- rule — and it passed only while no real authorization had been waiting a
+-- fortnight. On 27 November 2026 one had, and both overdue assertions failed
+-- on it with the function behaving exactly as the ruling says. A fixture
+-- cannot outvote the practice, so the overdue count is taken before the
+-- fixture's rows go in and each assertion names what its own row did to it.
+--
 -- Everything is rolled back.
 
 begin;
@@ -29,7 +38,7 @@ declare
   v_client uuid;
   v_delivered uuid; v_late uuid; v_waiting uuid; v_invoiced uuid;
   v_before numeric; v_after numeric;
-  v_count integer; v_tile integer;
+  v_count integer; v_tile integer; v_overdue_before integer;
   r record;
   failures text[] := '{}';
 begin
@@ -48,6 +57,7 @@ begin
 
   select * into r from public.billing_overview();
   v_before := r.to_bill;
+  v_overdue_before := r.overdue_count;
 
   -- ── delivered and not invoiced is the work to bill ─────────
   insert into public.authorizations
@@ -61,8 +71,9 @@ begin
   if r.to_bill <> v_before + 585 then
     failures := failures || format('FAILED: a delivered row of 585 moved "to bill" from %s to %s',
                                    v_before, r.to_bill)::text;
-  elsif r.overdue_count <> 0 then
-    failures := failures || format('FAILED: delivered two days ago counts as %s overdue', r.overdue_count)::text;
+  elsif r.overdue_count is distinct from v_overdue_before then
+    failures := failures || format('FAILED: delivered two days ago moved the overdue count from %s to %s',
+                                   v_overdue_before, r.overdue_count)::text;
   else
     raise notice 'ok  delivered and not invoiced is the work to bill, and two days is not overdue';
   end if;
@@ -76,9 +87,10 @@ begin
   returning id into v_late;
 
   select * into r from public.billing_overview();
-  if r.overdue_count <> 1 then
-    failures := failures || format('FAILED: one row delivered twenty days ago counts as %s overdue',
-                                   r.overdue_count)::text;
+  if r.overdue_count is distinct from v_overdue_before + 1 then
+    failures := failures || format(
+      'FAILED: one row delivered twenty days ago moved the overdue count from %s to %s',
+      v_overdue_before, r.overdue_count)::text;
   else
     raise notice 'ok  a fortnight delivered and not invoiced is the overdue count';
   end if;
