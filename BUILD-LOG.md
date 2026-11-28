@@ -12262,3 +12262,139 @@ now written in the check.
 
 57 faults put back, 57 caught. 65 checks in prebuild. 166 of 167 verify
 scripts pass.
+
+## One engine for what needs doing (Phase A)
+
+Six things answered "what needs doing" and none of them asked another:
+`client_next_actions` for the record's strip and the texts card,
+`clients_board_rows`' own four columns for the Clients board, `lib/needs.ts`
+in TypeScript for Home's counters, the `client_next_up` view for My day,
+four categories inside `generate_notifications_on` for the bell and the
+nightly alerts, and `client_threads_board` for a reply and a fortnight of
+silence. Three more answered adjacent questions and stay where they are -
+the money queues, the report queue, and message state.
+
+The report asked for before any of this was written is in the session; what
+it found, measured over twenty active clients on 27 November 2026:
+
+| | |
+|---|---|
+| clients with an open task | 11, every one overdue |
+| those records saying "Nothing is due for this client" | **4** |
+| overdue tasks on active clients the bell raised | 25 |
+| ... that `client_next_up` showed on My day | 0, it excludes anything overdue |
+| clients quiet to the threads board at 14 days | 3 |
+| ... to Home's "Inactive clients" tile at 30 days | 0 |
+| meanings of "follow-ups due" | 2 - `contact_log.follow_up` and `lead_matches.follow_up_on` |
+| scales a severity could be on | 4 |
+| answers to "whose work is this" | 4 |
+
+The owner's ruling: one engine, it returns the union, the board's single cell
+shows the highest-severity item, the record lists all of them, and no
+consumer suppresses a kind to keep its screen looking the way it looked. A
+screen changing is the bug becoming visible.
+
+### What the engine does not decide
+
+`next_steps(p_scope, p_person, p_client)` - three required parameters,
+because a defaulted one in this database is a second function granted to
+everybody. Twelve kinds, and four of them are delegated rather than restated:
+
+| the rule | where it already lived |
+|---|---|
+| the authorization sentence | `authorization_attention_for`, which the board and the bell already shared |
+| what counts as a form missing | `client_paperwork` |
+| a reply, quiet 14+ days, consent missing | `client_threads_board` - CLAUDE.md's rule, including that a reply is a reply on any channel |
+| the next appointment | `client_next_up`, which knows a withdrawn Outlook appointment is not one |
+
+A seventh definition written inside the function meant to end six would have
+been the joke writing itself. The record's own authorization rule is the one
+that goes: it required an end date within thirty days *and* money not yet
+invoiced, and said so in different words from the sentence the board and the
+bell were already showing - which is exactly what the comment in
+`generate_notifications_on` says the shared sentence exists to prevent.
+
+### What changed on screen
+
+Nothing was suppressed and nothing disappeared: **no record lost a line.**
+
+| | before | after |
+|---|---|---|
+| items on the twenty records | 16 | 57 |
+| records saying "Nothing is due" | 11 | **4** |
+| records that gained a line | — | 7 |
+| records that lost one | — | 0 |
+| records that read differently at all | — | 13 of 20 |
+
+By kind, the record's strip before and the engine now: `text` 7 → `reply`
+**1**; `task` 0 → **25** across 11 clients; `authorization` 0 → **18** across
+11; `quiet` 0 → **3**; `consent` 1 → 2; retention, placement and stability
+unchanged at 6, 1 and 1.
+
+The `text` → `reply` fall is the most interesting number in the exercise. The
+old rule was "their message is the last one in the thread", which fired for
+seven clients. The threads board's rule - they spoke last and nothing
+outbound has happened since, **on any channel** - fires for one. Six of the
+seven had been answered by a call, an email or a note, and the strip was
+telling somebody to reply to a client who had already been replied to. That
+is the same finding as the twenty-two text threads in CLAUDE.md, reached from
+the other direction.
+
+The board moved the other way on authorizations: its own `attention` fired
+for 13 clients where the engine fires for 11, because the board's `live` CTE
+admitted every status but Paid and Closed - including Draft, Expired and kept
+placeholders - while the bell's never did. Two clients were being shown an
+authorization sentence no alert would ever raise.
+
+### Two losses, both deliberate
+
+**The task due date is no longer edited on the board.** The Next step cell
+links to where the item is dealt with. A task is edited where tasks are
+edited, which is the one-place rule, and C1 will make the cell a button that
+starts the fix.
+
+**The bell's addressing changed for two categories.** An overdue task and a
+counselor follow-up went to Admin plus the role of whoever held it; the
+engine's agreed columns carry a name rather than a staff id, so that role
+cannot be resolved from a row. They now go to Admin plus the roles that work
+the client. Somebody holding a task on a client who is neither theirs to bill
+nor theirs to place stops getting the *bell* for it - and still sees it on
+Home and My clients, where scope `'person'` includes every task assigned to
+them. The owner was told; it is the only change to who sees what.
+
+### A gap recorded rather than worked around
+
+`client_next_up` is `distinct on (client_id)`, so it holds each client's
+soonest item of any kind. An appointment sitting behind a sooner task is
+therefore not listed as its own line. The task is listed, so nothing vanishes
+from a screen, and the owner settled the appointment source. Fixing the view
+would change My day, the phone home screen and the counselor record, none of
+which is in this brief.
+
+### Held to it
+
+`verify_one_whats_next` compares the board row against the record's list for
+**every** active client - kinds, worst sentence and severity, item by item -
+rather than for a sample of twenty, because a rule asked of twenty rows
+passes while the twenty-first is wrong. It sets a JWT claim rather than a
+session role, because `clients_board_rows` asks `is_active_staff()` and the
+engine asks `reader_may_answer()`, and run as the table owner with no claims
+the first answers false while the second answers true: the board would have
+returned nothing and the comparison would have passed having compared
+nothing. It asserts that too.
+
+`check-next-steps` asks the vocabulary of the migrations rather than of a
+list kept beside them, because the list beside them is what went stale: the
+strip's own `WORD` map covered six of the nine kinds the old function could
+return, so a fifth shift rendered the lowercase word "placement" on a
+client's record and nobody found out. `kindWord` now sentence-cases a kind
+nobody has named, so the worst a new kind can look is plain.
+
+One of the eleven cases is a **must-pass**: the first version of the "nothing
+works it out for itself" rule read the word rather than the call and failed
+two files whose only mention of the old function is a comment explaining why
+it was replaced. A check that forbids writing down what happened is a check
+that gets the comments deleted. It strips comments now, and the fault runner
+proves a comment may still say it.
+
+11 of 11 cases held. 66 checks in prebuild.

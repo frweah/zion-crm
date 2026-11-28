@@ -36,7 +36,8 @@ import {
 } from "../../counselors/directory-history";
 import { PaperworkStrip, type PaperworkRow } from "./paperwork-strip";
 import { formsLabel, periodLabel, type ItemRow } from "@/lib/billing-items";
-import { WhatsNext, StatusLine, type NextAction } from "./whats-next";
+import { WhatsNext, StatusLine } from "./whats-next";
+import type { NextStep } from "@/lib/next-steps";
 import { ChatMentions, type Mention } from "./chat-mentions";
 import { COACHING_CODES, CAN_LOG_HOURS, isCoachingService } from "@/lib/constants";
 import type { BillOption, VisitAuth } from "./record-actions";
@@ -166,7 +167,7 @@ export default async function ClientPage({
     { data: economics },
     { data: authFiles },
   ] = await Promise.all([
-    supabase.rpc("client_next_actions", { p_client: id }),
+    supabase.rpc("next_steps", { p_scope: "client", p_person: me.id, p_client: id }),
     supabase
       .from("authorizations")
       .select("id, number, service_type, rate, rate_type, total_hours, status")
@@ -186,7 +187,7 @@ export default async function ClientPage({
   // what the search box offers before anybody types.
   await supabase.rpc("note_client_opened", { p_client: id });
 
-  const nextActions = (nextRows ?? []) as NextAction[];
+  const nextActions = (nextRows ?? []) as NextStep[];
   const unbilledTotal = (economics ?? []).reduce((sum, e) => sum + Number(e.unbilled ?? 0), 0);
 
   // "100 hrs @ $45.00", or "$2,250.00 flat" - the way the authorization reads.

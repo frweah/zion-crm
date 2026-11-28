@@ -1,51 +1,39 @@
 import Link from "next/link";
+import { kindWord, worstFirst, type NextStep } from "@/lib/next-steps";
 
 /**
  * What this client needs, under their name.
  *
- * Worked out by the database (client_next_actions, 0109) so the strip cannot
- * disagree with anything else that asks the same question. Each item says
- * what it is, what makes it due, and opens where it is dealt with - one tap,
- * not a hunt through six tabs.
+ * Worked out by `next_steps` (0405), which is the one answer every screen
+ * reads - the board's cell, this strip, the rail counts, Home and the nightly
+ * alerts. Before it the strip had its own nine rules and the board had four
+ * others, and on 27 November 2026 four records said "Nothing is due" about a
+ * client with an overdue task the board was naming in the next column.
+ *
+ * Each item says what it is, what makes it due, and opens where it is dealt
+ * with - one tap, not a hunt through six tabs.
  *
  * Nothing due is worth saying out loud: a record with a clear strip is the
  * answer to "is there anything I should be doing for this person", and an
  * empty space is not an answer.
  */
-export type NextAction = {
-  kind: string;
-  title: string;
-  detail: string;
-  href: string;
-  urgency: number;
-};
-
-const WORD: Record<string, string> = {
-  appointment: "Appointment",
-  form: "Billing",
-  authorization: "Authorization",
-  text: "Text",
-  consent: "Consent",
-  retention: "Placement",
-};
-
-export function WhatsNext({ items }: { items: NextAction[] }) {
+export function WhatsNext({ items }: { items: NextStep[] }) {
   if (items.length === 0) {
     return (
       <p className="next-clear no-print">
-        Nothing is due for this client: no appointment booked, no form holding up billing, nothing unanswered.
+        Nothing is due for this client: nothing unanswered, no task open, no form holding up billing.
       </p>
     );
   }
 
   return (
     <ul className="next-strip no-print" aria-label="What is next for this client">
-      {items.map((item, i) => (
-        <li key={`${item.kind}-${i}`} className={item.urgency <= 1 ? "soon" : undefined}>
-          <Link href={item.href}>
-            <span className="lock">{WORD[item.kind] ?? item.kind}</span>
-            <b>{item.title}</b>
-            {item.detail && <span className="next-detail">{item.detail}</span>}
+      {worstFirst(items).map((item, i) => (
+        <li key={`${item.kind}-${i}`} className={item.severity <= 1 ? "soon" : undefined}>
+          <Link href={item.action_href}>
+            <span className="lock">{kindWord(item.kind)}</span>
+            <b>{item.what}</b>
+            {item.who && <span className="next-detail">{item.who}</span>}
           </Link>
         </li>
       ))}

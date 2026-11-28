@@ -24,15 +24,24 @@ export type ClientBoardRow = {
   last_contact_at: string | null;
   /** The kind as the stream names it: Text, Mail, Counselor, Appointment. */
   last_contact_kind: string | null;
-  next_task_id: string | null;
-  next_task_title: string | null;
-  next_task_owner: string | null;
-  next_task_due: string | null;
+  /**
+   * The worst thing needing doing for this client, from `next_steps`
+   * (0405), and every kind of thing firing for them.
+   *
+   * The board used to carry two of these worked out for itself - the
+   * authorization sentence and the next open task - and a third decided
+   * here in TypeScript, where a fortnight of silence was fourteen days
+   * of four contact kinds while the threads board counted fourteen days
+   * of anything at all. `next_kinds` is what the tiles filter on, so a
+   * tile and the cell beside it cannot answer different questions.
+   */
+  next_step: string | null;
+  next_step_severity: number | null;
+  next_step_href: string | null;
+  next_kinds: string[];
   days_in_stage: number;
   report_status: string | null;
   report_due_on: string | null;
-  attention: string | null;
-  attention_urgency: number | null;
   goal: string | null;
   services: string[];
   funding_source: string | null;
@@ -41,7 +50,6 @@ export type ClientBoardRow = {
   next_interview: string | null;
   last_note: string | null;
   last_note_on: string | null;
-  authorization_ends_on: string | null;
   flagged_for_review: string | null;
   /**
    * The oldest stage change still waiting on Admin (Part 3), or nulls.
@@ -68,14 +76,19 @@ export function daysSince(at: string | null, today: string): number | null {
   return Math.max(Math.floor((now - then) / 86400000), 0);
 }
 
-/** Nobody has reached this client in a fortnight, or ever. */
-export const outOfContact = (r: ClientBoardRow, today: string) => {
-  const n = daysSince(r.last_contact_at, today);
-  return n === null || n >= 14;
-};
+/**
+ * Whether a kind of work is outstanding for this client.
+ *
+ * The one question this file asks about what needs doing, and it reads the
+ * engine's answer rather than deciding. Two rules lived here before - a
+ * fortnight of silence and an overdue task - and each disagreed with
+ * something: the silence with the threads board, which counts any channel,
+ * and the task with the record, which did not mention tasks at all.
+ */
+export const has = (r: ClientBoardRow, kind: string) => r.next_kinds.includes(kind);
 
-export const taskOverdue = (r: ClientBoardRow, today: string) =>
-  Boolean(r.next_task_due && r.next_task_due < today);
+/** Something wants doing today. */
+export const dueToday = (r: ClientBoardRow) => (r.next_step_severity ?? 9) <= 1;
 
 export const reportOverdue = (r: ClientBoardRow, today: string) =>
   Boolean(r.report_due_on && r.report_due_on < today && r.report_status !== "Sent");
@@ -96,12 +109,13 @@ export type Tile = {
  * rows it counted.
  */
 export const TILES: Tile[] = [
-  { key: "contact", label: "No contact 14+ days", holds: outOfContact },
+  { key: "today", label: "Wants doing today", holds: dueToday },
+  { key: "contact", label: "Quiet a fortnight", holds: (r) => has(r, "quiet") },
   { key: "report", label: "Report overdue", holds: reportOverdue },
   {
     key: "authorization",
-    label: "Authorization ends within 30 days",
-    holds: (r) => Boolean(r.authorization_ends_on),
+    label: "Authorization needs attention",
+    holds: (r) => has(r, "authorization"),
   },
   { key: "staff", label: "No assigned staff", holds: (r) => !r.assigned_staff_id },
   { key: "flagged", label: "Flagged for review", holds: (r) => Boolean(r.flagged_for_review) },
@@ -131,8 +145,8 @@ export const tilesFor = (isAdmin: boolean): Tile[] =>
 /** What a group's footer says: the three things somebody is behind on. */
 export function groupFooter(rows: ClientBoardRow[], today: string) {
   return {
-    outOfContact: rows.filter((r) => outOfContact(r, today)).length,
-    tasksOverdue: rows.filter((r) => taskOverdue(r, today)).length,
+    quiet: rows.filter((r) => has(r, "quiet")).length,
+    dueToday: rows.filter(dueToday).length,
     reportsOverdue: rows.filter((r) => reportOverdue(r, today)).length,
   };
 }
@@ -153,7 +167,6 @@ export const CHANNEL: Record<string, string> = {
 
 /** Days in stage worth a second look, and days without contact. */
 export const LONG_IN_STAGE = 45;
-export const OUT_OF_CONTACT = 14;
 
 /**
  * What `clients_board_rows` returned, as rows.
@@ -179,18 +192,16 @@ export function toClientBoardRows(
     job_status_on: (r.job_status_on as string | null) ?? null,
     last_contact_at: (r.last_contact_at as string | null) ?? null,
     last_contact_kind: (r.last_contact_kind as string | null) ?? null,
-    next_task_id: (r.next_task_id as string | null) ?? null,
-    next_task_title: (r.next_task_title as string | null) ?? null,
-    next_task_owner: (r.next_task_owner as string | null) ?? null,
-    next_task_due: (r.next_task_due as string | null) ?? null,
+    next_step: (r.next_step as string | null) ?? null,
+    next_step_severity:
+      r.next_step_severity === null || r.next_step_severity === undefined
+        ? null
+        : Number(r.next_step_severity),
+    next_step_href: (r.next_step_href as string | null) ?? null,
+    next_kinds: Array.isArray(r.next_kinds) ? (r.next_kinds as string[]) : [],
     days_in_stage: Number(r.days_in_stage ?? 0),
     report_status: (r.report_status as string | null) ?? null,
     report_due_on: (r.report_due_on as string | null) ?? null,
-    attention: (r.attention as string | null) ?? null,
-    attention_urgency:
-      r.attention_urgency === null || r.attention_urgency === undefined
-        ? null
-        : Number(r.attention_urgency),
     goal: (r.goal as string | null) ?? null,
     services: (r.services as string[] | null) ?? [],
     funding_source: (r.funding_source as string | null) ?? null,
@@ -199,7 +210,6 @@ export function toClientBoardRows(
     next_interview: (r.next_interview as string | null) ?? null,
     last_note: (r.last_note as string | null) ?? null,
     last_note_on: (r.last_note_on as string | null) ?? null,
-    authorization_ends_on: (r.authorization_ends_on as string | null) ?? null,
     flagged_for_review: (r.flagged_for_review as string | null) ?? null,
     stage_request_id: (r.stage_request_id as string | null) ?? null,
     stage_request_to: (r.stage_request_to as string | null) ?? null,

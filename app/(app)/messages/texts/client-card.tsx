@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { kindWord, worstFirst, type NextStep } from "@/lib/next-steps";
 import { createClient } from "@/lib/supabase/server";
 import { money } from "@/lib/constants";
 
@@ -22,7 +23,7 @@ export async function ClientCard({ clientId }: { clientId: string }) {
       .select("id, name, client_no, stage, status, assigned_staff_id, billing_staff_id, counselor_id, phone")
       .eq("id", clientId)
       .maybeSingle(),
-    supabase.rpc("client_next_actions", { p_client: clientId }),
+    supabase.rpc("next_steps", { p_scope: "client", p_person: null, p_client: clientId }),
   ]);
   if (!client) return null;
 
@@ -36,7 +37,9 @@ export async function ClientCard({ clientId }: { clientId: string }) {
       : Promise.resolve({ data: null }),
   ]);
   const nameOf = new Map((staff ?? []).map((s) => [s.id, s.name]));
-  const actions = ((next ?? []) as { title: string; detail: string }[]).slice(0, 3);
+  const actions = worstFirst((next ?? []) as NextStep[])
+    .slice(0, 3)
+    .map((s) => ({ title: s.what, detail: kindWord(s.kind) }));
 
   return (
     <aside className="thread-aside">

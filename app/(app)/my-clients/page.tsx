@@ -12,10 +12,10 @@ import { PageHead } from "../page-head";
  * "who am I seeing and what do they need", which is the question somebody
  * with a caseload actually has at nine in the morning.
  *
- * Everything shown is the same client_next_actions the record's own strip
+ * Everything shown is the same next_steps the record's own strip
  * reads, so the list and the record cannot disagree.
  */
-type Due = { kind: string; title: string; detail: string; href: string; urgency: number };
+import { worstFirst, type NextStep } from "@/lib/next-steps";
 
 export default async function MyClientsPage() {
   const me = await requireStaff();
@@ -43,11 +43,14 @@ export default async function MyClientsPage() {
   // seconds, and the site answered 504s. client_next_actions_for is a lateral
   // join over the same function (0189), so the rules are unchanged and the
   // cost is one round trip.
-  const { data: dueRows } = await supabase.rpc("client_next_actions_for", {
-    p_clients: list.map((c) => c.id),
+  const { data: dueRows } = await supabase.rpc("next_steps", {
+    p_scope: "person",
+    p_person: me.id,
+    p_client: null,
   });
-  const byClient = new Map<string, Due[]>();
-  for (const row of (dueRows ?? []) as (Due & { client_id: string })[]) {
+  const byClient = new Map<string, NextStep[]>();
+  for (const row of (dueRows ?? []) as NextStep[]) {
+    if (!row.client_id) continue;
     const list = byClient.get(row.client_id);
     if (list) list.push(row);
     else byClient.set(row.client_id, [row]);
@@ -58,7 +61,8 @@ export default async function MyClientsPage() {
   // caseload is all here and the page is not two screens.
   const needing = due
     .filter((d) => d.items.length > 0)
-    .sort((a, b) => (a.items[0]?.urgency ?? 9) - (b.items[0]?.urgency ?? 9));
+    .map((d) => ({ ...d, items: worstFirst(d.items) }))
+    .sort((a, b) => (a.items[0]?.severity ?? 9) - (b.items[0]?.severity ?? 9));
   const clear = due.filter((d) => d.items.length === 0);
 
   return (
@@ -93,10 +97,10 @@ export default async function MyClientsPage() {
           </div>
           <ul className="next-strip" aria-label={`What is next for ${client.name}`}>
             {items.map((item, i) => (
-              <li key={`${item.kind}-${i}`} className={item.urgency <= 1 ? "soon" : undefined}>
-                <Link href={item.href}>
-                  <b>{item.title}</b>
-                  {item.detail && <span className="next-detail">{item.detail}</span>}
+              <li key={`${item.kind}-${i}`} className={item.severity <= 1 ? "soon" : undefined}>
+                <Link href={item.action_href}>
+                  <b>{item.what}</b>
+                  {item.who && <span className="next-detail">{item.who}</span>}
                 </Link>
               </li>
             ))}

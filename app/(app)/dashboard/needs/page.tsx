@@ -1,20 +1,30 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
+import { PRACTICE_TZ } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
-import { NEEDS, loadNeed, countNeeds, type NeedKey } from "@/lib/needs";
+import { byKind, kindWord, kindCount, worstFirst, type NextStep } from "@/lib/next-steps";
 import { RecordHeader } from "../../record-header";
 import { DataTable } from "../../data-table";
-import { TaskActions } from "../../tasks/task-actions";
 
 /**
- * The list behind a dashboard counter.
+ * The list behind a counter.
  *
- * Counter and list come from the same function, so a number can never disagree
- * with what it opens — which is how this sort of dashboard usually goes wrong,
- * and how it stops being believed.
+ * Counter and list come from the same call now, not merely from the same
+ * function: `next_steps` is asked once and both the strip of counts and the
+ * rows below are read off that one answer, so a number cannot disagree with
+ * what it opens even by a second of drift.
  *
- * The five lists are a choice of what to show on one screen, not five screens,
- * so they are a segmented choice rather than tabs.
+ * There is no roster of lists here any more. There were five - tasks,
+ * interviews, follow-ups, inactive, paperwork - and they were a roster in
+ * TypeScript with its own thresholds: thirty days of silence where the
+ * threads board said fourteen, and a "follow-up" that meant a column on the
+ * job tracker where the nightly alerts meant one on the contact log. The
+ * strip is now one tile per kind the engine returned, so a kind added to the
+ * rules appears here without anybody remembering to add it, and a kind that
+ * stops firing stops being offered.
+ *
+ * "Mine" unless Admin, which is how tasks already work and what scope
+ * 'person' and 'owner' mean.
  */
 export default async function NeedsPage({
   searchParams,
@@ -25,78 +35,89 @@ export default async function NeedsPage({
   const supabase = await createClient();
 
   const params = await searchParams;
-  const key = (NEEDS.find((n) => n.key === params.list)?.key ?? "tasks") as NeedKey;
+  const { data } = await supabase.rpc("next_steps", {
+    p_scope: me.role === "Admin" ? "owner" : "person",
+    p_person: me.role === "Admin" ? null : me.id,
+    p_client: null,
+  });
+  const steps = (data ?? []) as NextStep[];
+  const counts = byKind(steps);
 
-  const [rows, counts] = await Promise.all([
-    loadNeed(supabase, key, me),
-    countNeeds(supabase, me),
-  ]);
+  // The kind asked for, or the worst one there is, or nothing at all.
+  const kind = counts.some((c) => c.kind === params.list) ? params.list! : (counts[0]?.kind ?? null);
+  const rows = worstFirst(steps.filter((s) => s.kind === kind));
 
-  const active = NEEDS.find((n) => n.key === key)!;
+  const names = await (async () => {
+    const ids = [...new Set(rows.map((r) => r.client_id).filter((v): v is string => Boolean(v)))];
+    if (ids.length === 0) return new Map<string, string>();
+    const { data: who } = await supabase.from("clients").select("id, name").in("id", ids);
+    return new Map((who ?? []).map((c) => [c.id, c.name] as const));
+  })();
 
-  const explain: Record<NeedKey, string> = {
-    tasks: "Open tasks due today or already past.",
-    interviews: "Interviews in the next seven days, from the job tracker.",
-    followups: "Follow-up dates that have arrived or passed.",
-    inactive:
-      "Active clients with nothing recorded for thirty days — no note, call, form, appointment, logged email, job or hours.",
-    paperwork:
-      "Clients where hours are logged against an open authorization and a USOR form that gates the invoice is not done.",
-  };
+  // The practice's zone, named: a date-only value read as midnight UTC shows
+  // as the day before from five in the evening in Utah.
+  const day = (at: string | null) =>
+    at
+      ? new Date(at).toLocaleDateString("en-US", {
+          timeZone: PRACTICE_TZ,
+          month: "short",
+          day: "numeric",
+        })
+      : "";
 
   return (
     <>
       <RecordHeader
         back={{ href: "/dashboard", label: "Today" }}
         title="Needs attention"
-        standing={`${me.role === "Admin" ? "Across everybody." : "Yours."} ${explain[key]}`}
+        standing={
+          `${me.role === "Admin" ? "Across everybody" : "Yours"}, worst first. ` +
+          `${steps.length} ${steps.length === 1 ? "thing" : "things"} outstanding`
+        }
       />
 
-      <div className="segmented no-print" style={{ marginBottom: 14 }}>
-        {NEEDS.map((n) => (
-          <Link
-            key={n.key}
-            href={`/dashboard/needs?list=${n.key}`}
-            className={n.key === key ? "on" : undefined}
-          >
-            {n.label} {counts[n.key]}
-          </Link>
-        ))}
-      </div>
+      {counts.length > 0 && (
+        <div className="segmented no-print" style={{ marginBottom: 14 }}>
+          {counts.map((c) => (
+            <Link
+              key={c.kind}
+              href={`/dashboard/needs?list=${c.kind}`}
+              className={c.kind === kind ? "on" : undefined}
+            >
+              {kindCount(c.kind, c.n)}
+            </Link>
+          ))}
+        </div>
+      )}
 
-      {/* Rows keep the order the list chose (soonest or quietest first) until a heading is clicked. */}
       <div className="card" style={{ padding: 0 }}>
         <DataTable
-          label={active.label.toLowerCase()}
+          label={kind ? kindWord(kind).toLowerCase() : "work"}
           columns={[
             { key: "item", label: "What" },
+            { key: "who", label: "Whose", width: 160 },
             { key: "when", label: "When", align: "right", width: 120 },
-            // Only the tasks list has anything to do from here. The other four
-            // are interviews, follow-up dates, quiet clients and missing
-            // paperwork, and none of those is finished by pressing a button on
-            // a list of them (owner, 6 Nov 2026).
-            ...(key === "tasks"
-              ? [{ key: "do", label: "", align: "right" as const, width: 210 }]
-              : []),
           ]}
-          rows={rows.map((r) => ({
-            key: `${key}-${r.id}`,
+          rows={rows.map((r, i) => ({
+            key: `${r.kind}-${r.client_id ?? "none"}-${i}`,
             cells: {
               item: (
                 <>
-                  <Link href={r.href} style={{ fontWeight: 600 }}>
-                    {r.title}
+                  <Link href={r.action_href} style={{ fontWeight: 600 }}>
+                    {r.what}
                   </Link>
-                  <div className="lock">{r.detail}</div>
+                  <div className="lock">
+                    {r.client_id ? (names.get(r.client_id) ?? "a client") : "nobody's client"}
+                  </div>
                 </>
               ),
-              when: <span style={{ whiteSpace: "nowrap", color: "var(--muted)" }}>{r.when ?? ""}</span>,
-              ...(key === "tasks" ? { do: <TaskActions taskId={r.id} compact /> } : {}),
+              who: <span className="lock">{r.who ?? "nobody"}</span>,
+              when: <span style={{ whiteSpace: "nowrap", color: "var(--muted)" }}>{day(r.when)}</span>,
             },
-            sort: { item: r.title, when: r.when },
-            text: `${r.title} ${r.detail} ${r.when ?? ""}`,
+            sort: { item: r.what, who: r.who ?? "", when: r.when ?? "" },
+            text: `${r.what} ${r.who ?? ""} ${r.client_id ? (names.get(r.client_id) ?? "") : ""}`,
           }))}
-          empty={`Nothing here — ${active.label.toLowerCase()} is clear.`}
+          empty="Nothing outstanding — this list is clear."
         />
       </div>
     </>

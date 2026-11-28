@@ -7,16 +7,15 @@ import { PRACTICE_TZ, STAGES, stageLabel, stageNote, stageToken } from "@/lib/co
 import {
   CHANNEL,
   LONG_IN_STAGE,
-  OUT_OF_CONTACT,
+  has,
   tilesFor,
   averageDays,
   daysSince,
   groupFooter,
   reportOverdue,
-  taskOverdue,
-  outOfContact,
   type ClientBoardRow,
 } from "@/lib/clients-board-shape";
+import { kindWord, severityClass } from "@/lib/next-steps";
 import {
   BoardHead,
   BoardToolbar,
@@ -65,10 +64,9 @@ const COLUMNS: BoardColumn[] = [
   { key: "assigned", label: "Assigned staff" },
   { key: "job", label: "Job status" },
   { key: "contact", label: "Last contact" },
-  { key: "task", label: "Next task" },
+  { key: "next", label: "Next step" },
   { key: "days", label: "Days in stage", num: true },
   { key: "report", label: "This month's report" },
-  { key: "attention", label: "Attention" },
   { key: "stage", label: "Stage" },
   // On the Clients list, and here when somebody asks for them.
   { key: "goal", label: "Goal" },
@@ -156,34 +154,31 @@ function AssignedCell({
   );
 }
 
-/** When the next open task is due, changed on the row. */
-function TaskCell({ row, today, canEdit }: { row: ClientBoardRow; today: string; canEdit: boolean }) {
-  const [state, act] = useActionState(setTaskDue, { error: null, ok: null } as { error: string | null; ok: string | null });
-  if (!row.next_task_id) return <span className="lock">no open task</span>;
-  const late = taskOverdue(row, today);
+/**
+ * The one cell: the worst thing this client needs, and where it is done.
+ *
+ * Two columns before - the next open task, with its date editable here, and
+ * the authorization sentence - and those were two of the six answers to the
+ * same question. The engine answers once; this shows the worst of it and says
+ * how much else is waiting.
+ *
+ * The date is no longer changed from the board. A task is edited where tasks
+ * are edited, which is what the one-place rule says and what this link opens.
+ */
+function NextStepCell({ row }: { row: ClientBoardRow }) {
+  if (!row.next_step) return <span className="lock">nothing waiting</span>;
+  const rest = row.next_kinds.length - 1;
   return (
     <>
-      <div className={late ? "late" : undefined}>{row.next_task_title}</div>
-      <div className="lock">
-        {row.next_task_owner || "nobody"}
-        {canEdit ? (
-          <form action={act} style={{ display: "inline" }}>
-            <input type="hidden" name="task_id" value={row.next_task_id} />
-            <input
-              type="date"
-              name="due"
-              data-col="due"
-              aria-label={`When the next task for ${row.name} is due`}
-              defaultValue={row.next_task_due ?? ""}
-              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-              style={{ marginLeft: 6 }}
-            />
-          </form>
-        ) : (
-          row.next_task_due && <> · {day(row.next_task_due)}</>
-        )}
+      <div>
+        <Link href={row.next_step_href ?? `/clients/${row.client_id}`}>{row.next_step}</Link>
       </div>
-      {state.error && <div className="late">{state.error}</div>}
+      <div className="lock">
+        <span className={severityClass(row.next_step_severity)}>
+          {kindWord(row.next_kinds[0] ?? "")}
+        </span>
+        {rest > 0 && <> · {rest} more waiting</>}
+      </div>
     </>
   );
 }
@@ -488,10 +483,9 @@ export function StageBoard({
         case "assigned": return r.assigned_to ?? "";
         case "job": return r.job_status ?? "";
         case "contact": return r.last_contact_at ?? "";
-        case "task": return r.next_task_due ?? "";
+        case "next": return r.next_step_severity ?? 99;
         case "days": return r.days_in_stage;
         case "report": return r.report_status ?? "";
-        case "attention": return r.attention_urgency ?? 99;
         case "stage": return r.stage;
         case "goal": return r.goal ?? "";
         case "services": return r.services.join(", ");
@@ -546,26 +540,18 @@ export function StageBoard({
         const n = daysSince(r.last_contact_at, today);
         if (n === null) return <span className="chip bad">never</span>;
         return (
-          <span className={n >= OUT_OF_CONTACT ? "late" : undefined}>
+          <span className={has(r, "quiet") ? "late" : undefined}>
             {day(r.last_contact_at)}
             <span className="lock"> {CHANNEL[r.last_contact_kind ?? ""] ?? ""}</span>
           </span>
         );
       }
-      case "task": return <TaskCell row={r} today={today} canEdit={canEdit} />;
+      case "next": return <NextStepCell row={r} />;
       case "days":
         return (
           <span className={r.days_in_stage >= LONG_IN_STAGE ? "late" : undefined}>{r.days_in_stage}</span>
         );
       case "report": return <ReportPill row={r} today={today} />;
-      case "attention":
-        return r.attention ? (
-          <span className={(r.attention_urgency ?? 9) <= 3 ? "chip bad" : (r.attention_urgency ?? 9) <= 6 ? "chip warn" : "chip"}>
-            {r.attention}
-          </span>
-        ) : (
-          ""
-        );
       case "stage": return <StageCell row={r} isAdmin={isAdmin} canEdit={canEdit} />;
       case "goal": return r.goal ?? "";
       case "services": return r.services.join(", ");
@@ -683,8 +669,8 @@ export function StageBoard({
                       </span>
                       <span className="lock">{stageNote(stage)}</span>
                       <span className="totals">
-                        {foot.outOfContact} not contacted {OUT_OF_CONTACT}+ days · {foot.tasksOverdue} tasks
-                        overdue · {foot.reportsOverdue} reports overdue
+                        {foot.dueToday} wanting doing today · {foot.quiet} quiet a fortnight ·{" "}
+                        {foot.reportsOverdue} reports overdue
                       </span>
                     </div>
                   </th>

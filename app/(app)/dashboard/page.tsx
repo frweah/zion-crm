@@ -14,7 +14,7 @@ import { HomeTiles } from "./home-tiles";
 import { MicrosoftCard } from "./microsoft-card";
 import { hasScope, ONLINE_MEETING_SCOPE } from "@/lib/microsoft";
 import { WorkTimer } from "../hours/work-timer";
-import { NEEDS, countNeeds } from "@/lib/needs";
+import { byKind, kindCount, worstFirst, type NextStep } from "@/lib/next-steps";
 import { PageHead } from "../page-head";
 import { mailWaiting } from "../inbox-mail";
 import { markConversationRead, snoozeAlert } from "./day-actions";
@@ -37,7 +37,7 @@ import { lastLine } from "@/lib/text-rows";
  * things are done from here without opening the screen behind them. Each list
  * says so, quietly, when it has nothing in it.
  */
-type Due = { kind: string; title: string; detail: string; href: string; urgency: number };
+
 
 const hm = (wall: string) => {
   const [h, m] = wall.slice(11, 16).split(":").map(Number);
@@ -297,14 +297,17 @@ export default async function DashboardPage({
   // opened a connection per client: sixty clients meant sixty concurrent
   // questions from a single page load. On 14 Oct 2026 that path was asked
   // 1,278 times in five minutes and took the database's p95 from 800ms to 58
-  // seconds, and the site answered 504s. client_next_actions_for is a lateral
-  // join over the same function (0189), so the rules are unchanged and the
-  // cost is one round trip.
-  const { data: dueRows } = await supabase.rpc("client_next_actions_for", {
-    p_clients: mine.map((c) => c.id),
+  // seconds, and the site answered 504s. The engine answers for a whole
+  // caseload in one call, which is what the per-client version was replaced
+  // by in 0189 and what scope 'person' is for (0405).
+  const { data: dueRows } = await supabase.rpc("next_steps", {
+    p_scope: "person",
+    p_person: me.id,
+    p_client: null,
   });
-  const byClient = new Map<string, Due[]>();
-  for (const row of (dueRows ?? []) as (Due & { client_id: string })[]) {
+  const byClient = new Map<string, NextStep[]>();
+  for (const row of (dueRows ?? []) as NextStep[]) {
+    if (!row.client_id) continue;
     const list = byClient.get(row.client_id);
     if (list) list.push(row);
     else byClient.set(row.client_id, [row]);
@@ -312,7 +315,8 @@ export default async function DashboardPage({
   const due = mine.map((c) => ({ client: c, items: byClient.get(c.id) ?? [] }));
   const clientsDue = due
     .filter((d) => d.items.length > 0)
-    .sort((a, b) => (a.items[0]?.urgency ?? 9) - (b.items[0]?.urgency ?? 9));
+    .map((d) => ({ ...d, items: worstFirst(d.items) }))
+    .sort((a, b) => (a.items[0]?.severity ?? 9) - (b.items[0]?.severity ?? 9));
 
   // ── alerts, less the ones put aside ─────────────────────────
   const snoozed = new Set((snoozesResult.data ?? []).map((s) => s.notification_id));
@@ -339,7 +343,7 @@ export default async function DashboardPage({
 
   // ── Admin's business counters ───────────────────────────────
   let business: {
-    needs: Record<string, number>;
+    needs: { kind: string; n: number; worst: number }[];
     unbilled: number;
     outstanding: number;
     receivedMonth: number;
@@ -357,7 +361,7 @@ export default async function DashboardPage({
     const week = new Date(day + "T00:00:00Z");
     week.setUTCDate(week.getUTCDate() + 7);
     const [needs, { data: econ }, { data: paid }, { data: due }, { data: aging }, { data: ledger }] = await Promise.all([
-      countNeeds(supabase, me),
+      supabase.rpc("next_steps", { p_scope: "owner", p_person: null, p_client: null }),
       supabase.from("authorization_economics").select("status, unbilled, outstanding"),
       supabase.from("billed_work").select("paid_amount").eq("paid", true).gte("paid_on", `${day.slice(0, 7)}-01`),
       supabase.rpc("bills_due_by", { p_by: week.toISOString().slice(0, 10) }),
@@ -370,7 +374,7 @@ export default async function DashboardPage({
     const n = (v: unknown) => Number(v ?? 0);
     const bills = (due ?? []) as { amount: number; late: boolean }[];
     business = {
-      needs,
+      needs: byKind((needs.data ?? []) as NextStep[]),
       unbilled: (econ ?? []).filter((e) => isLive(e.status ?? "")).reduce((s, e) => s + n(e.unbilled), 0),
       /**
        * Outstanding, from the ledger rather than from the rates.
@@ -700,7 +704,7 @@ export default async function DashboardPage({
         )}
         {tasks.length > 12 && (
           <p className="lock" style={{ margin: "8px 0 0" }}>
-            <Link href="/dashboard/needs?list=tasks">{tasks.length - 12} more</Link>
+            <Link href="/dashboard/needs?list=task">{tasks.length - 12} more</Link>
           </p>
         )}
       </section>
@@ -729,8 +733,8 @@ export default async function DashboardPage({
                   </span>
                   <span className="day-actions">
                     {items.slice(0, 2).map((item, i) => (
-                      <Link key={`${item.kind}-${i}`} className={"btn ghost" + (item.urgency <= 1 ? " day-soon" : "")} href={item.href} title={item.detail}>
-                        {item.title}
+                      <Link key={`${item.kind}-${i}`} className={"btn ghost" + (item.severity <= 1 ? " day-soon" : "")} href={item.action_href} title={item.who ?? undefined}>
+                        {item.what}
                       </Link>
                     ))}
                   </span>
@@ -776,12 +780,12 @@ export default async function DashboardPage({
             The business
           </h2>
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-            {NEEDS.map((n) => (
-              <Link key={n.key} href={`/dashboard/needs?list=${n.key}`} className="card" style={{ textDecoration: "none", color: "inherit" }}>
-                <div className="stat" style={business!.needs[n.key] > 0 ? { color: "var(--bad)" } : undefined}>
-                  {business!.needs[n.key]}
+            {business!.needs.map((n) => (
+              <Link key={n.kind} href={`/dashboard/needs?list=${n.kind}`} className="card" style={{ textDecoration: "none", color: "inherit" }}>
+                <div className="stat" style={n.worst <= 2 ? { color: "var(--bad)" } : undefined}>
+                  {n.n}
                   {/* Everybody's, where the day above is this person's own. */}
-                  <small>{n.label.toLowerCase()}, everybody</small>
+                  <small>{kindCount(n.kind, n.n).replace(String(n.n) + " ", "")}, everybody</small>
                 </div>
               </Link>
             ))}

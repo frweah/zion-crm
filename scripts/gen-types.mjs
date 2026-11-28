@@ -316,6 +316,7 @@ const RPC_FUNCTIONS = [
   "note_client_opened",
   "search_clients",
   "client_next_actions",
+  "next_steps",
   "set_my_signature",
   "clear_my_signature",
   "have_my_signature",
