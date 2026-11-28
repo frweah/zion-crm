@@ -111,26 +111,41 @@ if (!prebuild.includes("check-checks.mjs")) {
  * Asked of every script, not of smoke.mjs, because the next one will be a
  * different script reading a different file.
  */
+/**
+ * Only the trees the repository owns.
+ *
+ * The first version of this asked it of every path, and failed on Vercel -
+ * not here - because wait-for-deploy.mjs reads ../.env.local, which exists
+ * on this machine and is not in the repository and never will be. A rule
+ * that is true where it is written and false where it runs is worse than no
+ * rule: it cost a production build, which is the same shape as the check
+ * that compared paths `path.join` spells differently on Linux.
+ *
+ * So the question is about files the repository is supposed to contain. A
+ * script reading something outside these is reading configuration or
+ * somebody's machine, and that is not this rule's business.
+ */
+const OURS = /^\.\.\/(lib|app|scripts|supabase|docs|\.github|public)\//;
+
 const nameless = [];
 for (const name of await readdir(dir)) {
   if (!name.endsWith(".mjs")) continue;
   const body = await readFile(new URL(name, dir), "utf8");
   for (const m of body.matchAll(/new URL\(\s*"(\.\.?\/[^"]+)"\s*,\s*import\.meta\.url\s*\)/g)) {
-    const target = new URL(m[1], dir);
-    if (m[1].includes("${") || m[1].endsWith("/")) continue;
+    if (m[1].includes("${") || m[1].endsWith("/") || !OURS.test(m[1])) continue;
     // stat, not readFile: several of these open a directory and read what
     // is in it, and a directory is there just as much as a file is.
     try {
-      await stat(target);
+      await stat(new URL(m[1], dir));
     } catch {
-      nameless.push(`${name} reads ${m[1]}, which is not there`);
+      nameless.push(`${name} reads ${m[1]}, which is not in the repository`);
     }
   }
 }
 if (nameless.length) {
   problems.push(...nameless);
 } else {
-  ok("every file a script reads by name exists");
+  ok("every repository file a script reads by name is there");
 }
 
 console.log("");
