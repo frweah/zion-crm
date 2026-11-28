@@ -26,6 +26,7 @@ import { readFileSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
 import { readdir } from "node:fs/promises";
 import { reachableFor, navFor, navPath, hubBack, NAV_GROUPS } from "../lib/roles.ts";
+import { KINDS as NEXT_STEP_KINDS } from "../lib/next-steps.ts";
 import { CLIENT_TABS } from "../lib/client-tabs.ts";
 import { retrying } from "./retry-screen.mjs";
 
@@ -255,7 +256,21 @@ const NAVIGATION = new Set(
   ]),
 );
 
-const needs = [...readFileSync(new URL("../lib/needs.ts", import.meta.url), "utf8").matchAll(/\{ key: "([a-z]+)", label:/g)].map((m) => m[1]);
+/**
+ * The lists behind the counters on Home.
+ *
+ * This read the five-name roster in lib/needs.ts, and lib/needs.ts was
+ * deleted when one engine replaced the six things that answered "what
+ * needs doing" - so the first push after that failed here, in CI, with
+ * ENOENT on a file nobody had told this about. Which is the warning in
+ * CLAUDE.md about a check outside prebuild, arriving on time.
+ *
+ * It reads the vocabulary now, which is the list check-next-steps holds
+ * against the migrations, so a kind added to the rules is opened here
+ * without anybody remembering. The bare path goes first: that is what a
+ * person arrives at, and the page picks the worst list there is.
+ */
+const needs = NEXT_STEP_KINDS;
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const firstLink = (results, path, re) => results.find((x) => x.path === path)?.body?.match(re)?.[0] ?? null;
 
@@ -326,6 +341,7 @@ async function pass(role) {
     .filter((h) => typeof h === "string");
   const paths = [...new Set([...hubs, ...reachableFor(role).map((i) => i.href)])];
   if (role === "Job Search") {
+    paths.push("/dashboard/needs");
     paths.push(...needs.map((k) => `/dashboard/needs?list=${k}`));
     // Screens with tabs of their own, not in the navigation.
     paths.push("/counselors?tab=contact", "/counselors?tab=hours", "/sops/where");

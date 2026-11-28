@@ -18,7 +18,7 @@
  * either in prebuild or named below with the reason it cannot be. There is no
  * third option, and adding a check without wiring it in fails here.
  */
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 
 const problems = [];
 const ok = (m) => console.log(`  ok  ${m}`);
@@ -95,6 +95,42 @@ for (const named of prebuild.match(/scripts\/check-[a-z0-9-]+\.mjs/g) ?? []) {
 // This file is no use unless prebuild runs it too.
 if (!prebuild.includes("check-checks.mjs")) {
   problems.push("prebuild does not run check-checks.mjs, so nothing checks that the checks run");
+}
+
+/**
+ * And every file a script reads by name is still there.
+ *
+ * On 28 November 2026 `lib/needs.ts` was deleted - five rules in TypeScript
+ * that one engine replaced - and scripts/smoke.mjs read it to learn which
+ * lists Home's counters opened. Nothing local said a word: smoke runs in CI,
+ * against production, after the push. The run failed with ENOENT on a file
+ * that had been deleted on purpose, and production was rolled back.
+ *
+ * It is the same fault CLAUDE.md names at the top of this file, from the
+ * other side: a check outside prebuild rots, and so does a path inside one.
+ * Asked of every script, not of smoke.mjs, because the next one will be a
+ * different script reading a different file.
+ */
+const nameless = [];
+for (const name of await readdir(dir)) {
+  if (!name.endsWith(".mjs")) continue;
+  const body = await readFile(new URL(name, dir), "utf8");
+  for (const m of body.matchAll(/new URL\(\s*"(\.\.?\/[^"]+)"\s*,\s*import\.meta\.url\s*\)/g)) {
+    const target = new URL(m[1], dir);
+    if (m[1].includes("${") || m[1].endsWith("/")) continue;
+    // stat, not readFile: several of these open a directory and read what
+    // is in it, and a directory is there just as much as a file is.
+    try {
+      await stat(target);
+    } catch {
+      nameless.push(`${name} reads ${m[1]}, which is not there`);
+    }
+  }
+}
+if (nameless.length) {
+  problems.push(...nameless);
+} else {
+  ok("every file a script reads by name exists");
 }
 
 console.log("");
