@@ -12021,3 +12021,244 @@ and 8,238 characters. The one that answers a legal request is not a thing to
 copy by hand.
 
 165 of 165 verify scripts pass.
+
+## 27 November 2026 - the client line leaves GoHighLevel
+
+The practice line 385-406-3432 moves to Twilio: texting, and calls in the
+browser. Built on a branch, with the switch on GoHighLevel, so nothing about
+what production does changed until the owner moved it.
+
+### The switch is a row, not a deploy
+
+`org_settings.sms_provider` is `ghl` or `twilio` and governs texting and voice
+together. The reason it is a setting is the minute after a cutover goes wrong:
+somebody has to be able to put it back without waiting twenty minutes for a
+build. Admin -> System -> Client line sets it, and refuses a carrier whose
+keys are not in the environment - which is the whole value of the screen,
+because the alternative is finding out on the client line.
+
+Two layers under it. `lib/text-provider.ts` is the only file that knows there
+is more than one carrier; above it `lib/sms.ts` writes the record and asks the
+database's permission without knowing which company carries the message;
+below it `lib/ghl.ts` and `lib/twilio.ts` each know one company and nothing
+about the practice. `check-twilio` asks that of every file under lib/ and
+app/ rather than of a list, and the one exception - the portal's own sign-in
+code path, which bypasses the recorded door because that door would refuse a
+code to somebody who has just typed their own number in - is named with its
+reason and listed for removal when the portal is retired.
+
+Every message now records which carrier carried it without a line of sending
+code saying so: the column default *is* the switch. A day either side of a
+cutover reads message by message.
+
+### What the checks caught that I did not
+
+**`sending` and `receiving` were in neither status list.** Twilio sends both
+and `record_text_status` knew neither, and a word it does not know is
+deliberately not guessed at - so a text mid-flight would have come back as
+"this does not know" and sat on Sent for ever.
+
+**`verify_portal_rls` caught two pairs of functions**, 0392's and 0394's. A
+SECURITY DEFINER function a signed-in session can call with no check of who is
+calling reads with the practice's authority for somebody who may have none,
+and `who_is_calling` is the serious one: it turns a phone number into a
+client's name. Both times the obvious fix was wrong - a guard that raises
+would have gone into a column default and into `record_call_started`, turning
+"this number is not one we hold" into "the call could not be recorded". The
+authority went instead of the guard: all four read as the caller now, and the
+`coalesce` went with them, because it could not tell "no row" from "not
+allowed to look" and would have answered `ghl` with a straight face.
+
+**`verify_records_request` wanted the calls in the bundle** the moment the
+table existed, and **`verify_client_documents` wanted the new restricted
+category named.** Neither is an exclusion: a record of who rang whom is the
+plainest thing a practice holds about somebody, and a voicemail is the
+client's own voice asking a question.
+
+**`attachments.source` allowed only 'Staff' or 'Portal', and `category` is a
+foreign key.** Both would have raised on the first real voicemail. The
+category is 'Phone' rather than 'Twilio' on purpose - a client's record is not
+where the practice's choice of supplier gets written down.
+
+**Re-running 0395 reverted 0397.** Create-or-replace means an out-of-order
+re-run puts the older version back, which is in the memory notes and happened
+anyway: the narrowed transcript trigger was silently replaced by the wide one,
+and the verify script said so on the next run.
+
+### What a voicemail is
+
+The brief asked for a contact-log line with `is_real_contact false` and
+`direction inbound`. Neither was a column: `is_real_contact` is a function of
+the *method*, and there was no direction at all. So a voicemail's method is
+'Voicemail', which is not in that function's list and therefore counts
+towards nothing - nobody from the practice spoke - and `contact_log.direction`
+is new and nullable, where null means what every line written before today
+means: ours.
+
+The consequence that mattered is the threads board. A contact-log line reads
+there as *the practice having answered*, so a voicemail written naively would
+have marked the thread answered by the very thing that needs answering - and
+the row would have vanished off the board rather than appearing wrongly on
+it, which is the kind of mistake nobody reports. Three of the board's CTEs
+had to learn it, not one: `heard` read incoming texts alone and its own
+comment said so, `said_on` took the whole contact log, and `seen` would not
+have had a row for a voicemail-only client to be wrong about. The rule now: a
+contact-log line is the practice's answer **unless nobody from the practice
+took part in it**. An answered inbound call still counts, because somebody
+spoke.
+
+The board was changed by dumping its own 19,000-character definition and
+editing it at six anchors. The records bundle the same way, at one.
+
+### The transcript, and the one place this widens who can read something
+
+A voicemail is read by the path that already reads recordings - an attachment
+on the client, a `recordings` row waiting, and the quarter-hourly sweep. Read
+on the practice's own account rather than on whoever was on the phones, so
+voicemail has a bucket of its own that Admin can raise.
+
+The owner's rule of 14 November is that a transcript never leaves the
+recording, because it is a machine's record of an hour of somebody talking
+about their own life. A voicemail is the narrow exception and it is now stated
+rather than true by accident: as first written the trigger fired for any
+recording a call pointed at, which was *narrow by consequence*, and a later
+change pointing a call at a meeting recording would have moved an hour of
+somebody's life onto their contact log with nothing failing. It asks the
+attachment what kind of recording it is, and the verify script asserts both
+halves.
+
+So the audio is restricted, like any audio, and the words are not: the
+transcript goes on the contact-log line where anybody who can see the client
+can read it. That is a widening, and it is written down in 0399 rather than
+discovered - a voicemail has to reach the board as something somebody can act
+on, and "a message, not read yet" is a row somebody has to go and open.
+
+### Calls in the browser
+
+A token per member of staff with the staff id as its identity, because a call
+answered by "reception" is a call nobody can be asked about afterwards. Asking
+for the token is also how somebody says they are at their desk: one request
+every minute rather than two things that can drift apart, and
+`voice_presence_seconds()` in the database is how long one answer is trusted
+for - when the browser's interval and the TwiML's window disagree, the symptom
+is a caller ringing an empty desk, which reads as a broken telephone rather
+than a mistuned number.
+
+The SDK is a hundred kilobytes and loads only after a seat has been told it
+may take calls. The microphone is asked for when somebody presses Answer and
+not before: a permission prompt on page load is how somebody clicks Block
+once and cannot answer the telephone for a week.
+
+`/api/twilio` is in the middleware's public paths as a prefix, which is the
+one thing that file's own comment says not to do - "a future API route that
+forgets to authorize should be caught by this gate rather than quietly exposed
+by it". So the gate moved into `check-voice`: every route under the prefix
+either proves a Twilio signature or requires a session, and the one with a
+session is named.
+
+### The signature is the half that cannot be tested by using it
+
+A wrong scheme either refuses every client's reply, which looks like a quiet
+carrier, or accepts anybody's, which looks like nothing at all. It is a pure
+module with no imports and no environment, run against Twilio's own published
+worked example and against eleven requests built to fail.
+
+Three of the forty faults were about the assertions rather than the code, and
+two of those are the same mistake the repository has made before. The ordering
+assertion took the index of "readSignedWebhook", which is in the import on
+line three, so a route that read the body first and proved it afterwards
+passed. A fault written with `\n` never applied to a CRLF file, and a fault
+that never applies looks exactly like a check that cannot fail. And the
+"unreadable switch refuses" assertion grepped for a sentence, so a fault that
+added a fallback *above* the refusal passed with the words still in the file,
+in a branch nothing could reach - which is why that rule is now its own
+importless module the check runs over seven answers.
+
+Two more were weak fixtures. The caller-ordering rule was asked of a number
+only one person held, so reversing the order changed nothing; the database
+refuses a contact on the number a client is texted at, so the fixture now uses
+another client's relative on that number, which is the case the rule exists
+for. And the "no screen writes a call" fault dropped a restrictive policy that
+was never the thing refusing - `voice_calls` has no permissive insert policy
+at all - so the fault had to open the door properly before the assertion could
+fail.
+
+40 faults put back, 40 caught: 11 on the texting half, 16 on calls, 13 on the
+database. 64 checks in prebuild. 166 of 167 verify scripts pass; the one that
+does not is `verify_billing_overview`, which this branch does not touch and
+which fails on real data.
+
+### Two rulings on it, the same evening
+
+**Whose desk rings is a setting too.** `voice_mode` is `off`, `admin` or
+`all`, default `off`, and it is one `case` inside `staff_on_the_phones` - the
+one place that already decides whose browser to ring. Nothing else needed to
+know: the token route refuses a token to anybody that function does not list,
+so a seat outside the mode is handed no telephone and the panel draws nothing.
+A second place deciding would be a seat that gets a token and never rings,
+which looks like a broken telephone rather than a setting.
+
+An unreadable mode falls back to `off`, and that is *not* the reasoning the
+carrier switch uses. There a failed read refuses the send, because a default
+would text a client from whichever number the practice is not using. Here the
+harm runs one way only - a desk ringing when it should not is a client call
+answered by somebody who should not have it, and a desk not ringing is a
+voicemail - so this one falls back to silence on purpose.
+
+**A voicemail's words, twice over.** The owner's second ruling was that
+transcripts never appear in reports or exports and that a records request
+carries the call row and the audio, not the transcript line twice. Both were
+true risks rather than theoretical ones.
+
+The monthly report and the period report read `contact_log.outcome` straight
+into a document that goes to a counselor at USOR, so a client's voicemail
+would have been quoted in their own monthly report. Both now exclude the two
+methods whose words a machine writes, which is a fifth list in
+`lib/contact-methods.ts` and deliberately not derived from the other four:
+"not a real contact" leaves out a dozen things that do belong in a report.
+Nothing is lost from any report ever produced, because both methods were
+created the same day and no line on file carries either.
+
+And the bundle carried the words twice - in `recordings`, where every reading
+has lived since 0344, and in `counselor_contacts`, which hands over the whole
+contact-log row. 0402 took them out of the new `calls` section and 0404 takes
+them out of the contact-log row, so a client who asks for everything gets the
+fact of the call, the recording, their own words and the line saying a message
+was left. Once each.
+
+### And a bug the new assertion found
+
+`client_threads_board` compared `hd.at::date` - the **UTC** day a message
+arrived - against `contact_log.date`, which is the practice's own local day.
+Utah is seven hours behind, so from five in the evening the message's day was
+already tomorrow and nothing the practice did that day could count as an
+answer. A client who rang at ten past five, was rung back at half past and had
+the call logged, stayed on the board as needing a reply until the next day.
+
+It errs the safe way - a row that has been answered rather than one that has
+not - which is why nobody reported it, and it is older than any of this: it
+affects texts exactly as much, and the voicemail fixture is only what found
+it, at 17:21 on 27 November. 0403 compares the practice's day with the
+practice's day, which is what the owner's rule said all along. **It changes
+what the board shows:** rows answered in the evening of the day they arrived
+stop appearing under "Needs a reply".
+
+Three more of the assertions were wrong rather than the code. Two bends
+written with `\n` stopped applying the moment the files went through git and
+came back with CRLF - the second time in one session, so the fault runner
+normalises line endings now rather than each bend remembering to. And the
+report rule looked for `NOT_IN_REPORTS_FILTER` anywhere in the file, which the
+import line satisfies, so deleting the `.not()` and leaving the import behind
+passed: the third time in one session that a check looked for a word instead
+of a call.
+
+One other thing worth writing down, because it cost an hour:
+`check-unbounded-reads` walks a method chain to the first comma at bracket
+depth zero and does not skip comments, so a comma inside a `//` comment in the
+middle of a query makes every filter after it invisible. It reported
+`lib/report.ts` as an unbounded read of `contact_log` because of a comma in a
+sentence about voicemail. The comment moved above the chain, and the trap is
+now written in the check.
+
+57 faults put back, 57 caught. 65 checks in prebuild. 166 of 167 verify
+scripts pass.

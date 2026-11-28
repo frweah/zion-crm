@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStaff } from "@/lib/session";
-import { sendClientSms } from "@/lib/sms";
+import { sendClientText } from "@/lib/sms";
 
 /**
  * The weekly update: approve it, change it, send it, or say why it is not
@@ -14,7 +14,7 @@ import { sendClientSms } from "@/lib/sms";
  * several sends the ones a person has already approved one at a time, so a
  * failure in the middle leaves the rest of them exactly where they were.
  *
- * Every send goes through `sendClientSms`, which is the door every other text
+ * Every send goes through `sendClientText`, which is the door every other text
  * in the practice goes through: consent for that number, the 8am-9pm window
  * and a STOP are all enforced on `sms_messages` and none of them is restated
  * here. A refusal comes back in the database's own words.
@@ -96,7 +96,7 @@ async function sendOne(
   const who = contact ? `${contact.name} (${contact.relationship})` : (client?.name ?? "the client");
   if (!row.phone) return { ok: false, who, error: "There is no number to send it to." };
 
-  const outcome = await sendClientSms(supabase, {
+  const outcome = await sendClientText(supabase, {
     clientId: row.client_id,
     clientName: client?.name ?? "",
     phone: row.phone,

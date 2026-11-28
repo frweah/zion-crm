@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { findContactByPhone, upsertContact, sendSms as ghlSend, messageStatus } from "@/lib/ghl";
+import { askCarrierStatus, sendThroughCarrier } from "@/lib/text-provider";
 
 /**
  * Sending a text, in the order that keeps the record honest.
@@ -33,21 +33,23 @@ export function reminderText(params: {
   // Short, no link, no marketing, and it says who it is from — a reminder
   // somebody cannot place is a reminder they ignore.
   //
-  // No opt-out line here. The GoHighLevel sub-account appends its own —
-  // "STOP / Thanks, Zion Voc Rehab" — and two of them in one text reads like
-  // a form letter.
+  // No opt-out line here. The provider appends its own — "STOP / Thanks,
+  // Zion Voc Rehab" — and two of them in one text reads like a form letter.
   //
-  // It is not appended to every message. The sub-account has periodic opt-out
-  // switched on, so it goes on the first message to a contact and then once
-  // every thirty days. Most reminders therefore carry no STOP line, which is
-  // the intended pattern rather than a gap: the notice belongs in the first
-  // message and periodically after it, and STOP works whether or not the line
-  // is showing — the carrier honours it, and our webhook records it and
+  // It is not appended to every message. Both carriers are set up the same
+  // way: GoHighLevel's sub-account has periodic opt-out switched on, and
+  // Twilio's messaging service has Advanced Opt-Out, so the notice goes on
+  // the first message to a number and then once every thirty days. Most
+  // reminders therefore carry no STOP line, which is the intended pattern
+  // rather than a gap: the notice belongs in the first message and
+  // periodically after it, and STOP works whether or not the line is
+  // showing — the carrier honours it, and our webhook records it and
   // withdraws consent.
   //
-  // That makes the notice a setting in somebody else's system. If periodic
-  // opt-out is ever turned off in GoHighLevel, nothing carries it at all and
-  // the sentence comes back here.
+  // That makes the notice a setting in somebody else's system, and now in
+  // either of two. If it is ever switched off at whichever carrier is live,
+  // nothing carries the notice at all and the sentence comes back here.
+  // `docs/timing/telephony-cutover.md` says where to look in each.
   return (
     `Hi ${first}, a reminder from Zion Voc Rehab: you have ${
       /^[aeiou]/i.test(params.kind) ? "an" : "a"
@@ -56,7 +58,7 @@ export function reminderText(params: {
   );
 }
 
-export async function sendClientSms(
+export async function sendClientText(
   supabase: SupabaseClient<Database>,
   params: {
     clientId: string;
@@ -129,38 +131,38 @@ export async function sendClientSms(
   // Scheduled: recorded, and that is all for now.
   if (scheduled) return { ok: true, id: row.id };
 
-  // ── who to send it to ──────────────────────────────────────
-  let contactId = params.ghlId ?? null;
-
-  if (!contactId) {
-    const found = await findContactByPhone(params.phone);
-    if (!found.ok) return fail(found.error);
-    contactId = found.data;
-  }
-
-  if (!contactId) {
-    const made = await upsertContact({
-      phone: params.phone,
-      name: params.recipientName?.trim() || params.clientName,
-    });
-    if (!made.ok) return fail(made.error);
-    contactId = made.data;
-
-    // Remember it, so the next text is one call instead of three - and only
-    // when the number is the client's own. See rememberOnClient above: this
-    // line with a contact's number in it would point the client's own
-    // messages at their partner's phone.
-    if (params.rememberOnClient !== false) {
-      await supabase.from("clients").update({ ghl_id: contactId }).eq("id", params.clientId);
-    }
-  }
-
-  const sent = await ghlSend({ contactId, message: params.body });
+  // ── hand it to whichever carrier is live ───────────────────
+  //
+  // Which one that is, and everything either of them wants, is
+  // lib/text-provider.ts's business. This function's business is that the row
+  // exists first, that a refusal is recorded against it, and that nothing is
+  // reported as sent which was not.
+  const sent = await sendThroughCarrier(supabase, {
+    to: params.phone,
+    body: params.body,
+    cachedContactId: params.ghlId ?? null,
+    recipientName: params.recipientName?.trim() || params.clientName,
+  });
   if (!sent.ok) return fail(sent.error);
+
+  // Remember the contact the carrier had to create, so the next text is one
+  // call instead of three - and only when the number is the client's own. See
+  // rememberOnClient above: this line with a contact's number in it would
+  // point the client's own messages at their partner's phone.
+  //
+  // Twilio sends to a number and never learns a contact, so after cutover
+  // this stops happening and `clients.ghl_id` keeps whatever it already
+  // held - which is exactly what a move back to GoHighLevel would need.
+  if (sent.learnedContactId && params.rememberOnClient !== false) {
+    await supabase
+      .from("clients")
+      .update({ ghl_id: sent.learnedContactId })
+      .eq("id", params.clientId);
+  }
 
   const { error: recordError } = await supabase.rpc("record_text_sent", {
     p_id: row.id,
-    p_provider_id: sent.data || null,
+    p_provider_id: sent.providerId || null,
   });
   // The text has gone. If recording that fails, say so rather than reporting
   // a clean send: a row left on 'Queued' is what somebody will try to send
@@ -208,7 +210,7 @@ export async function sendDueReminders(
       .eq("id", r.client_id)
       .maybeSingle();
 
-    const outcome = await sendClientSms(supabase, {
+    const outcome = await sendClientText(supabase, {
       clientId: r.client_id,
       clientName: r.client_name ?? "",
       phone: r.phone,
@@ -288,7 +290,7 @@ export async function sendScheduledTexts(
 
     // Sent as a new message and the scheduled one closed, so the gate runs
     // again rather than being remembered from last night.
-    const outcome = await sendClientSms(supabase, {
+    const outcome = await sendClientText(supabase, {
       clientId,
       clientName: client?.name ?? "",
       phone,
@@ -313,7 +315,7 @@ export async function sendScheduledTexts(
 /**
  * Sending a text whose row already exists.
  *
- * `sendClientSms` writes the row and then sends it. A retry has the row
+ * `sendClientText` writes the row and then sends it. A retry has the row
  * already — the same row, because two rows would be two texts on the client's
  * record for one thing somebody said once (0280) — so this is the second half
  * of that function and nothing else.
@@ -348,25 +350,24 @@ export async function resendRecorded(
     return fail("Consent for that number has gone since, so it was not sent again.");
   }
 
-  let contactId = params.ghlId ?? null;
-  if (!contactId) {
-    const found = await findContactByPhone(params.phone);
-    if (!found.ok) return fail(found.error);
-    contactId = found.data;
-  }
-  if (!contactId) {
-    const made = await upsertContact({ phone: params.phone, name: params.clientName });
-    if (!made.ok) return fail(made.error);
-    contactId = made.data;
-    await supabase.from("clients").update({ ghl_id: contactId }).eq("id", params.clientId);
-  }
-
-  const sent = await ghlSend({ contactId, message: params.body });
+  const sent = await sendThroughCarrier(supabase, {
+    to: params.phone,
+    body: params.body,
+    cachedContactId: params.ghlId ?? null,
+    recipientName: params.clientName,
+  });
   if (!sent.ok) return fail(sent.error);
+
+  if (sent.learnedContactId) {
+    await supabase
+      .from("clients")
+      .update({ ghl_id: sent.learnedContactId })
+      .eq("id", params.clientId);
+  }
 
   const { error: recordError } = await supabase.rpc("record_text_sent", {
     p_id: id,
-    p_provider_id: sent.data || null,
+    p_provider_id: sent.providerId || null,
   });
   if (recordError) {
     return {
@@ -382,13 +383,20 @@ export async function resendRecorded(
 /**
  * Asking the provider what became of the texts it took.
  *
- * The practice only ever learned that GoHighLevel accepted a message.
+ * The practice only ever learned that the provider accepted a message.
  * Accepting is not delivering, so a text the carrier dropped an hour later
  * went on reading as sent, and 'Delivered' was unknowable (0287).
  *
- * Asked rather than waited for. The webhook exists too, but it needs
- * GoHighLevel to offer a trigger for outbound message status, which is theirs
- * to offer; this needs nothing but the receipt the practice already holds.
+ * Asked rather than waited for, and it stays worth asking on either carrier.
+ * On GoHighLevel it needs them to offer a trigger for outbound message
+ * status, which is theirs to offer and not ours to assume. On Twilio the
+ * status callback is reliable enough to be the main route and is still one
+ * HTTP request, and one HTTP request can be lost - a cold start past its
+ * timeout, a deploy swapping underneath it. This needs nothing but the
+ * receipt the practice already holds.
+ *
+ * Each row says which carrier carried it, so a day that straddles the
+ * cutover is asked of the right company message by message.
  *
  * A day's worth, and only the ones still unsettled: a delivered text is
  * finished and a failed one is somebody's to act on.
@@ -401,7 +409,7 @@ export async function catchUpOnTextStatuses(
 
   const { data: waiting, error } = await supabase
     .from("sms_messages")
-    .select("id, provider_message_id, status")
+    .select("id, provider_message_id, status, provider")
     .eq("direction", "Outgoing")
     .in("status", ["Sent", "Sending", "Queued"])
     .not("provider_message_id", "is", null)
@@ -417,15 +425,18 @@ export async function catchUpOnTextStatuses(
   for (const row of waiting ?? []) {
     if (!row.provider_message_id) continue;
     result.asked += 1;
-    const said = await messageStatus(row.provider_message_id);
+    const said = await askCarrierStatus(supabase, {
+      providerId: row.provider_message_id,
+      carriedBy: row.provider,
+    });
     if (!said.ok) {
       result.errors.push(said.error);
       continue;
     }
     const { data } = await supabase.rpc("record_text_status", {
       p_provider_id: row.provider_message_id,
-      p_status: said.data.status,
-      p_error: said.data.error,
+      p_status: said.status,
+      p_error: said.error,
       p_payload: null,
     });
     const answer = Array.isArray(data) ? data[0] : data;

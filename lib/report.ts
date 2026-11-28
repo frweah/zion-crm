@@ -2,6 +2,7 @@ import "server-only";
 import { authorizationNumberLabel } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { ORG } from "@/lib/roles";
+import { NOT_IN_REPORTS_FILTER } from "@/lib/contact-methods";
 import { money, fmtStamp, today } from "@/lib/constants";
 import { REPORT_PRESETS, presetByKey, type ReportPresetKey, type ReportSection } from "@/lib/report-presets";
 
@@ -78,8 +79,16 @@ export async function buildReportText(
       .lte("done_at", end),
     supabase.from("placements").select("*").eq("client_id", clientId),
     supabase
+      // A voicemail's outcome is the client's own words - read off the
+      // recording by a machine - and they stay on the record and out of
+      // anything sent to a counselor (owner, 27 Nov 2026). The exclusion is
+      // the `.not()` below. It is commented here rather than beside itself
+      // because check-unbounded-reads walks a method chain to the first comma
+      // at depth zero and does not skip comments: a comma inside the chain
+      // ends it early and the `.eq()` that bounds this read is never seen.
       .from("contact_log")
       .select("date, method, topic, outcome")
+      .not("method", "in", NOT_IN_REPORTS_FILTER)
       .eq("client_id", clientId)
       .gte("date", start)
       .lte("date", end)

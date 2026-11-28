@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Dial } from "../../dial";
 import { money, PRACTICE_TZ } from "@/lib/constants";
 import type { BoardAuthorization } from "@/lib/billing-board-shape";
 import { moneyStrip, type HoursLine, type JobStanding, type LastContact, type ReportStanding } from "@/lib/client-dashboard-shape";
@@ -249,6 +250,7 @@ export function ContactStrip({
             mine.map((n) => (
               <div key={n.phone}>
                 {n.phone} <span className="lock">{n.label.toLowerCase()}</span>{" "}
+                <Dial phone={n.phone} />{" "}
                 {n.can_text ? (
                   <span className="chip ok">texts ok</span>
                 ) : (
@@ -270,6 +272,7 @@ export function ContactStrip({
               <div key={c.name}>
                 {c.name} <span className="lock">({c.relationship || "contact"})</span>
                 {c.phone ? ` · ${c.phone}` : ""}{" "}
+                {c.phone && <Dial phone={c.phone} label={`${c.name} (${c.relationship || "contact"})`} />}{" "}
                 {c.may_speak_for && <span className="chip ok">may speak for them</span>}
               </div>
             ))

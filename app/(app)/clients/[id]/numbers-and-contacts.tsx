@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Dial } from "../../dial";
 import {
   addClientContact,
   addClientPhone,
@@ -164,7 +165,9 @@ export function NumbersAndContacts({
           ))}
           {theirs.map((n) => (
             <tr key={n.phone}>
-              <td style={{ whiteSpace: "nowrap" }}>{n.phone}</td>
+              <td style={{ whiteSpace: "nowrap" }}>
+                {n.phone} <Dial phone={n.phone} />
+              </td>
               <td className="lock">
                 {n.whose_name}
                 {n.relationship ? ` · ${n.relationship}` : ""}
